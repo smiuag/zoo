@@ -39,14 +39,14 @@ describe('createGame', () => {
     expect(species.size).toBe(26);
   });
 
-  it('cada mazo de especie tiene sus copias fijas (menos 1 ya repuesta en el mercado): 10, o solo 5 si cuesta 5 o más', () => {
+  it('cada mazo de especie tiene sus copias fijas (menos 1 ya repuesta en el mercado): 10, o solo 6 si cuesta 5 o más', () => {
     const state = createGame([
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
       { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
     ]);
     for (const [species, deck] of Object.entries(state.sharedDecks)) {
       const inTrack = state.animalTrack.filter((c) => c.species === species).length;
-      const expectedCopies = (getCard(species).marketCost ?? 0) >= 5 ? 5 : 10;
+      const expectedCopies = (getCard(species).marketCost ?? 0) >= 5 ? 6 : 10;
       expect(deck.length + inTrack).toBe(expectedCopies);
     }
   });

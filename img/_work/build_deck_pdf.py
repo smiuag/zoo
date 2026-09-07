@@ -21,13 +21,13 @@ cell_h = (PAGE_H - 2 * MARGIN - (ROWS - 1) * GAP) // ROWS
 
 # Copias pedidas para esta tirada de impresión.
 COUNTS = {
-    "sloth": 26,
+    "sloth": 36,
     "coin-1": 49,
     "coin-2": 18,
     "coin-3": 11,
 }
 DEFAULT_ANIMAL_COPIES = 10  # especies de coste < 5: 10 copias cada una
-HIGH_COST_ANIMAL_COPIES = 5  # especies de coste 5 o más: solo 5 copias (escasez), igual que el motor
+HIGH_COST_ANIMAL_COPIES = 6  # especies de coste 5 o más: solo 6 copias (escasez), igual que el motor
 
 
 def load_costs():

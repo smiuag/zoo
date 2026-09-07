@@ -66,21 +66,19 @@ describe('pago con monedas', () => {
 
     buyAnimal(state, player.id, cost2.instanceId);
 
-    // La moneda de 3 no se descarta entera: se queda en la mano con el
-    // valor que le sobra (3 - 2 = 1), lista para la siguiente compra.
-    let coins = player.hand.filter((c) => c.type === 'coin');
-    expect(coins).toHaveLength(1);
-    expect(coins[0].instanceId).toBe(coin3.instanceId);
-    expect(coins[0].value).toBe(1);
-    expect(player.discard.some((c) => c.instanceId === coin3.instanceId)).toBe(false);
+    // La moneda de 3 se descarta ENTERA (sigue siendo una Moneda de oro,
+    // con su valor de siempre): lo que sobra (3 - 2 = 1) se convierte en
+    // valor de compra genérico para el resto del turno.
+    expect(player.hand.filter((c) => c.type === 'coin')).toHaveLength(0);
+    expect(player.discard.some((c) => c.instanceId === coin3.instanceId)).toBe(true);
+    expect(player.discard.find((c) => c.instanceId === coin3.instanceId)?.value).toBe(3);
+    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
 
     const cost1 = trackCardWithCost(state, 1);
     buyAnimal(state, player.id, cost1.instanceId);
 
-    // Ahora sí se ha gastado del todo: 0 de sobra, se descarta.
-    coins = player.hand.filter((c) => c.type === 'coin');
-    expect(coins).toHaveLength(0);
-    expect(player.discard.some((c) => c.instanceId === coin3.instanceId)).toBe(true);
+    // Se paga entera con ese valor de compra sobrante, sin necesitar más monedas.
+    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
   });
 });
 

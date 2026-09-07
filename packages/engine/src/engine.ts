@@ -80,12 +80,12 @@ export type Action =
 
 // --- Pago con monedas ---------------------------------------------------
 // El dinero son cartas de tipo "coin" en la mano, cada una con un valor
-// (1/2/3), pero su valor SÍ se puede repartir entre varias compras del
-// mismo turno: pagar un coste elige un subconjunto de esas cartas cuya
-// suma cubra el coste (gastando el mínimo posible de más y, a igualdad,
-// usando el menor número de cartas); si sobra valor, no se pierde ni se
-// descarta la moneda entera — se queda en la mano con el valor que le
-// sobra (ver payCoins), disponible para la siguiente compra.
+// (1/2/3). Pagar un coste elige un subconjunto de esas cartas cuya suma lo
+// cubra (gastando el mínimo posible de más y, a igualdad, usando el menor
+// número de cartas) y las descarta enteras. Si pagan de más, esa
+// diferencia no se pierde: se convierte en valor de compra genérico para
+// el resto del turno (ver payCoins) en vez de dejar la moneda "a medio
+// gastar" con un valor que ya no coincidiría con lo que dice ser.
 function coinsInHand(player: Player): CardInstance[] {
   return player.hand.filter((c) => c.type === 'coin');
 }
@@ -154,26 +154,23 @@ function payCoins(player: Player, cost: number, isAquaticAnimal = false): void {
   const toSpend = pickCoinsToPay(player, remaining);
   if (!toSpend) throw new Error('No hay monedas suficientes para pagar');
 
+  for (const coin of toSpend) {
+    const idx = player.hand.findIndex((c) => c.instanceId === coin.instanceId);
+    player.hand.splice(idx, 1);
+    player.discard.push(coin);
+  }
+
   // El valor de compra se puede repartir como se quiera entre varias
   // compras del mismo turno (p. ej. una moneda de 3 paga algo de 2 y,
-  // luego, algo de 1): las monedas que se gastan del todo se descartan,
-  // pero si el conjunto elegido paga de más, la de sobra no se descarta —
-  // se queda en la mano con su valor reducido a lo que le sobra, lista
-  // para la siguiente compra de este turno (o para el resto de la
-  // partida, si no se llega a gastar).
-  let need = remaining;
-  for (const coin of toSpend) {
-    const value = coin.value ?? 0;
-    if (value <= need) {
-      const idx = player.hand.findIndex((c) => c.instanceId === coin.instanceId);
-      player.hand.splice(idx, 1);
-      player.discard.push(coin);
-      need -= value;
-    } else {
-      coin.value = value - need;
-      need = 0;
-    }
-  }
+  // luego, algo de 1): las monedas gastadas se descartan enteras (nunca se
+  // les reduce el valor ni se quedan "a medio gastar" en la mano — una
+  // Moneda de oro sigue siendo una Moneda de oro, no una carta con un
+  // valor que ya no coincide con lo que dice ser), pero si pagan de más,
+  // esa diferencia no se pierde: se convierte en valor de compra genérico
+  // (el mismo que da el León, etc.), disponible para el resto del turno.
+  const spent = toSpend.reduce((sum, c) => sum + (c.value ?? 0), 0);
+  const change = spent - remaining;
+  if (change > 0) player.bonusPurchasingPowerThisTurn += change;
 }
 
 // Se llama cada vez que un mazo compartido de especie podría haberse
@@ -267,10 +264,10 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
   // Un mazo por especie, con copias fijas (independiente del nº de
   // jugadores): 10 copias para la mayoría, mucho menos para las especies
   // caras (coste 5 o más) — son las de más PV/mejores habilidades, y con
-  // solo 5 copias en juego se agotan antes, dándoles algo de escasez real.
+  // solo 6 copias en juego se agotan antes, dándoles algo de escasez real.
   for (const species of ANIMAL_SPECIES) {
     const speciesCard = getCard(species);
-    const copiesPerSpecies = (speciesCard.marketCost ?? 0) >= 5 ? 5 : 10;
+    const copiesPerSpecies = (speciesCard.marketCost ?? 0) >= 5 ? 6 : 10;
     state.sharedDecks[species] = shuffle(
       Array.from({ length: copiesPerSpecies }, () => mintInstance(state, speciesCard))
     );
