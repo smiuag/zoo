@@ -5,8 +5,15 @@
   "species": "polar-bear",
   "marketCost": 7,
   "victoryPoints": 0,
-  "text": "Al final de la partida, +1PV por cada animal terrestre que tengas en todo tu mazo.",
+  "text": "Añade 2 a tu valor de compra. Al final de la partida, +1PV por cada animal terrestre que tengas en todo tu mazo.",
   "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainFlatBonusPurchasingPower",
+      "params": {
+        "amount": 2
+      }
+    },
     {
       "trigger": "onScore",
       "type": "scorePerHabitatCount",

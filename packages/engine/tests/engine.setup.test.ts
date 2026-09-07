@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createGame, getActivePlayer } from '../src/engine';
+import { getCard } from '../src/cards/registry';
 import { buildStarterDeck } from './helpers';
 
 describe('createGame', () => {
@@ -30,22 +31,23 @@ describe('createGame', () => {
     expect(active.bonusPurchasingPowerThisTurn).toBe(0);
   });
 
-  it('el mercado de animales empieza con 1 hueco por cada una de las 25 especies', () => {
+  it('el mercado de animales empieza con 1 hueco por cada una de las 26 especies', () => {
     const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
 
-    expect(state.animalTrack).toHaveLength(25);
+    expect(state.animalTrack).toHaveLength(26);
     const species = new Set(state.animalTrack.map((c) => c.species));
-    expect(species.size).toBe(25);
+    expect(species.size).toBe(26);
   });
 
-  it('cada mazo de especie tiene 10 copias fijas (menos 1 ya repuesta en el mercado)', () => {
+  it('cada mazo de especie tiene sus copias fijas (menos 1 ya repuesta en el mercado): 10, o solo 5 si cuesta 5 o más', () => {
     const state = createGame([
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
       { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
     ]);
     for (const [species, deck] of Object.entries(state.sharedDecks)) {
       const inTrack = state.animalTrack.filter((c) => c.species === species).length;
-      expect(deck.length + inTrack).toBe(10);
+      const expectedCopies = (getCard(species).marketCost ?? 0) >= 5 ? 5 : 10;
+      expect(deck.length + inTrack).toBe(expectedCopies);
     }
   });
 });

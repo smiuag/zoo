@@ -44,6 +44,14 @@ function effectBonus(card: CardInstance): number {
       case 'gainFlatBonusPurchasingPower':
         bonus += typeof effect.params?.amount === 'number' ? effect.params.amount : 2; // tempo, valor fijo garantizado
         break;
+      case 'gainAquaticOnlyBonusPurchasingPower': {
+        // Igual que gainFlatBonusPurchasingPower pero solo sirve para
+        // acuáticos: vale menos porque a veces no hay nada acuático que
+        // comprar ese turno.
+        const amount = typeof effect.params?.amount === 'number' ? effect.params.amount : 2;
+        bonus += amount * 0.7;
+        break;
+      }
       case 'discardFromEachOpponent':
       case 'chooseDiscardFromEachOpponent':
         bonus += 1.5;
@@ -68,6 +76,9 @@ function effectBonus(card: CardInstance): number {
         break;
       case 'swapSelfWithTopOfDeck':
         bonus += 1.5; // roba 1 carta garantizada, pero la propia carta no queda en el descarte
+        break;
+      case 'topdeckSlothForLeftNeighbor':
+        bonus += 1; // molesta al vecino de la izquierda, pero no siempre tiene Perezoso que forzar
         break;
       case 'scorePerHabitatCount':
       case 'scorePerDistinctSpecies':
@@ -94,7 +105,7 @@ function scoreAction(state: GameState, player: Player, action: Action): number {
       // esté la carta después): prioridad alta, según ratio PV/coste. Se le
       // suma también el valor de su habilidad (effectBonus): sin esto,
       // especies con el mismo PV/coste pero habilidades muy distintas
-      // (p. ej. Jirafa vs Tigre) puntuaban idéntico y el desempate cuando
+      // (p. ej. Tortuga vs Tigre) puntuaban idéntico y el desempate cuando
       // hay empate exacto (ver chooseAction) se apoyaba solo en el azar.
       const track = findInTrack(state, action.trackInstanceId);
       if (!track) return -Infinity;

@@ -27,6 +27,7 @@ const SPECIES_ICONS: Record<string, string> = {
   parakeet: '🐦',
   owl: '🦉',
   bat: '🦇',
+  turtle: '🐢',
 };
 
 export function cardIcon(card: CardInstance): string {

@@ -5,8 +5,15 @@
   "species": "crocodile",
   "marketCost": 5,
   "victoryPoints": 7,
-  "text": "Al final de la partida, antes de puntuar, destruye de tu mazo el animal acuático de tu elección (puede ser él mismo).",
+  "text": "Añade 1 a tu valor de compra. Al final de la partida, antes de puntuar, destruye de tu mazo el animal acuático de tu elección (puede ser él mismo).",
   "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainFlatBonusPurchasingPower",
+      "params": {
+        "amount": 1
+      }
+    },
     {
       "trigger": "onScore",
       "type": "destroyWeakestAquaticOnScore"

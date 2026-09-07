@@ -62,15 +62,28 @@ describe('scorePlayer', () => {
     const player = getActivePlayer(state);
 
     const orca = { ...getCard('orca'), instanceId: 'orca#test' }; // 2PV base
-    const dolphin = { ...getCard('dolphin'), instanceId: 'dolphin#test' }; // 1PV base
+    const dolphin = { ...getCard('dolphin'), instanceId: 'dolphin#test' }; // 2PV base
     const lion = { ...getCard('lion'), instanceId: 'lion#test' }; // terrestre, no cuenta
     player.hand.push(orca, dolphin, lion);
     // Este delfín está en el mazo, no en la mano: también cuenta para el bonus de la orca.
     player.deck.push({ ...getCard('dolphin'), instanceId: 'dolphin#outside' });
 
     const score = scorePlayer(state, player);
-    // orca(2PV) + delfín×2(1+1PV) + león(3PV) + bonus orca: 3 acuáticos en TODA la colección × 1 = 3.
-    expect(score).toBe(2 + 1 + 1 + 3 + 3);
+    // orca(2PV) + delfín×2(2+2PV) + león(3PV) + bonus orca: 3 acuáticos en TODA la colección × 1 = 3.
+    expect(score).toBe(2 + 2 + 2 + 3 + 3);
+  });
+
+  it('para el bonus de la orca, el pez de colores cuenta como 2 acuáticos, no 1', () => {
+    const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
+    const player = getActivePlayer(state);
+
+    const orca = { ...getCard('orca'), instanceId: 'orca#test' }; // 2PV base
+    const goldfish = { ...getCard('goldfish'), instanceId: 'goldfish#test' }; // 1PV base, cuenta como 2 acuáticos
+    player.hand.push(orca, goldfish);
+
+    const score = scorePlayer(state, player);
+    // orca(2PV) + pez de colores(1PV) + bonus orca: pez de colores cuenta 2 + la propia orca 1 = 3 × 1 = 3.
+    expect(score).toBe(2 + 1 + 3);
   });
 
   it('el Cocodrilo destruye, antes de puntuar, el OTRO acuático de menor PV de su mazo si tiene alguno', () => {
@@ -168,14 +181,14 @@ describe('scorePlayer', () => {
     const penguin = { ...getCard('penguin'), instanceId: 'penguin#test' };
     const lion1 = { ...getCard('lion'), instanceId: 'lion#1' };
     const lion2 = { ...getCard('lion'), instanceId: 'lion#2' }; // 2ª copia del león: no suma especie extra
-    const dolphin = { ...getCard('dolphin'), instanceId: 'dolphin#1' }; // 1PV base
+    const dolphin = { ...getCard('dolphin'), instanceId: 'dolphin#1' }; // 2PV base
     player.hand.push(penguin, lion1, lion2, dolphin);
 
     const score = scorePlayer(state, player);
-    // pingüino(2PV) + león×2(3+3PV) + delfín(1PV) + bonus pingüino: 4
+    // pingüino(2PV) + león×2(3+3PV) + delfín(2PV) + bonus pingüino: 4
     // especies distintas (pingüino, león, delfín Y el Perezoso del mazo
     // inicial, que sigue contando como especie aunque dé 0PV) × 1PV = 4.
-    expect(score).toBe(2 + 3 + 3 + 1 + 4);
+    expect(score).toBe(2 + 3 + 3 + 2 + 4);
   });
 
   it('periquito: con menos de 4 copias en la colección, no da ningún bono', () => {

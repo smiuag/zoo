@@ -21,10 +21,10 @@ function findInTrack(state: GameState, instanceId: string): CardInstance | undef
 }
 
 const MONEY_GENERATING_EFFECTS = new Set([
-  'upgradeCoin', // Jirafa: mejora 1 moneda
+  'upgradeCoin', // Tortuga: mejora 1 moneda
   'gainFlatBonusPurchasingPower', // León
   'gainBonusPurchasingPowerPerHabitatInHand', // Serpiente / Loro
-  'gainBonusPurchasingPowerPerSpeciesInDiscard', // Delfín
+  'gainAquaticOnlyBonusPurchasingPower', // Delfín (restringido a comprar acuáticos)
 ]);
 
 function isMoneyGenerator(card: CardInstance): boolean {

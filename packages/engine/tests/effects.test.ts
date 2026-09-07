@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGame, getLegalActions, playCard } from '../src/engine';
+import { buyAnimal, canAffordMarket, createGame, getLegalActions, playCard } from '../src/engine';
 import { getCard } from '../src/cards/registry';
 import { buildStarterDeck } from './helpers';
 
@@ -43,20 +43,48 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.bonusPurchasingPowerThisTurn).toBe(2);
   });
 
-  it('delfín: la 1ª copia da 1 moneda extra este turno, la 2ª da 2 (cuenta los delfines en su descarte)', () => {
+  it('delfín: da 2 de valor de compra, pero restringido: solo cuenta comprando animales acuáticos', () => {
     const { state, player } = setupClean();
-    const dolphin1 = freshInstance('dolphin', 'test');
-    player.hand = [dolphin1];
-    playCard(state, player.id, dolphin1.instanceId);
-    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
+    const dolphin = freshInstance('dolphin', 'test');
+    player.hand = [dolphin];
+
+    playCard(state, player.id, dolphin.instanceId);
+
+    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
+    expect(player.aquaticBonusPurchasingPowerThisTurn).toBe(2);
     // No es dinero real: no se añaden cartas de moneda a la mano.
     expect(player.hand.filter((c) => c.type === 'coin')).toHaveLength(0);
+  });
 
-    const dolphin2 = freshInstance('dolphin', 'test2');
-    player.hand.push(dolphin2);
-    playCard(state, player.id, dolphin2.instanceId);
-    // 1 de antes + 2 nuevas por ser el 2º delfín en su descarte = 3.
-    expect(player.bonusPurchasingPowerThisTurn).toBe(3);
+  it('delfín: su valor de compra restringido SÍ paga un animal acuático sin monedas físicas', () => {
+    const { state, player } = setupClean();
+    const dolphin = freshInstance('dolphin', 'test');
+    player.hand = [dolphin];
+    playCard(state, player.id, dolphin.instanceId);
+
+    const target = state.animalTrack.find((c) => (c.habitats as string[])?.includes('aquatic') && (c.marketCost ?? 0) <= 2)!;
+
+    expect(canAffordMarket(player, target.marketCost ?? 0, true)).toBe(true);
+    buyAnimal(state, player.id, target.instanceId);
+
+    expect(player.discard.some((c) => c.instanceId === target.instanceId)).toBe(true);
+    expect(player.aquaticBonusPurchasingPowerThisTurn).toBe(2 - (target.marketCost ?? 0));
+  });
+
+  it('delfín: su valor de compra restringido NO sirve para un animal terrestre/volador ni para una moneda', () => {
+    const { state, player } = setupClean();
+    const dolphin = freshInstance('dolphin', 'test');
+    player.hand = [dolphin];
+    playCard(state, player.id, dolphin.instanceId);
+
+    const landOrBird = state.animalTrack.find(
+      (c) => !(c.habitats as string[])?.includes('aquatic') && (c.marketCost ?? 0) <= 2
+    )!;
+
+    // Sin monedas físicas de por medio: si contara para esto, sería pagable.
+    expect(canAffordMarket(player, landOrBird.marketCost ?? 0, false)).toBe(false);
+    expect(() => buyAnimal(state, player.id, landOrBird.instanceId)).toThrow();
+    expect(canAffordMarket(player, getCard('coin-2').marketCost ?? 0)).toBe(false);
   });
 
   it('tigre: roba 2 cartas y deja 1 encima del mazo', () => {
@@ -83,6 +111,18 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
     // Foca + Delfín (2 acuáticos), aunque la propia Foca ya esté en el descarte.
     expect(player.bonusPurchasingPowerThisTurn).toBe(2);
+  });
+
+  it('foca: el pez de colores en la mano cuenta como 2 animales acuáticos, no 1', () => {
+    const { state, player } = setupClean();
+    const seal = freshInstance('seal', 'test'); // acuática: 1
+    const goldfish = freshInstance('goldfish', 'g1'); // acuático: cuenta como 2
+    player.hand = [seal, goldfish];
+
+    playCard(state, player.id, seal.instanceId);
+
+    // Foca (1) + Pez de colores (2) = 3.
+    expect(player.bonusPurchasingPowerThisTurn).toBe(3);
   });
 
   it('pez de colores: no hace nada al jugarlo (como el perezoso, pero sí se puede comprar)', () => {
@@ -201,17 +241,46 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.discard.some((c) => c.id === 'elephant')).toBe(true);
   });
 
-  it('jirafa: mejora 1 moneda de la mano de 1 a 2', () => {
+  it('tortuga: mejora 1 moneda de la mano de 1 a 2', () => {
     const { state, player } = setupClean();
     const coin = freshInstance('coin-1', 'c1');
-    const giraffe = freshInstance('giraffe', 'test');
-    player.hand = [coin, giraffe];
+    const turtle = freshInstance('turtle', 'test');
+    player.hand = [coin, turtle];
 
-    playCard(state, player.id, giraffe.instanceId);
+    playCard(state, player.id, turtle.instanceId);
 
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(1);
     expect(coins[0].value).toBe(2);
+  });
+
+  it('jirafa: el jugador a tu izquierda pone un Perezoso de su mazo encima, y ganas 1 de valor de compra', () => {
+    const { state, player, opponent } = setupClean();
+    const giraffe = freshInstance('giraffe', 'test');
+    const sloth = freshInstance('sloth', 's1');
+    const other = freshInstance('snake', 'n1');
+    player.hand = [giraffe];
+    // opponent es el siguiente jugador en el orden de turno (índice 1): el
+    // vecino de la izquierda de player (índice 0).
+    opponent.deck = [other, sloth, freshInstance('lion', 'l1')]; // el Perezoso NO está encima
+
+    playCard(state, player.id, giraffe.instanceId);
+
+    expect(opponent.deck[opponent.deck.length - 1]).toBe(sloth);
+    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
+  });
+
+  it('jirafa: si el vecino de la izquierda no tiene ningún Perezoso en el mazo, no pasa nada (solo el valor de compra)', () => {
+    const { state, player, opponent } = setupClean();
+    const giraffe = freshInstance('giraffe', 'test');
+    player.hand = [giraffe];
+    opponent.deck = [freshInstance('snake', 'n1')];
+    const deckBefore = [...opponent.deck];
+
+    playCard(state, player.id, giraffe.instanceId);
+
+    expect(opponent.deck).toEqual(deckBefore);
+    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
   });
 
   it('araña: captura gratis un animal VOLADOR o ACUÁTICO del mercado de coste 3 o menos', () => {
@@ -284,16 +353,16 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
   it('hiena: si hay empate de coste, el rival "elige" y sacrifica el de menor PV', () => {
     const { state, player, opponent } = setupClean();
-    const giraffe = freshInstance('giraffe', 'g1'); // coste 2, 1PV
+    const turtle = freshInstance('turtle', 't1'); // coste 2, 1PV
     const parakeet = freshInstance('parakeet', 'p1'); // coste 2, 0PV
-    opponent.hand = [giraffe, parakeet];
+    opponent.hand = [turtle, parakeet];
     const hyena = freshInstance('hyena', 'test');
     player.hand = [hyena];
 
     playCard(state, player.id, hyena.instanceId);
 
     expect(opponent.hand.some((c) => c.instanceId === parakeet.instanceId)).toBe(false);
-    expect(opponent.hand.some((c) => c.instanceId === giraffe.instanceId)).toBe(true);
+    expect(opponent.hand.some((c) => c.instanceId === turtle.instanceId)).toBe(true);
     expect(opponent.discard.some((c) => c.instanceId === parakeet.instanceId)).toBe(true);
   });
 
@@ -374,24 +443,24 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   it('flamenco: devuelve un animal de tu mano al mazo compartido, resuelve su habilidad, y coge gratis del mercado el que el jugador elija (coste+1 como mucho)', () => {
     const { state, player } = setupClean();
     const flamingo = freshInstance('flamingo', 'test');
-    const giraffe = freshInstance('giraffe', 'g1'); // coste 2, sube 1 moneda de 1 a 2
+    const turtle = freshInstance('turtle', 't1'); // coste 2, sube 1 moneda de 1 a 2
     const coin = freshInstance('coin-1', 'c1');
-    player.hand = [flamingo, giraffe, coin];
+    player.hand = [flamingo, turtle, coin];
     const marketBefore = state.animalTrack.length;
 
     const goldfishIdx = state.animalTrack.findIndex((c) => c.species === 'goldfish'); // coste 1
     const goldfish = state.animalTrack[goldfishIdx];
 
-    playCard(state, player.id, flamingo.instanceId, giraffe.instanceId, goldfish.instanceId);
+    playCard(state, player.id, flamingo.instanceId, turtle.instanceId, goldfish.instanceId);
 
-    // Se resuelve la habilidad de la jirafa devuelta: mejora la moneda de 1 a 2.
+    // Se resuelve la habilidad de la tortuga devuelta: mejora la moneda de 1 a 2.
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(1);
     expect(coins[0].value).toBe(2);
 
-    // La jirafa vuelve al mazo compartido de su especie, no al descarte.
-    expect(player.discard.some((c) => c.id === 'giraffe')).toBe(false);
-    expect(state.sharedDecks.giraffe?.some((c) => c.instanceId === giraffe.instanceId)).toBe(true);
+    // La tortuga vuelve al mazo compartido de su especie, no al descarte.
+    expect(player.discard.some((c) => c.id === 'turtle')).toBe(false);
+    expect(state.sharedDecks.turtle?.some((c) => c.instanceId === turtle.instanceId)).toBe(true);
 
     // Coge gratis, sin resolver su habilidad, el pez dorado elegido.
     expect(player.discard.some((c) => c.instanceId === goldfish.instanceId)).toBe(true);
@@ -465,28 +534,28 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   it('flamenco: puede devolver un animal ya jugado este turno (lo busca en el descarte para resolverlo)', () => {
     const { state, player } = setupClean();
     const flamingo = freshInstance('flamingo', 'test');
-    const giraffe = freshInstance('giraffe', 'g1'); // coste 2, sube 1 moneda de 1 a 2
+    const turtle = freshInstance('turtle', 't1'); // coste 2, sube 1 moneda de 1 a 2
     const coin = freshInstance('coin-1', 'c1');
     player.hand = [flamingo, coin];
-    player.discard.push(giraffe);
-    player.playedThisTurn.push(giraffe);
+    player.discard.push(turtle);
+    player.playedThisTurn.push(turtle);
 
-    const maxCost = (giraffe.marketCost ?? 0) + 1;
+    const maxCost = (turtle.marketCost ?? 0) + 1;
     const chosen = state.animalTrack.find((c) => (c.marketCost ?? 0) <= maxCost)!;
 
-    playCard(state, player.id, flamingo.instanceId, giraffe.instanceId, chosen.instanceId);
+    playCard(state, player.id, flamingo.instanceId, turtle.instanceId, chosen.instanceId);
 
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(1);
     expect(coins[0].value).toBe(2);
-    expect(state.sharedDecks.giraffe?.some((c) => c.instanceId === giraffe.instanceId)).toBe(true);
+    expect(state.sharedDecks.turtle?.some((c) => c.instanceId === turtle.instanceId)).toBe(true);
     expect(player.discard.some((c) => c.instanceId === chosen.instanceId)).toBe(true);
   });
 
   it('flamenco: ofrece una variante por cada combinación de (animal a devolver) x (animal del mercado a coger)', () => {
     const { state, player } = setupClean();
     const flamingo = freshInstance('flamingo', 'test');
-    const giraffe = freshInstance('giraffe', 'g1'); // coste 2
+    const giraffe = freshInstance('giraffe', 'g1'); // coste 3
     player.hand = [flamingo, giraffe];
 
     const maxCost = (giraffe.marketCost ?? 0) + 1;

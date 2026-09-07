@@ -38,9 +38,10 @@ const ANIMAL_SPECIES = [
   'parakeet',
   'owl',
   'bat',
+  'turtle',
 ] as const;
 // La partida entra en la ronda final en cuanto este número de mazos
-// compartidos (de las 25 especies, todas cuentan) se hayan agotado.
+// compartidos (de las 26 especies, todas cuentan) se hayan agotado.
 const FINAL_ROUND_EMPTY_DECK_THRESHOLD = 5;
 // Monedas que se pueden comprar directamente (a cambio de otras monedas),
 // además de conseguirse por efectos o el mazo inicial. Suministro
@@ -113,19 +114,31 @@ function pickCoinsToPay(player: Player, cost: number): CardInstance[] | null {
   return [...ones.slice(0, best.useOnes), ...twos.slice(0, best.useTwos), ...threes.slice(0, best.useThrees)];
 }
 
-// La moneda extra que da algún efecto (p. ej. serpiente / loro / león /
-// delfín) este turno (bonusPurchasingPowerThisTurn) cubre primero el coste;
-// el resto, si queda, se paga con monedas físicas.
-export function canAffordMarket(player: Player, cost: number): boolean {
-  const remaining = cost - player.bonusPurchasingPowerThisTurn;
+// La moneda extra que da algún efecto (p. ej. serpiente / loro / león) este
+// turno (bonusPurchasingPowerThisTurn) cubre primero el coste, más la
+// moneda restringida a acuáticos del Delfín (aquaticBonusPurchasingPowerThisTurn)
+// si `isAquaticAnimal` (solo aplica comprando un animal con hábitat
+// acuático, nunca una moneda); el resto, si queda, se paga con monedas
+// físicas.
+export function canAffordMarket(player: Player, cost: number, isAquaticAnimal = false): boolean {
+  const bonus = player.bonusPurchasingPowerThisTurn + (isAquaticAnimal ? player.aquaticBonusPurchasingPowerThisTurn : 0);
+  const remaining = cost - bonus;
   if (remaining <= 0) return true;
   return pickCoinsToPay(player, remaining) !== null;
 }
 
-function payCoins(player: Player, cost: number): void {
-  const fromBonus = Math.min(cost, player.bonusPurchasingPowerThisTurn);
+function payCoins(player: Player, cost: number, isAquaticAnimal = false): void {
+  let remaining = cost;
+  // Se gasta primero la moneda restringida a acuáticos (si aplica): no
+  // sirve para nada más, así que no tiene sentido "reservarla".
+  if (isAquaticAnimal) {
+    const fromAquaticBonus = Math.min(remaining, player.aquaticBonusPurchasingPowerThisTurn);
+    player.aquaticBonusPurchasingPowerThisTurn -= fromAquaticBonus;
+    remaining -= fromAquaticBonus;
+  }
+  const fromBonus = Math.min(remaining, player.bonusPurchasingPowerThisTurn);
   player.bonusPurchasingPowerThisTurn -= fromBonus;
-  const remaining = cost - fromBonus;
+  remaining -= fromBonus;
   if (remaining <= 0) return;
   const toSpend = pickCoinsToPay(player, remaining);
   if (!toSpend) throw new Error('No hay monedas suficientes para pagar');
@@ -149,7 +162,7 @@ function checkFinalRoundTrigger(state: GameState): void {
 }
 
 // --- Mercado de animales --------------------------------------------------
-// Siempre intenta tener 1 hueco por especie (25 en total); al comprarse uno
+// Siempre intenta tener 1 hueco por especie (26 en total); al comprarse uno
 // se repone solo el hueco de esa especie, con una copia del mazo compartido
 // de esa especie.
 function refillAnimalMarket(state: GameState, onlySpecies?: string): void {
@@ -173,6 +186,7 @@ setRefillHook((state, species) => refillAnimalMarket(state, species));
 // turno).
 function beginPlayerTurn(_state: GameState, player: Player): void {
   player.bonusPurchasingPowerThisTurn = 0;
+  player.aquaticBonusPurchasingPowerThisTurn = 0;
   player.boughtSpeciesThisTurn = [];
   player.playedThisTurn = [];
 }
@@ -211,15 +225,19 @@ export function createGame(playerConfigs: CreatePlayerConfig[]): GameState {
       hand: [],
       discard: [],
       bonusPurchasingPowerThisTurn: 0,
+      aquaticBonusPurchasingPowerThisTurn: 0,
       boughtSpeciesThisTurn: [],
       playedThisTurn: [],
     };
   });
 
-  // Un mazo por especie, con 10 copias fijas (independiente del nº de jugadores).
-  const copiesPerSpecies = 10;
+  // Un mazo por especie, con copias fijas (independiente del nº de
+  // jugadores): 10 copias para la mayoría, mucho menos para las especies
+  // caras (coste 5 o más) — son las de más PV/mejores habilidades, y con
+  // solo 5 copias en juego se agotan antes, dándoles algo de escasez real.
   for (const species of ANIMAL_SPECIES) {
     const speciesCard = getCard(species);
+    const copiesPerSpecies = (speciesCard.marketCost ?? 0) >= 5 ? 5 : 10;
     state.sharedDecks[species] = shuffle(
       Array.from({ length: copiesPerSpecies }, () => mintInstance(state, speciesCard))
     );
@@ -333,7 +351,8 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
   }
 
   for (const trackAnimal of state.animalTrack) {
-    if (canAffordMarket(player, trackAnimal.marketCost ?? 0) && canBuySpecies(player, trackAnimal)) {
+    const isAquaticAnimal = (trackAnimal.habitats as string[] | undefined)?.includes('aquatic') ?? false;
+    if (canAffordMarket(player, trackAnimal.marketCost ?? 0, isAquaticAnimal) && canBuySpecies(player, trackAnimal)) {
       actions.push({ type: 'buyAnimal', trackInstanceId: trackAnimal.instanceId });
     }
   }
@@ -387,15 +406,16 @@ export function buyAnimal(state: GameState, playerId: string, trackInstanceId: s
   const trackIndex = state.animalTrack.findIndex((c) => c.instanceId === trackInstanceId);
   if (trackIndex === -1) throw new Error(`El animal ${trackInstanceId} ya no está disponible en el mercado`);
   const animal = state.animalTrack[trackIndex];
+  const isAquaticAnimal = (animal.habitats as string[] | undefined)?.includes('aquatic') ?? false;
 
-  if (!canAffordMarket(player, animal.marketCost ?? 0)) {
+  if (!canAffordMarket(player, animal.marketCost ?? 0, isAquaticAnimal)) {
     throw new Error(`${playerId} no puede pagar ${animal.marketCost}monedas por ${animal.name}`);
   }
   if (!canBuySpecies(player, animal)) {
     throw new Error(`${playerId} ya ha comprado esa especie este turno`);
   }
 
-  payCoins(player, animal.marketCost ?? 0);
+  payCoins(player, animal.marketCost ?? 0, isAquaticAnimal);
   state.animalTrack.splice(trackIndex, 1);
   player.discard.push(animal);
   if (animal.species) player.boughtSpeciesThisTurn.push(animal.species);

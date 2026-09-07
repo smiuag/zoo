@@ -21,12 +21,13 @@ cell_h = (PAGE_H - 2 * MARGIN - (ROWS - 1) * GAP) // ROWS
 
 # Copias pedidas para esta tirada de impresión.
 COUNTS = {
-    "sloth": 18,
+    "sloth": 28,
     "coin-1": 45,
     "coin-2": 18,
     "coin-3": 11,
 }
-DEFAULT_ANIMAL_COPIES = 10  # el resto de especies de animal: 10 copias cada una
+DEFAULT_ANIMAL_COPIES = 10  # especies de coste < 5: 10 copias cada una
+HIGH_COST_ANIMAL_COPIES = 5  # especies de coste 5 o más: solo 5 copias (escasez), igual que el motor
 
 
 def load_costs():
@@ -49,6 +50,12 @@ def sort_key(cid, costs):
     return (1, costs.get(cid, 0), cid)
 
 
+def copies_for(cid, costs):
+    if cid in COUNTS:
+        return COUNTS[cid]
+    return HIGH_COST_ANIMAL_COPIES if costs.get(cid, 0) >= 5 else DEFAULT_ANIMAL_COPIES
+
+
 def build_deck():
     costs = load_costs()
     png_ids = [
@@ -57,14 +64,11 @@ def build_deck():
         if p != BACK_PATH
     ]
 
-    def copies_for(cid):
-        return COUNTS.get(cid, DEFAULT_ANIMAL_COPIES)
-
     ordered_ids = sorted(png_ids, key=lambda cid: sort_key(cid, costs))
 
     deck = []
     for cid in ordered_ids:
-        deck.extend([os.path.join(CARDS_DIR, f"{cid}.png")] * copies_for(cid))
+        deck.extend([os.path.join(CARDS_DIR, f"{cid}.png")] * copies_for(cid, costs))
     return deck, ordered_ids, costs
 
 
@@ -102,7 +106,7 @@ def main():
     print(f"\nSaved {OUT_PDF} ({len(all_pages)} páginas alternadas frente/reverso, {len(deck)} cartas)")
     print("\nResumen de copias:")
     for cid in ordered_ids:
-        n = COUNTS.get(cid, DEFAULT_ANIMAL_COPIES)
+        n = copies_for(cid, costs)
         print(f"  {cid:14} x{n}  (coste {costs.get(cid, 0)})")
 
 

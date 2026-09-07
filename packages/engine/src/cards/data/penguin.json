@@ -5,8 +5,15 @@
   "species": "penguin",
   "marketCost": 4,
   "victoryPoints": 2,
-  "text": "Al final de la partida, +1PV por cada animal distinto que tengas en tu mazo.",
+  "text": "Añade 1 a tu valor de compra. Al final de la partida, +1PV por cada animal distinto que tengas en tu mazo.",
   "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainFlatBonusPurchasingPower",
+      "params": {
+        "amount": 1
+      }
+    },
     {
       "trigger": "onScore",
       "type": "scorePerDistinctSpecies"

@@ -43,6 +43,7 @@ SPECIES_PHOTO = {
     "parakeet": "periquitos.jpg",
     "owl": "buho.jpg",
     "bat": "zorroVolador.jpg",
+    "turtle": "tortugas.jpg",
 }
 COIN_PHOTO = {
     "coin-1": "moneda1.jpg",

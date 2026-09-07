@@ -94,12 +94,13 @@ registerEffect('chooseDiscardFromEachOpponent', (state, player, effect) => {
   }
 });
 
-// Delfín: 1 moneda extra para comprar ESTE TURNO por cada delfín que tengas
-// en tu descarte (el que se está jugando ya se descartó antes de resolver
-// esto, así que la 1ª copia da 1, la 2ª da 2, etc.). Igual que el León o el
-// Pez de colores/Serpiente/Loro: no es dinero real, no añade cartas de
-// moneda a la mano ni al mazo, solo aumenta lo que puedes gastar hasta que
-// termine el turno.
+// Genérico (sin ninguna carta que lo use por ahora, pero registrado por si
+// hace falta en el futuro): 1 moneda extra para comprar ESTE TURNO por cada
+// copia de params.species que tengas en tu descarte (la que se está
+// jugando ya se descartó antes de resolver esto, así que la 1ª copia da 1,
+// la 2ª da 2, etc.). Igual que el León o Serpiente/Loro: no es dinero real,
+// no añade cartas de moneda a la mano ni al mazo, solo aumenta lo que
+// puedes gastar hasta que termine el turno.
 registerEffect('gainBonusPurchasingPowerPerSpeciesInDiscard', (_state, player, effect) => {
   const species = effect.params?.species;
   if (typeof species !== 'string') {
@@ -107,6 +108,17 @@ registerEffect('gainBonusPurchasingPowerPerSpeciesInDiscard', (_state, player, e
   }
   const count = player.discard.filter((c) => c.species === species).length;
   player.bonusPurchasingPowerThisTurn += count;
+});
+
+// Delfín: params.amount (por defecto 2) de dinero extra para comprar ESTE
+// TURNO, pero SOLO sirve para pagar animales acuáticos (nunca monedas ni
+// animales de otro hábitat) — ver aquaticBonusPurchasingPowerThisTurn en
+// model/state.ts, y cómo se gasta en payCoins/canAffordMarket en
+// engine.ts. Igual que el resto de "dinero de este turno": no es una
+// carta, no se añade al mazo ni se puede robar luego.
+registerEffect('gainAquaticOnlyBonusPurchasingPower', (_state, player, effect) => {
+  const amount = typeof effect.params?.amount === 'number' ? effect.params.amount : 2;
+  player.aquaticBonusPurchasingPowerThisTurn += amount;
 });
 
 // Tigre: roba 2 cartas y luego elige 1 para dejar encima del mazo otra vez
@@ -191,6 +203,16 @@ registerEffect('gainFlatBonusPurchasingPower', (_state, player, effect) => {
   player.bonusPurchasingPowerThisTurn += amount;
 });
 
+// Cuánto "cuenta" una carta para un hábitat dado, en los efectos que
+// cuentan animales de un hábitat (no en los que solo comprueban
+// elegibilidad, como la Araña o el Cocodrilo, que siguen mirando
+// simplemente si el hábitat está en su lista). El Pez de colores cuenta
+// como 2 animales acuáticos en vez de 1.
+function habitatWeight(card: CardInstance, habitat: string): number {
+  if (card.type !== 'animal' || !(card.habitats as string[])?.includes(habitat)) return 0;
+  return card.id === 'goldfish' && habitat === 'aquatic' ? 2 : 1;
+}
+
 // Serpiente / Loro: ganan "dinero para comprar" extra solo este turno (no es
 // una carta: no se añade al mazo ni se puede robar más tarde) por cada
 // animal del hábitat indicado (params.habitat) que tengas en tu mano en
@@ -203,9 +225,7 @@ registerEffect('gainBonusPurchasingPowerPerHabitatInHand', (_state, player, effe
   // effectiveHand (mano real + lo jugado este turno): la propia carta se
   // cuenta a sí misma, y también cuentan otras del mismo hábitat que ya
   // hayas jugado antes este turno aunque ya estén en el descarte.
-  const count = effectiveHand(player).filter(
-    (c) => c.type === 'animal' && (c.habitats as string[])?.includes(habitat)
-  ).length;
+  const count = effectiveHand(player).reduce((sum, c) => sum + habitatWeight(c, habitat), 0);
   player.bonusPurchasingPowerThisTurn += count;
 });
 
@@ -240,6 +260,22 @@ registerEffect('stealCoinFromRightNeighbor', (state, player) => {
   if (coinIdx === -1) return;
   const [coin] = rightNeighbor.hand.splice(coinIdx, 1);
   player.hand.push(coin);
+});
+
+// Jirafa: el jugador a tu IZQUIERDA (el siguiente en el orden de turno: el
+// turno pasa hacia la izquierda, ver stealCoinFromRightNeighbor arriba)
+// pone un Perezoso que siga en su mazo (sin robar) encima del todo, así que
+// será lo próximo que robe. Si ya no le queda ningún Perezoso en el mazo
+// (los tiene en mano o descartados), no pasa nada. Con 1 solo jugador no
+// hay vecino, así que tampoco pasa nada.
+registerEffect('topdeckSlothForLeftNeighbor', (state, player) => {
+  const idx = state.players.findIndex((p) => p.id === player.id);
+  if (idx === -1 || state.players.length < 2) return;
+  const leftNeighbor = state.players[(idx + 1) % state.players.length];
+  const slothIdx = leftNeighbor.deck.findIndex((c) => c.id === 'sloth');
+  if (slothIdx === -1) return;
+  const [sloth] = leftNeighbor.deck.splice(slothIdx, 1);
+  leftNeighbor.deck.push(sloth);
 });
 
 // Flamenco: devuelve al mazo compartido de su especie el animal elegido
@@ -331,7 +367,7 @@ registerScoreEffect('scorePerHabitatCount', (_player, effect, allCards) => {
   if (typeof habitat !== 'string') {
     throw new Error('El efecto "scorePerHabitatCount" requiere params: { habitat: string }');
   }
-  const count = allCards.filter((c) => c.type === 'animal' && (c.habitats as string[])?.includes(habitat)).length;
+  const count = allCards.reduce((sum, c) => sum + habitatWeight(c, habitat), 0);
   return count * multiplier;
 });
 

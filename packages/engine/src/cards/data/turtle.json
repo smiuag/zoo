@@ -1,0 +1,16 @@
+{
+  "id": "turtle",
+  "name": "Tortuga",
+  "type": "animal",
+  "species": "turtle",
+  "marketCost": 2,
+  "victoryPoints": 1,
+  "text": "Mejora 1 moneda de tu mano (de 1 a 2, o de 2 a 3).",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "upgradeCoin"
+    }
+  ],
+  "habitats": ["land", "aquatic"]
+}

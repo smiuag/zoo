@@ -11,10 +11,16 @@ export interface Player {
   hand: CardInstance[];
   discard: CardInstance[];
   // Moneda extra de compra dada por algún efecto jugado este turno (p. ej.
-  // Serpiente / Loro / León / Delfín): NO es una carta, no se añade al
-  // mazo ni se puede robar; solo aumenta lo que puedes gastar hasta que
-  // termine el turno.
+  // Serpiente / Loro / León): NO es una carta, no se añade al mazo ni se
+  // puede robar; solo aumenta lo que puedes gastar hasta que termine el
+  // turno. Se puede usar para pagar CUALQUIER compra (animal de cualquier
+  // hábitat, o moneda).
   bonusPurchasingPowerThisTurn: number;
+  // Igual que bonusPurchasingPowerThisTurn (Delfín), pero restringida:
+  // solo sirve para pagar animales ACUÁTICOS, nunca monedas ni animales de
+  // otro hábitat. Se gasta primero que la genérica cuando aplica (ver
+  // payCoins en engine.ts), porque no sirve para nada más.
+  aquaticBonusPurchasingPowerThisTurn: number;
   // Especies de las que ya se ha comprado un animal del mercado ESTE TURNO
   // (buyAnimal, no efectos de captura gratis): como mucho 1 compra por
   // especie y turno (no puedes comprar 2 copias del mismo animal seguidas,

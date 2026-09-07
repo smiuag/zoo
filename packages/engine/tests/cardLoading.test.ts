@@ -7,8 +7,8 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   parrot: { cost: 3, pv: 2 },
   penguin: { cost: 4, pv: 2 },
   peacock: { cost: 2, pv: 1 },
-  dolphin: { cost: 3, pv: 1 },
-  giraffe: { cost: 2, pv: 1 },
+  dolphin: { cost: 3, pv: 2 },
+  giraffe: { cost: 3, pv: 3 },
   hippopotamus: { cost: 5, pv: 4 },
   tiger: { cost: 4, pv: 3 },
   lion: { cost: 5, pv: 3 },
@@ -27,13 +27,14 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   parakeet: { cost: 2, pv: 0 },
   owl: { cost: 4, pv: 3 },
   bat: { cost: 1, pv: 1 },
+  turtle: { cost: 2, pv: 1 },
 };
 
 describe('card registry', () => {
   it('carga y valida todos los ficheros de datos de cartas', () => {
     const cards = getAllCards();
-    // 25 especies de mercado + 1 Perezoso (solo de mazo inicial) + 3 monedas = 29.
-    expect(cards.length).toBe(29);
+    // 26 especies de mercado + 1 Perezoso (solo de mazo inicial) + 3 monedas = 30.
+    expect(cards.length).toBe(30);
   });
 
   it('el Perezoso es terrestre, no cuesta ni da nada, y no está en el mercado de animales', () => {
@@ -62,9 +63,9 @@ describe('card registry', () => {
     expect(getCard('coin-3').marketCost).toBe(5);
   });
 
-  it('expone las 25 especies de animal (1 carta cada una, sin sexo) con su coste/PV según tabla', () => {
+  it('expone las 26 especies de animal (1 carta cada una, sin sexo) con su coste/PV según tabla', () => {
     const species = Object.keys(SPECIES_TIERS);
-    expect(species).toHaveLength(25);
+    expect(species).toHaveLength(26);
     for (const id of species) {
       const card = getCard(id);
       expect(card.type).toBe('animal');
@@ -80,7 +81,12 @@ describe('card registry', () => {
       type: 'chooseDiscardFromEachOpponent',
       params: { amount: 2 },
     });
-    expect(getCard('penguin').effects[0]).toMatchObject({ trigger: 'onScore', type: 'scorePerDistinctSpecies' });
+    expect(getCard('penguin').effects[0]).toMatchObject({
+      trigger: 'onPlay',
+      type: 'gainFlatBonusPurchasingPower',
+      params: { amount: 1 },
+    });
+    expect(getCard('penguin').effects[1]).toMatchObject({ trigger: 'onScore', type: 'scorePerDistinctSpecies' });
     expect(getCard('peacock').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 1 } });
     expect(getCard('hippopotamus').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 2 } });
     expect(getCard('lion').effects[0]).toMatchObject({
@@ -89,34 +95,59 @@ describe('card registry', () => {
     });
     expect(getCard('tiger').effects[0]).toMatchObject({ type: 'drawThenTopdeck' });
     expect(getCard('dolphin').effects[0]).toMatchObject({
-      type: 'gainBonusPurchasingPowerPerSpeciesInDiscard',
-      params: { species: 'dolphin' },
+      type: 'gainAquaticOnlyBonusPurchasingPower',
+      params: { amount: 2 },
     });
     expect(getCard('elephant').effects[0]).toMatchObject({
       type: 'freeCaptureUpToCost',
       params: { habitat: 'land', maxCost: 5 },
     });
-    expect(getCard('giraffe').effects[0]).toMatchObject({ type: 'upgradeCoin' });
+    expect(getCard('giraffe').effects[0]).toMatchObject({ type: 'topdeckSlothForLeftNeighbor' });
+    expect(getCard('giraffe').effects[1]).toMatchObject({
+      type: 'gainFlatBonusPurchasingPower',
+      params: { amount: 1 },
+    });
+    expect(getCard('turtle').effects[0]).toMatchObject({ type: 'upgradeCoin' });
     expect(getCard('spider').effects[0]).toMatchObject({
       type: 'freeCaptureUpToCost',
       params: { habitat: ['bird', 'aquatic'], maxCost: 3 },
     });
     expect(getCard('hyena').effects[0]).toMatchObject({ type: 'discardAnimalFromEachOpponent' });
     expect(getCard('crocodile').effects[0]).toMatchObject({
+      trigger: 'onPlay',
+      type: 'gainFlatBonusPurchasingPower',
+      params: { amount: 1 },
+    });
+    expect(getCard('crocodile').effects[1]).toMatchObject({
       trigger: 'onScore',
       type: 'destroyWeakestAquaticOnScore',
     });
     expect(getCard('orca').effects[0]).toMatchObject({
+      trigger: 'onPlay',
+      type: 'gainFlatBonusPurchasingPower',
+      params: { amount: 2 },
+    });
+    expect(getCard('orca').effects[1]).toMatchObject({
       trigger: 'onScore',
       type: 'scorePerHabitatCount',
       params: { habitat: 'aquatic' },
     });
     expect(getCard('polar-bear').effects[0]).toMatchObject({
+      trigger: 'onPlay',
+      type: 'gainFlatBonusPurchasingPower',
+      params: { amount: 2 },
+    });
+    expect(getCard('polar-bear').effects[1]).toMatchObject({
       trigger: 'onScore',
       type: 'scorePerHabitatCount',
       params: { habitat: 'land' },
     });
     expect(getCard('albatross').effects[0]).toMatchObject({
+      trigger: 'onPlay',
+      type: 'gainFlatBonusPurchasingPower',
+      params: { amount: 2 },
+    });
+    expect(getCard('albatross').effects[1]).toMatchObject({
       trigger: 'onScore',
       type: 'scorePerHabitatCount',
       params: { habitat: 'bird' },

@@ -33,16 +33,13 @@ export default function App() {
   );
 
   const [pendingChoice, setPendingChoice] = useState<PendingChoice | null>(null);
-  const [selectedCoins, setSelectedCoins] = useState<Set<string>>(new Set());
   const [viewedPlayerId, setViewedPlayerId] = useState<string | null>(null);
   const choiceRef = useRef<HTMLDivElement>(null);
   const viewedPlayer = state.players.find((p) => p.id === viewedPlayerId) ?? null;
 
-  // Nuevo turno: se cierra cualquier menú contextual abierto y se vacía el
-  // carrito de monedas (era solo informativo para el turno anterior).
+  // Nuevo turno: se cierra cualquier menú contextual abierto.
   useEffect(() => {
     setPendingChoice(null);
-    setSelectedCoins(new Set());
   }, [state.turn]);
 
   // El menú contextual vive junto a la mano, pero si la página tiene mucho
@@ -69,39 +66,26 @@ export default function App() {
     runAction(option.action);
   }
 
-  function toggleCoin(instanceId: string) {
-    setSelectedCoins((prev) => {
-      const next = new Set(prev);
-      if (next.has(instanceId)) next.delete(instanceId);
-      else next.add(instanceId);
-      return next;
-    });
-  }
-
-  // La moneda extra que da algún efecto (p. ej. Pez de colores) este turno
-  // (bonusPurchasingPowerThisTurn) no es una carta que se pueda marcar,
-  // pero cuenta como dinero disponible igual que las monedas seleccionadas.
-  const cartTotal =
-    human.hand
-      .filter((c) => c.type === 'coin' && selectedCoins.has(c.instanceId))
-      .reduce((sum, c) => sum + (c.value ?? 0), 0) + human.bonusPurchasingPowerThisTurn;
+  // Todas las monedas de la mano cuentan siempre para pagar (no hay que
+  // elegir cuáles): el motor ya escoge solo la mejor combinación al pagar
+  // una compra. La moneda extra que da algún efecto (p. ej. Pez de
+  // colores) este turno (bonusPurchasingPowerThisTurn) no es una carta,
+  // pero también cuenta como dinero disponible.
+  const purchasingPower =
+    human.hand.filter((c) => c.type === 'coin').reduce((sum, c) => sum + (c.value ?? 0), 0) +
+    human.bonusPurchasingPowerThisTurn;
 
   function handleRestartTurn() {
     restartTurn();
     setPendingChoice(null);
-    setSelectedCoins(new Set());
   }
 
   // Jugar cualquier carta de la mano: si tiene una única variante, se
   // aplica directo; si necesita elegir un objetivo propio (Elefante, Araña,
-  // Flamenco), se abre el menú contextual.
+  // Flamenco), se abre el menú contextual. Las monedas nunca se juegan (se
+  // gastan solas al pagar), así que un clic sobre una no hace nada.
   function handleHandCardClick(card: CardInstance) {
-    if (!humanTurn) return;
-
-    if (card.type === 'coin') {
-      toggleCoin(card.instanceId);
-      return;
-    }
+    if (!humanTurn || card.type === 'coin') return;
 
     const acts = playCardActionsFor(legalActions, card.instanceId);
     if (acts.length === 0) return;
@@ -113,8 +97,7 @@ export default function App() {
   }
 
   function isHandCardClickable(card: CardInstance): boolean {
-    if (!humanTurn) return false;
-    if (card.type === 'coin') return true;
+    if (!humanTurn || card.type === 'coin') return false;
     return playCardActionsFor(legalActions, card.instanceId).length > 0;
   }
 
@@ -207,12 +190,13 @@ export default function App() {
           <div className="panel">
             <div className="turn-controls">
               <span className="chip chip--resource">
-                🛒 Carrito: {cartTotal} moneda{cartTotal === 1 ? '' : 's'}
+                💰 Valor de compra: {purchasingPower} moneda{purchasingPower === 1 ? '' : 's'}
               </span>
-              {selectedCoins.size > 0 && (
-                <button className="btn btn--ghost" onClick={() => setSelectedCoins(new Set())}>
-                  vaciar carrito
-                </button>
+              {human.aquaticBonusPurchasingPowerThisTurn > 0 && (
+                <span className="chip chip--resource" title="Solo se puede gastar en animales acuáticos">
+                  🌊 Solo acuáticos: {human.aquaticBonusPurchasingPowerThisTurn} moneda
+                  {human.aquaticBonusPurchasingPowerThisTurn === 1 ? '' : 's'}
+                </span>
               )}
               <button
                 className="btn btn--primary"
@@ -240,9 +224,10 @@ export default function App() {
                 <CardView
                   key={card.instanceId}
                   card={card}
-                  onClick={humanTurn ? () => handleHandCardClick(card) : undefined}
-                  disabled={!isHandCardClickable(card)}
-                  selected={card.type === 'coin' && selectedCoins.has(card.instanceId)}
+                  // Las monedas no son "jugables" ni "deshabilitadas": siempre
+                  // cuentan para el valor de compra, sin necesidad de pulsarlas.
+                  onClick={humanTurn && card.type !== 'coin' ? () => handleHandCardClick(card) : undefined}
+                  disabled={card.type !== 'coin' && !isHandCardClickable(card)}
                 />
               ))}
               {human.hand.length === 0 && <span className="market-empty">(vacía)</span>}
