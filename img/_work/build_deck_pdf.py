@@ -21,10 +21,10 @@ cell_h = (PAGE_H - 2 * MARGIN - (ROWS - 1) * GAP) // ROWS
 
 # Copias pedidas para esta tirada de impresión.
 COUNTS = {
-    "sloth": 15,
-    "coin-1": 35,
-    "coin-2": 16,
-    "coin-3": 10,
+    "sloth": 18,
+    "coin-1": 45,
+    "coin-2": 18,
+    "coin-3": 11,
 }
 DEFAULT_ANIMAL_COPIES = 10  # el resto de especies de animal: 10 copias cada una
 

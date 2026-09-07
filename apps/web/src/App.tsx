@@ -156,32 +156,6 @@ export default function App() {
 
   return (
     <div className="app">
-      <div className="status-row">
-        {state.gameOver ? (
-          <span className="status-pill status-pill--over">Partida terminada</span>
-        ) : (
-          <span className="status-pill">
-            Turno {state.turn} — {humanTurn ? 'tu turno' : `esperando a ${state.players.find((p) => p.id === getActiveId(state))?.name}`}
-          </span>
-        )}
-        <button className="btn btn--ghost" onClick={restart}>
-          ↺ Nueva partida
-        </button>
-      </div>
-
-      <ul className="scoreboard">
-        {state.players.map((p) => (
-          <li
-            key={p.id}
-            className={p.id === humanId ? 'scoreboard__me scoreboard__clickable' : 'scoreboard__clickable'}
-            onClick={() => setViewedPlayerId(p.id)}
-            title="Ver mazo"
-          >
-            <strong>{p.name}</strong>: {scoreFor(p.id)} PV
-          </li>
-        ))}
-      </ul>
-
       {state.gameOver && (
         <div className="panel">
           <div className="panel__header">
@@ -199,116 +173,153 @@ export default function App() {
         </div>
       )}
 
-      <div className="panel">
-        <div className="panel__header">
-          <h2>Mercado de animales</h2>
-          <span className="panel__hint">{state.animalTrack.length} disponibles — pulsa uno para comprarlo</span>
-        </div>
-        <div className="card-row">
-          {sortedAnimalTrack.map((card) => (
-            <CardView
-              key={card.instanceId}
-              card={card}
-              onClick={humanTurn ? () => handleMarketCardClick(card) : undefined}
-              disabled={!isMarketCardClickable(card)}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel__header">
-          <h2>Cambio de moneda</h2>
-          <span className="panel__hint">suministro ilimitado — pulsa una para comprarla</span>
-        </div>
-        <div className="card-row">
-          {PURCHASABLE_COIN_IDS.map((coinId) => {
-            const card = { ...getCard(coinId), instanceId: coinId } as CardInstance;
-            return (
-              <CardView
-                key={coinId}
-                card={card}
-                onClick={humanTurn ? () => handleBuyCoinClick(coinId) : undefined}
-                disabled={!isCoinShopClickable(coinId)}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="panel">
-        <div className="panel__header">
-          <h2>Tu mano</h2>
-          <span className="panel__hint">{human.hand.length} cartas — pulsa una para jugarla</span>
-        </div>
-        <div className="hand-row">
-          <div className="card-row">
-            {human.hand.map((card) => (
-              <CardView
-                key={card.instanceId}
-                card={card}
-                onClick={humanTurn ? () => handleHandCardClick(card) : undefined}
-                disabled={!isHandCardClickable(card)}
-                selected={card.type === 'coin' && selectedCoins.has(card.instanceId)}
-              />
-            ))}
-            {human.hand.length === 0 && <span className="market-empty">(vacía)</span>}
-          </div>
-          <div className="turn-controls">
-            <span className="chip chip--resource">
-              🛒 Carrito: {cartTotal} moneda{cartTotal === 1 ? '' : 's'}
-            </span>
-            {selectedCoins.size > 0 && (
-              <button className="btn btn--ghost" onClick={() => setSelectedCoins(new Set())}>
-                vaciar carrito
+      <div className="layout">
+        <div className="layout__left">
+          <div className="panel">
+            <div className="status-row">
+              {state.gameOver ? (
+                <span className="status-pill status-pill--over">Partida terminada</span>
+              ) : (
+                <span className="status-pill">
+                  Turno {state.turn} —{' '}
+                  {humanTurn ? 'tu turno' : `esperando a ${state.players.find((p) => p.id === getActiveId(state))?.name}`}
+                </span>
+              )}
+              <button className="btn btn--ghost" onClick={restart}>
+                ↺ Nueva partida
               </button>
-            )}
-            <button
-              className="btn btn--primary"
-              disabled={!humanTurn}
-              onClick={() => runAction(legalActions.find((a) => a.type === 'endTurn'))}
-            >
-              Terminar turno
-            </button>
-            <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
-              ↺ Reiniciar turno
-            </button>
-          </div>
-        </div>
-      </div>
+            </div>
 
-      {pendingChoice && (
-        <div className="panel panel--choice" ref={choiceRef}>
-          <div className="panel__header">
-            <h2>{pendingChoice.title}</h2>
-            <button className="btn btn--ghost" onClick={() => setPendingChoice(null)}>
-              ✕ cancelar
-            </button>
+            <ul className="scoreboard">
+              {state.players.map((p) => (
+                <li
+                  key={p.id}
+                  className={p.id === humanId ? 'scoreboard__me scoreboard__clickable' : 'scoreboard__clickable'}
+                  onClick={() => setViewedPlayerId(p.id)}
+                  title="Ver mazo"
+                >
+                  <strong>{p.name}</strong>: {scoreFor(p.id)} PV
+                </li>
+              ))}
+            </ul>
           </div>
-          <div className="action-list">
-            {pendingChoice.options.map((opt, i) => (
+
+          <div className="panel">
+            <div className="turn-controls">
+              <span className="chip chip--resource">
+                🛒 Carrito: {cartTotal} moneda{cartTotal === 1 ? '' : 's'}
+              </span>
+              {selectedCoins.size > 0 && (
+                <button className="btn btn--ghost" onClick={() => setSelectedCoins(new Set())}>
+                  vaciar carrito
+                </button>
+              )}
               <button
-                key={i}
                 className="btn btn--primary"
-                disabled={!opt.action && !opt.next}
-                onClick={() => chooseOption(opt)}
+                disabled={!humanTurn}
+                onClick={() => runAction(legalActions.find((a) => a.type === 'endTurn'))}
               >
-                {opt.label}
+                Terminar turno
               </button>
-            ))}
+              <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
+                ↺ Reiniciar turno
+              </button>
+            </div>
+          </div>
+
+          <div className="panel">
+            <div className="panel__header">
+              <h2>Tu mano</h2>
+              <span className="panel__hint">
+                {human.hand.length} cartas · 🂠 {human.deck.length} en el mazo · 🗑️ {human.discard.length} en el
+                descarte
+              </span>
+            </div>
+            <div className="card-row card-row--hand">
+              {human.hand.map((card) => (
+                <CardView
+                  key={card.instanceId}
+                  card={card}
+                  onClick={humanTurn ? () => handleHandCardClick(card) : undefined}
+                  disabled={!isHandCardClickable(card)}
+                  selected={card.type === 'coin' && selectedCoins.has(card.instanceId)}
+                />
+              ))}
+              {human.hand.length === 0 && <span className="market-empty">(vacía)</span>}
+            </div>
+          </div>
+
+          {pendingChoice && (
+            <div className="panel panel--choice" ref={choiceRef}>
+              <div className="panel__header">
+                <h2>{pendingChoice.title}</h2>
+                <button className="btn btn--ghost" onClick={() => setPendingChoice(null)}>
+                  ✕ cancelar
+                </button>
+              </div>
+              <div className="action-list">
+                {pendingChoice.options.map((opt, i) => (
+                  <button
+                    key={i}
+                    className="btn btn--primary"
+                    disabled={!opt.action && !opt.next}
+                    onClick={() => chooseOption(opt)}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="layout__right">
+          <div className="panel">
+            <div className="panel__header">
+              <h2>Mercado</h2>
+              <span className="panel__hint">{state.animalTrack.length} disponibles — pulsa uno para comprarlo</span>
+            </div>
+            <div className="card-row card-row--market">
+              {sortedAnimalTrack.map((card) => (
+                <CardView
+                  key={card.instanceId}
+                  card={card}
+                  onClick={humanTurn ? () => handleMarketCardClick(card) : undefined}
+                  disabled={!isMarketCardClickable(card)}
+                  remainingLabel={String((state.sharedDecks[card.species ?? ''] ?? []).length + 1)}
+                />
+              ))}
+              <div className="card-row__gap" aria-hidden="true" />
+              {PURCHASABLE_COIN_IDS.map((coinId) => {
+                const card = { ...getCard(coinId), instanceId: coinId } as CardInstance;
+                return (
+                  <CardView
+                    key={coinId}
+                    card={card}
+                    onClick={humanTurn ? () => handleBuyCoinClick(coinId) : undefined}
+                    disabled={!isCoinShopClickable(coinId)}
+                    remainingLabel="∞"
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
-      )}
+      </div>
+
+      <details className="log-details" open>
+        <summary>Log de la partida</summary>
+        <pre>{state.log.slice(-40).join('\n')}</pre>
+      </details>
 
       <div className="panel">
         <div className="panel__header">
-          <h2>Otros jugadores</h2>
+          <h2>Bots</h2>
         </div>
         <div className="player-strip">
           {bots.map((bot) => (
             <span key={bot.id} className="chip">
-              <strong>{bot.name}</strong> · mano: {bot.hand.length} · descarte: {bot.discard.length} ·{' '}
-              {scoreFor(bot.id)} PV
+              <strong>{bot.name}</strong> · mano: {bot.hand.length} · descarte: {bot.discard.length}
               <select
                 className="bot-algorithm-select"
                 value={botAlgorithms[bot.id] ?? 'rl'}
@@ -324,11 +335,6 @@ export default function App() {
           ))}
         </div>
       </div>
-
-      <details className="log-details" open>
-        <summary>Log de la partida</summary>
-        <pre>{state.log.slice(-40).join('\n')}</pre>
-      </details>
 
       {viewedPlayer && (
         <div className="modal-backdrop" onClick={() => setViewedPlayerId(null)}>

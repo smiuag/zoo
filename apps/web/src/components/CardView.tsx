@@ -7,9 +7,13 @@ interface CardViewProps {
   disabled?: boolean;
   compact?: boolean;
   selected?: boolean;
+  // Cuántas copias quedan en el montón (mazo compartido de esa especie, o
+  // "∞" para las monedas comprables, de suministro ilimitado). Solo se
+  // muestra en las cartas del mercado, no en la mano.
+  remainingLabel?: string;
 }
 
-export function CardView({ card, onClick, disabled, compact, selected }: CardViewProps) {
+export function CardView({ card, onClick, disabled, compact, selected, remainingLabel }: CardViewProps) {
   const clickable = Boolean(onClick) && !disabled;
   const bits: string[] = [];
   if (card.type === 'animal') bits.push(habitatLabel(card));
@@ -38,6 +42,7 @@ export function CardView({ card, onClick, disabled, compact, selected }: CardVie
       <div className="card__icon">{cardIcon(card)}</div>
       <div className="card__name">{card.name}</div>
       <div className="card__footer">{bits.join(' · ')}</div>
+      {remainingLabel !== undefined && <span className="card__badge">×{remainingLabel}</span>}
     </div>
   );
 }

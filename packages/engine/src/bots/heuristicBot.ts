@@ -66,8 +66,8 @@ function effectBonus(card: CardInstance): number {
       case 'returnAnimalForUpgrade':
         bonus += 2.5; // sube 1 de coste gratis, aproximación fija
         break;
-      case 'peekTopCardOptionalDraw':
-        bonus += 1; // robar es opcional (puede no interesar), vale menos que un robo garantizado
+      case 'swapSelfWithTopOfDeck':
+        bonus += 1.5; // roba 1 carta garantizada, pero la propia carta no queda en el descarte
         break;
       case 'scorePerHabitatCount':
       case 'scorePerDistinctSpecies':

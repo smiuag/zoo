@@ -120,16 +120,25 @@ registerEffect('drawThenTopdeck', (_state, player, effect) => {
   player.deck.push(card);
 });
 
-// Murciélago: mira la carta de encima de su mazo y decide si la roba o la
-// deja donde está — engine.ts (peekTopCardOptionalDrawActions) es quien
-// ofrece las dos variantes de acción (con/sin targetInstanceId) para que el
-// jugador elija; aquí solo se aplica la elección ya hecha. Si no hay carta
-// que mirar (mazo vacío), no pasa nada.
-registerEffect('peekTopCardOptionalDraw', (_state, player, _effect, context) => {
-  if (!context.targetInstanceId) return;
-  const top = player.deck[player.deck.length - 1];
-  if (!top || top.instanceId !== context.targetInstanceId) return;
-  player.deck.pop();
+// Murciélago: se intercambia por la carta de encima de su mazo, sin elegir
+// nada (automático). playCard ya lo ha mandado al descarte y a
+// playedThisTurn antes de resolver este efecto (igual que el Flamenco
+// devolviéndose a sí mismo, ver returnAnimalForUpgrade): se le saca de ahí
+// y, en vez de quedarse descartado, vuelve a su mazo (encima), mientras la
+// carta que estaba encima del mazo pasa a la mano. Si el mazo está vacío no
+// hay nada con lo que intercambiarse: se queda en el descarte, como
+// cualquier carta normal.
+registerEffect('swapSelfWithTopOfDeck', (_state, player) => {
+  if (player.deck.length === 0) return;
+
+  const self = player.playedThisTurn[player.playedThisTurn.length - 1];
+  if (!self) return;
+  const idx = player.discard.findIndex((c) => c.instanceId === self.instanceId);
+  if (idx === -1) return;
+
+  const [card] = player.discard.splice(idx, 1);
+  const top = player.deck.pop()!;
+  player.deck.push(card);
   player.hand.push(top);
 });
 

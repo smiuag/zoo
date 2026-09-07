@@ -504,33 +504,19 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   });
 });
 
-describe('murciélago: mira la carta de encima del mazo y elige si la roba', () => {
-  it('ofrece las dos variantes a la vez: robarla (con target) o dejarla (sin target)', () => {
+describe('murciélago: se intercambia por la carta de encima del mazo, sin elegir nada', () => {
+  it('no ofrece ninguna variante con target: es una única acción automática', () => {
     const { state, player } = setupClean();
     const bat = freshInstance('bat', 'test');
-    const top = freshInstance('snake', 's1');
     player.hand = [bat];
-    player.deck.push(top);
+    player.deck.push(freshInstance('snake', 's1'));
 
     const actions = getLegalActions(state, player.id);
-    expect(actions).toContainEqual({ type: 'playCard', instanceId: bat.instanceId, targetInstanceId: top.instanceId });
-    expect(actions).toContainEqual({ type: 'playCard', instanceId: bat.instanceId });
+    const batActions = actions.filter((a) => a.type === 'playCard' && a.instanceId === bat.instanceId);
+    expect(batActions).toEqual([{ type: 'playCard', instanceId: bat.instanceId }]);
   });
 
-  it('si elige robarla, la carta pasa del mazo a la mano', () => {
-    const { state, player } = setupClean();
-    const bat = freshInstance('bat', 'test');
-    const top = freshInstance('snake', 's1');
-    player.hand = [bat];
-    player.deck.push(top);
-
-    playCard(state, player.id, bat.instanceId, top.instanceId);
-
-    expect(player.hand.some((c) => c.instanceId === top.instanceId)).toBe(true);
-    expect(player.deck).toHaveLength(0);
-  });
-
-  it('si elige dejarla, el mazo no cambia', () => {
+  it('roba la carta de encima del mazo, y él mismo vuelve al mazo (no al descarte)', () => {
     const { state, player } = setupClean();
     const bat = freshInstance('bat', 'test');
     const top = freshInstance('snake', 's1');
@@ -539,21 +525,20 @@ describe('murciélago: mira la carta de encima del mazo y elige si la roba', () 
 
     playCard(state, player.id, bat.instanceId);
 
-    expect(player.deck).toHaveLength(1);
-    expect(player.deck[0].instanceId).toBe(top.instanceId);
-    expect(player.hand.some((c) => c.instanceId === top.instanceId)).toBe(false);
+    expect(player.hand.some((c) => c.instanceId === top.instanceId)).toBe(true);
+    expect(player.discard.some((c) => c.instanceId === bat.instanceId)).toBe(false);
+    expect(player.deck).toEqual([bat]);
   });
 
-  it('con el mazo vacío no hay nada que mirar: solo se ofrece la variante sin efecto', () => {
+  it('con el mazo vacío no hay nada con lo que intercambiarse: se queda en el descarte, como cualquier carta', () => {
     const { state, player } = setupClean();
     const bat = freshInstance('bat', 'test');
     player.hand = [bat];
 
-    const actions = getLegalActions(state, player.id);
-    const batActions = actions.filter((a) => a.type === 'playCard' && a.instanceId === bat.instanceId);
-    expect(batActions).toEqual([{ type: 'playCard', instanceId: bat.instanceId }]);
+    playCard(state, player.id, bat.instanceId);
 
-    expect(() => playCard(state, player.id, bat.instanceId)).not.toThrow();
-    expect(player.hand).toHaveLength(0); // el propio Murciélago, jugado, va al descarte
+    expect(player.hand).toHaveLength(0);
+    expect(player.discard.some((c) => c.instanceId === bat.instanceId)).toBe(true);
+    expect(player.deck).toHaveLength(0);
   });
 });

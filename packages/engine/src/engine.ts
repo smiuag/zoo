@@ -305,23 +305,6 @@ function returnAnimalForUpgradeActions(state: GameState, player: Player, card: C
   return actions;
 }
 
-// Genera las variantes de "playCard" para el Murciélago (o cualquier otra
-// carta que use peekTopCardOptionalDraw): ve la carta de encima de su
-// mazo y elige entre robarla (targetInstanceId = esa carta) o dejarla
-// donde está (sin targetInstanceId) — SIEMPRE se ofrecen ambas variantes
-// a la vez cuando hay una carta que mirar, a diferencia del resto de
-// efectos con objetivo (que solo ofrecen "no elegir nada" cuando no hay
-// ningún candidato). Si el mazo está vacío no hay nada que mirar: se
-// ofrece solo la variante sin efecto.
-function peekTopCardOptionalDrawActions(player: Player, card: CardInstance): Action[] {
-  const top = player.deck[player.deck.length - 1];
-  if (!top) return [{ type: 'playCard', instanceId: card.instanceId }];
-  return [
-    { type: 'playCard', instanceId: card.instanceId, targetInstanceId: top.instanceId },
-    { type: 'playCard', instanceId: card.instanceId },
-  ];
-}
-
 export function getLegalActions(state: GameState, playerId: string): Action[] {
   if (state.gameOver) return [];
   const player = state.players.find((p) => p.id === playerId);
@@ -336,12 +319,6 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
     const returnForUpgrade = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'returnAnimalForUpgrade');
     if (returnForUpgrade) {
       actions.push(...returnAnimalForUpgradeActions(state, player, card));
-      continue;
-    }
-
-    const peekTopCard = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'peekTopCardOptionalDraw');
-    if (peekTopCard) {
-      actions.push(...peekTopCardOptionalDrawActions(player, card));
       continue;
     }
 

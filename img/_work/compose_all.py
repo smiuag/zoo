@@ -41,6 +41,8 @@ SPECIES_PHOTO = {
     "flamingo": "flamencos.jpg",
     "seal": "focas.jpg",
     "parakeet": "periquitos.jpg",
+    "owl": "buho.jpg",
+    "bat": "zorroVolador.jpg",
 }
 COIN_PHOTO = {
     "coin-1": "moneda1.jpg",

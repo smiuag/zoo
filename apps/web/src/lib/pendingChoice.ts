@@ -36,11 +36,7 @@ export function buildPlayCardTargetChoice(
   }
 
   const options: ChoiceOption[] = [...bySource.entries()].map(([sourceId, group]) => {
-    // Sin targetInstanceId: normalmente es "esta carta no necesita elegir
-    // nada", pero si convive con variantes que SÍ tienen target (Murciélago:
-    // robar la carta vista vs. dejarla) es una opción real de "no hacer
-    // nada", no un objetivo sin resolver.
-    const label = sourceId ? targetLabel(state, player, sourceId) : 'Dejarla (no hacer nada)';
+    const label = targetLabel(state, player, sourceId);
     const hasSecondaryChoice = group.some((a) => a.secondaryTargetInstanceId);
     if (!hasSecondaryChoice) {
       return { label, action: group[0] };

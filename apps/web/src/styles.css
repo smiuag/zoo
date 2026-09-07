@@ -32,9 +32,31 @@ body {
 }
 
 .app {
-  max-width: 1080px;
+  max-width: 1560px;
   margin: 0 auto;
-  padding: 1.25rem 1.5rem 3rem;
+  padding: 1.25rem 1rem 3rem;
+}
+
+/* ---------- Layout: izquierda (turno/mano/controles) + derecha (mercado) ---------- */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 460px) minmax(0, 1fr);
+  align-items: start;
+  gap: 1.25rem;
+}
+
+.layout__left,
+.layout__right {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---------- Status banner ---------- */
@@ -93,19 +115,25 @@ body {
   flex-wrap: wrap;
 }
 
-/* ---------- Fila de la mano: cartas + turno/F/terminar turno ---------- */
-
-.hand-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
+/* Tu mano: se corta a 3 cartas por fila (en vez de depender del ancho de la
+   columna izquierda), calculando el ancho exacto de 3 cartas + sus 2 huecos. */
+.card-row--hand {
+  max-width: calc(3 * var(--card-w) + 2 * 0.6rem);
 }
 
-.hand-row .card-row {
-  flex: 1;
+/* Mercado: igual, pero a 7 cartas por fila. */
+.card-row--market {
+  max-width: calc(7 * var(--card-w) + 6 * 0.6rem);
 }
+
+/* Hueco del ancho de 1 carta entre los animales y las monedas dentro del
+   mismo mercado, para separarlas visualmente sin un panel aparte. */
+.card-row__gap {
+  flex: 0 0 var(--card-w);
+  height: 1px;
+}
+
+/* ---------- Controles de turno (carrito, terminar/reiniciar turno) ---------- */
 
 .turn-controls {
   display: flex;
@@ -173,7 +201,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 0.4rem;
+  padding: 0.4rem 0.4rem 0.8rem;
   position: relative;
   user-select: none;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);

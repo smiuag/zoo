@@ -5,11 +5,11 @@
   "species": "bat",
   "marketCost": 1,
   "victoryPoints": 1,
-  "text": "Miras la carta de encima de tu mazo: puedes robarla, o dejarla donde está.",
+  "text": "Se intercambia por la carta de encima de tu mazo: la robas, y él pasa a estar encima.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "peekTopCardOptionalDraw"
+      "type": "swapSelfWithTopOfDeck"
     }
   ],
   "habitats": ["bird"]

@@ -152,7 +152,7 @@ describe('card registry', () => {
       type: 'gainFlatBonusPurchasingPower',
       params: { amount: 1 },
     });
-    expect(getCard('bat').effects[0]).toMatchObject({ type: 'peekTopCardOptionalDraw' });
+    expect(getCard('bat').effects[0]).toMatchObject({ type: 'swapSelfWithTopOfDeck' });
   });
 
   it('lanza un error para un id de carta desconocido', () => {
