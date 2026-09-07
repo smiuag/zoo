@@ -128,14 +128,20 @@ describe('fin de partida (duración elegida en rondas)', () => {
     expect(getActivePlayer(state).id).toBe('p1');
   });
 
-  it('si los mazos se agotan antes de llegar a maxRounds, la partida termina igualmente (lo que ocurra antes)', () => {
-    const state = setup(2, { maxRounds: 50 });
+  it('con maxRounds fijado, agotar mazos compartidos NO termina la partida antes de tiempo: solo cuenta la ronda', () => {
+    const state = setup(2, { maxRounds: 2 });
+    // Simula que ya se agotaron 5 mazos compartidos (como haría
+    // checkFinalRoundTrigger en una partida real): con maxRounds fijado,
+    // esto debe ignorarse por completo.
     state.finalRoundTriggerPlayerIndex = 0;
 
-    endTurn(state, 'p1'); // p1 -> p2, ronda final por mazos agotados
+    endTurn(state, 'p1'); // ronda 1: p1 -> p2
+    endTurn(state, 'p2'); // p2 -> volvería a p1: con el criterio de mazos agotados terminaría aquí, pero no debe
     expect(state.gameOver).toBe(false);
-    endTurn(state, 'p2'); // p2 -> volvería a p1 (quien lo disparó): fin de partida
+    expect(state.round).toBe(2);
+
+    endTurn(state, 'p1'); // ronda 2: p1 -> p2
+    endTurn(state, 'p2'); // p2 -> volvería a p1 para la ronda 3: ahora sí, fin de partida por maxRounds
     expect(state.gameOver).toBe(true);
-    expect(state.round).toBeLessThan(50);
   });
 });

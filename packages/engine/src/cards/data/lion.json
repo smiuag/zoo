@@ -5,13 +5,13 @@
   "species": "lion",
   "marketCost": 5,
   "victoryPoints": 3,
-  "text": "Añade 2 a tu valor de compra.",
+  "text": "Añade 3 a tu valor de compra.",
   "effects": [
     {
       "trigger": "onPlay",
       "type": "gainFlatBonusPurchasingPower",
       "params": {
-        "amount": 2
+        "amount": 3
       }
     }
   ],

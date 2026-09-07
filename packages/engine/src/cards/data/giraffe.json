@@ -5,7 +5,7 @@
   "species": "giraffe",
   "marketCost": 3,
   "victoryPoints": 3,
-  "text": "El jugador a tu izquierda pone un Perezoso de su mazo encima del todo. Además, añade 1 a tu valor de compra.",
+  "text": "El jugador a tu izquierda pone un Perezoso de la reserva encima de su mazo. Además, añade 1 a tu valor de compra.",
   "effects": [
     {
       "trigger": "onPlay",

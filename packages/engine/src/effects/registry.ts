@@ -264,17 +264,16 @@ registerEffect('stealCoinFromRightNeighbor', (state, player) => {
 
 // Jirafa: el jugador a tu IZQUIERDA (el siguiente en el orden de turno: el
 // turno pasa hacia la izquierda, ver stealCoinFromRightNeighbor arriba)
-// pone un Perezoso que siga en su mazo (sin robar) encima del todo, así que
-// será lo próximo que robe. Si ya no le queda ningún Perezoso en el mazo
-// (los tiene en mano o descartados), no pasa nada. Con 1 solo jugador no
-// hay vecino, así que tampoco pasa nada.
+// recibe un Perezoso NUEVO de la reserva (state.sharedDecks.sloth, ver
+// createGame en engine.ts — no es el mazo de ningún jugador) encima de su
+// propio mazo, así que será lo próximo que robe. Si la reserva ya está
+// vacía, no pasa nada. Con 1 solo jugador no hay vecino, tampoco pasa nada.
 registerEffect('topdeckSlothForLeftNeighbor', (state, player) => {
   const idx = state.players.findIndex((p) => p.id === player.id);
   if (idx === -1 || state.players.length < 2) return;
+  const sloth = state.sharedDecks['sloth']?.pop();
+  if (!sloth) return;
   const leftNeighbor = state.players[(idx + 1) % state.players.length];
-  const slothIdx = leftNeighbor.deck.findIndex((c) => c.id === 'sloth');
-  if (slothIdx === -1) return;
-  const [sloth] = leftNeighbor.deck.splice(slothIdx, 1);
   leftNeighbor.deck.push(sloth);
 });
 

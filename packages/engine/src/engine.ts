@@ -162,7 +162,11 @@ function payCoins(player: Player, cost: number, isAquaticAnimal = false): void {
 // agotados a la vez, dispara la ronda final.
 function checkFinalRoundTrigger(state: GameState): void {
   if (state.finalRoundTriggerPlayerIndex !== null) return;
-  const emptyDecks = Object.values(state.sharedDecks).filter((deck) => deck.length === 0).length;
+  // Solo cuentan los mazos de especies de mercado (ANIMAL_SPECIES): la
+  // reserva de Perezosos para la Jirafa también vive en sharedDecks (ver
+  // createGame) pero no es una especie del mercado, así que agotarla no
+  // debería adelantar el fin de la partida.
+  const emptyDecks = ANIMAL_SPECIES.filter((species) => state.sharedDecks[species]?.length === 0).length;
   if (emptyDecks >= FINAL_ROUND_EMPTY_DECK_THRESHOLD) {
     state.finalRoundTriggerPlayerIndex = state.activePlayerIndex;
     state.log.push(`Se han agotado ${emptyDecks} mazos compartidos: última ronda.`);
@@ -252,6 +256,19 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
       Array.from({ length: copiesPerSpecies }, () => mintInstance(state, speciesCard))
     );
   }
+
+  // Reserva de Perezosos para la Jirafa: NO es el mazo de ningún jugador
+  // (el Perezoso ni siquiera es una especie de ANIMAL_SPECIES, nunca sale
+  // en el mercado), así que reutiliza sharedDecks solo como almacén
+  // genérico. Tantas copias como Jirafas puede haber como mucho en toda la
+  // partida (su propio tope de copias, coste 3 -> 10 copias): así nunca
+  // haría falta preocuparse de que la reserva se agote antes que las
+  // Jirafas mismas.
+  const SLOTH_RESERVE_SIZE = 10;
+  state.sharedDecks['sloth'] = shuffle(
+    Array.from({ length: SLOTH_RESERVE_SIZE }, () => mintInstance(state, getCard('sloth')))
+  );
+
   refillAnimalMarket(state);
 
   // TODOS los jugadores empiezan la partida con mano (no solo el primero en
@@ -470,14 +487,17 @@ export function endTurn(state: GameState, playerId: string): void {
   const startingNewRound = nextIndex === 0;
   if (startingNewRound) state.round += 1;
 
-  // La partida termina por lo primero que ocurra: se agota la duración
-  // elegida (maxRounds, si se fijó una) tras completar esa ronda, o algún
-  // mazo compartido se agotó en algún momento de esta vuelta (entonces
-  // termina en cuanto le tocaría jugar de nuevo a quien lo disparó: todos
-  // los demás ya han tenido su turno extra).
+  // Si se ha elegido una duración (maxRounds), esa es la ÚNICA forma de
+  // terminar la partida: el criterio de agotar mazos compartidos queda
+  // desactivado (aunque checkFinalRoundTrigger lo siga marcando por si
+  // acaso, se ignora aquí abajo). Sin maxRounds, se mantiene el criterio
+  // de siempre: termina en cuanto le tocaría jugar de nuevo a quien
+  // disparó el agotamiento (todos los demás ya han tenido su turno extra).
   const roundLimitReached = state.maxRounds !== null && startingNewRound && state.round > state.maxRounds;
   const deckDepletionReached =
-    state.finalRoundTriggerPlayerIndex !== null && nextIndex === state.finalRoundTriggerPlayerIndex;
+    state.maxRounds === null &&
+    state.finalRoundTriggerPlayerIndex !== null &&
+    nextIndex === state.finalRoundTriggerPlayerIndex;
   if (roundLimitReached || deckDepletionReached) {
     state.activePlayerIndex = nextIndex;
     state.gameOver = true;

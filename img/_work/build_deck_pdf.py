@@ -21,8 +21,8 @@ cell_h = (PAGE_H - 2 * MARGIN - (ROWS - 1) * GAP) // ROWS
 
 # Copias pedidas para esta tirada de impresión.
 COUNTS = {
-    "sloth": 28,
-    "coin-1": 45,
+    "sloth": 26,
+    "coin-1": 49,
     "coin-2": 18,
     "coin-3": 11,
 }

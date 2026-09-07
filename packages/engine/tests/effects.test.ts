@@ -33,14 +33,14 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(opponent.discard).toHaveLength(1);
   });
 
-  it('león: gana 2 de dinero extra para comprar este turno, fijo (no depende de la mano)', () => {
+  it('león: gana 3 de dinero extra para comprar este turno, fijo (no depende de la mano)', () => {
     const { state, player } = setupClean();
     const lion = freshInstance('lion', 'test');
     player.hand = [lion];
 
     playCard(state, player.id, lion.instanceId);
 
-    expect(player.bonusPurchasingPowerThisTurn).toBe(2);
+    expect(player.bonusPurchasingPowerThisTurn).toBe(3);
   });
 
   it('delfín: da 2 de valor de compra, pero restringido: solo cuenta comprando animales acuáticos', () => {
@@ -254,28 +254,32 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(coins[0].value).toBe(2);
   });
 
-  it('jirafa: el jugador a tu izquierda pone un Perezoso de su mazo encima, y ganas 1 de valor de compra', () => {
+  it('jirafa: el jugador a tu izquierda recibe un Perezoso NUEVO de la reserva encima de su mazo, y ganas 1 de valor de compra', () => {
     const { state, player, opponent } = setupClean();
     const giraffe = freshInstance('giraffe', 'test');
-    const sloth = freshInstance('sloth', 's1');
-    const other = freshInstance('snake', 'n1');
     player.hand = [giraffe];
     // opponent es el siguiente jugador en el orden de turno (índice 1): el
-    // vecino de la izquierda de player (índice 0).
-    opponent.deck = [other, sloth, freshInstance('lion', 'l1')]; // el Perezoso NO está encima
+    // vecino de la izquierda de player (índice 0). No tiene ningún
+    // Perezoso propio: el que recibe sale de la reserva, no de su mazo.
+    opponent.deck = [freshInstance('snake', 'n1'), freshInstance('lion', 'l1')];
+    const reserveBefore = state.sharedDecks.sloth?.length ?? 0;
+    const expectedSloth = state.sharedDecks.sloth?.[reserveBefore - 1];
 
     playCard(state, player.id, giraffe.instanceId);
 
-    expect(opponent.deck[opponent.deck.length - 1]).toBe(sloth);
+    expect(opponent.deck).toHaveLength(3);
+    expect(opponent.deck[opponent.deck.length - 1]).toBe(expectedSloth);
+    expect(state.sharedDecks.sloth).toHaveLength(reserveBefore - 1);
     expect(player.bonusPurchasingPowerThisTurn).toBe(1);
   });
 
-  it('jirafa: si el vecino de la izquierda no tiene ningún Perezoso en el mazo, no pasa nada (solo el valor de compra)', () => {
+  it('jirafa: si la reserva de Perezosos está vacía, no pasa nada al vecino (solo el valor de compra)', () => {
     const { state, player, opponent } = setupClean();
     const giraffe = freshInstance('giraffe', 'test');
     player.hand = [giraffe];
     opponent.deck = [freshInstance('snake', 'n1')];
     const deckBefore = [...opponent.deck];
+    state.sharedDecks.sloth = [];
 
     playCard(state, player.id, giraffe.instanceId);
 
