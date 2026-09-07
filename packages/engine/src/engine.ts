@@ -79,10 +79,13 @@ export type Action =
   | { type: 'endTurn' };
 
 // --- Pago con monedas ---------------------------------------------------
-// El dinero no es un contador abstracto: son cartas de tipo "coin" en la
-// mano, cada una con un valor (1/2/3). Pagar un coste implica elegir un
-// subconjunto de esas cartas cuya suma cubra el coste, gastando el mínimo
-// posible de más y, a igualdad, usando el menor número de cartas.
+// El dinero son cartas de tipo "coin" en la mano, cada una con un valor
+// (1/2/3), pero su valor SÍ se puede repartir entre varias compras del
+// mismo turno: pagar un coste elige un subconjunto de esas cartas cuya
+// suma cubra el coste (gastando el mínimo posible de más y, a igualdad,
+// usando el menor número de cartas); si sobra valor, no se pierde ni se
+// descarta la moneda entera — se queda en la mano con el valor que le
+// sobra (ver payCoins), disponible para la siguiente compra.
 function coinsInHand(player: Player): CardInstance[] {
   return player.hand.filter((c) => c.type === 'coin');
 }
@@ -150,10 +153,26 @@ function payCoins(player: Player, cost: number, isAquaticAnimal = false): void {
   if (remaining <= 0) return;
   const toSpend = pickCoinsToPay(player, remaining);
   if (!toSpend) throw new Error('No hay monedas suficientes para pagar');
+
+  // El valor de compra se puede repartir como se quiera entre varias
+  // compras del mismo turno (p. ej. una moneda de 3 paga algo de 2 y,
+  // luego, algo de 1): las monedas que se gastan del todo se descartan,
+  // pero si el conjunto elegido paga de más, la de sobra no se descarta —
+  // se queda en la mano con su valor reducido a lo que le sobra, lista
+  // para la siguiente compra de este turno (o para el resto de la
+  // partida, si no se llega a gastar).
+  let need = remaining;
   for (const coin of toSpend) {
-    const idx = player.hand.findIndex((c) => c.instanceId === coin.instanceId);
-    player.hand.splice(idx, 1);
-    player.discard.push(coin);
+    const value = coin.value ?? 0;
+    if (value <= need) {
+      const idx = player.hand.findIndex((c) => c.instanceId === coin.instanceId);
+      player.hand.splice(idx, 1);
+      player.discard.push(coin);
+      need -= value;
+    } else {
+      coin.value = value - need;
+      need = 0;
+    }
   }
 }
 

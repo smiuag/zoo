@@ -57,6 +57,31 @@ describe('pago con monedas', () => {
 
     expect(() => buyAnimal(state, player.id, target.instanceId)).toThrow();
   });
+
+  it('el valor de compra se reparte entre varias compras del mismo turno: una moneda de 3 paga algo de 2 y, con lo que sobra, algo de 1', () => {
+    const { state, player } = setupClean();
+    const coin3 = freshInstance('coin-3', 'x');
+    player.hand = [coin3];
+    const cost2 = trackCardWithCost(state, 2);
+
+    buyAnimal(state, player.id, cost2.instanceId);
+
+    // La moneda de 3 no se descarta entera: se queda en la mano con el
+    // valor que le sobra (3 - 2 = 1), lista para la siguiente compra.
+    let coins = player.hand.filter((c) => c.type === 'coin');
+    expect(coins).toHaveLength(1);
+    expect(coins[0].instanceId).toBe(coin3.instanceId);
+    expect(coins[0].value).toBe(1);
+    expect(player.discard.some((c) => c.instanceId === coin3.instanceId)).toBe(false);
+
+    const cost1 = trackCardWithCost(state, 1);
+    buyAnimal(state, player.id, cost1.instanceId);
+
+    // Ahora sí se ha gastado del todo: 0 de sobra, se descarta.
+    coins = player.hand.filter((c) => c.type === 'coin');
+    expect(coins).toHaveLength(0);
+    expect(player.discard.some((c) => c.instanceId === coin3.instanceId)).toBe(true);
+  });
 });
 
 describe('compra de animales: sin trabajador, pero como mucho 1 por ESPECIE y turno', () => {
