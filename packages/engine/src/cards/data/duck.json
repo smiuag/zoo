@@ -1,0 +1,16 @@
+{
+  "id": "duck",
+  "name": "Pato",
+  "type": "animal",
+  "species": "duck",
+  "marketCost": 2,
+  "victoryPoints": 1,
+  "text": "El jugador a tu derecha te da 1 moneda de su mano; si no tiene ninguna, muestra su mano.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "stealCoinFromRightNeighbor"
+    }
+  ],
+  "habitats": ["bird", "aquatic"]
+}

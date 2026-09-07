@@ -1,0 +1,21 @@
+{
+  "id": "parrot",
+  "name": "Loro",
+  "type": "animal",
+  "species": "parrot",
+  "marketCost": 3,
+  "victoryPoints": 2,
+  "text": "Añade 1 a tu valor de compra por cada animal volador que tengas en tu mano.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainBonusPurchasingPowerPerHabitatInHand",
+      "params": {
+        "habitat": "bird"
+      }
+    }
+  ],
+  "habitats": [
+    "bird"
+  ]
+}

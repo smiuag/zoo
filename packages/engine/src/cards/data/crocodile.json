@@ -1,0 +1,19 @@
+{
+  "id": "crocodile",
+  "name": "Cocodrilo",
+  "type": "animal",
+  "species": "crocodile",
+  "marketCost": 5,
+  "victoryPoints": 7,
+  "text": "Al final de la partida, antes de puntuar, destruye de tu mazo el animal acuático de tu elección (puede ser él mismo).",
+  "effects": [
+    {
+      "trigger": "onScore",
+      "type": "destroyWeakestAquaticOnScore"
+    }
+  ],
+  "habitats": [
+    "land",
+    "aquatic"
+  ]
+}

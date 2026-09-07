@@ -1,0 +1,13 @@
+{
+  "id": "goldfish",
+  "name": "Pez de colores",
+  "type": "animal",
+  "species": "goldfish",
+  "marketCost": 1,
+  "victoryPoints": 1,
+  "text": "No hace nada. Literalmente nada.",
+  "effects": [],
+  "habitats": [
+    "aquatic"
+  ]
+}

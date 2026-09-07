@@ -1,0 +1,11 @@
+{
+  "id": "sloth",
+  "name": "Perezoso",
+  "type": "animal",
+  "species": "sloth",
+  "marketCost": 0,
+  "victoryPoints": 0,
+  "text": "No hace nada. Solo duerme.",
+  "effects": [],
+  "habitats": ["land"]
+}

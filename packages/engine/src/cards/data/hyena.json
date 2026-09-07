@@ -1,0 +1,18 @@
+{
+  "id": "hyena",
+  "name": "Hiena",
+  "type": "animal",
+  "species": "hyena",
+  "marketCost": 4,
+  "victoryPoints": 3,
+  "text": "Cada rival muestra su mano y descarta el animal de mayor coste; si hay empate, puede elegir cuál.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "discardAnimalFromEachOpponent"
+    }
+  ],
+  "habitats": [
+    "land"
+  ]
+}

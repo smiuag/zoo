@@ -1,0 +1,26 @@
+{
+  "id": "owl",
+  "name": "Búho",
+  "type": "animal",
+  "species": "owl",
+  "marketCost": 4,
+  "victoryPoints": 3,
+  "text": "Robas 1 carta y añades 1 a tu valor de compra.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "drawCards",
+      "params": {
+        "amount": 1
+      }
+    },
+    {
+      "trigger": "onPlay",
+      "type": "gainFlatBonusPurchasingPower",
+      "params": {
+        "amount": 1
+      }
+    }
+  ],
+  "habitats": ["bird"]
+}

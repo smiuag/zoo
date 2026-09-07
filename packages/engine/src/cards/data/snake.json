@@ -1,0 +1,21 @@
+{
+  "id": "snake",
+  "name": "Serpiente",
+  "type": "animal",
+  "species": "snake",
+  "marketCost": 4,
+  "victoryPoints": 1,
+  "text": "Añade 1 a tu valor de compra por cada animal terrestre que tengas en tu mano.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainBonusPurchasingPowerPerHabitatInHand",
+      "params": {
+        "habitat": "land"
+      }
+    }
+  ],
+  "habitats": [
+    "land"
+  ]
+}

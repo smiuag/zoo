@@ -1,0 +1,18 @@
+{
+  "id": "monkey",
+  "name": "Mono",
+  "type": "animal",
+  "species": "monkey",
+  "marketCost": 5,
+  "victoryPoints": 4,
+  "text": "Cada rival descarta 1 carta al azar de su mano.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "discardFromEachOpponent"
+    }
+  ],
+  "habitats": [
+    "land"
+  ]
+}

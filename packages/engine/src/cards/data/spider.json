@@ -1,0 +1,22 @@
+{
+  "id": "spider",
+  "name": "Araña",
+  "type": "animal",
+  "species": "spider",
+  "marketCost": 3,
+  "victoryPoints": 3,
+  "text": "Capturas gratis (sin gastar monedas) el animal VOLADOR o ACUÁTICO del mercado que elijas, de coste 3 o menos.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "freeCaptureUpToCost",
+      "params": {
+        "habitat": ["bird", "aquatic"],
+        "maxCost": 3
+      }
+    }
+  ],
+  "habitats": [
+    "land"
+  ]
+}

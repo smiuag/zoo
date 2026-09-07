@@ -1,0 +1,21 @@
+{
+  "id": "peacock",
+  "name": "Pavo real",
+  "type": "animal",
+  "species": "peacock",
+  "marketCost": 2,
+  "victoryPoints": 1,
+  "text": "Robas 1 carta.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "drawCards",
+      "params": {
+        "amount": 1
+      }
+    }
+  ],
+  "habitats": [
+    "bird"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "orca",
+  "name": "Orca",
+  "type": "animal",
+  "species": "orca",
+  "marketCost": 6,
+  "victoryPoints": 2,
+  "text": "Al final de la partida, +1PV por cada animal acuático que tengas en todo tu mazo.",
+  "effects": [
+    {
+      "trigger": "onScore",
+      "type": "scorePerHabitatCount",
+      "params": {
+        "habitat": "aquatic",
+        "multiplier": 1
+      }
+    }
+  ],
+  "habitats": [
+    "aquatic"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "id": "coin-1",
+  "name": "Bronce",
+  "type": "coin",
+  "value": 1,
+  "victoryPoints": 0,
+  "text": "Añade 1 a tu valor de compra.",
+  "effects": []
+}

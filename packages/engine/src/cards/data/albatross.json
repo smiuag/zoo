@@ -1,0 +1,22 @@
+{
+  "id": "albatross",
+  "name": "Albatros",
+  "type": "animal",
+  "species": "albatross",
+  "marketCost": 6,
+  "victoryPoints": 2,
+  "text": "Al final de la partida, +1PV por cada animal volador que tengas en todo tu mazo.",
+  "effects": [
+    {
+      "trigger": "onScore",
+      "type": "scorePerHabitatCount",
+      "params": {
+        "habitat": "bird",
+        "multiplier": 1
+      }
+    }
+  ],
+  "habitats": [
+    "bird"
+  ]
+}

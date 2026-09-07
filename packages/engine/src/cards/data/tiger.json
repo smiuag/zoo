@@ -1,0 +1,21 @@
+{
+  "id": "tiger",
+  "name": "Tigre",
+  "type": "animal",
+  "species": "tiger",
+  "marketCost": 4,
+  "victoryPoints": 3,
+  "text": "Robas 2 cartas. Luego dejas 1 de tu mano encima de tu mazo.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "drawThenTopdeck",
+      "params": {
+        "drawAmount": 2
+      }
+    }
+  ],
+  "habitats": [
+    "land"
+  ]
+}

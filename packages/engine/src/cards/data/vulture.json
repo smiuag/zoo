@@ -1,0 +1,21 @@
+{
+  "id": "vulture",
+  "name": "Buitre",
+  "type": "animal",
+  "species": "vulture",
+  "marketCost": 5,
+  "victoryPoints": 3,
+  "text": "Cada rival elige y descarta 2 cartas de su mano.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "chooseDiscardFromEachOpponent",
+      "params": {
+        "amount": 2
+      }
+    }
+  ],
+  "habitats": [
+    "bird"
+  ]
+}

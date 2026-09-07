@@ -1,0 +1,22 @@
+{
+  "id": "elephant",
+  "name": "Elefante",
+  "type": "animal",
+  "species": "elephant",
+  "marketCost": 5,
+  "victoryPoints": 3,
+  "text": "Capturas gratis (sin gastar monedas) el animal TERRESTRE del mercado que elijas, de coste 5 o menos.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "freeCaptureUpToCost",
+      "params": {
+        "habitat": "land",
+        "maxCost": 5
+      }
+    }
+  ],
+  "habitats": [
+    "land"
+  ]
+}

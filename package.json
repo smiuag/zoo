@@ -1,0 +1,13 @@
+{
+  "name": "zoo-deckbuilder",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "test": "npm run test -w packages/engine",
+    "dev:web": "npm run dev -w apps/web",
+    "train:rl": "npm run train:rl -w packages/engine"
+  }
+}

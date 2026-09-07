@@ -1,0 +1,21 @@
+{
+  "id": "dolphin",
+  "name": "Delfín",
+  "type": "animal",
+  "species": "dolphin",
+  "marketCost": 3,
+  "victoryPoints": 1,
+  "text": "Añade 1 a tu valor de compra por cada delfín que tengas en tu descarte (incluyéndolo a él).",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainBonusPurchasingPowerPerSpeciesInDiscard",
+      "params": {
+        "species": "dolphin"
+      }
+    }
+  ],
+  "habitats": [
+    "aquatic"
+  ]
+}

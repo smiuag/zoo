@@ -1,0 +1,580 @@
+:root {
+  --bg: #f4f1e8;
+  --panel-bg: #ffffff;
+  --panel-border: #e3ddca;
+  --ink: #2b2a28;
+  --muted: #7a7364;
+  --accent: #2f6d4f;
+  --accent-ink: #ffffff;
+  --danger: #b3492f;
+
+  --loan: #b3492f;
+  --land: #6b8e3f;
+  --bird: #3f8fc9;
+  --aquatic: #1f9e94;
+  --baby: #d3729a;
+  --building: #8a6fb0;
+
+  --card-w: 128px;
+  --card-h: 184px;
+  --radius: 10px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+.app {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem 3rem;
+}
+
+/* ---------- Status banner ---------- */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.status-pill--over {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
+/* ---------- Panels ---------- */
+
+.panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.panel__header h2 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+.panel__hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.card-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+/* ---------- Fila de la mano: cartas + turno/F/terminar turno ---------- */
+
+.hand-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.hand-row .card-row {
+  flex: 1;
+}
+
+.turn-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.turn-controls__info {
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+/* ---------- Opponent strip ---------- */
+
+.player-strip {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+
+.player-strip__name {
+  font-weight: 700;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.chip--resource {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.bot-algorithm-select {
+  font: inherit;
+  font-size: 0.78rem;
+  border-radius: 999px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg, transparent);
+  color: inherit;
+}
+
+/* ---------- Card ---------- */
+
+.card {
+  width: var(--card-w);
+  height: var(--card-h);
+  flex: 0 0 auto;
+  border-radius: var(--radius);
+  border: 2px solid var(--panel-border);
+  background: linear-gradient(180deg, #fff 0%, #fbfaf6 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.4rem;
+  position: relative;
+  user-select: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.card--loan {
+  border-color: var(--loan);
+}
+.card--land {
+  border-color: var(--land);
+}
+.card--bird {
+  border-color: var(--bird);
+}
+.card--aquatic {
+  border-color: var(--aquatic);
+}
+.card--baby {
+  border-color: var(--baby);
+}
+.card--building {
+  border-color: var(--building);
+}
+.card--coin {
+  border-color: #b8860b;
+}
+
+/* ---------- Status row / scoreboard highlight ---------- */
+
+.status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.scoreboard__me {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ---------- Contextual choice panel ---------- */
+
+.panel--choice {
+  border-color: var(--accent);
+  border-width: 2px;
+  background: #f4faf6;
+}
+
+/* ---------- Action list ---------- */
+
+.action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.action-list .btn {
+  width: 100%;
+}
+
+/* Edificios que ya tienes construidos: ocupan menos sitio, ya que se
+   quedan fijos en la mesa para siempre y no hace falta destacarlos tanto
+   como los que todavía puedes comprar. */
+.card--compact {
+  --card-w: 72px;
+  --card-h: 100px;
+  padding: 0.25rem;
+}
+.card--compact .card__icon {
+  font-size: 1.7rem;
+}
+.card--compact .card__name {
+  font-size: 0.58rem;
+  min-height: 1.4em;
+}
+.card--compact .card__top {
+  font-size: 0.55rem;
+}
+.card--compact .card__footer {
+  font-size: 0.5rem;
+}
+.card--compact .card__check {
+  width: 1rem;
+  height: 1rem;
+  font-size: 0.6rem;
+}
+
+.card--clickable {
+  cursor: pointer;
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.08s ease;
+}
+.card--clickable:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+.card--clickable:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.card--disabled {
+  opacity: 0.45;
+  filter: grayscale(0.4);
+}
+
+.card--selected {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.card__top {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 0.68rem;
+  font-weight: 700;
+  min-height: 1rem;
+}
+
+.card__level {
+  background: var(--bg);
+  border-radius: 999px;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.3rem;
+  color: var(--muted);
+}
+
+.card__pv {
+  color: #b8860b;
+}
+
+.card__cost {
+  color: #2e7d32;
+}
+
+.card__pv--negative {
+  color: var(--danger);
+}
+
+.card__icon {
+  font-size: 3.4rem;
+  line-height: 1;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card__name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 1.7em;
+  width: 100%;
+}
+
+.card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  font-size: 0.65rem;
+  color: var(--muted);
+  min-height: 1em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.card__gender {
+  font-weight: 700;
+}
+
+.card__badge {
+  position: absolute;
+  bottom: -0.4rem;
+  right: -0.4rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.card__check {
+  position: absolute;
+  top: -0.4rem;
+  right: -0.4rem;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: 999px;
+  width: 1.2rem;
+  height: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.card--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.75rem;
+  border-style: dashed;
+}
+
+/* ---------- Market ---------- */
+
+.market {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+
+.market-group h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.market-group__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  font: inherit;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 0.45rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.btn--primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  color: var(--accent-ink);
+}
+
+.btn--ghost {
+  background: transparent;
+}
+
+.market-empty {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* ---------- Footer controls ---------- */
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+
+.scoreboard {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem;
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.scoreboard li {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.scoreboard__clickable {
+  cursor: pointer;
+}
+
+.scoreboard__clickable:hover {
+  border-color: var(--accent);
+}
+
+.log-details {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* ---------- Popup "ver mazo" ---------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 42, 40, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  max-width: 960px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+
+.collection-entry {
+  position: relative;
+}
+
+.collection-entry__count {
+  position: absolute;
+  top: -0.5rem;
+  right: -0.5rem;
+  background: var(--ink);
+  color: var(--panel-bg);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border: 2px solid var(--panel-bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.log-details pre {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 0.6rem;
+  max-height: 200px;
+  overflow: auto;
+}
+
+/* ---------- Deck summary ---------- */
+
+.deck-summary__toggle {
+  cursor: pointer;
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 0.95rem;
+}
+
+.deck-summary__toggle:hover {
+  text-decoration: underline;
+}
+
+.deck-summary__cards {
+  margin-top: 0.85rem;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-bottom: 0.2rem;
+}

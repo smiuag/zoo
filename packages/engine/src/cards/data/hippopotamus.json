@@ -1,0 +1,22 @@
+{
+  "id": "hippopotamus",
+  "name": "Hipopótamo",
+  "type": "animal",
+  "species": "hippopotamus",
+  "marketCost": 5,
+  "victoryPoints": 4,
+  "text": "Robas 2 cartas.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "drawCards",
+      "params": {
+        "amount": 2
+      }
+    }
+  ],
+  "habitats": [
+    "land",
+    "aquatic"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "seal",
+  "name": "Foca",
+  "type": "animal",
+  "species": "seal",
+  "marketCost": 3,
+  "victoryPoints": 2,
+  "text": "Añade 1 a tu valor de compra por cada animal acuático que tengas en tu mano.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainBonusPurchasingPowerPerHabitatInHand",
+      "params": {
+        "habitat": "aquatic"
+      }
+    }
+  ],
+  "habitats": ["aquatic"]
+}

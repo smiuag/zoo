@@ -1,0 +1,19 @@
+{
+  "id": "penguin",
+  "name": "Pingüino",
+  "type": "animal",
+  "species": "penguin",
+  "marketCost": 4,
+  "victoryPoints": 2,
+  "text": "Al final de la partida, +1PV por cada animal distinto que tengas en tu mazo.",
+  "effects": [
+    {
+      "trigger": "onScore",
+      "type": "scorePerDistinctSpecies"
+    }
+  ],
+  "habitats": [
+    "land",
+    "aquatic"
+  ]
+}

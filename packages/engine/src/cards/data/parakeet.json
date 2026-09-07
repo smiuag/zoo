@@ -1,0 +1,27 @@
+{
+  "id": "parakeet",
+  "name": "Periquito",
+  "type": "animal",
+  "species": "parakeet",
+  "marketCost": 2,
+  "victoryPoints": 0,
+  "text": "Añade 1 a tu valor de compra. Al final de la partida, ganas 10PV si tienes 4 o más Periquitos en tu mazo.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainFlatBonusPurchasingPower",
+      "params": {
+        "amount": 1
+      }
+    },
+    {
+      "trigger": "onScore",
+      "type": "scoreBonusIfSpeciesCountAtLeast",
+      "params": {
+        "minCount": 4,
+        "bonus": 10
+      }
+    }
+  ],
+  "habitats": ["bird"]
+}

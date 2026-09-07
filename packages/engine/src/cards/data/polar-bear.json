@@ -1,0 +1,22 @@
+{
+  "id": "polar-bear",
+  "name": "Oso polar",
+  "type": "animal",
+  "species": "polar-bear",
+  "marketCost": 7,
+  "victoryPoints": 0,
+  "text": "Al final de la partida, +1PV por cada animal terrestre que tengas en todo tu mazo.",
+  "effects": [
+    {
+      "trigger": "onScore",
+      "type": "scorePerHabitatCount",
+      "params": {
+        "habitat": "land",
+        "multiplier": 1
+      }
+    }
+  ],
+  "habitats": [
+    "land"
+  ]
+}
