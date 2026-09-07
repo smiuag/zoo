@@ -4,7 +4,7 @@ import { CardView } from './components/CardView';
 import { buyAnimalActionFor, buyCoinActionFor, playCardActionsFor } from './lib/actionQuery';
 import { BOT_ALGORITHM_OPTIONS } from './lib/botAlgorithms';
 import { buildPlayCardTargetChoice, type PendingChoice } from './lib/pendingChoice';
-import { useGame, type BotAlgorithm } from './state/useGame';
+import { ROUND_LIMIT_OPTIONS, useGame, type BotAlgorithm, type RoundLimit } from './state/useGame';
 
 const PURCHASABLE_COIN_IDS = ['coin-2', 'coin-3'];
 
@@ -17,10 +17,12 @@ export default function App() {
     scores,
     canRestartTurn,
     botAlgorithms,
+    roundLimit,
     doAction,
     restart,
     restartTurn,
     setBotAlgorithm,
+    setRoundLimit,
   } = useGame();
   const human = state.players.find((p) => p.id === humanId)!;
   const bots = state.players.filter((p) => p.id !== humanId);
@@ -164,10 +166,22 @@ export default function App() {
                 <span className="status-pill status-pill--over">Partida terminada</span>
               ) : (
                 <span className="status-pill">
-                  Turno {state.turn} —{' '}
+                  Ronda {state.round}/{state.maxRounds ?? '∞'} —{' '}
                   {humanTurn ? 'tu turno' : `esperando a ${state.players.find((p) => p.id === getActiveId(state))?.name}`}
                 </span>
               )}
+              <select
+                className="bot-algorithm-select"
+                value={roundLimit}
+                onChange={(e) => setRoundLimit(Number(e.target.value) as RoundLimit)}
+                title="Duración de la próxima partida nueva (no afecta a la partida en curso)"
+              >
+                {ROUND_LIMIT_OPTIONS.map((rounds) => (
+                  <option key={rounds} value={rounds}>
+                    {rounds} rondas
+                  </option>
+                ))}
+              </select>
               <button className="btn btn--ghost" onClick={restart}>
                 ↺ Nueva partida
               </button>
@@ -246,7 +260,7 @@ export default function App() {
                 {pendingChoice.options.map((opt, i) => (
                   <button
                     key={i}
-                    className="btn btn--primary"
+                    className={['btn', 'btn--primary', opt.accentClassName].filter(Boolean).join(' ')}
                     disabled={!opt.action && !opt.next}
                     onClick={() => chooseOption(opt)}
                   >
@@ -274,7 +288,6 @@ export default function App() {
                   remainingLabel={String((state.sharedDecks[card.species ?? ''] ?? []).length + 1)}
                 />
               ))}
-              <div className="card-row__gap" aria-hidden="true" />
               {PURCHASABLE_COIN_IDS.map((coinId) => {
                 const card = { ...getCard(coinId), instanceId: coinId } as CardInstance;
                 return (

@@ -123,13 +123,6 @@ body {
   max-width: calc(7 * var(--card-w) + 6 * 0.6rem);
 }
 
-/* Hueco del ancho de 1 carta entre los animales y las monedas dentro del
-   mismo mercado, para separarlas visualmente sin un panel aparte. */
-.card-row__gap {
-  flex: 0 0 var(--card-w);
-  height: 1px;
-}
-
 /* ---------- Controles de turno (carrito, terminar/reiniciar turno) ---------- */
 
 .turn-controls {
@@ -260,6 +253,22 @@ body {
 
 .action-list .btn {
   width: 100%;
+}
+
+/* Franja de color a la izquierda según el tipo del objetivo (mismo código
+   de color que las cartas): estas opciones son solo texto, sin la carta
+   visual, así que sin esto se pierde esa pista de un vistazo. */
+.action-list .btn.card--land {
+  border-left: 5px solid var(--land);
+}
+.action-list .btn.card--bird {
+  border-left: 5px solid var(--bird);
+}
+.action-list .btn.card--aquatic {
+  border-left: 5px solid var(--aquatic);
+}
+.action-list .btn.card--coin {
+  border-left: 5px solid #b8860b;
 }
 
 /* Edificios que ya tienes construidos: ocupan menos sitio, ya que se

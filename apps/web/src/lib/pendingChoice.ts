@@ -1,19 +1,30 @@
 import type { Action, CardInstance, GameState, Player } from '@zoo/engine';
 import { targetLabel } from './actionQuery';
+import { findAnywhere } from './actionLabels';
+import { cardAccentClass } from './cardVisuals';
 
 // Menú contextual genérico: un título + opciones. Cada opción o bien
 // aplica una acción directamente, o bien (si trae `next`) abre un segundo
 // menú contextual encadenado — solo lo necesita el Flamenco: primero elige
 // qué animal de su mano devuelve, y esa elección abre un segundo menú para
-// elegir qué animal del mercado coge a cambio.
+// elegir qué animal del mercado coge a cambio. `accentClassName` (si el
+// objetivo es una carta localizable) es la misma clase de color por tipo
+// que usa CardView, para que este menú de solo texto no pierda esa pista
+// visual.
 export interface ChoiceOption {
   label: string;
   action?: Action;
   next?: PendingChoice;
+  accentClassName?: string;
 }
 export interface PendingChoice {
   title: string;
   options: ChoiceOption[];
+}
+
+function accentClassFor(state: GameState, player: Player, targetInstanceId: string): string | undefined {
+  const card = findAnywhere(state, player, targetInstanceId);
+  return card ? cardAccentClass(card) : undefined;
 }
 
 export function buildPlayCardTargetChoice(
@@ -37,17 +48,20 @@ export function buildPlayCardTargetChoice(
 
   const options: ChoiceOption[] = [...bySource.entries()].map(([sourceId, group]) => {
     const label = targetLabel(state, player, sourceId);
+    const accentClassName = accentClassFor(state, player, sourceId);
     const hasSecondaryChoice = group.some((a) => a.secondaryTargetInstanceId);
     if (!hasSecondaryChoice) {
-      return { label, action: group[0] };
+      return { label, action: group[0], accentClassName };
     }
     return {
       label: `${label} →`,
+      accentClassName,
       next: {
         title: `¿Qué animal coges a cambio de ${label}?`,
         options: group.map((a) => ({
           label: targetLabel(state, player, a.secondaryTargetInstanceId ?? ''),
           action: a,
+          accentClassName: accentClassFor(state, player, a.secondaryTargetInstanceId ?? ''),
         })),
       },
     };

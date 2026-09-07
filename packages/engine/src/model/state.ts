@@ -39,6 +39,17 @@ export interface GameState {
   players: Player[];
   activePlayerIndex: number;
   turn: number;
+  // Número de ronda actual (empieza en 1): una ronda es 1 turno de CADA
+  // jugador. Se incrementa cada vez que el turno vuelve a empezar por el
+  // primer jugador (índice 0, que siempre empieza la partida). Distinto de
+  // `turn`, que cuenta turnos individuales (1 por jugador y ronda).
+  round: number;
+  // Duración elegida de la partida en rondas (15/30/50), o null para usar
+  // solo el criterio de siempre (agotar mazos compartidos, ver
+  // finalRoundTriggerPlayerIndex). Si se fija, la partida termina al
+  // completarse esta ronda aunque los mazos no se hayan agotado — ver
+  // endTurn en engine.ts.
+  maxRounds: number | null;
   log: string[];
   // Contador global para generar instanceId únicos al acuñar cartas nuevas
   // (mazo inicial, capturas, monedas ganadas, etc.).

@@ -54,6 +54,14 @@ export interface CreatePlayerConfig {
   deck: Card[];
 }
 
+export interface CreateGameOptions {
+  // Duración de la partida en rondas (una ronda = 1 turno de cada
+  // jugador). Si se omite o es null, la partida solo termina cuando se
+  // agoten 5 mazos compartidos (ver FINAL_ROUND_EMPTY_DECK_THRESHOLD),
+  // como hasta ahora.
+  maxRounds?: number | null;
+}
+
 export type Action =
   // Se resuelve el efecto onPlay de la carta y va al descarte.
   // "targetInstanceId" solo aplica a los pocos efectos que necesitan elegir
@@ -202,11 +210,13 @@ function canBuySpecies(player: Player, animal: CardInstance): boolean {
   return !animal.species || !player.boughtSpeciesThisTurn.includes(animal.species);
 }
 
-export function createGame(playerConfigs: CreatePlayerConfig[]): GameState {
+export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateGameOptions = {}): GameState {
   const state: GameState = {
     players: [],
     activePlayerIndex: 0,
     turn: 1,
+    round: 1,
+    maxRounds: options.maxRounds ?? null,
     log: [],
     nextInstanceId: 0,
     sharedDecks: {},
@@ -455,11 +465,20 @@ export function endTurn(state: GameState, playerId: string): void {
 
   const nextIndex = (state.activePlayerIndex + 1) % state.players.length;
   state.turn += 1;
+  // El turno vuelve a empezar por el primer jugador (índice 0, siempre
+  // quien arranca la partida): esa vuelta completa es una ronda más.
+  const startingNewRound = nextIndex === 0;
+  if (startingNewRound) state.round += 1;
 
-  // Si algún mazo se agotó en algún momento de esta vuelta, la partida
-  // termina en cuanto le tocaría jugar de nuevo a quien lo disparó (todos
+  // La partida termina por lo primero que ocurra: se agota la duración
+  // elegida (maxRounds, si se fijó una) tras completar esa ronda, o algún
+  // mazo compartido se agotó en algún momento de esta vuelta (entonces
+  // termina en cuanto le tocaría jugar de nuevo a quien lo disparó: todos
   // los demás ya han tenido su turno extra).
-  if (state.finalRoundTriggerPlayerIndex !== null && nextIndex === state.finalRoundTriggerPlayerIndex) {
+  const roundLimitReached = state.maxRounds !== null && startingNewRound && state.round > state.maxRounds;
+  const deckDepletionReached =
+    state.finalRoundTriggerPlayerIndex !== null && nextIndex === state.finalRoundTriggerPlayerIndex;
+  if (roundLimitReached || deckDepletionReached) {
     state.activePlayerIndex = nextIndex;
     state.gameOver = true;
     state.log.push('Fin de la partida.');

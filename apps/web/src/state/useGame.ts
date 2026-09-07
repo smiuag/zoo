@@ -51,6 +51,15 @@ const BOT_REGISTRY: Record<BotAlgorithm, Bot> = {
 
 const DEFAULT_BOT_ALGORITHM: BotAlgorithm = 'rl';
 
+// Duraciones de partida seleccionables (en rondas: 1 turno de cada
+// jugador). No hay opción "sin límite" a propósito: el motor siempre
+// termina, como mucho, al agotarse 5 mazos compartidos (ver
+// FINAL_ROUND_EMPTY_DECK_THRESHOLD en engine.ts), pero eso puede tardar
+// mucho — esto le da al jugador control real sobre cuánto dura.
+export const ROUND_LIMIT_OPTIONS = [15, 30, 50] as const;
+export type RoundLimit = (typeof ROUND_LIMIT_OPTIONS)[number];
+const DEFAULT_ROUND_LIMIT: RoundLimit = 30;
+
 // Por defecto, cada hueco es un bot RL distinto (el generalista + los 3
 // especialistas de hábitat): una partida nueva ya enfrenta a los 4 sin
 // tener que tocar los desplegables.
@@ -105,15 +114,18 @@ function postGameLog(lines: string[], clear = false): void {
   );
 }
 
-function newGame(): GameState {
-  return createGame([
-    { id: HUMAN_ID, name: 'Tú', deck: buildStarterDeck() },
-    ...Array.from({ length: BOT_COUNT }, (_, i) => ({
-      id: `bot-${i}`,
-      name: `Bot ${i + 1}`,
-      deck: buildStarterDeck(),
-    })),
-  ]);
+function newGame(maxRounds: RoundLimit): GameState {
+  return createGame(
+    [
+      { id: HUMAN_ID, name: 'Tú', deck: buildStarterDeck() },
+      ...Array.from({ length: BOT_COUNT }, (_, i) => ({
+        id: `bot-${i}`,
+        name: `Bot ${i + 1}`,
+        deck: buildStarterDeck(),
+      })),
+    ],
+    { maxRounds }
+  );
 }
 
 export interface UseGame {
@@ -124,14 +136,20 @@ export interface UseGame {
   scores: PlayerScore[];
   canRestartTurn: boolean;
   botAlgorithms: Record<string, BotAlgorithm>;
+  roundLimit: RoundLimit;
   doAction: (action: Action) => void;
   restart: () => void;
   restartTurn: () => void;
   setBotAlgorithm: (botId: string, algorithm: BotAlgorithm) => void;
+  // Solo cambia la duración elegida para la PRÓXIMA partida nueva (no
+  // afecta a la que está en curso: cambiar `state.maxRounds` a mitad de
+  // partida podría dejarla ya "caducada" de golpe si ya se jugaron más
+  // rondas que el nuevo límite).
+  setRoundLimit: (rounds: RoundLimit) => void;
 }
 
 export function useGame(): UseGame {
-  const stateRef = useRef<GameState>(newGame());
+  const stateRef = useRef<GameState>(newGame(DEFAULT_ROUND_LIMIT));
   // Foto del estado tal cual estaba al EMPEZAR el turno humano actual (antes
   // de cualquier acción suya), para poder deshacerlo entero con "reiniciar
   // turno". Se clona (no solo se guarda la referencia) porque el motor muta
@@ -144,6 +162,7 @@ export function useGame(): UseGame {
   const [, setTick] = useState(0);
   const rerender = () => setTick((t) => t + 1);
   const [botAlgorithms, setBotAlgorithms] = useState<Record<string, BotAlgorithm>>(defaultBotAlgorithms);
+  const [roundLimit, setRoundLimit] = useState<RoundLimit>(DEFAULT_ROUND_LIMIT);
 
   const state = stateRef.current;
 
@@ -234,7 +253,7 @@ export function useGame(): UseGame {
   }
 
   function restart() {
-    stateRef.current = newGame();
+    stateRef.current = newGame(roundLimit);
     turnSnapshotRef.current = null;
     postGameLog(['=== Nueva partida (reinicio) ==='], true);
     rerender();
@@ -262,9 +281,11 @@ export function useGame(): UseGame {
     scores,
     canRestartTurn,
     botAlgorithms,
+    roundLimit,
     doAction,
     restart,
     restartTurn,
     setBotAlgorithm,
+    setRoundLimit,
   };
 }

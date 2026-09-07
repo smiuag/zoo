@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { buyAnimal, createGame, endTurn, getActivePlayer, getLegalActions, playCard } from '../src/engine';
+import { buyAnimal, createGame, endTurn, getActivePlayer, getLegalActions, playCard, type CreateGameOptions } from '../src/engine';
 import { getCard } from '../src/cards/registry';
 import { buildStarterDeck } from './helpers';
 
-function setup(numPlayers: number) {
+function setup(numPlayers: number, options?: CreateGameOptions) {
   const players = Array.from({ length: numPlayers }, (_, i) => ({
     id: `p${i + 1}`,
     name: `Jugador ${i + 1}`,
     deck: buildStarterDeck(),
   }));
-  return createGame(players);
+  return createGame(players, options);
 }
 
 describe('fin de partida (5 mazos compartidos agotados)', () => {
@@ -93,5 +93,49 @@ describe('fin de partida (5 mazos compartidos agotados)', () => {
     buyAnimal(state, player.id, trackCard.instanceId);
 
     expect(state.finalRoundTriggerPlayerIndex).toBe(state.activePlayerIndex);
+  });
+});
+
+describe('fin de partida (duración elegida en rondas)', () => {
+  it('sin maxRounds, el comportamiento es el de siempre: sin límite, y la ronda sube igualmente', () => {
+    const state = setup(3);
+    expect(state.maxRounds).toBeNull();
+    expect(state.round).toBe(1);
+
+    endTurn(state, 'p1'); // p1 -> p2, sigue en la ronda 1
+    expect(state.round).toBe(1);
+    endTurn(state, 'p2'); // p2 -> p3, sigue en la ronda 1
+    expect(state.round).toBe(1);
+    endTurn(state, 'p3'); // p3 -> p1: empieza la ronda 2
+    expect(state.round).toBe(2);
+    expect(state.gameOver).toBe(false);
+  });
+
+  it('con maxRounds fijado, la partida termina justo al completar esa ronda, dando a todos el mismo número de turnos', () => {
+    const state = setup(3, { maxRounds: 2 });
+
+    endTurn(state, 'p1'); // ronda 1: p1 -> p2
+    endTurn(state, 'p2'); // ronda 1: p2 -> p3
+    endTurn(state, 'p3'); // p3 -> p1: empieza la ronda 2
+    expect(state.round).toBe(2);
+    expect(state.gameOver).toBe(false);
+
+    endTurn(state, 'p1'); // ronda 2: p1 -> p2
+    endTurn(state, 'p2'); // ronda 2: p2 -> p3
+    expect(state.gameOver).toBe(false);
+    endTurn(state, 'p3'); // p3 -> volvería a p1 para la ronda 3: fin de partida
+    expect(state.gameOver).toBe(true);
+    expect(getActivePlayer(state).id).toBe('p1');
+  });
+
+  it('si los mazos se agotan antes de llegar a maxRounds, la partida termina igualmente (lo que ocurra antes)', () => {
+    const state = setup(2, { maxRounds: 50 });
+    state.finalRoundTriggerPlayerIndex = 0;
+
+    endTurn(state, 'p1'); // p1 -> p2, ronda final por mazos agotados
+    expect(state.gameOver).toBe(false);
+    endTurn(state, 'p2'); // p2 -> volvería a p1 (quien lo disparó): fin de partida
+    expect(state.gameOver).toBe(true);
+    expect(state.round).toBeLessThan(50);
   });
 });
