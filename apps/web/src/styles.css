@@ -198,8 +198,19 @@ body {
   align-items: center;
   padding: 0.4rem 0.4rem 0.8rem;
   position: relative;
+  z-index: 0;
   user-select: none;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* El tooltip (ver .card__tooltip) puede sobresalir hacia una carta vecina
+   (fila de abajo/arriba). Sin esto, esa vecina -con su propio z-index:0 y
+   la MISMA especificidad- podía pintarse encima según el orden en el DOM.
+   Al pasar la carta activa a z-index:30 en hover, ella (y su tooltip)
+   ganan siempre a cualquier otra carta sin tocar el z-index del tooltip
+   en sí. */
+.card:hover {
+  z-index: 30;
 }
 
 /* Un color de fondo + borde distinto según el tipo (hábitat del animal, o
@@ -392,6 +403,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* PRUEBA Twemoji (ver CardView): tamaño equivalente al font-size de arriba
+   para que ocupe el mismo hueco que el emoji de texto que sustituye. */
+.card__icon-img {
+  width: 3.4rem;
+  height: 3.4rem;
+}
+.card--compact .card__icon-img {
+  width: 1.7rem;
+  height: 1.7rem;
 }
 
 .card__name {

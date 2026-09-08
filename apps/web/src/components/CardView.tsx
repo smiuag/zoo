@@ -1,5 +1,18 @@
+import { useState } from 'react';
 import type { CardInstance } from '@zoo/engine';
-import { cardAccentClass, cardIcon, habitatLabel } from '../lib/cardVisuals';
+import { cardAccentClass, cardIcon, habitatLabel, supportsEmojiNatively, twemojiUrl } from '../lib/cardVisuals';
+
+// PRUEBA: si ESTE sistema ya tiene un glifo de verdad para el emoji (ver
+// supportsEmojiNatively), se usa el carácter nativo tal cual — cada uno ve
+// el emoji con la fuente/estilo de su propio sistema. Solo si no lo tiene
+// (glifo "tofu"/vacío) se cae al SVG de Twemoji como respaldo consistente,
+// y si ni eso llega a cargar (sin red...), al carácter de texto de todos
+// modos (mejor un tofu que un hueco vacío).
+function EmojiIcon({ emoji }: { emoji: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed || supportsEmojiNatively(emoji)) return <>{emoji}</>;
+  return <img className="card__icon-img" src={twemojiUrl(emoji)} alt={emoji} draggable={false} onError={() => setFailed(true)} />;
+}
 
 interface CardViewProps {
   card: CardInstance;
@@ -38,7 +51,9 @@ export function CardView({ card, onClick, disabled, compact, remainingLabel }: C
           </span>
         )}
       </div>
-      <div className="card__icon">{cardIcon(card)}</div>
+      <div className="card__icon">
+        <EmojiIcon emoji={cardIcon(card)} />
+      </div>
       <div className="card__name">{card.name}</div>
       <div className="card__footer">{bits.join(' · ')}</div>
       {remainingLabel !== undefined && <span className="card__badge">×{remainingLabel}</span>}
