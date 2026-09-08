@@ -56,6 +56,12 @@ function effectBonus(card: CardInstance): number {
       case 'chooseDiscardFromEachOpponent':
         bonus += 1.5;
         break;
+      case 'discardFromEachOpponentAndDrawPerCoin':
+        // Igual que discardFromEachOpponent, más la posibilidad (no
+        // garantizada: depende de si a algún rival le toca descartar
+        // justo una moneda) de robar 1+ cartas extra.
+        bonus += 1.5 + 1;
+        break;
       case 'discardAnimalFromEachOpponent':
         bonus += 2; // tempo (no es destrucción permanente, solo descarte)
         break;

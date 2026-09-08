@@ -12,7 +12,7 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   hippopotamus: { cost: 5, pv: 4 },
   tiger: { cost: 4, pv: 3 },
   lion: { cost: 5, pv: 3 },
-  monkey: { cost: 4, pv: 4 },
+  monkey: { cost: 4, pv: 2 },
   spider: { cost: 3, pv: 3 },
   crocodile: { cost: 5, pv: 7 },
   vulture: { cost: 5, pv: 3 },
@@ -78,7 +78,7 @@ describe('card registry', () => {
   });
 
   it('cada especie con habilidad la tiene registrada; las mudas no tienen efectos', () => {
-    expect(getCard('monkey').effects[0]).toMatchObject({ type: 'discardFromEachOpponent' });
+    expect(getCard('monkey').effects[0]).toMatchObject({ type: 'discardFromEachOpponentAndDrawPerCoin' });
     expect(getCard('vulture').effects[0]).toMatchObject({
       type: 'chooseDiscardFromEachOpponent',
       params: { amount: 2 },

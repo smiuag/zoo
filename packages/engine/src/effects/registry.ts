@@ -76,12 +76,30 @@ registerEffect('drawCards', (_state, player, effect) => {
   drawCards(player, amount);
 });
 
-// Mono: cada rival descarta 1 carta al azar de su mano.
+// Genérico (sin ninguna carta que lo use ahora mismo, pero registrado por
+// si hace falta en el futuro): cada rival descarta 1 carta al azar de su
+// mano. El Mono usaba esto, pero ahora usa la variante de abajo, que
+// además te da un robo por cada moneda descartada así.
 registerEffect('discardFromEachOpponent', (state, player) => {
   for (const opponent of otherPlayers(state, player)) {
     const card = takeRandomFromHand(opponent);
     if (card) opponent.discard.push(card);
   }
+});
+
+// Mono: cada rival descarta 1 carta al azar de su mano (igual que antes),
+// y TÚ robas 1 carta por cada rival cuya carta descartada al azar resultara
+// ser una moneda (no cuenta si le tocó descartar un animal). Con varios
+// rivales puedes robar más de 1 carta en la misma jugada.
+registerEffect('discardFromEachOpponentAndDrawPerCoin', (state, player) => {
+  let coinsDiscarded = 0;
+  for (const opponent of otherPlayers(state, player)) {
+    const card = takeRandomFromHand(opponent);
+    if (!card) continue;
+    opponent.discard.push(card);
+    if (card.type === 'coin') coinsDiscarded += 1;
+  }
+  if (coinsDiscarded > 0) drawCards(player, coinsDiscarded);
 });
 
 // Buitre: cada rival elige y descarta `amount` cartas (por defecto 1) de su
