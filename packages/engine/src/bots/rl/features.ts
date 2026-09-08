@@ -32,7 +32,7 @@ const EFFECT_TYPES = [
   'scorePerHabitatCount',
   'scorePerDistinctSpecies',
   'scoreBonusIfSpeciesCountAtLeast',
-  'destroyWeakestAquaticOnScore',
+  'destroyWeakestNonFlyingFromDeckOnScore',
 ] as const;
 
 const MAX_OPPONENTS = 3;

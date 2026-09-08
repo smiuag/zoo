@@ -399,39 +399,36 @@ registerScoreEffect('scoreBonusIfSpeciesCountAtLeast', (_player, effect, allCard
 // Efectos onScore que ELIMINAN cartas de la colección (solo el Cocodrilo,
 // de momento): scorePlayer los resuelve en una fase previa, antes de sumar
 // ningún PV, para que lo que destruyan no llegue a puntuar.
-export const DESTRUCTIVE_SCORE_EFFECT_TYPES = new Set(['destroyWeakestAquaticOnScore']);
+export const DESTRUCTIVE_SCORE_EFFECT_TYPES = new Set(['destroyWeakestNonFlyingFromDeckOnScore']);
 
-function weakestAquatic(
-  player: Player,
-  sourceCard: CardInstance,
-  excludeSelf: boolean
-): { zone: CardInstance[]; idx: number } | null {
-  const zones = [player.deck, player.hand, player.discard];
-  let bestZone: CardInstance[] | null = null;
+// Solo mira el MAZO (player.deck: lo que no se llegó a robar), a diferencia
+// del antiguo weakestAquatic que buscaba en toda la colección. "No volador"
+// = sin hábitat "bird" (puede tener land y/o aquatic, incluso ambos a la
+// vez, como el propio Cocodrilo o el Hipopótamo).
+function weakestNonFlyingInDeck(player: Player, sourceCard: CardInstance, excludeSelf: boolean): number | null {
   let bestIdx = -1;
   let bestPv = Infinity;
-  for (const zone of zones) {
-    for (let i = 0; i < zone.length; i++) {
-      const c = zone[i];
-      if (c.type !== 'animal' || !c.habitats?.includes('aquatic')) continue;
-      if (excludeSelf && c.instanceId === sourceCard.instanceId) continue;
-      if (c.victoryPoints < bestPv) {
-        bestPv = c.victoryPoints;
-        bestZone = zone;
-        bestIdx = i;
-      }
+  for (let i = 0; i < player.deck.length; i++) {
+    const c = player.deck[i];
+    if (c.type !== 'animal' || c.habitats?.includes('bird')) continue;
+    if (excludeSelf && c.instanceId === sourceCard.instanceId) continue;
+    if (c.victoryPoints < bestPv) {
+      bestPv = c.victoryPoints;
+      bestIdx = i;
     }
   }
-  return bestZone && bestIdx !== -1 ? { zone: bestZone, idx: bestIdx } : null;
+  return bestIdx !== -1 ? bestIdx : null;
 }
 
-// Cocodrilo: al final de la partida, ANTES de puntuar, destruye el animal
-// acuático de menor PV de tu colección entera. Prefiere destruir OTRO
-// acuático si tienes alguno; solo se destruye a SÍ MISMO cuando es tu único
-// acuático (antes se salvaba gratis en ese caso). No suma PV directamente:
-// su "coste" es que esa otra carta (o él mismo) deja de contar para nada.
-registerScoreEffect('destroyWeakestAquaticOnScore', (player, _effect, _allCards, sourceCard) => {
-  const target = weakestAquatic(player, sourceCard, true) ?? weakestAquatic(player, sourceCard, false);
-  if (target) target.zone.splice(target.idx, 1);
+// Cocodrilo: al final de la partida, ANTES de puntuar, elimina de tu MAZO
+// (no de la mano ni del descarte) una carta de animal no volador de menor
+// PV. Prefiere destruir OTRA carta si el mazo tiene alguna elegible; solo
+// se destruye a SÍ MISMO cuando es la única en el mazo. Si el mazo no tiene
+// ningún animal no volador (incluido él mismo), no pasa nada. No suma PV
+// directamente: su "coste" es que esa otra carta (o él mismo) deja de
+// contar para nada.
+registerScoreEffect('destroyWeakestNonFlyingFromDeckOnScore', (player, _effect, _allCards, sourceCard) => {
+  const idx = weakestNonFlyingInDeck(player, sourceCard, true) ?? weakestNonFlyingInDeck(player, sourceCard, false);
+  if (idx !== null) player.deck.splice(idx, 1);
   return 0;
 });
