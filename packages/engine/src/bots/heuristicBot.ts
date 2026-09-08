@@ -146,6 +146,26 @@ function targetPlayerBonus(state: GameState, player: Player, card: CardInstance,
   return 0;
 }
 
+// Desempate entre las variantes del Tigre que solo difieren en qué carta
+// se deja encima del mazo (drawThenTopdeck, ver drawThenTopdeckActions en
+// engine.ts: una variante por cada carta de la mano resultante tras
+// robar). Sin esto, todas puntuarían igual (effectBonus no distingue el
+// target) y el bot se quedaría con una al azar en vez de con la peor
+// -antes esto lo decidía el propio motor por su cuenta (worstCardIndex);
+// ahora que el jugador elige, el bot necesita su propio criterio-.
+// El target puede estar ya en la mano o todavía en el mazo (a punto de
+// robarse): se busca en ambos. Igual de pequeño a propósito que
+// targetPlayerBonus: solo debe decidir ENTRE targets, nunca hacer que
+// jugar la carta valga más que otra acción distinta.
+function drawThenTopdeckTargetBonus(sourceCard: CardInstance, player: Player, targetInstanceId: string | undefined): number {
+  if (!targetInstanceId) return 0;
+  if (!sourceCard.effects.some((e) => e.type === 'drawThenTopdeck')) return 0;
+  const card = findInHand(player, targetInstanceId) ?? player.deck.find((c) => c.instanceId === targetInstanceId);
+  if (!card) return 0;
+  const worth = card.type === 'coin' ? (card.value ?? 0) : card.victoryPoints;
+  return -worth * 0.3;
+}
+
 function scoreAction(state: GameState, player: Player, action: Action): number {
   switch (action.type) {
     case 'buyAnimal': {
@@ -170,7 +190,12 @@ function scoreAction(state: GameState, player: Player, action: Action): number {
     case 'playCard': {
       const card = findInHand(player, action.instanceId);
       if (!card) return -Infinity;
-      return 100 + effectBonus(card) + targetPlayerBonus(state, player, card, action.targetPlayerId);
+      return (
+        100 +
+        effectBonus(card) +
+        targetPlayerBonus(state, player, card, action.targetPlayerId) +
+        drawThenTopdeckTargetBonus(card, player, action.targetInstanceId)
+      );
     }
 
     case 'endTurn':

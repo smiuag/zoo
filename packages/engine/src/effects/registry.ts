@@ -144,12 +144,18 @@ registerEffect('gainAquaticOnlyBonusPurchasingPower', (_state, player, effect) =
   player.aquaticBonusPurchasingPowerThisTurn += amount;
 });
 
-// Tigre: roba 2 cartas y luego elige 1 para dejar encima del mazo otra vez
-// (no al azar: se queda la peor de la mano, ver worstCardIndex).
-registerEffect('drawThenTopdeck', (_state, player, effect) => {
+// Tigre: roba `drawAmount` cartas (por defecto 2) y luego deja 1 de la
+// mano (context.targetInstanceId, elegida por el jugador entre TODA la
+// mano resultante tras robar — ver drawThenTopdeckActions en engine.ts,
+// que simula el robo de antemano para ofrecer esas opciones) encima del
+// mazo otra vez. Si por lo que sea no llega ningún target (llamada directa
+// sin pasar por getLegalActions), el robo se hace igual pero no se deja
+// nada encima del mazo.
+registerEffect('drawThenTopdeck', (_state, player, effect, context) => {
   const drawAmount = typeof effect.params?.drawAmount === 'number' ? effect.params.drawAmount : 2;
   drawCards(player, drawAmount);
-  const idx = worstCardIndex(player.hand);
+  if (!context.targetInstanceId) return;
+  const idx = player.hand.findIndex((c) => c.instanceId === context.targetInstanceId);
   if (idx === -1) return;
   const [card] = player.hand.splice(idx, 1);
   player.deck.push(card);

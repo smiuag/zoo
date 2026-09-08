@@ -130,7 +130,24 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(canAffordMarket(player, getCard('coin-2').marketCost ?? 0)).toBe(false);
   });
 
-  it('tigre: roba 2 cartas y deja 1 encima del mazo', () => {
+  it('tigre: roba 2 cartas y deja la elegida por el jugador encima del mazo', () => {
+    const { state, player } = setupClean();
+    const drawn1 = freshInstance('coin-1', 'd1');
+    const drawn2 = freshInstance('coin-2', 'd2');
+    player.deck = [drawn1, drawn2]; // drawCards hace pop(): se roban en orden inverso (d2, luego d1)
+    const tiger = freshInstance('tiger', 'test');
+    player.hand = [tiger];
+
+    playCard(state, player.id, tiger.instanceId, drawn1.instanceId);
+
+    // Robó las 2, dejó d1 encima del mazo -> se queda con d2 en mano.
+    expect(player.hand).toHaveLength(1);
+    expect(player.hand[0].instanceId).toBe(drawn2.instanceId);
+    expect(player.deck).toHaveLength(1);
+    expect(player.deck[0].instanceId).toBe(drawn1.instanceId);
+  });
+
+  it('tigre: sin elegir cuál dejar (llamada directa sin pasar por getLegalActions), roba igual pero no deja nada encima', () => {
     const { state, player } = setupClean();
     player.deck = [freshInstance('coin-1', 'd1'), freshInstance('coin-2', 'd2')];
     const tiger = freshInstance('tiger', 'test');
@@ -138,9 +155,26 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
     playCard(state, player.id, tiger.instanceId);
 
-    // Robó 2, dejó 1 encima del mazo -> se queda con 1 carta nueva en mano.
-    expect(player.hand).toHaveLength(1);
-    expect(player.deck).toHaveLength(1);
+    expect(player.hand).toHaveLength(2);
+    expect(player.deck).toHaveLength(0);
+  });
+
+  it('tigre: getLegalActions ofrece elegir entre la mano ya existente y las cartas que todavía están por robar', () => {
+    const { state, player } = setupClean();
+    const existing = freshInstance('lion', 'existing'); // ya en mano antes de jugar el tigre
+    const drawn1 = freshInstance('coin-1', 'd1');
+    const drawn2 = freshInstance('coin-2', 'd2');
+    player.deck = [drawn1, drawn2];
+    const tiger = freshInstance('tiger', 'test');
+    player.hand = [tiger, existing];
+
+    const actions = getLegalActions(state, player.id);
+    const targets = actions
+      .filter((a): a is Extract<typeof a, { type: 'playCard' }> => a.type === 'playCard' && a.instanceId === tiger.instanceId)
+      .map((a) => a.targetInstanceId)
+      .sort();
+
+    expect(targets).toEqual([existing.instanceId, drawn1.instanceId, drawn2.instanceId].sort());
   });
 
   it('foca: gana 1 moneda extra por cada animal acuático en su mano al jugarla (se cuenta a sí misma)', () => {

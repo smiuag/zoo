@@ -425,6 +425,29 @@ function returnAnimalForUpgradeActions(state: GameState, player: Player, card: C
   return actions;
 }
 
+// Genera las variantes de "playCard" para el Tigre (o cualquier otra carta
+// que use drawThenTopdeck): una por cada carta de la mano que resultaría
+// DESPUÉS de robar, para elegir cuál se deja encima del mazo. Como el
+// robo es determinista (el mazo ya está barajado; solo "es aleatorio" en
+// el sentido de que el jugador no lo ve de antemano), se simula sobre una
+// copia de deck/hand/discard — nunca sobre el player real — para saber
+// exactamente qué mano resultaría (incluido un posible rebarajado del
+// descarte si el mazo se queda corto a mitad del robo) sin mutar la
+// partida de verdad. drawThenTopdeck ya no elige la peor por su cuenta:
+// el jugador ve estas opciones en un menú, igual que el Elefante o el
+// Flamenco.
+function drawThenTopdeckActions(player: Player, card: CardInstance, effect: Effect): Action[] {
+  const drawAmount = typeof effect.params?.drawAmount === 'number' ? effect.params.drawAmount : 2;
+  const preview: Player = { ...player, deck: [...player.deck], hand: [...player.hand], discard: [...player.discard] };
+  drawCards(preview, drawAmount);
+  // El propio Tigre sigue en preview.hand (todavía no lo ha sacado
+  // playCard, eso pasa después de elegir la acción): no tiene sentido
+  // ofrecer "dejar el Tigre encima del mazo" como opción, así que se excluye.
+  return preview.hand
+    .filter((c) => c.instanceId !== card.instanceId)
+    .map((c) => ({ type: 'playCard', instanceId: card.instanceId, targetInstanceId: c.instanceId }));
+}
+
 export function getLegalActions(state: GameState, playerId: string): Action[] {
   if (state.gameOver) return [];
   const player = state.players.find((p) => p.id === playerId);
@@ -439,6 +462,12 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
     const returnForUpgrade = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'returnAnimalForUpgrade');
     if (returnForUpgrade) {
       actions.push(...returnAnimalForUpgradeActions(state, player, card, returnForUpgrade));
+      continue;
+    }
+
+    const drawThenTopdeck = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'drawThenTopdeck');
+    if (drawThenTopdeck) {
+      actions.push(...drawThenTopdeckActions(player, card, drawThenTopdeck));
       continue;
     }
 
