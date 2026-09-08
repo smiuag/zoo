@@ -27,7 +27,7 @@ const EFFECT_TYPES = [
   'gainFlatBonusPurchasingPower',
   'gainBonusPurchasingPowerPerHabitatInHand',
   'discardAnimalFromEachOpponent',
-  'stealCoinFromRightNeighbor',
+  'stealCoinFromChosenPlayer',
   'returnAnimalForUpgrade',
   'scorePerHabitatCount',
   'scorePerDistinctSpecies',

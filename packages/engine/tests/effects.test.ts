@@ -254,18 +254,17 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(coins[0].value).toBe(2);
   });
 
-  it('jirafa: el jugador a tu izquierda recibe un Perezoso NUEVO de la reserva encima de su mazo, y ganas 1 de valor de compra', () => {
+  it('jirafa: el jugador que elijas recibe un Perezoso NUEVO de la reserva encima de su mazo, y ganas 1 de valor de compra', () => {
     const { state, player, opponent } = setupClean();
     const giraffe = freshInstance('giraffe', 'test');
     player.hand = [giraffe];
-    // opponent es el siguiente jugador en el orden de turno (índice 1): el
-    // vecino de la izquierda de player (índice 0). No tiene ningún
-    // Perezoso propio: el que recibe sale de la reserva, no de su mazo.
+    // opponent no tiene ningún Perezoso propio: el que recibe sale de la
+    // reserva, no de su mazo.
     opponent.deck = [freshInstance('snake', 'n1'), freshInstance('lion', 'l1')];
     const reserveBefore = state.sharedDecks.sloth?.length ?? 0;
     const expectedSloth = state.sharedDecks.sloth?.[reserveBefore - 1];
 
-    playCard(state, player.id, giraffe.instanceId);
+    playCard(state, player.id, giraffe.instanceId, undefined, undefined, opponent.id);
 
     expect(opponent.deck).toHaveLength(3);
     expect(opponent.deck[opponent.deck.length - 1]).toBe(expectedSloth);
@@ -273,13 +272,26 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.bonusPurchasingPowerThisTurn).toBe(1);
   });
 
-  it('jirafa: si la reserva de Perezosos está vacía, no pasa nada al vecino (solo el valor de compra)', () => {
+  it('jirafa: si la reserva de Perezosos está vacía, no pasa nada al elegido (solo el valor de compra)', () => {
     const { state, player, opponent } = setupClean();
     const giraffe = freshInstance('giraffe', 'test');
     player.hand = [giraffe];
     opponent.deck = [freshInstance('snake', 'n1')];
     const deckBefore = [...opponent.deck];
     state.sharedDecks.sloth = [];
+
+    playCard(state, player.id, giraffe.instanceId, undefined, undefined, opponent.id);
+
+    expect(opponent.deck).toEqual(deckBefore);
+    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
+  });
+
+  it('jirafa: sin elegir jugador (sin rivales o sin objetivo), no pasa nada al mazo de nadie', () => {
+    const { state, player, opponent } = setupClean();
+    const giraffe = freshInstance('giraffe', 'test');
+    player.hand = [giraffe];
+    opponent.deck = [freshInstance('snake', 'n1')];
+    const deckBefore = [...opponent.deck];
 
     playCard(state, player.id, giraffe.instanceId);
 
@@ -394,7 +406,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(opponent.discard).toHaveLength(2);
   });
 
-  it('pato: el jugador a tu derecha (el anterior en el orden de turno) te da 1 moneda cualquiera de su mano', () => {
+  it('pato: el jugador que elijas te da 1 moneda cualquiera de su mano, y el resto no pierde nada', () => {
     const state = createGame([
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
       { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
@@ -406,24 +418,36 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
       p.discard = [];
     }
     const [p1, p2, p3] = state.players;
-    const leftCoin = freshInstance('coin-1', 'left'); // p2: siguiente en el turno, no debe perder nada
-    p2.hand = [leftCoin];
+    const otherCoin = freshInstance('coin-1', 'other'); // p2: no elegido, no debe perder nada
+    p2.hand = [otherCoin];
     // Moneda de Oro (coin-3, no de Bronce/coin-1): comprueba que ya no está restringido a coin-1.
-    const rightCoin = freshInstance('coin-3', 'right'); // p3: anterior en el turno = "a tu derecha"
-    p3.hand = [rightCoin];
+    const chosenCoin = freshInstance('coin-3', 'chosen'); // p3: elegido como objetivo
+    p3.hand = [chosenCoin];
     const duck = freshInstance('duck', 'test');
     p1.hand = [duck];
 
-    playCard(state, p1.id, duck.instanceId);
+    playCard(state, p1.id, duck.instanceId, undefined, undefined, p3.id);
 
     expect(p3.hand).toHaveLength(0);
-    expect(p1.hand.some((c) => c.instanceId === rightCoin.instanceId)).toBe(true);
+    expect(p1.hand.some((c) => c.instanceId === chosenCoin.instanceId)).toBe(true);
     expect(p2.hand).toHaveLength(1);
   });
 
-  it('pato: si el vecino de la derecha no tiene ninguna moneda, no pierde nada', () => {
+  it('pato: si el jugador elegido no tiene ninguna moneda, no pierde nada', () => {
     const { state, player, opponent } = setupClean();
     opponent.hand = [freshInstance('sloth', 'o1')]; // sin monedas en mano
+    const duck = freshInstance('duck', 'test');
+    player.hand = [duck];
+
+    playCard(state, player.id, duck.instanceId, undefined, undefined, opponent.id);
+
+    expect(opponent.hand).toHaveLength(1);
+    expect(player.hand.filter((c) => c.type === 'coin')).toHaveLength(0);
+  });
+
+  it('pato: sin elegir jugador (sin rivales o sin objetivo), no pasa nada', () => {
+    const { state, player, opponent } = setupClean();
+    opponent.hand = [freshInstance('coin-1', 'o1')];
     const duck = freshInstance('duck', 'test');
     player.hand = [duck];
 
@@ -433,7 +457,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.hand.filter((c) => c.type === 'coin')).toHaveLength(0);
   });
 
-  it('pato: con un único jugador no hace nada (no hay vecino)', () => {
+  it('pato: con un único jugador no hace nada (no hay a quién elegir)', () => {
     const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
     const [p1] = state.players;
     p1.deck = [];

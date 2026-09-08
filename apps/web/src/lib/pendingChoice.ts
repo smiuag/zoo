@@ -35,6 +35,16 @@ export function buildPlayCardTargetChoice(
 ): PendingChoice {
   const playActions = actions.filter((a): a is Extract<Action, { type: 'playCard' }> => a.type === 'playCard');
 
+  // Pato / Jirafa: eligen un JUGADOR, no una carta. Una opción por rival,
+  // sin segundo menú encadenado.
+  if (playActions.some((a) => a.targetPlayerId)) {
+    const options: ChoiceOption[] = playActions.map((a) => ({
+      label: state.players.find((p) => p.id === a.targetPlayerId)?.name ?? '?',
+      action: a,
+    }));
+    return { title: `${card.name}: ¿a qué jugador afecta?`, options };
+  }
+
   // Las variantes con secondaryTargetInstanceId (Flamenco) necesitan un
   // segundo menú: primero se agrupan por targetInstanceId (qué animal
   // propio se devuelve).

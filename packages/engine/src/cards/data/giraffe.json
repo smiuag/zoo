@@ -5,11 +5,11 @@
   "species": "giraffe",
   "marketCost": 3,
   "victoryPoints": 3,
-  "text": "El jugador a tu izquierda pone un Perezoso de la reserva encima de su mazo. Además, añade 1 a tu valor de compra.",
+  "text": "Elige un jugador: pone un Perezoso de la reserva encima de su mazo. Además, añade 1 a tu valor de compra.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "topdeckSlothForLeftNeighbor"
+      "type": "topdeckSlothForChosenPlayer"
     },
     {
       "trigger": "onPlay",

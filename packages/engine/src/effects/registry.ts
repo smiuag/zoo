@@ -19,6 +19,11 @@ export interface EffectContext {
   // Solo lo usa el Flamenco: qué animal del mercado coge a cambio del que
   // devuelve (targetInstanceId). El resto de efectos lo ignora.
   secondaryTargetInstanceId?: string;
+  // Qué jugador (de entre los demás) elige el Pato o la Jirafa como
+  // objetivo de su efecto. engine.ts lo rellena a partir de la elección del
+  // jugador (una variante de la acción "playCard" por rival posible, ver
+  // getLegalActions). El resto de efectos lo ignora.
+  targetPlayerId?: string;
 }
 
 export type EffectHandler = (state: GameState, player: Player, effect: Effect, context: EffectContext) => void;
@@ -247,34 +252,33 @@ registerEffect('discardAnimalFromEachOpponent', (state, player) => {
   }
 });
 
-// Pato: el jugador a tu DERECHA (el anterior en el orden de turno: el
-// turno pasa hacia la izquierda) te da 1 moneda cualquiera de su mano (no
-// tiene que ser de valor 1). Si no tiene ninguna, no pierde nada (en la
-// práctica, "muestra su mano"). Con 1 solo jugador no hay vecino, así que
-// no hace nada.
-registerEffect('stealCoinFromRightNeighbor', (state, player) => {
-  const idx = state.players.findIndex((p) => p.id === player.id);
-  if (idx === -1 || state.players.length < 2) return;
-  const rightNeighbor = state.players[(idx - 1 + state.players.length) % state.players.length];
-  const coinIdx = rightNeighbor.hand.findIndex((c) => c.type === 'coin');
+// Pato: el jugador que elijas (context.targetPlayerId, ver
+// getLegalActions en engine.ts: una variante de la acción por cada rival
+// posible) te da 1 moneda cualquiera de su mano (no tiene que ser de valor
+// 1). Si no tiene ninguna, no pierde nada (en la práctica, "muestra su
+// mano"). Con 1 solo jugador no hay a quién elegir, así que no hace nada.
+registerEffect('stealCoinFromChosenPlayer', (state, player, _effect, context) => {
+  if (!context.targetPlayerId) return;
+  const target = state.players.find((p) => p.id === context.targetPlayerId);
+  if (!target || target.id === player.id) return;
+  const coinIdx = target.hand.findIndex((c) => c.type === 'coin');
   if (coinIdx === -1) return;
-  const [coin] = rightNeighbor.hand.splice(coinIdx, 1);
+  const [coin] = target.hand.splice(coinIdx, 1);
   player.hand.push(coin);
 });
 
-// Jirafa: el jugador a tu IZQUIERDA (el siguiente en el orden de turno: el
-// turno pasa hacia la izquierda, ver stealCoinFromRightNeighbor arriba)
-// recibe un Perezoso NUEVO de la reserva (state.sharedDecks.sloth, ver
-// createGame en engine.ts — no es el mazo de ningún jugador) encima de su
-// propio mazo, así que será lo próximo que robe. Si la reserva ya está
-// vacía, no pasa nada. Con 1 solo jugador no hay vecino, tampoco pasa nada.
-registerEffect('topdeckSlothForLeftNeighbor', (state, player) => {
-  const idx = state.players.findIndex((p) => p.id === player.id);
-  if (idx === -1 || state.players.length < 2) return;
+// Jirafa: el jugador que elijas (context.targetPlayerId) recibe un
+// Perezoso NUEVO de la reserva (state.sharedDecks.sloth, ver createGame en
+// engine.ts — no es el mazo de ningún jugador) encima de su propio mazo,
+// así que será lo próximo que robe. Si la reserva ya está vacía, no pasa
+// nada. Con 1 solo jugador no hay a quién elegir, tampoco pasa nada.
+registerEffect('topdeckSlothForChosenPlayer', (state, player, _effect, context) => {
+  if (!context.targetPlayerId) return;
+  const target = state.players.find((p) => p.id === context.targetPlayerId);
+  if (!target || target.id === player.id) return;
   const sloth = state.sharedDecks['sloth']?.pop();
   if (!sloth) return;
-  const leftNeighbor = state.players[(idx + 1) % state.players.length];
-  leftNeighbor.deck.push(sloth);
+  target.deck.push(sloth);
 });
 
 // Flamenco: devuelve al mazo compartido de su especie el animal elegido

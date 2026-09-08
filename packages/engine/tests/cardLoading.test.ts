@@ -102,7 +102,7 @@ describe('card registry', () => {
       type: 'freeCaptureUpToCost',
       params: { habitat: 'land', maxCost: 5 },
     });
-    expect(getCard('giraffe').effects[0]).toMatchObject({ type: 'topdeckSlothForLeftNeighbor' });
+    expect(getCard('giraffe').effects[0]).toMatchObject({ type: 'topdeckSlothForChosenPlayer' });
     expect(getCard('giraffe').effects[1]).toMatchObject({
       type: 'gainFlatBonusPurchasingPower',
       params: { amount: 1 },
@@ -166,7 +166,7 @@ describe('card registry', () => {
       type: 'gainBonusPurchasingPowerPerHabitatInHand',
       params: { habitat: 'bird' },
     });
-    expect(getCard('duck').effects[0]).toMatchObject({ type: 'stealCoinFromRightNeighbor' });
+    expect(getCard('duck').effects[0]).toMatchObject({ type: 'stealCoinFromChosenPlayer' });
     expect(getCard('flamingo').effects[0]).toMatchObject({ type: 'returnAnimalForUpgrade' });
     expect(getCard('parakeet').effects[0]).toMatchObject({
       trigger: 'onPlay',

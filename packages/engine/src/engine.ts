@@ -69,7 +69,15 @@ export type Action =
   // capturar gratis del mercado; el Flamenco eligiendo qué animal de su
   // mano devolver). "secondaryTargetInstanceId" solo lo usa el Flamenco,
   // para elegir qué animal del mercado coge a cambio; el resto lo ignora.
-  | { type: 'playCard'; instanceId: string; targetInstanceId?: string; secondaryTargetInstanceId?: string }
+  // "targetPlayerId" solo lo usan el Pato y la Jirafa, para elegir a qué
+  // rival afecta su efecto; el resto lo ignora.
+  | {
+      type: 'playCard';
+      instanceId: string;
+      targetInstanceId?: string;
+      secondaryTargetInstanceId?: string;
+      targetPlayerId?: string;
+    }
   // Compra un animal del mercado (animalTrack) pagando su coste. Sin
   // trabajador ni límite por turno.
   | { type: 'buyAnimal'; trackInstanceId: string }
@@ -316,6 +324,12 @@ function requireActivePlayer(state: GameState, playerId: string): Player {
 // Flamenco se trata aparte en getLegalActions porque necesita DOS
 // elecciones encadenadas (qué animal devolver + qué animal coger a
 // cambio), no solo una lista plana de candidatos.
+// Efectos que necesitan elegir un JUGADOR (no una carta) como objetivo: el
+// Pato (de quién robar 1 moneda) y la Jirafa (a quién le cae un Perezoso
+// encima del mazo). Ver PLAYER_TARGETED_EFFECT_TYPES más abajo, en
+// getLegalActions.
+const PLAYER_TARGETED_EFFECT_TYPES = new Set(['stealCoinFromChosenPlayer', 'topdeckSlothForChosenPlayer']);
+
 function targetedEffectCandidates(state: GameState, card: CardInstance): CardInstance[] | null {
   const freeCapture = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'freeCaptureUpToCost');
   if (freeCapture) {
@@ -383,6 +397,21 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
       continue;
     }
 
+    const playerTargeted = card.effects.find(
+      (e) => e.trigger === 'onPlay' && PLAYER_TARGETED_EFFECT_TYPES.has(e.type)
+    );
+    if (playerTargeted) {
+      const otherPlayers = state.players.filter((p) => p.id !== player.id);
+      if (otherPlayers.length > 0) {
+        for (const other of otherPlayers) {
+          actions.push({ type: 'playCard', instanceId: card.instanceId, targetPlayerId: other.id });
+        }
+      } else {
+        actions.push({ type: 'playCard', instanceId: card.instanceId });
+      }
+      continue;
+    }
+
     const candidates = targetedEffectCandidates(state, card);
     if (candidates && candidates.length > 0) {
       for (const candidate of candidates) {
@@ -415,7 +444,8 @@ export function playCard(
   playerId: string,
   instanceId: string,
   targetInstanceId?: string,
-  secondaryTargetInstanceId?: string
+  secondaryTargetInstanceId?: string,
+  targetPlayerId?: string
 ): void {
   const player = requireActivePlayer(state, playerId);
 
@@ -432,7 +462,7 @@ export function playCard(
   player.playedThisTurn.push(card);
 
   for (const effect of card.effects.filter((e) => e.trigger === 'onPlay')) {
-    resolveEffect(state, player, effect, { targetInstanceId, secondaryTargetInstanceId });
+    resolveEffect(state, player, effect, { targetInstanceId, secondaryTargetInstanceId, targetPlayerId });
   }
 
   state.log.push(`${player.name} jugó ${card.name}`);
@@ -530,7 +560,14 @@ export function endTurn(state: GameState, playerId: string): void {
 export function applyAction(state: GameState, playerId: string, action: Action): void {
   switch (action.type) {
     case 'playCard':
-      playCard(state, playerId, action.instanceId, action.targetInstanceId, action.secondaryTargetInstanceId);
+      playCard(
+        state,
+        playerId,
+        action.instanceId,
+        action.targetInstanceId,
+        action.secondaryTargetInstanceId,
+        action.targetPlayerId
+      );
       return;
     case 'buyAnimal':
       buyAnimal(state, playerId, action.trackInstanceId);
