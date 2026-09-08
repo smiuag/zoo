@@ -19,7 +19,7 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   elephant: { cost: 5, pv: 3 },
   orca: { cost: 6, pv: 2 },
   albatross: { cost: 6, pv: 2 },
-  hyena: { cost: 4, pv: 3 },
+  hyena: { cost: 4, pv: 5 },
   'polar-bear': { cost: 7, pv: 0 },
   duck: { cost: 2, pv: 1 },
   flamingo: { cost: 3, pv: 1 },

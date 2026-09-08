@@ -442,11 +442,13 @@ body {
 
 .card__tooltip {
   position: absolute;
-  bottom: calc(100% + 0.6rem);
+  /* Debajo de la carta, no encima: en la primera fila del mercado no hay
+     hueco arriba y el tooltip se cortaba contra el borde de la pantalla. */
+  top: calc(100% + 0.6rem);
   left: 50%;
-  transform: translateX(-50%) translateY(4px);
+  transform: translateX(-50%) translateY(-4px);
   width: max-content;
-  max-width: 220px;
+  max-width: 260px;
   background: var(--ink);
   color: #fff;
   border-radius: 8px;
@@ -465,12 +467,12 @@ body {
 
 .card__tooltip-name {
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 1rem;
   margin-bottom: 0.3rem;
 }
 
 .card__tooltip-text {
-  font-size: 0.8rem;
+  font-size: 0.92rem;
   line-height: 1.4;
   color: #f1efe8;
 }
