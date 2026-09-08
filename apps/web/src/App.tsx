@@ -445,7 +445,7 @@ export default function App() {
                 const total = perCardPoints.reduce((sum, p) => sum + p, 0);
                 return (
                   <div key={card.id} className="collection-entry">
-                    <CardView card={card} compact />
+                    <CardView card={card} />
                     {count > 1 && <span className="collection-entry__count">×{count}</span>}
                     <div
                       className={['collection-entry__points', total < 0 && 'collection-entry__points--negative']
