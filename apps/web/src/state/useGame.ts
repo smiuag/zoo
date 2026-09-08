@@ -52,13 +52,13 @@ const BOT_REGISTRY: Record<BotAlgorithm, Bot> = {
 const DEFAULT_BOT_ALGORITHM: BotAlgorithm = 'rl';
 
 // Duraciones de partida seleccionables (en rondas: 1 turno de cada
-// jugador). No hay opción "sin límite" a propósito: el motor siempre
-// termina, como mucho, al agotarse 5 mazos compartidos (ver
-// FINAL_ROUND_EMPTY_DECK_THRESHOLD en engine.ts), pero eso puede tardar
-// mucho — esto le da al jugador control real sobre cuánto dura.
-export const ROUND_LIMIT_OPTIONS = [15, 30, 50] as const;
+// jugador). No hay opción "sin límite" a propósito: con una duración
+// elegida, esa es la ÚNICA forma en que termina la partida (el criterio
+// de agotar mazos compartidos queda desactivado, ver endTurn en
+// engine.ts) — esto le da al jugador control real sobre cuánto dura.
+export const ROUND_LIMIT_OPTIONS = [10, 20, 30] as const;
 export type RoundLimit = (typeof ROUND_LIMIT_OPTIONS)[number];
-const DEFAULT_ROUND_LIMIT: RoundLimit = 30;
+const DEFAULT_ROUND_LIMIT: RoundLimit = 20;
 
 // Por defecto, cada hueco es un bot RL distinto (el generalista + los 3
 // especialistas de hábitat): una partida nueva ya enfrenta a los 4 sin
