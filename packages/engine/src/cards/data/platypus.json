@@ -1,0 +1,16 @@
+{
+  "id": "platypus",
+  "name": "Ornitorrinco",
+  "type": "animal",
+  "species": "platypus",
+  "marketCost": 3,
+  "victoryPoints": 2,
+  "text": "Añade 1 a tu valor de compra por cada animal distinto que tengas en tu mano.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainBonusPurchasingPowerPerDistinctSpeciesInHand"
+    }
+  ],
+  "habitats": ["land", "aquatic"]
+}

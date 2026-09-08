@@ -60,6 +60,7 @@ function effectBonus(card: CardInstance): number {
         bonus += 2; // tempo (no es destrucción permanente, solo descarte)
         break;
       case 'gainBonusPurchasingPowerPerHabitatInHand':
+      case 'gainBonusPurchasingPowerPerDistinctSpeciesInHand':
         bonus += 1.5; // aproximación fija: el valor real depende de la mano
         break;
       case 'recoverCoinFromDiscardOrDraw':

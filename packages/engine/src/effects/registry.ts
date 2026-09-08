@@ -234,6 +234,20 @@ registerEffect('gainBonusPurchasingPowerPerHabitatInHand', (_state, player, effe
   player.bonusPurchasingPowerThisTurn += count;
 });
 
+// Ornitorrinco: gana "dinero para comprar" extra solo este turno por cada
+// ESPECIE DE ANIMAL DISTINTA que tengas en tu mano en este momento (una
+// copia y varias de la misma especie cuentan igual, a diferencia de
+// gainBonusPurchasingPowerPerHabitatInHand). Misma effectiveHand que el
+// resto de efectos "en tu mano": se cuenta a sí mismo.
+registerEffect('gainBonusPurchasingPowerPerDistinctSpeciesInHand', (_state, player) => {
+  const species = new Set(
+    effectiveHand(player)
+      .filter((c) => c.type === 'animal')
+      .map((c) => c.species)
+  );
+  player.bonusPurchasingPowerThisTurn += species.size;
+});
+
 // Hiena: cada rival muestra su mano y descarta el animal de MAYOR coste
 // (descarte normal, no destrucción: la carta sigue circulando con
 // normalidad). Si hay empate de coste, "puede elegirla": se queda el más

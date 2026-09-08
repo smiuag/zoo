@@ -180,6 +180,19 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.bonusPurchasingPowerThisTurn).toBe(2);
   });
 
+  it('ornitorrinco: gana 1 moneda extra por cada especie DISTINTA en su mano (no por copia)', () => {
+    const { state, player } = setupClean();
+    const platypus = freshInstance('platypus', 'test'); // se cuenta a sí mismo
+    const lion1 = freshInstance('lion', 'l1');
+    const lion2 = freshInstance('lion', 'l2'); // 2ª copia del león: no suma especie extra
+    player.hand = [platypus, lion1, lion2];
+
+    playCard(state, player.id, platypus.instanceId);
+
+    // Ornitorrinco + León (2 especies distintas), aunque haya 2 leones.
+    expect(player.bonusPurchasingPowerThisTurn).toBe(2);
+  });
+
   it('elefante: captura gratis un animal TERRESTRE del mercado de coste 5 o menos', () => {
     const { state, player } = setupClean();
     const elephant = freshInstance('elephant', 'test');
