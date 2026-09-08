@@ -124,30 +124,46 @@ export default function App() {
   }
 
   // Toda la colección de un jugador (mazo + mano + descarte: todo puntúa
-  // esté donde esté), agrupada por carta con su recuento y los PV totales
-  // que aporta ese grupo (scoreCardContributions: PV base de cada copia +
-  // su parte de cualquier bonus onScore, p. ej. cada Orca suma el bonus de
-  // acuáticos calculado sobre TODA la colección), para el popup de "ver
-  // mazo". Ordenada como el mercado: más barato primero.
+  // esté donde esté), agrupada por carta con su recuento y los PV de CADA
+  // copia (scoreCardContributions: PV base + su parte de cualquier bonus
+  // onScore, p. ej. cada Orca suma el bonus de acuáticos calculado sobre
+  // TODA la colección), para el popup de "ver mazo". Se guarda el array de
+  // puntos por copia (perCardPoints), no solo el total: casi siempre todas
+  // las copias de una misma carta valen igual, pero el Periquito es una
+  // excepción real (solo LA PRIMERA copia encontrada se lleva el bono de
+  // "4 copias o más"), así que no basta con total/count. Ordenada como el
+  // mercado: más barato primero.
   function groupedCollection(
     player: (typeof state.players)[number]
-  ): { card: CardInstance; count: number; points: number }[] {
+  ): { card: CardInstance; count: number; perCardPoints: number[] }[] {
     const all = [...player.deck, ...player.hand, ...player.discard];
     const contributions = scoreCardContributions(player);
-    const byId = new Map<string, { card: CardInstance; count: number; points: number }>();
+    const byId = new Map<string, { card: CardInstance; count: number; perCardPoints: number[] }>();
     for (const card of all) {
       const points = contributions.get(card.instanceId) ?? 0;
       const entry = byId.get(card.id);
       if (entry) {
         entry.count += 1;
-        entry.points += points;
+        entry.perCardPoints.push(points);
       } else {
-        byId.set(card.id, { card, count: 1, points });
+        byId.set(card.id, { card, count: 1, perCardPoints: [points] });
       }
     }
     return [...byId.values()].sort(
       (a, b) => (a.card.marketCost ?? 0) - (b.card.marketCost ?? 0) || a.card.name.localeCompare(b.card.name)
     );
+  }
+
+  // "4× 6 PV" si las 4 copias valen lo mismo (el caso normal); si no (solo
+  // le pasa al Periquito: la bonificación de "4 copias o más" solo se la
+  // lleva 1 copia) se muestra el total sin el multiplicador, que sería
+  // engañoso.
+  function pointsLabel(count: number, perCardPoints: number[]): string {
+    const [first, ...rest] = perCardPoints;
+    const allEqual = rest.every((p) => p === first);
+    if (count > 1 && allEqual) return `${count}× ${first} PV`;
+    const total = perCardPoints.reduce((sum, p) => sum + p, 0);
+    return `${total} PV`;
   }
 
   // Cuántos animales de cada hábitat hay en TODA la colección de un
@@ -164,6 +180,16 @@ export default function App() {
       bird: all.filter((c) => c.habitats?.includes('bird')).length,
       aquatic: all.filter((c) => c.habitats?.includes('aquatic')).length,
     };
+  }
+
+  // Valor total de la baraja: suma del coste de mercado (marketCost) de
+  // toda la colección, esté donde esté (mazo/mano/descarte) y se haya
+  // conseguido como se haya conseguido (comprada, capturada gratis por
+  // Elefante/Araña/Flamenco, o regalada por Jirafa/Conejos) — no es lo
+  // mismo que los PV: aquí cuenta lo que "valdría" recomponer la colección
+  // entera al precio de mercado, no lo que puntúa.
+  function deckValue(player: (typeof state.players)[number]): number {
+    return [...player.deck, ...player.hand, ...player.discard].reduce((sum, c) => sum + (c.marketCost ?? 0), 0);
   }
 
   return (
@@ -188,6 +214,7 @@ export default function App() {
                 <tr>
                   <th>Jugador</th>
                   <th>PV</th>
+                  <th>Valor baraja</th>
                   <th>Compras</th>
                   <th>Terrestres</th>
                   <th>Voladores</th>
@@ -205,6 +232,7 @@ export default function App() {
                         <strong>{p.name}</strong>
                       </td>
                       <td>{scoreFor(p.id)}</td>
+                      <td>{deckValue(p)}</td>
                       <td>{p.purchasesCount}</td>
                       <td>{habitats.land}</td>
                       <td>{habitats.bird}</td>
@@ -413,18 +441,22 @@ export default function App() {
               </button>
             </div>
             <div className="card-row">
-              {groupedCollection(viewedPlayer).map(({ card, count, points }) => (
-                <div key={card.id} className="collection-entry">
-                  <CardView card={card} compact />
-                  {count > 1 && <span className="collection-entry__count">×{count}</span>}
-                  <div className={['collection-entry__points', points < 0 && 'collection-entry__points--negative']
-                    .filter(Boolean)
-                    .join(' ')}
-                  >
-                    {count > 1 ? `${count}× ${points} PV` : `${points} PV`}
+              {groupedCollection(viewedPlayer).map(({ card, count, perCardPoints }) => {
+                const total = perCardPoints.reduce((sum, p) => sum + p, 0);
+                return (
+                  <div key={card.id} className="collection-entry">
+                    <CardView card={card} compact />
+                    {count > 1 && <span className="collection-entry__count">×{count}</span>}
+                    <div
+                      className={['collection-entry__points', total < 0 && 'collection-entry__points--negative']
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
+                      {pointsLabel(count, perCardPoints)}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
