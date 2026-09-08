@@ -87,15 +87,37 @@ registerEffect('discardFromEachOpponent', (state, player) => {
   }
 });
 
-// Mono: cada rival descarta 1 carta al azar de su mano (igual que antes),
-// y TÚ robas 1 carta por cada rival cuya carta descartada al azar resultara
-// ser una moneda (no cuenta si le tocó descartar un animal). Con varios
-// rivales puedes robar más de 1 carta en la misma jugada.
+// Qué descarta un rival del Mono: NO al azar, elige él (misma heurística de
+// "el afectado elige" que el Buitre, ver worstCardIndex) — pero con un
+// matiz propio: como perder cualquier moneda además le da a el Mono un
+// robo, prioriza sacrificar su peor ANIMAL antes que una moneda cualquiera
+// (por poco que valga), y solo se ve obligado a soltar una moneda (la de
+// menor valor) si no tiene ningún animal en mano.
+function worstNonCoinIndex(hand: CardInstance[]): number {
+  let worstIdx = -1;
+  let worstPv = Infinity;
+  for (let i = 0; i < hand.length; i++) {
+    if (hand[i].type === 'coin') continue;
+    if (hand[i].victoryPoints < worstPv) {
+      worstPv = hand[i].victoryPoints;
+      worstIdx = i;
+    }
+  }
+  return worstIdx;
+}
+
+// Mono: cada rival descarta 1 carta de su mano, ELIGIENDO él cuál (ver
+// worstNonCoinIndex arriba), y TÚ robas 1 carta por cada rival al que le
+// haya tocado descartar una moneda (solo si no tenía más remedio: no le
+// quedaba ningún animal). Con varios rivales puedes robar más de 1 carta
+// en la misma jugada.
 registerEffect('discardFromEachOpponentAndDrawPerCoin', (state, player) => {
   let coinsDiscarded = 0;
   for (const opponent of otherPlayers(state, player)) {
-    const card = takeRandomFromHand(opponent);
-    if (!card) continue;
+    const idx = worstNonCoinIndex(opponent.hand);
+    const chosenIdx = idx !== -1 ? idx : worstCardIndex(opponent.hand);
+    if (chosenIdx === -1) continue;
+    const [card] = opponent.hand.splice(chosenIdx, 1);
     opponent.discard.push(card);
     if (card.type === 'coin') coinsDiscarded += 1;
   }

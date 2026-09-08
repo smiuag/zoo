@@ -5,7 +5,7 @@
   "species": "monkey",
   "marketCost": 4,
   "victoryPoints": 2,
-  "text": "Cada rival descarta 1 carta al azar de su mano. Robas 1 carta por cada moneda que descarten así.",
+  "text": "Cada rival elige y descarta 1 carta de su mano. Robas 1 carta por cada moneda que descarten así.",
   "effects": [
     {
       "trigger": "onPlay",

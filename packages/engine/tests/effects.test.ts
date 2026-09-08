@@ -21,10 +21,9 @@ function setupClean() {
 }
 
 describe('habilidades de animales al jugarlos (onPlay)', () => {
-  it('mono: cada rival descarta 1 carta al azar de su mano, y robas 1 carta por cada moneda descartada así', () => {
+  it('mono: cada rival ELIGE qué descarta (no al azar); si solo tiene monedas, no le queda más remedio y robas 1 carta', () => {
     const { state, player, opponent } = setupClean();
-    // Las 2 son monedas: la que le toque descartar al azar, será moneda seguro.
-    opponent.hand = [freshInstance('coin-1', 'o1'), freshInstance('coin-2', 'o2')];
+    opponent.hand = [freshInstance('coin-1', 'o1'), freshInstance('coin-2', 'o2')]; // sin ningún animal que proteger sus monedas
     const monkey = freshInstance('monkey', 'test');
     player.hand = [monkey];
     player.deck = [freshInstance('coin-1', 'draw1')];
@@ -37,9 +36,26 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.hand).toHaveLength(1); // robó 1 carta del mazo
   });
 
-  it('mono: si al rival le toca descartar un animal (no moneda), no robas nada', () => {
+  it('mono: si el rival tiene un animal Y una moneda, protege la moneda descartando el animal (aunque valga más)', () => {
     const { state, player, opponent } = setupClean();
-    opponent.hand = [freshInstance('lion', 'o1')]; // único animal en mano: seguro que descarta eso
+    const hippo = freshInstance('hippopotamus', 'o1'); // 4PV: vale más "en bruto" que la moneda
+    const coin = freshInstance('coin-1', 'o2'); // vale 1: peor en valor bruto, pero es una moneda
+    opponent.hand = [hippo, coin];
+    const monkey = freshInstance('monkey', 'test');
+    player.hand = [monkey];
+    player.deck = [freshInstance('coin-1', 'draw1')];
+
+    playCard(state, player.id, monkey.instanceId);
+
+    // Protege la moneda (evita darte un robo) y sacrifica el animal, aunque valga más PV.
+    expect(opponent.hand).toEqual([coin]);
+    expect(opponent.discard).toEqual([hippo]);
+    expect(player.hand).toHaveLength(0); // no le tocó soltar moneda: no robaste nada
+  });
+
+  it('mono: si al rival solo le queda un animal en mano, lo descarta y no robas nada', () => {
+    const { state, player, opponent } = setupClean();
+    opponent.hand = [freshInstance('lion', 'o1')];
     const monkey = freshInstance('monkey', 'test');
     player.hand = [monkey];
     player.deck = [freshInstance('coin-1', 'draw1')];
@@ -51,7 +67,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.hand).toHaveLength(0); // no robó nada
   });
 
-  it('mono: con varios rivales, robas 1 carta por cada uno al que le tocara descartar justo una moneda', () => {
+  it('mono: con varios rivales, robas 1 carta por cada uno al que no le quedara más remedio que soltar una moneda', () => {
     const state = createGame([
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
       { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
@@ -63,8 +79,8 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
       p.discard = [];
     }
     const [p1, p2, p3] = state.players;
-    p2.hand = [freshInstance('coin-1', 'b1')]; // seguro moneda
-    p3.hand = [freshInstance('lion', 'c1')]; // seguro animal
+    p2.hand = [freshInstance('coin-1', 'b1')]; // solo tiene moneda: sin remedio
+    p3.hand = [freshInstance('lion', 'c1')]; // solo tiene animal
     const monkey = freshInstance('monkey', 'test');
     p1.hand = [monkey];
     p1.deck = [freshInstance('coin-1', 'draw1'), freshInstance('coin-1', 'draw2')];
@@ -73,7 +89,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
     expect(p2.discard).toHaveLength(1);
     expect(p3.discard).toHaveLength(1);
-    expect(p1.hand).toHaveLength(1); // solo 1 de los 2 rivales descartó moneda
+    expect(p1.hand).toHaveLength(1); // solo 1 de los 2 rivales tuvo que soltar moneda
   });
 
   it('león: gana 3 de dinero extra para comprar este turno, fijo (no depende de la mano)', () => {
