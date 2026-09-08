@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { buyAnimal, buyCoin, canAffordMarket, createGame, endTurn, getActivePlayer, getLegalActions } from '../src/engine';
+import {
+  buyAnimal,
+  buyCoin,
+  canAffordMarket,
+  createGame,
+  endTurn,
+  getActivePlayer,
+  getLegalActions,
+  playCard,
+} from '../src/engine';
 import { getCard } from '../src/cards/registry';
 import { buildStarterDeck } from './helpers';
 import type { CardInstance, GameState } from '../src/model/state';
@@ -243,21 +252,21 @@ describe('estadísticas para el resumen final: purchasesCount y richestTurn', ()
     expect(player.purchasesCount).toBe(2);
   });
 
-  it('richestTurn guarda la ronda y las monedas con las que empezó su turno más rico, y no baja si un turno posterior es más pobre', () => {
+  it('richestTurn guarda la ronda y el valor de compra con el que empezó su turno más rico, y no baja si un turno posterior es más pobre', () => {
     const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
     const player = getActivePlayer(state);
     // Se sustituye el estado inicial (mano/mazo barajados al azar) por uno
     // controlado, para poder predecir exactamente qué mano se roba después.
     player.hand = [freshInstance('coin-1', 'poor')]; // turno actual: 1 moneda
     player.discard = [];
-    player.richestTurn = { round: state.round, coins: 1 };
+    player.richestTurn = { round: state.round, amount: 1 };
 
     // El próximo turno (tras endTurn) robará este mazo: 5 monedas de 3 = 15.
     player.deck = Array.from({ length: 5 }, (_, i) => freshInstance('coin-3', `rich${i}`));
     const roundBeforeRichTurn = state.round;
     endTurn(state, player.id);
 
-    expect(player.richestTurn).toEqual({ round: roundBeforeRichTurn + 1, coins: 15 });
+    expect(player.richestTurn).toEqual({ round: roundBeforeRichTurn + 1, amount: 15 });
 
     // El turno siguiente es más pobre (5 monedas de 1 = 5 en total, menos
     // que las 15 anteriores): richestTurn no debe cambiar. El mazo tiene
@@ -268,6 +277,25 @@ describe('estadísticas para el resumen final: purchasesCount y richestTurn', ()
     player.deck = Array.from({ length: 5 }, (_, i) => freshInstance('coin-1', `poorAgain${i}`));
     endTurn(state, player.id);
 
-    expect(player.richestTurn).toEqual({ round: roundBeforeRichTurn + 1, coins: 15 });
+    expect(player.richestTurn).toEqual({ round: roundBeforeRichTurn + 1, amount: 15 });
+  });
+
+  it('richestTurn captura el pico DESPUÉS de jugar una carta que da valor de compra extra, no solo la mano inicial', () => {
+    const { state, player } = setupClean();
+    player.hand = [freshInstance('coin-1', 'a'), freshInstance('coin-1', 'b'), freshInstance('lion', 'test')];
+    player.richestTurn = { round: state.round, amount: 0 };
+
+    // Mano inicial: solo 2 monedas de 1 = 2 de valor de compra.
+    expect(currentAmount(player)).toBe(2);
+
+    playCard(state, player.id, player.hand.find((c) => c.id === 'lion')!.instanceId); // +3 de valor de compra fijo (León)
+
+    // Tras jugar el León: 2 monedas + 3 de bonus = 5, no solo las 2 monedas iniciales.
+    expect(player.richestTurn).toEqual({ round: state.round, amount: 5 });
   });
 });
+
+function currentAmount(player: { hand: CardInstance[]; bonusPurchasingPowerThisTurn: number; aquaticBonusPurchasingPowerThisTurn: number }): number {
+  const coins = player.hand.filter((c) => c.type === 'coin').reduce((sum, c) => sum + (c.value ?? 0), 0);
+  return coins + player.bonusPurchasingPowerThisTurn + player.aquaticBonusPurchasingPowerThisTurn;
+}

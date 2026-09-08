@@ -228,13 +228,30 @@ function beginPlayerTurn(state: GameState, player: Player): void {
   player.aquaticBonusPurchasingPowerThisTurn = 0;
   player.boughtSpeciesThisTurn = [];
   player.playedThisTurn = [];
+  recordRichestTurn(state, player);
+}
 
-  // Solo monedas de verdad (ver comentario de richestTurn en model/state.ts):
-  // la mano ya está robada (endTurn la roba al final del turno anterior), así
-  // que esto refleja el dinero con el que arranca ESTE turno.
+// Valor de compra TOTAL disponible ahora mismo: monedas de verdad en mano +
+// el bonus genérico (Serpiente/Loro/León/cambio de una compra...) + el
+// bonus solo-acuático (Delfín). Mismos ingredientes que canAffordMarket,
+// pero sumados en vez de comparados contra un coste.
+function currentPurchasingPower(player: Player): number {
   const coins = player.hand.filter((c) => c.type === 'coin').reduce((sum, c) => sum + (c.value ?? 0), 0);
-  if (!player.richestTurn || coins > player.richestTurn.coins) {
-    player.richestTurn = { round: state.round, coins };
+  return coins + player.bonusPurchasingPowerThisTurn + player.aquaticBonusPurchasingPowerThisTurn;
+}
+
+// richestTurn guarda el PICO de valor de compra alcanzado en un turno, no
+// solo el de la mano inicial: se llama tras jugar una carta (algunos
+// efectos dan bonus) y tras cada compra (el cambio de una compra con de más
+// también da bonus, ver payCoins), además de al empezar el turno. Comprar
+// gasta monedas/bonus y por tanto BAJA currentPurchasingPower, pero como
+// esto se queda con el máximo visto en toda la partida (nunca lo baja),
+// capturar el pico de cada turno antes de que se gaste es exactamente
+// "el valor de compra total del turno después de jugar todos los animales".
+function recordRichestTurn(state: GameState, player: Player): void {
+  const amount = currentPurchasingPower(player);
+  if (!player.richestTurn || amount > player.richestTurn.amount) {
+    player.richestTurn = { round: state.round, amount };
   }
 }
 
@@ -495,6 +512,10 @@ export function playCard(
   for (const effect of card.effects.filter((e) => e.trigger === 'onPlay')) {
     resolveEffect(state, player, effect, { targetInstanceId, secondaryTargetInstanceId, targetPlayerId });
   }
+  // Algunas de esas habilidades dan valor de compra extra (Serpiente, Loro,
+  // León, Delfín...): puede que este sea el pico de la partida para este
+  // jugador, ver recordRichestTurn.
+  recordRichestTurn(state, player);
 
   state.log.push(`${player.name} jugó ${card.name}`);
 }
@@ -525,6 +546,9 @@ export function buyAnimal(state: GameState, playerId: string, trackInstanceId: s
   if (animal.species) player.boughtSpeciesThisTurn.push(animal.species);
   player.purchasesCount += 1;
   refillAnimalMarket(state, animal.species);
+  // payCoins puede dar cambio como bonus (ver comentario ahí): revisa el
+  // pico DESPUÉS de pagar, no antes.
+  recordRichestTurn(state, player);
 
   state.log.push(`${player.name} compró ${animal.name} por ${animal.marketCost}monedas`);
 }
@@ -542,6 +566,7 @@ export function buyCoin(state: GameState, playerId: string, coinId: (typeof PURC
   payCoins(player, coinCard.marketCost ?? 0);
   player.discard.push(mintInstance(state, coinCard));
   player.purchasesCount += 1;
+  recordRichestTurn(state, player);
 
   state.log.push(`${player.name} compró ${coinCard.name} por ${coinCard.marketCost}monedas`);
 }

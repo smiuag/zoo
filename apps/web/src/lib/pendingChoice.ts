@@ -27,6 +27,15 @@ function accentClassFor(state: GameState, player: Player, targetInstanceId: stri
   return card ? cardAccentClass(card) : undefined;
 }
 
+// Coste de mercado del objetivo, para ordenar las opciones de estos menús
+// (Elefante/Araña, Flamenco en sus 2 niveles) de más barato a más caro, en
+// vez del orden en que las devuelve el motor (alfabético por especie, ver
+// animalTrack.sort en engine.ts). 0 para un id vacío o no encontrado, para
+// que nunca rompa el orden ni lance.
+function costOf(state: GameState, player: Player, targetInstanceId: string): number {
+  return findAnywhere(state, player, targetInstanceId)?.marketCost ?? 0;
+}
+
 export function buildPlayCardTargetChoice(
   actions: Action[],
   state: GameState,
@@ -56,26 +65,30 @@ export function buildPlayCardTargetChoice(
     else bySource.set(key, [a]);
   }
 
-  const options: ChoiceOption[] = [...bySource.entries()].map(([sourceId, group]) => {
-    const label = targetLabel(state, player, sourceId);
-    const accentClassName = accentClassFor(state, player, sourceId);
-    const hasSecondaryChoice = group.some((a) => a.secondaryTargetInstanceId);
-    if (!hasSecondaryChoice) {
-      return { label, action: group[0], accentClassName };
-    }
-    return {
-      label: `${label} →`,
-      accentClassName,
-      next: {
-        title: `¿Qué animal coges a cambio de ${label}?`,
-        options: group.map((a) => ({
-          label: targetLabel(state, player, a.secondaryTargetInstanceId ?? ''),
-          action: a,
-          accentClassName: accentClassFor(state, player, a.secondaryTargetInstanceId ?? ''),
-        })),
-      },
-    };
-  });
+  const options: ChoiceOption[] = [...bySource.entries()]
+    .sort(([a], [b]) => costOf(state, player, a) - costOf(state, player, b))
+    .map(([sourceId, group]) => {
+      const label = targetLabel(state, player, sourceId);
+      const accentClassName = accentClassFor(state, player, sourceId);
+      const hasSecondaryChoice = group.some((a) => a.secondaryTargetInstanceId);
+      if (!hasSecondaryChoice) {
+        return { label, action: group[0], accentClassName };
+      }
+      return {
+        label: `${label} →`,
+        accentClassName,
+        next: {
+          title: `¿Qué animal coges a cambio de ${label}?`,
+          options: [...group]
+            .sort((x, y) => costOf(state, player, x.secondaryTargetInstanceId ?? '') - costOf(state, player, y.secondaryTargetInstanceId ?? ''))
+            .map((a) => ({
+              label: targetLabel(state, player, a.secondaryTargetInstanceId ?? ''),
+              action: a,
+              accentClassName: accentClassFor(state, player, a.secondaryTargetInstanceId ?? ''),
+            })),
+        },
+      };
+    });
 
   return { title: `${card.name}: elige el objetivo`, options };
 }

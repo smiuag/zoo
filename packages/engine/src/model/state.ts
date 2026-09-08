@@ -37,13 +37,14 @@ export interface Player {
   // No cuenta capturas gratis de efectos (Elefante/Araña/Flamenco): esas no
   // pasan por buyAnimal/buyCoin. Solo para el resumen final de la partida.
   purchasesCount: number;
-  // En qué ronda tuvo más monedas en mano al EMPEZAR su turno (antes de
-  // jugar nada): se actualiza en beginPlayerTurn, leyendo la mano recién
-  // robada al final de su turno anterior. Solo cuenta monedas de verdad
-  // (cartas tipo 'coin'), no el valor de compra extra de algún efecto (que
-  // se resetea a 0 en ese mismo instante y no refleja dinero "guardado").
-  // null hasta el primer beginPlayerTurn. Solo para el resumen final.
-  richestTurn: { round: number; coins: number } | null;
+  // En qué ronda alcanzó su MAYOR valor de compra total (monedas de verdad
+  // en mano + bonus de cualquier efecto jugado ese turno, p. ej. Serpiente/
+  // Loro/León/Delfín): se actualiza en varios puntos del turno (empezar
+  // turno, jugar una carta, comprar), quedándose siempre con el pico más
+  // alto visto en toda la partida, nunca lo baja al gastar. Ver
+  // recordRichestTurn en engine.ts. null hasta el primer beginPlayerTurn.
+  // Solo para el resumen final de la partida.
+  richestTurn: { round: number; amount: number } | null;
 }
 
 export interface GameState {

@@ -211,7 +211,7 @@ export default function App() {
                       <td>{habitats.aquatic}</td>
                       <td>
                         {p.richestTurn
-                          ? `Ronda ${p.richestTurn.round} · ${p.richestTurn.coins} moneda${p.richestTurn.coins === 1 ? '' : 's'}`
+                          ? `Ronda ${p.richestTurn.round} · ${p.richestTurn.amount} moneda${p.richestTurn.amount === 1 ? '' : 's'}`
                           : '—'}
                       </td>
                       <td>
