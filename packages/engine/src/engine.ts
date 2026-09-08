@@ -367,6 +367,12 @@ const PLAYER_TARGETED_EFFECT_TYPES = new Set([
   'addRabbitToChosenPlayerDiscard',
 ]);
 
+// De los de arriba, la Jirafa es la única que también puede elegirse A SÍ
+// MISMA como objetivo (ponerte el Perezoso a ti mismo encima del mazo): el
+// Pato robar de tu propia mano o los Conejos maldecirte a ti mismo no
+// tendrían ningún sentido, así que esos 2 se quedan sin poder auto-elegirse.
+const SELF_TARGETABLE_PLAYER_EFFECT_TYPES = new Set(['topdeckSlothForChosenPlayer']);
+
 function targetedEffectCandidates(state: GameState, card: CardInstance): CardInstance[] | null {
   const freeCapture = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'freeCaptureUpToCost');
   if (freeCapture) {
@@ -438,10 +444,12 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
       (e) => e.trigger === 'onPlay' && PLAYER_TARGETED_EFFECT_TYPES.has(e.type)
     );
     if (playerTargeted) {
-      const otherPlayers = state.players.filter((p) => p.id !== player.id);
-      if (otherPlayers.length > 0) {
-        for (const other of otherPlayers) {
-          actions.push({ type: 'playCard', instanceId: card.instanceId, targetPlayerId: other.id });
+      const candidates = SELF_TARGETABLE_PLAYER_EFFECT_TYPES.has(playerTargeted.type)
+        ? state.players
+        : state.players.filter((p) => p.id !== player.id);
+      if (candidates.length > 0) {
+        for (const candidate of candidates) {
+          actions.push({ type: 'playCard', instanceId: card.instanceId, targetPlayerId: candidate.id });
         }
       } else {
         actions.push({ type: 'playCard', instanceId: card.instanceId });

@@ -281,15 +281,16 @@ registerEffect('stealCoinFromChosenPlayer', (state, player, _effect, context) =>
   player.hand.push(coin);
 });
 
-// Jirafa: el jugador que elijas (context.targetPlayerId) recibe un
+// Jirafa: el jugador que elijas (context.targetPlayerId, puede ser tú
+// mismo: ver SELF_TARGETABLE_PLAYER_EFFECT_TYPES en engine.ts) recibe un
 // Perezoso NUEVO de la reserva (state.sharedDecks.sloth, ver createGame en
 // engine.ts — no es el mazo de ningún jugador) encima de su propio mazo,
 // así que será lo próximo que robe. Si la reserva ya está vacía, no pasa
-// nada. Con 1 solo jugador no hay a quién elegir, tampoco pasa nada.
-registerEffect('topdeckSlothForChosenPlayer', (state, player, _effect, context) => {
+// nada.
+registerEffect('topdeckSlothForChosenPlayer', (state, _player, _effect, context) => {
   if (!context.targetPlayerId) return;
   const target = state.players.find((p) => p.id === context.targetPlayerId);
-  if (!target || target.id === player.id) return;
+  if (!target) return;
   const sloth = state.sharedDecks['sloth']?.pop();
   if (!sloth) return;
   target.deck.push(sloth);

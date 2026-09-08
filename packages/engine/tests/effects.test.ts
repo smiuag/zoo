@@ -312,6 +312,46 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.bonusPurchasingPowerThisTurn).toBe(1);
   });
 
+  it('jirafa: getLegalActions te ofrece elegirte A TI MISMO como objetivo, además de a los rivales', () => {
+    const { state, player, opponent } = setupClean();
+    const giraffe = freshInstance('giraffe', 'test');
+    player.hand = [giraffe];
+
+    const actions = getLegalActions(state, player.id);
+    const targets = actions
+      .filter((a): a is Extract<typeof a, { type: 'playCard' }> => a.type === 'playCard' && a.instanceId === giraffe.instanceId)
+      .map((a) => a.targetPlayerId)
+      .sort();
+
+    expect(targets).toEqual([player.id, opponent.id].sort());
+  });
+
+  it('jirafa: puedes elegirte a ti mismo, y el Perezoso te cae a ti', () => {
+    const { state, player } = setupClean();
+    const giraffe = freshInstance('giraffe', 'test');
+    player.hand = [giraffe];
+    const reserveBefore = state.sharedDecks.sloth?.length ?? 0;
+
+    playCard(state, player.id, giraffe.instanceId, undefined, undefined, player.id);
+
+    expect(player.deck).toHaveLength(1);
+    expect(state.sharedDecks.sloth).toHaveLength(reserveBefore - 1);
+  });
+
+  it('pato / conejos: getLegalActions NO te ofrece elegirte a ti mismo como objetivo (a diferencia de la Jirafa)', () => {
+    const { state, player } = setupClean();
+    const duck = freshInstance('duck', 'test');
+    const rabbit = freshInstance('rabbit', 'test');
+    player.hand = [duck, rabbit];
+
+    const actions = getLegalActions(state, player.id);
+    const selfTargeted = actions.filter(
+      (a) => a.type === 'playCard' && a.targetPlayerId === player.id
+    );
+
+    expect(selfTargeted).toHaveLength(0);
+  });
+
   it('conejos: el jugador que elijas recibe un Conejo NUEVO del mismo mazo de mercado en su descarte', () => {
     const { state, player, opponent } = setupClean();
     const rabbitCard = freshInstance('rabbit', 'test');

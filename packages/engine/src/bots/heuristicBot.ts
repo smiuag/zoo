@@ -108,10 +108,15 @@ function effectBonus(card: CardInstance): number {
 // desperdiciando la elección. Pequeño a propósito (menor que cualquier
 // effectBonus): solo debe decidir ENTRE rivales, nunca hacer que jugar la
 // carta valga más que otra acción distinta.
-function targetPlayerBonus(state: GameState, card: CardInstance, targetPlayerId: string | undefined): number {
+function targetPlayerBonus(state: GameState, player: Player, card: CardInstance, targetPlayerId: string | undefined): number {
   if (!targetPlayerId) return 0;
   const target = state.players.find((p) => p.id === targetPlayerId);
   if (!target) return 0;
+  // La Jirafa ahora puede elegirse a sí misma (ver SELF_TARGETABLE_
+  // PLAYER_EFFECT_TYPES en engine.ts), pero el bot nunca debería preferirlo
+  // por su cuenta: penaliza fuerte para que, salvo que sea la ÚNICA opción
+  // (partida de 1 jugador), siempre gane cualquier rival real.
+  if (target.id === player.id) return -1000;
   const effectTypes = new Set(card.effects.map((e) => e.type));
 
   if (effectTypes.has('stealCoinFromChosenPlayer')) {
@@ -159,7 +164,7 @@ function scoreAction(state: GameState, player: Player, action: Action): number {
     case 'playCard': {
       const card = findInHand(player, action.instanceId);
       if (!card) return -Infinity;
-      return 100 + effectBonus(card) + targetPlayerBonus(state, card, action.targetPlayerId);
+      return 100 + effectBonus(card) + targetPlayerBonus(state, player, card, action.targetPlayerId);
     }
 
     case 'endTurn':
