@@ -296,19 +296,22 @@ registerEffect('topdeckSlothForChosenPlayer', (state, player, _effect, context) 
 });
 
 // Conejos: el jugador que elijas (context.targetPlayerId) recibe un Conejo
-// NUEVO de la reserva (state.sharedDecks['rabbit-reserve'], ver createGame
-// en engine.ts — una pila aparte del mazo de mercado de la propia especie,
-// para que jugar la carta no vacíe el mercado) directo a su descarte (a
+// NUEVO del mismo mazo de mercado de la especie (state.sharedDecks['rabbit'],
+// el mismo del que también se reponen las compras — solo hay 10 Conejos en
+// total en toda la partida, no una reserva aparte) directo a su descarte (a
 // diferencia de la Jirafa, que lo pone encima del mazo: este va al
 // descarte, así que no le hace robarlo antes de lo que le tocaría, pero SÍ
-// resta 2PV ya mismo si la partida termina antes de que lo juegue). Si la
-// reserva ya está vacía, no pasa nada. Con 1 solo jugador no hay a quién
-// elegir, tampoco pasa nada.
+// resta 2PV ya mismo si la partida termina antes de que lo juegue). Como
+// comparte pila con las compras normales, jugar Conejos SÍ puede agotar el
+// mazo de mercado antes de lo habitual. Si ya está vacío, no pasa nada
+// (nunca toca el que esté visible en el mercado, state.animalTrack: ese
+// sigue en venta con normalidad). Con 1 solo jugador no hay a quién elegir,
+// tampoco pasa nada.
 registerEffect('addRabbitToChosenPlayerDiscard', (state, player, _effect, context) => {
   if (!context.targetPlayerId) return;
   const target = state.players.find((p) => p.id === context.targetPlayerId);
   if (!target || target.id === player.id) return;
-  const rabbit = state.sharedDecks['rabbit-reserve']?.pop();
+  const rabbit = state.sharedDecks['rabbit']?.pop();
   if (!rabbit) return;
   target.discard.push(rabbit);
 });

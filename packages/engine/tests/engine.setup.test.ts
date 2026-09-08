@@ -44,12 +44,7 @@ describe('createGame', () => {
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
       { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
     ]);
-    // 'rabbit-reserve' no es un mazo de especie (es la reserva aparte de la
-    // propia carta Conejos, ver createGame en engine.ts): no tiene un
-    // "hueco en el mercado" que sumarle, así que se excluye igual que
-    // 'sloth' (que sí es una especie real, pero tampoco tiene mercado).
     for (const [species, deck] of Object.entries(state.sharedDecks)) {
-      if (species === 'rabbit-reserve') continue;
       const inTrack = state.animalTrack.filter((c) => c.species === species).length;
       const expectedCopies = (getCard(species).marketCost ?? 0) >= 5 ? 6 : 10;
       expect(deck.length + inTrack).toBe(expectedCopies);

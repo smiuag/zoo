@@ -55,14 +55,13 @@ function distinctSpeciesCount(cards: CardInstance[]): number {
 function encodePlayerContext(state: GameState, player: Player): number[] {
   const own = fullCollection(player);
   const coinSum = player.hand.filter((c) => c.type === 'coin').reduce((sum, c) => sum + (c.value ?? 0), 0);
-  // "sloth" es la reserva de la Jirafa y "rabbit-reserve" la de los Conejos
-  // (ver createGame en engine.ts): ninguna de las 2 es un mazo de mercado
-  // de verdad (el Conejo SÍ lo tiene aparte, bajo la clave 'rabbit'), así
-  // que se excluyen para que este contador siga reflejando solo la
-  // escasez real del mercado (mismo criterio que checkFinalRoundTrigger,
-  // que ya las excluye sin más al basarse solo en ANIMAL_SPECIES).
+  // "sloth" es la reserva de la Jirafa (ver createGame en engine.ts), no
+  // una especie de mercado: se excluye para que este contador siga
+  // reflejando solo la escasez real del mercado (mismo criterio que
+  // checkFinalRoundTrigger). El Conejo sí es una especie de mercado normal
+  // (su propio sharedDecks['rabbit']) y cuenta como cualquier otra.
   const emptyDecks = Object.entries(state.sharedDecks).filter(
-    ([species, deck]) => species !== 'sloth' && species !== 'rabbit-reserve' && deck.length === 0
+    ([species, deck]) => species !== 'sloth' && deck.length === 0
   ).length;
   // OJO: nunca usar scorePlayer() aquí. Tiene un efecto secundario
   // destructivo (el Cocodrilo elimina una carta acuática cada vez que se

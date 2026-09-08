@@ -189,10 +189,12 @@ function payCoins(player: Player, cost: number, isAquaticAnimal = false): void {
 function checkFinalRoundTrigger(state: GameState): void {
   if (state.finalRoundTriggerPlayerIndex !== null) return;
   // Solo cuentan los mazos de especies de mercado (ANIMAL_SPECIES): la
-  // reserva de Perezosos para la Jirafa y la de Conejos para los Conejos
-  // también viven en sharedDecks (ver createGame) pero no son especies del
-  // mercado (ninguna de las 2 claves está en ANIMAL_SPECIES), así que
-  // agotarlas no debería adelantar el fin de la partida.
+  // reserva de Perezosos para la Jirafa también vive en sharedDecks (ver
+  // createGame) pero no es una especie del mercado (esa clave no está en
+  // ANIMAL_SPECIES), así que agotarla no debería adelantar el fin de la
+  // partida. El Conejo SÍ es una especie de mercado normal (su propio mazo
+  // de sharedDecks['rabbit'] es el mismo que agotan tanto las compras como
+  // el efecto de la carta), así que a ese sí le aplica el criterio normal.
   const emptyDecks = ANIMAL_SPECIES.filter((species) => state.sharedDecks[species]?.length === 0).length;
   if (emptyDecks >= FINAL_ROUND_EMPTY_DECK_THRESHOLD) {
     state.finalRoundTriggerPlayerIndex = state.activePlayerIndex;
@@ -321,19 +323,6 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
   const SLOTH_RESERVE_SIZE = 10;
   state.sharedDecks['sloth'] = shuffle(
     Array.from({ length: SLOTH_RESERVE_SIZE }, () => mintInstance(state, getCard('sloth')))
-  );
-
-  // Reserva de Conejos para la propia carta Conejos: a diferencia del
-  // Perezoso, el Conejo SÍ es una especie normal de ANIMAL_SPECIES (se
-  // compra en el mercado como cualquier otra), así que esta reserva usa una
-  // clave DISTINTA ('rabbit-reserve') para no compartir pila con
-  // sharedDecks['rabbit'] (el mazo del mercado): si compartieran clave, jugar
-  // la carta iría vaciando el propio mercado en vez de una reserva aparte.
-  // Mismo tamaño que su tope de copias en juego (coste 2 -> 10 copias): así
-  // nunca se agota la reserva antes que la propia carta.
-  const RABBIT_RESERVE_SIZE = 10;
-  state.sharedDecks['rabbit-reserve'] = shuffle(
-    Array.from({ length: RABBIT_RESERVE_SIZE }, () => mintInstance(state, getCard('rabbit')))
   );
 
   refillAnimalMarket(state);
