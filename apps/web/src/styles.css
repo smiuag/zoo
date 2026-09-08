@@ -240,6 +240,34 @@ body {
   font-weight: 700;
 }
 
+/* ---------- Resumen final de la partida ---------- */
+
+/* Scroll horizontal propio en vez de que el body entero se desborde, si la
+   tabla no cabe en pantallas estrechas (ver regla general "Responsive"). */
+.summary-table-wrap {
+  overflow-x: auto;
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.summary-table th,
+.summary-table td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.summary-table th {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
 /* ---------- Contextual choice panel ---------- */
 
 .panel--choice {

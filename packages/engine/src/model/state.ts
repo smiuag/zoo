@@ -33,6 +33,17 @@ export interface Player {
   // cuenta a sí misma, y también cuentan las que ya hayas jugado antes este
   // mismo turno. Ver effectiveHand().
   playedThisTurn: CardInstance[];
+  // Nº total de compras hechas en TODA la partida (buyAnimal + buyCoin).
+  // No cuenta capturas gratis de efectos (Elefante/Araña/Flamenco): esas no
+  // pasan por buyAnimal/buyCoin. Solo para el resumen final de la partida.
+  purchasesCount: number;
+  // En qué ronda tuvo más monedas en mano al EMPEZAR su turno (antes de
+  // jugar nada): se actualiza en beginPlayerTurn, leyendo la mano recién
+  // robada al final de su turno anterior. Solo cuenta monedas de verdad
+  // (cartas tipo 'coin'), no el valor de compra extra de algún efecto (que
+  // se resetea a 0 en ese mismo instante y no refleja dinero "guardado").
+  // null hasta el primer beginPlayerTurn. Solo para el resumen final.
+  richestTurn: { round: number; coins: number } | null;
 }
 
 export interface GameState {

@@ -223,11 +223,19 @@ setRefillHook((state, species) => refillAnimalMarket(state, species));
 // endTurn: la mano se roba al final del turno anterior, no al principio del
 // siguiente, para que los rivales tengan mano de verdad entre turno y
 // turno).
-function beginPlayerTurn(_state: GameState, player: Player): void {
+function beginPlayerTurn(state: GameState, player: Player): void {
   player.bonusPurchasingPowerThisTurn = 0;
   player.aquaticBonusPurchasingPowerThisTurn = 0;
   player.boughtSpeciesThisTurn = [];
   player.playedThisTurn = [];
+
+  // Solo monedas de verdad (ver comentario de richestTurn en model/state.ts):
+  // la mano ya está robada (endTurn la roba al final del turno anterior), así
+  // que esto refleja el dinero con el que arranca ESTE turno.
+  const coins = player.hand.filter((c) => c.type === 'coin').reduce((sum, c) => sum + (c.value ?? 0), 0);
+  if (!player.richestTurn || coins > player.richestTurn.coins) {
+    player.richestTurn = { round: state.round, coins };
+  }
 }
 
 // Como mucho 1 compra de mercado (buyAnimal) por ESPECIE y turno: puedes
@@ -269,6 +277,8 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
       aquaticBonusPurchasingPowerThisTurn: 0,
       boughtSpeciesThisTurn: [],
       playedThisTurn: [],
+      purchasesCount: 0,
+      richestTurn: null,
     };
   });
 
@@ -513,6 +523,7 @@ export function buyAnimal(state: GameState, playerId: string, trackInstanceId: s
   state.animalTrack.splice(trackIndex, 1);
   player.discard.push(animal);
   if (animal.species) player.boughtSpeciesThisTurn.push(animal.species);
+  player.purchasesCount += 1;
   refillAnimalMarket(state, animal.species);
 
   state.log.push(`${player.name} compró ${animal.name} por ${animal.marketCost}monedas`);
@@ -530,6 +541,7 @@ export function buyCoin(state: GameState, playerId: string, coinId: (typeof PURC
 
   payCoins(player, coinCard.marketCost ?? 0);
   player.discard.push(mintInstance(state, coinCard));
+  player.purchasesCount += 1;
 
   state.log.push(`${player.name} compró ${coinCard.name} por ${coinCard.marketCost}monedas`);
 }

@@ -150,12 +150,28 @@ export default function App() {
     );
   }
 
+  // Cuántos animales de cada hábitat hay en TODA la colección de un
+  // jugador, para el resumen final. Un animal con varios hábitats a la vez
+  // (Pingüino, Hipopótamo, Cocodrilo, Pato, Flamenco) cuenta en cada uno de
+  // los que tenga, no en uno solo: mismo criterio de "pertenencia" que usan
+  // los efectos que cuentan animales de un hábitat (ver habitatWeight en el
+  // motor), salvo que aquí no se aplica el ×2 especial del Pez de colores
+  // (esto es solo un recuento informativo, no un cálculo de puntuación).
+  function habitatCounts(player: (typeof state.players)[number]): { land: number; bird: number; aquatic: number } {
+    const all = [...player.deck, ...player.hand, ...player.discard].filter((c) => c.type === 'animal');
+    return {
+      land: all.filter((c) => c.habitats?.includes('land')).length,
+      bird: all.filter((c) => c.habitats?.includes('bird')).length,
+      aquatic: all.filter((c) => c.habitats?.includes('aquatic')).length,
+    };
+  }
+
   return (
     <div className="app">
       {state.gameOver && (
         <div className="panel">
           <div className="panel__header">
-            <h2>Resultado final</h2>
+            <h2>Resumen de la partida</h2>
           </div>
           <p>
             {(() => {
@@ -166,6 +182,49 @@ export default function App() {
                 : `${winners[0]?.name} gana con ${best} PV.`;
             })()}
           </p>
+          <div className="summary-table-wrap">
+            <table className="summary-table">
+              <thead>
+                <tr>
+                  <th>Jugador</th>
+                  <th>PV</th>
+                  <th>Compras</th>
+                  <th>Terrestres</th>
+                  <th>Voladores</th>
+                  <th>Acuáticos</th>
+                  <th>Turno con más dinero</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.players.map((p) => {
+                  const habitats = habitatCounts(p);
+                  return (
+                    <tr key={p.id}>
+                      <td>
+                        <strong>{p.name}</strong>
+                      </td>
+                      <td>{scoreFor(p.id)}</td>
+                      <td>{p.purchasesCount}</td>
+                      <td>{habitats.land}</td>
+                      <td>{habitats.bird}</td>
+                      <td>{habitats.aquatic}</td>
+                      <td>
+                        {p.richestTurn
+                          ? `Ronda ${p.richestTurn.round} · ${p.richestTurn.coins} moneda${p.richestTurn.coins === 1 ? '' : 's'}`
+                          : '—'}
+                      </td>
+                      <td>
+                        <button className="btn btn--ghost" onClick={() => setViewedPlayerId(p.id)}>
+                          Ver mazo →
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

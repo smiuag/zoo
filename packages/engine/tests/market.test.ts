@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buyAnimal, buyCoin, canAffordMarket, createGame, getActivePlayer, getLegalActions } from '../src/engine';
+import { buyAnimal, buyCoin, canAffordMarket, createGame, endTurn, getActivePlayer, getLegalActions } from '../src/engine';
 import { getCard } from '../src/cards/registry';
 import { buildStarterDeck } from './helpers';
 import type { CardInstance, GameState } from '../src/model/state';
@@ -220,5 +220,54 @@ describe('getLegalActions y compra de animales', () => {
     const legal = getLegalActions(state, player.id);
     expect(legal.some((a) => a.type === 'buyCoin' && a.coinId === 'coin-2')).toBe(true);
     expect(legal.some((a) => a.type === 'buyCoin' && a.coinId === 'coin-3')).toBe(false);
+  });
+});
+
+describe('estadísticas para el resumen final: purchasesCount y richestTurn', () => {
+  it('purchasesCount cuenta cada compra (animal o moneda) hecha en toda la partida', () => {
+    const { state, player } = setupClean();
+    expect(player.purchasesCount).toBe(0);
+    player.hand = [
+      freshInstance('coin-1', 'a'),
+      freshInstance('coin-1', 'b'),
+      freshInstance('coin-1', 'c'),
+      freshInstance('coin-1', 'd'),
+      freshInstance('coin-1', 'e'),
+    ];
+    const cheapAnimal = trackCardWithCost(state, 1);
+
+    buyAnimal(state, player.id, cheapAnimal.instanceId); // gasta 1 moneda de 1
+    expect(player.purchasesCount).toBe(1);
+
+    buyCoin(state, player.id, 'coin-2'); // cuesta 3, quedan monedas de sobra
+    expect(player.purchasesCount).toBe(2);
+  });
+
+  it('richestTurn guarda la ronda y las monedas con las que empezó su turno más rico, y no baja si un turno posterior es más pobre', () => {
+    const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
+    const player = getActivePlayer(state);
+    // Se sustituye el estado inicial (mano/mazo barajados al azar) por uno
+    // controlado, para poder predecir exactamente qué mano se roba después.
+    player.hand = [freshInstance('coin-1', 'poor')]; // turno actual: 1 moneda
+    player.discard = [];
+    player.richestTurn = { round: state.round, coins: 1 };
+
+    // El próximo turno (tras endTurn) robará este mazo: 5 monedas de 3 = 15.
+    player.deck = Array.from({ length: 5 }, (_, i) => freshInstance('coin-3', `rich${i}`));
+    const roundBeforeRichTurn = state.round;
+    endTurn(state, player.id);
+
+    expect(player.richestTurn).toEqual({ round: roundBeforeRichTurn + 1, coins: 15 });
+
+    // El turno siguiente es más pobre (5 monedas de 1 = 5 en total, menos
+    // que las 15 anteriores): richestTurn no debe cambiar. El mazo tiene
+    // EXACTAMENTE las 5 cartas que se van a robar, para que drawCards nunca
+    // necesite rebarajar el descarte (que en este punto tiene las 5 monedas
+    // de 3 recién descartadas: si drawCards tuviera que tocarlo, la mano
+    // nueva saldría contaminada con ellas).
+    player.deck = Array.from({ length: 5 }, (_, i) => freshInstance('coin-1', `poorAgain${i}`));
+    endTurn(state, player.id);
+
+    expect(player.richestTurn).toEqual({ round: roundBeforeRichTurn + 1, coins: 15 });
   });
 });
