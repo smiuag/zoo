@@ -298,7 +298,7 @@ export default function App() {
                     <CardView
                       key={coinId}
                       card={card}
-                      compact
+                      half
                       onClick={humanTurn ? () => handleBuyCoinClick(coinId) : undefined}
                       disabled={!isCoinShopClickable(coinId)}
                       remainingLabel="∞"

@@ -125,10 +125,7 @@ body {
 
 /* Plata y Oro comparten el hueco de UNA sola carta dentro de la fila del
    mercado (una encima de otra), en vez de ocupar 2 huecos sueltos: así no
-   se comen sitio de más ni saltan de fila según cuántos animales quepan.
-   Reutiliza el tamaño reducido de .card--compact (ver más abajo) pero
-   fijando su ancho al de una carta normal y repartiendo el alto normal
-   entre las 2, para que el conjunto encaje en un solo hueco de la fila. */
+   se comen sitio de más ni saltan de fila según cuántos animales quepan. */
 .coin-stack {
   display: flex;
   flex-direction: column;
@@ -136,32 +133,6 @@ body {
   flex: 0 0 auto;
   width: var(--card-w);
 }
-.coin-stack .card--compact {
-  width: var(--card-w);
-  height: calc((var(--card-h) - 0.4rem) / 2);
-  padding: 0.2rem 0.4rem;
-}
-/* min-height: 0 en las 3 filas fijas es lo que de verdad evita que se
-   salgan del recuadro: por defecto un hijo flex no encoge por debajo de su
-   contenido (min-height: auto), así que sin esto el icono no cede sitio y
-   el conjunto se desborda aunque el tamaño de fuente parezca ya pequeño.
-   El icono se agranda respecto al .card--compact normal (más ancho que
-   alto aquí, a diferencia de la carta compacta de referencia) para que no
-   se vea perdido en el hueco extra de anchura. */
-.coin-stack .card--compact .card__top {
-  min-height: 0;
-}
-.coin-stack .card--compact .card__icon {
-  min-height: 0;
-  font-size: 1.9rem;
-}
-.coin-stack .card--compact .card__name {
-  min-height: 0;
-}
-.coin-stack .card--compact .card__footer {
-  min-height: 0;
-}
-
 /* ---------- Controles de turno (carrito, terminar/reiniciar turno) ---------- */
 
 .turn-controls {
@@ -330,6 +301,36 @@ body {
 }
 .card--compact .card__footer {
   font-size: 0.5rem;
+}
+
+/* Plata y Oro apiladas en el mercado (ver .coin-stack más arriba): ancho de
+   una carta normal, la mitad de su alto (algo menos, para dejar un margen
+   entre las 2). Selector compuesto .card.card--coin-half (en vez de solo
+   .card--coin-half) A PROPÓSITO: con la misma especificidad que .card, quien
+   gane el width/height dependería del orden en la hoja de estilos en vez
+   del propio nombre de la clase — con el selector compuesto (más específico)
+   esta regla gana siempre, esté donde esté colocada. */
+.card.card--coin-half {
+  width: var(--card-w);
+  height: calc((var(--card-h) - 0.4rem) / 2);
+  padding: 0.2rem 0.4rem;
+}
+/* min-height: 0 en las 3 filas fijas es lo que evita que se salgan del
+   recuadro: por defecto un hijo flex no encoge por debajo de su contenido
+   (min-height: auto), así que sin esto el icono no cede sitio y el
+   conjunto se desborda aunque cambies el tamaño de fuente. */
+.card--coin-half .card__top {
+  min-height: 0;
+}
+.card--coin-half .card__icon {
+  min-height: 0;
+  font-size: 1.9rem;
+}
+.card--coin-half .card__name {
+  min-height: 0;
+}
+.card--coin-half .card__footer {
+  min-height: 0;
 }
 .card--compact .card__check {
   width: 1rem;
