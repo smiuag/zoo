@@ -278,28 +278,27 @@ export default function App() {
               <h2>Mercado</h2>
               <span className="panel__hint">{state.animalTrack.length} disponibles — pulsa uno para comprarlo</span>
             </div>
-            <div className="market-area">
-              <div className="card-row card-row--market">
-                {sortedAnimalTrack.map((card) => (
-                  <CardView
-                    key={card.instanceId}
-                    card={card}
-                    onClick={humanTurn ? () => handleMarketCardClick(card) : undefined}
-                    disabled={!isMarketCardClickable(card)}
-                    remainingLabel={String((state.sharedDecks[card.species ?? ''] ?? []).length + 1)}
-                  />
-                ))}
-              </div>
-              {/* Plata y Oro en su propia columna fija (una encima de otra),
-                  fuera de la fila del mercado: así no cambian de sitio según
-                  cuántos animales quepan por fila. */}
-              <div className="card-row card-row--coin-shop">
+            <div className="card-row card-row--market">
+              {sortedAnimalTrack.map((card) => (
+                <CardView
+                  key={card.instanceId}
+                  card={card}
+                  onClick={humanTurn ? () => handleMarketCardClick(card) : undefined}
+                  disabled={!isMarketCardClickable(card)}
+                  remainingLabel={String((state.sharedDecks[card.species ?? ''] ?? []).length + 1)}
+                />
+              ))}
+              {/* Plata y Oro comparten el hueco de una sola carta (una
+                  encima de otra), como una casilla más de la fila del
+                  mercado. */}
+              <div className="coin-stack">
                 {PURCHASABLE_COIN_IDS.map((coinId) => {
                   const card = { ...getCard(coinId), instanceId: coinId } as CardInstance;
                   return (
                     <CardView
                       key={coinId}
                       card={card}
+                      compact
                       onClick={humanTurn ? () => handleBuyCoinClick(coinId) : undefined}
                       disabled={!isCoinShopClickable(coinId)}
                       remainingLabel="∞"

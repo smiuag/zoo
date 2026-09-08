@@ -123,18 +123,38 @@ body {
   max-width: calc(7 * var(--card-w) + 6 * 0.6rem);
 }
 
-/* Fila de animales + columna fija de Plata/Oro, una junto a otra: la
-   columna de monedas no forma parte de la fila que envuelve (wrap) del
-   mercado, así que su posición no cambia según cuántos animales quepan por
-   fila esa ronda. */
-.market-area {
+/* Plata y Oro comparten el hueco de UNA sola carta dentro de la fila del
+   mercado (una encima de otra), en vez de ocupar 2 huecos sueltos: así no
+   se comen sitio de más ni saltan de fila según cuántos animales quepan.
+   Reutiliza el tamaño reducido de .card--compact (ver más abajo) pero
+   fijando su ancho al de una carta normal y repartiendo el alto normal
+   entre las 2, para que el conjunto encaje en un solo hueco de la fila. */
+.coin-stack {
   display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-}
-.card-row--coin-shop {
   flex-direction: column;
+  gap: 0.5rem;
   flex: 0 0 auto;
+  width: var(--card-w);
+}
+.coin-stack .card--compact {
+  width: var(--card-w);
+  height: calc((var(--card-h) - 0.5rem) / 2);
+  padding: 0.15rem 0.4rem;
+}
+.coin-stack .card--compact .card__top {
+  min-height: 0.8rem;
+}
+.coin-stack .card--compact .card__icon {
+  font-size: 1.3rem;
+  min-height: 0;
+}
+.coin-stack .card--compact .card__name {
+  font-size: 0.55rem;
+  min-height: 0;
+}
+.coin-stack .card--compact .card__footer {
+  font-size: 0.42rem;
+  min-height: 0;
 }
 
 /* ---------- Controles de turno (carrito, terminar/reiniciar turno) ---------- */
@@ -232,21 +252,6 @@ body {
   border-color: #b8860b;
   background: linear-gradient(180deg, #fdf5df 0%, #fbfaf6 100%);
 }
-/* Tono por metal (Bronce/Plata/Oro): pisa el dorado genérico de .card--coin
-   de arriba, que se queda como color de respaldo si algo solo aplica la
-   clase base. */
-.card--coin-bronze {
-  border-color: #a5682a;
-  background: linear-gradient(180deg, #f3e2cf 0%, #fbfaf6 100%);
-}
-.card--coin-silver {
-  border-color: #8a94a6;
-  background: linear-gradient(180deg, #ecedf0 0%, #fbfaf6 100%);
-}
-.card--coin-gold {
-  border-color: #b8860b;
-  background: linear-gradient(180deg, #fdf5df 0%, #fbfaf6 100%);
-}
 
 /* ---------- Status row / scoreboard highlight ---------- */
 
@@ -297,15 +302,6 @@ body {
   border-left: 5px solid var(--aquatic);
 }
 .action-list .btn.card--coin {
-  border-left: 5px solid #b8860b;
-}
-.action-list .btn.card--coin-bronze {
-  border-left: 5px solid #a5682a;
-}
-.action-list .btn.card--coin-silver {
-  border-left: 5px solid #8a94a6;
-}
-.action-list .btn.card--coin-gold {
   border-left: 5px solid #b8860b;
 }
 
