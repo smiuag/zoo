@@ -79,7 +79,7 @@ function encodePlayerContext(state: GameState, player: Player): number[] {
     coinSum / 10,
     rawVictoryPoints / 40,
     ...habitatCounts(own).map((n) => n / 15),
-    distinctSpeciesCount(own) / 26,
+    distinctSpeciesCount(own) / 27,
     emptyDecks / 5,
     state.finalRoundTriggerPlayerIndex !== null ? 1 : 0,
   ];
@@ -96,7 +96,7 @@ function encodePlayerContext(state: GameState, player: Player): number[] {
       opponent.hand.length / 10,
       opponent.discard.length / 40,
       discardVp / 20,
-      distinctSpeciesCount(opponent.discard) / 26
+      distinctSpeciesCount(opponent.discard) / 27
     );
   }
 

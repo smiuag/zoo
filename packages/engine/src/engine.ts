@@ -39,9 +39,10 @@ const ANIMAL_SPECIES = [
   'owl',
   'bat',
   'turtle',
+  'platypus',
 ] as const;
 // La partida entra en la ronda final en cuanto este número de mazos
-// compartidos (de las 26 especies, todas cuentan) se hayan agotado.
+// compartidos (de las 27 especies, todas cuentan) se hayan agotado.
 const FINAL_ROUND_EMPTY_DECK_THRESHOLD = 5;
 // Monedas que se pueden comprar directamente (a cambio de otras monedas),
 // además de conseguirse por efectos o el mazo inicial. Suministro
@@ -198,7 +199,7 @@ function checkFinalRoundTrigger(state: GameState): void {
 }
 
 // --- Mercado de animales --------------------------------------------------
-// Siempre intenta tener 1 hueco por especie (26 en total); al comprarse uno
+// Siempre intenta tener 1 hueco por especie (27 en total); al comprarse uno
 // se repone solo el hueco de esa especie, con una copia del mazo compartido
 // de esa especie.
 function refillAnimalMarket(state: GameState, onlySpecies?: string): void {
