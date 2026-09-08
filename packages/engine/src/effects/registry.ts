@@ -324,16 +324,23 @@ registerEffect('addRabbitToChosenPlayerDiscard', (state, player, _effect, contex
 // en player.discard: puede ser el propio Flamenco, que para cuando se
 // resuelve esto ya está en tu descarte porque playCard lo mueve ahí antes
 // de resolver su onPlay, o cualquier otra carta jugada antes este turno.
-// Se resuelve el onPlay de la carta devuelta (sin volver a elegir objetivo
-// para ella), y luego coges gratis del mercado, SIN resolver su efecto, el
-// animal que el jugador haya elegido (context.secondaryTargetInstanceId)
+// SOLO se resuelve el onPlay de la carta devuelta si todavía estaba en la
+// MANO (foundInHand): si hace falta caer al descarte para encontrarla es
+// porque ya se jugó antes este turno (o es el propio Flamenco, recién
+// descartado por su propio playCard) — en ambos casos su habilidad ya se
+// disparó (a mano, jugándola de verdad, o no tiene sentido dispararla dos
+// veces sobre sí misma), así que volver a resolverla sería duplicarla. Solo
+// se le da ese "usa su habilidad" gratis a la que de verdad no se había
+// jugado todavía. Luego coges gratis del mercado, SIN resolver su efecto,
+// el animal que el jugador haya elegido (context.secondaryTargetInstanceId)
 // de coste como mucho 1 más que el devuelto.
 registerEffect('returnAnimalForUpgrade', (state, player, _effect, context) => {
   if (!context.targetInstanceId) return;
 
   let zone: CardInstance[] = player.hand;
   let idx = zone.findIndex((c) => c.instanceId === context.targetInstanceId && c.type === 'animal');
-  if (idx === -1) {
+  const foundInHand = idx !== -1;
+  if (!foundInHand) {
     zone = player.discard;
     idx = zone.findIndex((c) => c.instanceId === context.targetInstanceId && c.type === 'animal');
   }
@@ -343,8 +350,10 @@ registerEffect('returnAnimalForUpgrade', (state, player, _effect, context) => {
   const deck = state.sharedDecks[returned.species ?? ''];
   if (deck) deck.push(returned);
 
-  for (const e of returned.effects.filter((e) => e.trigger === 'onPlay')) {
-    resolveEffect(state, player, e, {});
+  if (foundInHand) {
+    for (const e of returned.effects.filter((e) => e.trigger === 'onPlay')) {
+      resolveEffect(state, player, e, {});
+    }
   }
 
   if (!context.secondaryTargetInstanceId) return;

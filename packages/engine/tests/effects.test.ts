@@ -612,12 +612,15 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(actions.some((a) => a.type === 'playCard' && a.targetInstanceId === flamingo.instanceId)).toBe(true);
   });
 
-  it('flamenco: puede devolver un animal ya jugado este turno (lo busca en el descarte para resolverlo)', () => {
+  it('flamenco: puede devolver un animal ya jugado este turno para el intercambio, pero SIN volver a disparar su habilidad (ya se usó al jugarlo)', () => {
     const { state, player } = setupClean();
     const flamingo = freshInstance('flamingo', 'test');
-    const turtle = freshInstance('turtle', 't1'); // coste 2, sube 1 moneda de 1 a 2
+    const turtle = freshInstance('turtle', 't1'); // coste 2, su habilidad sube 1 moneda de 1 a 2
     const coin = freshInstance('coin-1', 'c1');
     player.hand = [flamingo, coin];
+    // La Tortuga ya se jugó antes este turno (por eso está en el descarte y
+    // en playedThisTurn): su habilidad ya se resolvió entonces, en un
+    // playCard aparte que este test no simula.
     player.discard.push(turtle);
     player.playedThisTurn.push(turtle);
 
@@ -626,9 +629,11 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
     playCard(state, player.id, flamingo.instanceId, turtle.instanceId, chosen.instanceId);
 
+    // La moneda sigue en 1: devolver la Tortuga ya jugada NO vuelve a subirla.
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(1);
-    expect(coins[0].value).toBe(2);
+    expect(coins[0].value).toBe(1);
+    // El intercambio en sí (devolverla al mazo compartido, coger el otro animal gratis) sigue funcionando.
     expect(state.sharedDecks.turtle?.some((c) => c.instanceId === turtle.instanceId)).toBe(true);
     expect(player.discard.some((c) => c.instanceId === chosen.instanceId)).toBe(true);
   });
