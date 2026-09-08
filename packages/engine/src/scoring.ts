@@ -63,6 +63,30 @@ export interface PlayerScore {
   score: number;
 }
 
+// Puntos que APORTA cada carta de la colección, uno por instancia: sus PV
+// base más lo que sume cualquier efecto onScore que lleve encima (p. ej.
+// cada Orca añade el bonus de scorePerHabitatCount calculado sobre TODA la
+// colección, no solo sobre sí misma — si hay 3 Orcas, las 3 lo suman por
+// igual). Nunca resuelve los efectos DESTRUCTIVOS (el Cocodrilo): se asume
+// que scorePlayer/scoreGame ya los resolvió antes si la partida ha
+// terminado, y llamar a esto no debe mutar la colección por su cuenta. Solo
+// pensado para mostrar un desglose en la UI, no para el cálculo real del
+// marcador (ese sigue siendo scorePlayer).
+export function scoreCardContributions(player: Player): Map<string, number> {
+  const allCards = collectAllCards(player);
+  const contributions = new Map<string, number>();
+  for (const card of allCards) {
+    let points = card.victoryPoints;
+    for (const effect of card.effects.filter(
+      (e) => e.trigger === 'onScore' && !DESTRUCTIVE_SCORE_EFFECT_TYPES.has(e.type)
+    )) {
+      points += resolveScoreEffect(player, effect, allCards, card);
+    }
+    contributions.set(card.instanceId, points);
+  }
+  return contributions;
+}
+
 export function scoreGame(state: GameState): PlayerScore[] {
   // Todos los jugadores se puntúan con scoringFinalized aún en false (así
   // que la fase destructiva de cada uno se resuelve, si procede), y solo AL

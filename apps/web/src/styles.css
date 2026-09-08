@@ -118,21 +118,16 @@ body {
   max-width: calc(3 * var(--card-w) + 2 * 0.6rem);
 }
 
-/* Mercado: igual, pero a 7 cartas por fila. */
+/* Mercado: rejilla fija de 6 columnas. 28 animales + Plata + Oro = 30
+   huecos = exactamente 5 filas de 6, así que no hace falta envolver por
+   ancho disponible como en la mano. --card-h algo menor que el normal
+   (184px) para que las 5 filas quepan mejor sin tanto scroll. */
 .card-row--market {
-  max-width: calc(7 * var(--card-w) + 6 * 0.6rem);
+  display: grid;
+  grid-template-columns: repeat(6, var(--card-w));
+  --card-h: 165px;
 }
 
-/* Plata y Oro comparten el hueco de UNA sola carta dentro de la fila del
-   mercado (una encima de otra), en vez de ocupar 2 huecos sueltos: así no
-   se comen sitio de más ni saltan de fila según cuántos animales quepan. */
-.coin-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  flex: 0 0 auto;
-  width: var(--card-w);
-}
 /* ---------- Controles de turno (carrito, terminar/reiniciar turno) ---------- */
 
 .turn-controls {
@@ -301,36 +296,6 @@ body {
 }
 .card--compact .card__footer {
   font-size: 0.5rem;
-}
-
-/* Plata y Oro apiladas en el mercado (ver .coin-stack más arriba): ancho de
-   una carta normal, la mitad de su alto (algo menos, para dejar un margen
-   entre las 2). Selector compuesto .card.card--coin-half (en vez de solo
-   .card--coin-half) A PROPÓSITO: con la misma especificidad que .card, quien
-   gane el width/height dependería del orden en la hoja de estilos en vez
-   del propio nombre de la clase — con el selector compuesto (más específico)
-   esta regla gana siempre, esté donde esté colocada. */
-.card.card--coin-half {
-  width: var(--card-w);
-  height: calc((var(--card-h) - 0.4rem) / 2);
-  padding: 0.2rem 0.4rem;
-}
-/* min-height: 0 en las 3 filas fijas es lo que evita que se salgan del
-   recuadro: por defecto un hijo flex no encoge por debajo de su contenido
-   (min-height: auto), así que sin esto el icono no cede sitio y el
-   conjunto se desborda aunque cambies el tamaño de fuente. */
-.card--coin-half .card__top {
-  min-height: 0;
-}
-.card--coin-half .card__icon {
-  min-height: 0;
-  font-size: 1.9rem;
-}
-.card--coin-half .card__name {
-  min-height: 0;
-}
-.card--coin-half .card__footer {
-  min-height: 0;
 }
 .card--compact .card__check {
   width: 1rem;
@@ -660,6 +625,20 @@ body {
   font-weight: 700;
   border: 2px solid var(--panel-bg);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+/* Cuántos PV ha aportado ese grupo de cartas en total (ver
+   scoreCardContributions): con varias copias, "4× 12 PV" en vez de
+   obligar a multiplicar de cabeza. */
+.collection-entry__points {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  margin-top: 0.2rem;
+}
+.collection-entry__points--negative {
+  color: var(--danger);
 }
 
 .log-details pre {

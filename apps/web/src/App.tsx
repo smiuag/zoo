@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getCard, type Action, type CardInstance, type GameState } from '@zoo/engine';
+import { getCard, scoreCardContributions, type Action, type CardInstance, type GameState } from '@zoo/engine';
 import { CardView } from './components/CardView';
 import { buyAnimalActionFor, buyCoinActionFor, playCardActionsFor } from './lib/actionQuery';
 import { BOT_ALGORITHM_OPTIONS } from './lib/botAlgorithms';
@@ -124,15 +124,26 @@ export default function App() {
   }
 
   // Toda la colección de un jugador (mazo + mano + descarte: todo puntúa
-  // esté donde esté), agrupada por carta con su recuento, para el popup de
-  // "ver mazo". Ordenada como el mercado: más barato primero.
-  function groupedCollection(player: (typeof state.players)[number]): { card: CardInstance; count: number }[] {
+  // esté donde esté), agrupada por carta con su recuento y los PV totales
+  // que aporta ese grupo (scoreCardContributions: PV base de cada copia +
+  // su parte de cualquier bonus onScore, p. ej. cada Orca suma el bonus de
+  // acuáticos calculado sobre TODA la colección), para el popup de "ver
+  // mazo". Ordenada como el mercado: más barato primero.
+  function groupedCollection(
+    player: (typeof state.players)[number]
+  ): { card: CardInstance; count: number; points: number }[] {
     const all = [...player.deck, ...player.hand, ...player.discard];
-    const byId = new Map<string, { card: CardInstance; count: number }>();
+    const contributions = scoreCardContributions(player);
+    const byId = new Map<string, { card: CardInstance; count: number; points: number }>();
     for (const card of all) {
+      const points = contributions.get(card.instanceId) ?? 0;
       const entry = byId.get(card.id);
-      if (entry) entry.count += 1;
-      else byId.set(card.id, { card, count: 1 });
+      if (entry) {
+        entry.count += 1;
+        entry.points += points;
+      } else {
+        byId.set(card.id, { card, count: 1, points });
+      }
     }
     return [...byId.values()].sort(
       (a, b) => (a.card.marketCost ?? 0) - (b.card.marketCost ?? 0) || a.card.name.localeCompare(b.card.name)
@@ -274,10 +285,6 @@ export default function App() {
 
         <div className="layout__right">
           <div className="panel">
-            <div className="panel__header">
-              <h2>Mercado</h2>
-              <span className="panel__hint">{state.animalTrack.length} disponibles — pulsa uno para comprarlo</span>
-            </div>
             <div className="card-row card-row--market">
               {sortedAnimalTrack.map((card) => (
                 <CardView
@@ -288,24 +295,18 @@ export default function App() {
                   remainingLabel={String((state.sharedDecks[card.species ?? ''] ?? []).length + 1)}
                 />
               ))}
-              {/* Plata y Oro comparten el hueco de una sola carta (una
-                  encima de otra), como una casilla más de la fila del
-                  mercado. */}
-              <div className="coin-stack">
-                {PURCHASABLE_COIN_IDS.map((coinId) => {
-                  const card = { ...getCard(coinId), instanceId: coinId } as CardInstance;
-                  return (
-                    <CardView
-                      key={coinId}
-                      card={card}
-                      half
-                      onClick={humanTurn ? () => handleBuyCoinClick(coinId) : undefined}
-                      disabled={!isCoinShopClickable(coinId)}
-                      remainingLabel="∞"
-                    />
-                  );
-                })}
-              </div>
+              {PURCHASABLE_COIN_IDS.map((coinId) => {
+                const card = { ...getCard(coinId), instanceId: coinId } as CardInstance;
+                return (
+                  <CardView
+                    key={coinId}
+                    card={card}
+                    onClick={humanTurn ? () => handleBuyCoinClick(coinId) : undefined}
+                    disabled={!isCoinShopClickable(coinId)}
+                    remainingLabel="∞"
+                  />
+                );
+              })}
             </div>
           </div>
         </div>
@@ -353,10 +354,16 @@ export default function App() {
               </button>
             </div>
             <div className="card-row">
-              {groupedCollection(viewedPlayer).map(({ card, count }) => (
+              {groupedCollection(viewedPlayer).map(({ card, count, points }) => (
                 <div key={card.id} className="collection-entry">
                   <CardView card={card} compact />
                   {count > 1 && <span className="collection-entry__count">×{count}</span>}
+                  <div className={['collection-entry__points', points < 0 && 'collection-entry__points--negative']
+                    .filter(Boolean)
+                    .join(' ')}
+                  >
+                    {count > 1 ? `${count}× ${points} PV` : `${points} PV`}
+                  </div>
                 </div>
               ))}
             </div>

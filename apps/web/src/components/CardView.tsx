@@ -6,21 +6,13 @@ interface CardViewProps {
   onClick?: () => void;
   disabled?: boolean;
   compact?: boolean;
-  // Plata/Oro apiladas en el mercado (ver .coin-stack / .card--coin-half en
-  // styles.css): mismo ancho que una carta normal, la mitad de su alto. Es
-  // una clase propia y no una variante de `compact` porque .card--compact
-  // REDEFINE las variables --card-w/--card-h a un tamaño más pequeño
-  // (72×100): cualquier cálculo que las reutilizara (p. ej. "la mitad de
-  // una carta normal") acababa partiendo de esas 72×100, no de las 128×184
-  // reales, y salía más chica de lo que parecía en el CSS.
-  half?: boolean;
   // Cuántas copias quedan en el montón (mazo compartido de esa especie, o
   // "∞" para las monedas comprables, de suministro ilimitado). Solo se
   // muestra en las cartas del mercado, no en la mano.
   remainingLabel?: string;
 }
 
-export function CardView({ card, onClick, disabled, compact, half, remainingLabel }: CardViewProps) {
+export function CardView({ card, onClick, disabled, compact, remainingLabel }: CardViewProps) {
   const clickable = Boolean(onClick) && !disabled;
   const bits: string[] = [];
   if (card.type === 'animal') bits.push(habitatLabel(card));
@@ -30,7 +22,6 @@ export function CardView({ card, onClick, disabled, compact, half, remainingLabe
   if (disabled) classNames.push('card--disabled');
   if (clickable) classNames.push('card--clickable');
   if (compact) classNames.push('card--compact');
-  if (half) classNames.push('card--coin-half');
 
   return (
     <div
