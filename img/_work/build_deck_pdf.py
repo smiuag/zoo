@@ -25,10 +25,10 @@ cell_h = (PAGE_H - 2 * MARGIN - (ROWS - 1) * GAP) // ROWS
 # (ver RABBIT_RESERVE_SIZE en engine.ts) de la que salen los Conejos que
 # acaban en el descarte de un rival.
 COUNTS = {
-    "sloth": 38,
+    "sloth": 35,
     "coin-1": 49,
-    "coin-2": 20,
-    "coin-3": 15,
+    "coin-2": 15,
+    "coin-3": 12,
     "rabbit": 20,
 }
 DEFAULT_ANIMAL_COPIES = 10  # especies de coste < 5: 10 copias cada una
