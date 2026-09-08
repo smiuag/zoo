@@ -697,6 +697,30 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(state.animalTrack).toHaveLength(marketBefore);
   });
 
+  it('flamenco: si el hueco de mercado de la especie devuelta estaba vacío, se repone al momento con esa misma carta', () => {
+    const { state, player } = setupClean();
+    const flamingo = freshInstance('flamingo', 'test');
+    const turtle = freshInstance('turtle', 't1');
+    player.hand = [flamingo, turtle];
+
+    // Vacía a la vez el mazo compartido y el hueco de mercado de la tortuga,
+    // simulando que ya se habían agotado todas las copias salvo esta última
+    // (la que el jugador tiene en la mano).
+    state.sharedDecks.turtle = [];
+    state.animalTrack = state.animalTrack.filter((c) => c.species !== 'turtle');
+
+    const goldfish = state.animalTrack.find((c) => c.species === 'goldfish')!;
+
+    playCard(state, player.id, flamingo.instanceId, turtle.instanceId, goldfish.instanceId);
+
+    // La tortuga devuelta debe reponer YA el hueco vacío del mercado, no
+    // quedarse esperando en el mazo compartido sin que nada la saque de ahí.
+    const turtlesInMarket = state.animalTrack.filter((c) => c.species === 'turtle');
+    expect(turtlesInMarket).toHaveLength(1);
+    expect(turtlesInMarket[0].instanceId).toBe(turtle.instanceId);
+    expect(state.sharedDecks.turtle).toHaveLength(0);
+  });
+
   it('flamenco: "hasta 2 monedas más" no exige coste EXACTO: también puede elegir algo más barato', () => {
     const { state, player } = setupClean();
     const flamingo = freshInstance('flamingo', 'test');
