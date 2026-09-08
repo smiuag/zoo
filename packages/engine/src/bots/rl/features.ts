@@ -33,6 +33,7 @@ const EFFECT_TYPES = [
   'scorePerDistinctSpecies',
   'scoreBonusIfSpeciesCountAtLeast',
   'destroyWeakestNonFlyingFromDeckOnScore',
+  'swapSelfWithTopOfDeck',
 ] as const;
 
 const MAX_OPPONENTS = 3;
@@ -157,6 +158,16 @@ function targetCard(state: GameState, player: Player, action: Action): CardInsta
   );
 }
 
+// Encima del propio mazo (boca abajo, pero el jugador SÍ conoce esa carta:
+// es él quien la puso ahí, ya sea al robar/barajar o con un efecto como el
+// del Murciélago). Sin esto, la red no tiene forma de distinguir "jugar
+// Murciélago cuando encima hay algo valioso" de "jugar Murciélago cuando
+// encima hay OTRO Murciélago" (un no-op total, ver swapSelfWithTopOfDeck en
+// registry.ts): ambos casos codificaban exactamente igual.
+function topOfOwnDeck(player: Player): CardInstance | undefined {
+  return player.deck[player.deck.length - 1];
+}
+
 export function encodeAction(state: GameState, playerId: string, action: Action): number[] {
   const player = state.players.find((p) => p.id === playerId);
   if (!player) return new Array(FEATURE_DIM).fill(0);
@@ -166,6 +177,7 @@ export function encodeAction(state: GameState, playerId: string, action: Action)
     ...actionTypeOneHot(action),
     ...encodeCardBlock(actingCard(state, player, action)),
     ...encodeTargetBlock(targetCard(state, player, action)),
+    ...encodeTargetBlock(topOfOwnDeck(player)),
   ];
 
   if (features.length >= FEATURE_DIM) return features.slice(0, FEATURE_DIM);

@@ -81,9 +81,10 @@ function effectBonus(card: CardInstance): number {
       case 'returnAnimalForUpgrade':
         bonus += 2.5; // sube 1 de coste gratis, aproximación fija
         break;
-      case 'swapSelfWithTopOfDeck':
-        bonus += 1.5; // roba 1 carta garantizada, pero la propia carta no queda en el descarte
-        break;
+      // swapSelfWithTopOfDeck (Murciélago) NO se valora aquí: su valor real
+      // depende de qué carta hay encima del mazo en ESTE momento (puede ser
+      // desde muy buena hasta un no-op si es otro Murciélago), así que se
+      // calcula aparte en swapSelfWithTopOfDeckBonus, con acceso al mazo.
       case 'topdeckSlothForChosenPlayer':
         bonus += 1; // molesta al rival elegido, pero no siempre hay Perezoso que forzar
         break;
@@ -166,6 +167,25 @@ function drawThenTopdeckTargetBonus(sourceCard: CardInstance, player: Player, ta
   return -worth * 0.3;
 }
 
+// Murciélago: se intercambia por la carta de encima del mazo (ver
+// swapSelfWithTopOfDeck en registry.ts). Su valor real depende de qué haya
+// AHORA mismo encima del mazo: si es una carta cualquiera, se adelanta su
+// robo a cambio del propio Murciélago; pero si esa carta de encima es OTRO
+// Murciélago (típicamente porque el bot acaba de jugar uno este mismo
+// turno y lo puso ahí), el intercambio es un no-op total: misma
+// composición de cartas, solo cambia qué instancia concreta está en mano
+// vs. encima del mazo, sin ganar nada. Sin este cálculo, el bono fijo
+// trataba ese no-op como si fuera tan bueno como cualquier otro robo,
+// llevando al bot a encadenar Murciélagos sin parar cuando tenía varios.
+function swapSelfWithTopOfDeckBonus(card: CardInstance, player: Player): number {
+  if (!card.effects.some((e) => e.type === 'swapSelfWithTopOfDeck')) return 0;
+  const top = player.deck[player.deck.length - 1];
+  if (!top) return 0; // mazo vacío: el efecto no hace nada (ver registry.ts)
+  if (top.id === card.id) return -50; // no-op: misma carta encima, evita el bucle
+  const worth = top.type === 'coin' ? (top.value ?? 0) : top.victoryPoints;
+  return 1 + worth * 0.5;
+}
+
 function scoreAction(state: GameState, player: Player, action: Action): number {
   switch (action.type) {
     case 'buyAnimal': {
@@ -193,6 +213,7 @@ function scoreAction(state: GameState, player: Player, action: Action): number {
       return (
         100 +
         effectBonus(card) +
+        swapSelfWithTopOfDeckBonus(card, player) +
         targetPlayerBonus(state, player, card, action.targetPlayerId) +
         drawThenTopdeckTargetBonus(card, player, action.targetInstanceId)
       );
