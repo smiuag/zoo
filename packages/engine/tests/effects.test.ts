@@ -312,6 +312,43 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.bonusPurchasingPowerThisTurn).toBe(1);
   });
 
+  it('conejos: el jugador que elijas recibe un Conejo NUEVO de la reserva en su descarte', () => {
+    const { state, player, opponent } = setupClean();
+    const rabbitCard = freshInstance('rabbit', 'test');
+    player.hand = [rabbitCard];
+    const reserveBefore = state.sharedDecks['rabbit-reserve']?.length ?? 0;
+    const expectedRabbit = state.sharedDecks['rabbit-reserve']?.[reserveBefore - 1];
+
+    playCard(state, player.id, rabbitCard.instanceId, undefined, undefined, opponent.id);
+
+    expect(opponent.discard).toHaveLength(1);
+    expect(opponent.discard[0]).toBe(expectedRabbit);
+    expect(state.sharedDecks['rabbit-reserve']).toHaveLength(reserveBefore - 1);
+  });
+
+  it('conejos: si la reserva de Conejos está vacía, no pasa nada', () => {
+    const { state, player, opponent } = setupClean();
+    const rabbitCard = freshInstance('rabbit', 'test');
+    player.hand = [rabbitCard];
+    state.sharedDecks['rabbit-reserve'] = [];
+
+    playCard(state, player.id, rabbitCard.instanceId, undefined, undefined, opponent.id);
+
+    expect(opponent.discard).toHaveLength(0);
+  });
+
+  it('conejos: sin elegir jugador (sin rivales o sin objetivo), no pasa nada', () => {
+    const { state, player, opponent } = setupClean();
+    const rabbitCard = freshInstance('rabbit', 'test');
+    player.hand = [rabbitCard];
+    const reserveBefore = state.sharedDecks['rabbit-reserve']?.length ?? 0;
+
+    playCard(state, player.id, rabbitCard.instanceId);
+
+    expect(opponent.discard).toHaveLength(0);
+    expect(state.sharedDecks['rabbit-reserve']).toHaveLength(reserveBefore);
+  });
+
   it('araña: captura gratis un animal VOLADOR o ACUÁTICO del mercado de coste 3 o menos', () => {
     const { state, player } = setupClean();
     const spider = freshInstance('spider', 'test');

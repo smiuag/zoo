@@ -29,13 +29,14 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   bat: { cost: 1, pv: 1 },
   turtle: { cost: 2, pv: 1 },
   platypus: { cost: 3, pv: 2 },
+  rabbit: { cost: 2, pv: -2 },
 };
 
 describe('card registry', () => {
   it('carga y valida todos los ficheros de datos de cartas', () => {
     const cards = getAllCards();
-    // 27 especies de mercado + 1 Perezoso (solo de mazo inicial) + 3 monedas = 31.
-    expect(cards.length).toBe(31);
+    // 28 especies de mercado + 1 Perezoso (solo de mazo inicial) + 3 monedas = 32.
+    expect(cards.length).toBe(32);
   });
 
   it('el Perezoso es terrestre, no cuesta ni da nada, y no está en el mercado de animales', () => {
@@ -64,9 +65,9 @@ describe('card registry', () => {
     expect(getCard('coin-3').marketCost).toBe(5);
   });
 
-  it('expone las 27 especies de animal (1 carta cada una, sin sexo) con su coste/PV según tabla', () => {
+  it('expone las 28 especies de animal (1 carta cada una, sin sexo) con su coste/PV según tabla', () => {
     const species = Object.keys(SPECIES_TIERS);
-    expect(species).toHaveLength(27);
+    expect(species).toHaveLength(28);
     for (const id of species) {
       const card = getCard(id);
       expect(card.type).toBe('animal');
@@ -188,6 +189,7 @@ describe('card registry', () => {
     expect(getCard('platypus').effects[0]).toMatchObject({
       type: 'gainBonusPurchasingPowerPerDistinctSpeciesInHand',
     });
+    expect(getCard('rabbit').effects[0]).toMatchObject({ type: 'addRabbitToChosenPlayerDiscard' });
   });
 
   it('lanza un error para un id de carta desconocido', () => {

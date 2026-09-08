@@ -136,7 +136,7 @@ describe('reposición del mercado', () => {
 
     buyAnimal(state, player.id, target.instanceId);
 
-    expect(state.animalTrack).toHaveLength(27);
+    expect(state.animalTrack).toHaveLength(28);
     expect(state.animalTrack.some((c) => c.species === species)).toBe(true);
   });
 });

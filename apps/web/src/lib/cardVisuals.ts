@@ -28,6 +28,7 @@ const SPECIES_ICONS: Record<string, string> = {
   owl: '🦉',
   bat: '🦇',
   turtle: '🐢',
+  rabbit: '🐇',
   // No hay emoji de ornitorrinco en Unicode: usa el 🐾 genérico (fallback
   // de cardIcon) en vez de uno inexacto.
 };

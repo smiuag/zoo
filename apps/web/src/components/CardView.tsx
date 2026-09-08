@@ -41,7 +41,11 @@ export function CardView({ card, onClick, disabled, compact, half, remainingLabe
     >
       <div className="card__top">
         {card.marketCost ? <span className="card__cost">{card.marketCost}</span> : <span />}
-        {card.victoryPoints !== 0 && <span className="card__pv">{card.victoryPoints}PV</span>}
+        {card.victoryPoints !== 0 && (
+          <span className={['card__pv', card.victoryPoints < 0 && 'card__pv--negative'].filter(Boolean).join(' ')}>
+            {card.victoryPoints}PV
+          </span>
+        )}
       </div>
       <div className="card__icon">{cardIcon(card)}</div>
       <div className="card__name">{card.name}</div>

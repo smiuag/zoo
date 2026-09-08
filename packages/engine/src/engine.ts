@@ -40,9 +40,10 @@ const ANIMAL_SPECIES = [
   'bat',
   'turtle',
   'platypus',
+  'rabbit',
 ] as const;
 // La partida entra en la ronda final en cuanto este número de mazos
-// compartidos (de las 27 especies, todas cuentan) se hayan agotado.
+// compartidos (de las 28 especies, todas cuentan) se hayan agotado.
 const FINAL_ROUND_EMPTY_DECK_THRESHOLD = 5;
 // Monedas que se pueden comprar directamente (a cambio de otras monedas),
 // además de conseguirse por efectos o el mazo inicial. Suministro
@@ -188,9 +189,10 @@ function payCoins(player: Player, cost: number, isAquaticAnimal = false): void {
 function checkFinalRoundTrigger(state: GameState): void {
   if (state.finalRoundTriggerPlayerIndex !== null) return;
   // Solo cuentan los mazos de especies de mercado (ANIMAL_SPECIES): la
-  // reserva de Perezosos para la Jirafa también vive en sharedDecks (ver
-  // createGame) pero no es una especie del mercado, así que agotarla no
-  // debería adelantar el fin de la partida.
+  // reserva de Perezosos para la Jirafa y la de Conejos para los Conejos
+  // también viven en sharedDecks (ver createGame) pero no son especies del
+  // mercado (ninguna de las 2 claves está en ANIMAL_SPECIES), así que
+  // agotarlas no debería adelantar el fin de la partida.
   const emptyDecks = ANIMAL_SPECIES.filter((species) => state.sharedDecks[species]?.length === 0).length;
   if (emptyDecks >= FINAL_ROUND_EMPTY_DECK_THRESHOLD) {
     state.finalRoundTriggerPlayerIndex = state.activePlayerIndex;
@@ -294,6 +296,19 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
     Array.from({ length: SLOTH_RESERVE_SIZE }, () => mintInstance(state, getCard('sloth')))
   );
 
+  // Reserva de Conejos para la propia carta Conejos: a diferencia del
+  // Perezoso, el Conejo SÍ es una especie normal de ANIMAL_SPECIES (se
+  // compra en el mercado como cualquier otra), así que esta reserva usa una
+  // clave DISTINTA ('rabbit-reserve') para no compartir pila con
+  // sharedDecks['rabbit'] (el mazo del mercado): si compartieran clave, jugar
+  // la carta iría vaciando el propio mercado en vez de una reserva aparte.
+  // Mismo tamaño que su tope de copias en juego (coste 2 -> 10 copias): así
+  // nunca se agota la reserva antes que la propia carta.
+  const RABBIT_RESERVE_SIZE = 10;
+  state.sharedDecks['rabbit-reserve'] = shuffle(
+    Array.from({ length: RABBIT_RESERVE_SIZE }, () => mintInstance(state, getCard('rabbit')))
+  );
+
   refillAnimalMarket(state);
 
   // TODOS los jugadores empiezan la partida con mano (no solo el primero en
@@ -326,10 +341,15 @@ function requireActivePlayer(state: GameState, playerId: string): Player {
 // elecciones encadenadas (qué animal devolver + qué animal coger a
 // cambio), no solo una lista plana de candidatos.
 // Efectos que necesitan elegir un JUGADOR (no una carta) como objetivo: el
-// Pato (de quién robar 1 moneda) y la Jirafa (a quién le cae un Perezoso
-// encima del mazo). Ver PLAYER_TARGETED_EFFECT_TYPES más abajo, en
+// Pato (de quién robar 1 moneda), la Jirafa (a quién le cae un Perezoso
+// encima del mazo) y los Conejos (a quién le cae un Conejo de la reserva en
+// el descarte). Ver PLAYER_TARGETED_EFFECT_TYPES más abajo, en
 // getLegalActions.
-const PLAYER_TARGETED_EFFECT_TYPES = new Set(['stealCoinFromChosenPlayer', 'topdeckSlothForChosenPlayer']);
+const PLAYER_TARGETED_EFFECT_TYPES = new Set([
+  'stealCoinFromChosenPlayer',
+  'topdeckSlothForChosenPlayer',
+  'addRabbitToChosenPlayerDiscard',
+]);
 
 function targetedEffectCandidates(state: GameState, card: CardInstance): CardInstance[] | null {
   const freeCapture = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'freeCaptureUpToCost');

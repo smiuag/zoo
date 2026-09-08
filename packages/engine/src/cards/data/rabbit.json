@@ -1,0 +1,16 @@
+{
+  "id": "rabbit",
+  "name": "Conejos",
+  "type": "animal",
+  "species": "rabbit",
+  "marketCost": 2,
+  "victoryPoints": -2,
+  "text": "Elige un jugador: añade un Conejo de la reserva a su descarte.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "addRabbitToChosenPlayerDiscard"
+    }
+  ],
+  "habitats": ["land"]
+}

@@ -31,12 +31,12 @@ describe('createGame', () => {
     expect(active.bonusPurchasingPowerThisTurn).toBe(0);
   });
 
-  it('el mercado de animales empieza con 1 hueco por cada una de las 27 especies', () => {
+  it('el mercado de animales empieza con 1 hueco por cada una de las 28 especies', () => {
     const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
 
-    expect(state.animalTrack).toHaveLength(27);
+    expect(state.animalTrack).toHaveLength(28);
     const species = new Set(state.animalTrack.map((c) => c.species));
-    expect(species.size).toBe(27);
+    expect(species.size).toBe(28);
   });
 
   it('cada mazo de especie tiene sus copias fijas (menos 1 ya repuesta en el mercado): 10, o solo 6 si cuesta 5 o más', () => {
@@ -44,7 +44,12 @@ describe('createGame', () => {
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
       { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
     ]);
+    // 'rabbit-reserve' no es un mazo de especie (es la reserva aparte de la
+    // propia carta Conejos, ver createGame en engine.ts): no tiene un
+    // "hueco en el mercado" que sumarle, así que se excluye igual que
+    // 'sloth' (que sí es una especie real, pero tampoco tiene mercado).
     for (const [species, deck] of Object.entries(state.sharedDecks)) {
+      if (species === 'rabbit-reserve') continue;
       const inTrack = state.animalTrack.filter((c) => c.species === species).length;
       const expectedCopies = (getCard(species).marketCost ?? 0) >= 5 ? 6 : 10;
       expect(deck.length + inTrack).toBe(expectedCopies);

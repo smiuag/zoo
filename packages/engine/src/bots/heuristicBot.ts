@@ -81,6 +81,9 @@ function effectBonus(card: CardInstance): number {
       case 'topdeckSlothForChosenPlayer':
         bonus += 1; // molesta al rival elegido, pero no siempre hay Perezoso que forzar
         break;
+      case 'addRabbitToChosenPlayerDiscard':
+        bonus += 2; // resta 2PV garantizados al rival elegido (si aún queda Conejo en la reserva)
+        break;
       case 'scorePerHabitatCount':
       case 'scorePerDistinctSpecies':
         // El valor real depende de cuántos animales de ese hábitat/especies
@@ -119,9 +122,9 @@ function targetPlayerBonus(state: GameState, card: CardInstance, targetPlayerId:
     return bestCoin * 0.2;
   }
 
-  if (effectTypes.has('topdeckSlothForChosenPlayer')) {
-    // Molesta más a quien va ganando: forzarle un Perezoso (mal animal) le
-    // cuesta más que a alguien ya rezagado.
+  if (effectTypes.has('topdeckSlothForChosenPlayer') || effectTypes.has('addRabbitToChosenPlayerDiscard')) {
+    // Molesta más a quien va ganando: forzarle un Perezoso (mal animal) o
+    // restarle 2PV con un Conejo le cuesta más que a alguien ya rezagado.
     const victoryPoints = [...target.deck, ...target.hand, ...target.discard].reduce(
       (sum, c) => sum + c.victoryPoints,
       0
