@@ -1,5 +1,5 @@
 import { getCard } from './cards/registry';
-import { matchHabitatList, type Card } from './cards/schema';
+import { matchHabitatList, type Card, type Effect } from './cards/schema';
 import {
   drawCards,
   effectiveHand,
@@ -393,7 +393,8 @@ function targetedEffectCandidates(state: GameState, card: CardInstance): CardIns
 // Genera las variantes de "playCard" para una carta de Flamenco (o
 // cualquier otra que use returnAnimalForUpgrade): una por cada combinación
 // de (animal de tu mano ESTE TURNO que devuelves, animal del mercado que
-// coges a cambio, de coste como mucho 1 más que el devuelto). "Tu mano
+// coges a cambio, de coste como mucho effect.params.maxCostDelta —por
+// defecto 1— más que el devuelto). "Tu mano
 // este turno" = effectiveHand: lo que tienes ahora en la mano más lo que
 // ya hayas jugado en este mismo turno (mismo criterio que el resto de
 // efectos que miran "tu mano", ver effectiveHand()); no incluye ni el
@@ -401,11 +402,12 @@ function targetedEffectCandidates(state: GameState, card: CardInstance): CardIns
 // tiene ningún destino posible en el mercado, se ofrece igual la variante
 // sin `secondaryTargetInstanceId` (se juega su habilidad pero no se coge
 // nada a cambio).
-function returnAnimalForUpgradeActions(state: GameState, player: Player, card: CardInstance): Action[] {
+function returnAnimalForUpgradeActions(state: GameState, player: Player, card: CardInstance, effect: Effect): Action[] {
+  const costDelta = typeof effect.params?.maxCostDelta === 'number' ? effect.params.maxCostDelta : 1;
   const sources = effectiveHand(player).filter((c) => c.type === 'animal');
   const actions: Action[] = [];
   for (const source of sources) {
-    const maxCost = (source.marketCost ?? 0) + 1;
+    const maxCost = (source.marketCost ?? 0) + costDelta;
     const destinations = state.animalTrack.filter((c) => (c.marketCost ?? 0) <= maxCost);
     if (destinations.length === 0) {
       actions.push({ type: 'playCard', instanceId: card.instanceId, targetInstanceId: source.instanceId });
@@ -436,7 +438,7 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
 
     const returnForUpgrade = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'returnAnimalForUpgrade');
     if (returnForUpgrade) {
-      actions.push(...returnAnimalForUpgradeActions(state, player, card));
+      actions.push(...returnAnimalForUpgradeActions(state, player, card, returnForUpgrade));
       continue;
     }
 

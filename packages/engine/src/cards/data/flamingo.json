@@ -5,11 +5,14 @@
   "species": "flamingo",
   "marketCost": 3,
   "victoryPoints": 1,
-  "text": "Puedes intercambiar un animal de tu mano (después de usar su habilidad), por uno distinto de los disponibles que elijas y que cueste hasta 1 moneda más.",
+  "text": "Puedes intercambiar un animal de tu mano (después de usar su habilidad), por uno distinto de los disponibles que elijas y que cueste hasta 2 monedas más.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "returnAnimalForUpgrade"
+      "type": "returnAnimalForUpgrade",
+      "params": {
+        "maxCostDelta": 2
+      }
     }
   ],
   "habitats": ["bird", "aquatic"]

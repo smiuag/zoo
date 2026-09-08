@@ -593,7 +593,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     const flamingo = freshInstance('flamingo', 'test');
     player.hand = [flamingo];
     const marketBefore = state.animalTrack.length;
-    const maxCost = (flamingo.marketCost ?? 0) + 1;
+    const maxCost = (flamingo.marketCost ?? 0) + 2;
     const chosen = state.animalTrack.find((c) => (c.marketCost ?? 0) <= maxCost)!;
 
     playCard(state, player.id, flamingo.instanceId, flamingo.instanceId, chosen.instanceId);
@@ -604,13 +604,13 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(state.animalTrack).toHaveLength(marketBefore);
   });
 
-  it('flamenco: "hasta 1 moneda más" no exige coste EXACTO: también puede elegir algo más barato', () => {
+  it('flamenco: "hasta 2 monedas más" no exige coste EXACTO: también puede elegir algo más barato', () => {
     const { state, player } = setupClean();
     const flamingo = freshInstance('flamingo', 'test');
     const duck = freshInstance('duck', 'd1'); // coste 2
     player.hand = [flamingo, duck];
 
-    const goldfishIdx = state.animalTrack.findIndex((c) => c.species === 'goldfish'); // coste 1, dentro del máximo (duck+1 = 3)
+    const goldfishIdx = state.animalTrack.findIndex((c) => c.species === 'goldfish'); // coste 1, dentro del máximo (duck+2 = 4)
     const goldfish = state.animalTrack[goldfishIdx];
 
     playCard(state, player.id, flamingo.instanceId, duck.instanceId, goldfish.instanceId);
@@ -618,13 +618,13 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.discard.some((c) => c.instanceId === goldfish.instanceId)).toBe(true);
   });
 
-  it('flamenco: no deja elegir un animal del mercado que cueste más de 1 moneda por encima del devuelto', () => {
+  it('flamenco: no deja elegir un animal del mercado que cueste más de 2 monedas por encima del devuelto', () => {
     const { state, player } = setupClean();
     const flamingo = freshInstance('flamingo', 'test');
-    const duck = freshInstance('duck', 'd1'); // coste 2, máximo permitido: 3
+    const duck = freshInstance('duck', 'd1'); // coste 2, máximo permitido: 4
     player.hand = [flamingo, duck];
 
-    const tooExpensive = state.animalTrack.find((c) => (c.marketCost ?? 0) > 3)!;
+    const tooExpensive = state.animalTrack.find((c) => (c.marketCost ?? 0) > 4)!;
     const marketBefore = state.animalTrack.length;
 
     playCard(state, player.id, flamingo.instanceId, duck.instanceId, tooExpensive.instanceId);
@@ -664,7 +664,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     player.discard.push(turtle);
     player.playedThisTurn.push(turtle);
 
-    const maxCost = (turtle.marketCost ?? 0) + 1;
+    const maxCost = (turtle.marketCost ?? 0) + 2;
     const chosen = state.animalTrack.find((c) => (c.marketCost ?? 0) <= maxCost)!;
 
     playCard(state, player.id, flamingo.instanceId, turtle.instanceId, chosen.instanceId);
@@ -684,7 +684,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     const giraffe = freshInstance('giraffe', 'g1'); // coste 3
     player.hand = [flamingo, giraffe];
 
-    const maxCost = (giraffe.marketCost ?? 0) + 1;
+    const maxCost = (giraffe.marketCost ?? 0) + 2;
     const destinations = state.animalTrack.filter((c) => (c.marketCost ?? 0) <= maxCost);
 
     const actions = getLegalActions(state, player.id);

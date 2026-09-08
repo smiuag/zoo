@@ -334,8 +334,9 @@ registerEffect('addRabbitToChosenPlayerDiscard', (state, player, _effect, contex
 // se le da ese "usa su habilidad" gratis a la que de verdad no se había
 // jugado todavía. Luego coges gratis del mercado, SIN resolver su efecto,
 // el animal que el jugador haya elegido (context.secondaryTargetInstanceId)
-// de coste como mucho 1 más que el devuelto.
-registerEffect('returnAnimalForUpgrade', (state, player, _effect, context) => {
+// de coste como mucho effect.params.maxCostDelta (por defecto 1) más que
+// el devuelto.
+registerEffect('returnAnimalForUpgrade', (state, player, effect, context) => {
   if (!context.targetInstanceId) return;
 
   let zone: CardInstance[] = player.hand;
@@ -358,7 +359,8 @@ registerEffect('returnAnimalForUpgrade', (state, player, _effect, context) => {
   }
 
   if (!context.secondaryTargetInstanceId) return;
-  const maxCost = (returned.marketCost ?? 0) + 1;
+  const costDelta = typeof effect.params?.maxCostDelta === 'number' ? effect.params.maxCostDelta : 1;
+  const maxCost = (returned.marketCost ?? 0) + costDelta;
   const trackIdx = state.animalTrack.findIndex((c) => c.instanceId === context.secondaryTargetInstanceId);
   if (trackIdx === -1) return;
   const chosen = state.animalTrack[trackIdx];
