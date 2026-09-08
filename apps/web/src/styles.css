@@ -139,17 +139,21 @@ body {
 .coin-stack .card--compact {
   width: var(--card-w);
   height: calc((var(--card-h) - 0.4rem) / 2);
-  padding: 0.25rem 0.4rem;
+  padding: 0.2rem 0.4rem;
 }
 /* min-height: 0 en las 3 filas fijas es lo que de verdad evita que se
    salgan del recuadro: por defecto un hijo flex no encoge por debajo de su
    contenido (min-height: auto), así que sin esto el icono no cede sitio y
-   el conjunto se desborda aunque el tamaño de fuente parezca ya pequeño. */
+   el conjunto se desborda aunque el tamaño de fuente parezca ya pequeño.
+   El icono se agranda respecto al .card--compact normal (más ancho que
+   alto aquí, a diferencia de la carta compacta de referencia) para que no
+   se vea perdido en el hueco extra de anchura. */
 .coin-stack .card--compact .card__top {
   min-height: 0;
 }
 .coin-stack .card--compact .card__icon {
   min-height: 0;
+  font-size: 1.9rem;
 }
 .coin-stack .card--compact .card__name {
   min-height: 0;
