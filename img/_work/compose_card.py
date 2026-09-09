@@ -138,14 +138,17 @@ def _wrap_lines(draw, text, font, max_width):
     return lines
 
 
-def fit_body_font(draw, text, box, font_path=FONT_REG, max_size=26, min_size=16, line_spacing=10, top_pad=8):
+def fit_body_font(draw, text, box, font_path=FONT_REG, max_size=26, min_size=16, line_spacing=10, top_pad=8, bottom_pad=12):
     """Shrinks the body font until the wrapped text fits inside the box's
     height (some cards, like the Biólogo with its 4 modes, have much more
-    text than a typical animal card)."""
+    text than a typical animal card). bottom_pad reserves real breathing
+    room below the last line — without it, a text that "fits" exactly at
+    y1 reads as touching the card's bottom edge (this is what happened to
+    Flamenco's 5-line text: it fit by 3px with no bottom margin at all)."""
     text = re.sub(r"(?<=\d)PV\b", " PV", text)
     x0, y0, x1, y1 = box
     max_width = x1 - x0
-    available_h = (y1 - y0) - top_pad
+    available_h = (y1 - y0) - top_pad - bottom_pad
     size = max_size
     while size > min_size:
         font = ImageFont.truetype(font_path, size)
