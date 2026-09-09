@@ -116,6 +116,34 @@ describe('scorePlayer', () => {
     expect(player.destroyedCards.map((c) => c.instanceId)).toEqual(['turtle#weak']);
   });
 
+  it('el Cocodrilo compara el VALOR REAL (PV + bonus onScore propio), no solo el PV impreso: no sacrifica un Oso polar con bonus alto solo por tener 0PV base', () => {
+    const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
+    const player = getActivePlayer(state);
+    state.gameOver = true;
+    player.deck = [];
+
+    const crocodile = { ...getCard('crocodile'), instanceId: 'croc#test' }; // 7PV, terrestre-acuático
+    // Oso polar: 0PV impreso (el más bajo posible), pero +1PV por cada
+    // animal TERRESTRE de toda la colección — con crocodile+polarBear+
+    // turtle+lion (los 4 son terrestres) su valor real es 4, muy por
+    // encima de lo que sugiere su PV base.
+    const polarBear = { ...getCard('polar-bear'), instanceId: 'polarbear#test' };
+    const turtle = { ...getCard('turtle'), instanceId: 'turtle#weak' }; // 1PV, sin bonus: el que de verdad vale menos
+    const lion = { ...getCard('lion'), instanceId: 'lion#strong' }; // 3PV, sin bonus
+    player.deck.push(crocodile, polarBear, turtle, lion);
+
+    scorePlayer(state, player);
+
+    // Comparando solo PV impreso, el Oso polar (0PV) parecería el más débil
+    // y sería el sacrificado; comparando el valor real, la Tortuga (1PV,
+    // sin bonus) vale menos que el Oso polar (valor real 4) y es la que debe
+    // destruirse.
+    expect(player.deck.some((c) => c.instanceId === 'turtle#weak')).toBe(false);
+    expect(player.deck.some((c) => c.instanceId === 'polarbear#test')).toBe(true);
+    expect(player.deck.some((c) => c.instanceId === 'lion#strong')).toBe(true);
+    expect(player.destroyedCards.map((c) => c.instanceId)).toEqual(['turtle#weak']);
+  });
+
   it('el Cocodrilo se destruye a sí mismo si es la única carta no voladora de su mazo', () => {
     const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
     const player = getActivePlayer(state);

@@ -521,19 +521,41 @@ registerScoreEffect('scoreBonusIfSpeciesCountAtLeast', (_player, effect, allCard
 // ningún PV, para que lo que destruyan no llegue a puntuar.
 export const DESTRUCTIVE_SCORE_EFFECT_TYPES = new Set(['destroyWeakestNonFlyingFromDeckOnScore']);
 
+// Cuánto vale REALMENTE una carta a la hora de puntuar: sus PV base más lo
+// que le sumen sus propios efectos onScore no destructivos (p. ej. el bonus
+// de hábitat de la Orca/Oso polar/Albatros, el de especies distintas del
+// Pingüino, o el de umbral del Periquito), calculado sobre la colección
+// ACTUAL del jugador (mazo + mano + descarte, en este momento). Así el
+// Cocodrilo compara lo que cada carta aporta DE VERDAD, no solo su PV
+// impreso — una carta con bonus siempre vale al menos su PV base (los
+// bonus solo suman), así que esto nunca hace más atractiva para destruir a
+// una carta que antes se salvaba por PV base, solo puede salvar a alguna
+// que antes parecía la más débil sin serlo.
+function computedCardValue(player: Player, card: CardInstance): number {
+  const allCards = [...player.deck, ...player.hand, ...player.discard];
+  let value = card.victoryPoints;
+  for (const effect of card.effects.filter(
+    (e) => e.trigger === 'onScore' && !DESTRUCTIVE_SCORE_EFFECT_TYPES.has(e.type)
+  )) {
+    value += resolveScoreEffect(player, effect, allCards, card);
+  }
+  return value;
+}
+
 // Solo mira el MAZO (player.deck: lo que no se llegó a robar), a diferencia
 // del antiguo weakestAquatic que buscaba en toda la colección. "No volador"
 // = sin hábitat "bird" (puede tener land y/o aquatic, incluso ambos a la
 // vez, como el propio Cocodrilo o el Hipopótamo).
 function weakestNonFlyingInDeck(player: Player, sourceCard: CardInstance, excludeSelf: boolean): number | null {
   let bestIdx = -1;
-  let bestPv = Infinity;
+  let bestValue = Infinity;
   for (let i = 0; i < player.deck.length; i++) {
     const c = player.deck[i];
     if (c.type !== 'animal' || c.habitats?.includes('bird')) continue;
     if (excludeSelf && c.instanceId === sourceCard.instanceId) continue;
-    if (c.victoryPoints < bestPv) {
-      bestPv = c.victoryPoints;
+    const value = computedCardValue(player, c);
+    if (value < bestValue) {
+      bestValue = value;
       bestIdx = i;
     }
   }
@@ -542,13 +564,15 @@ function weakestNonFlyingInDeck(player: Player, sourceCard: CardInstance, exclud
 
 // Cocodrilo: al final de la partida, ANTES de puntuar, elimina de tu MAZO
 // (no de la mano ni del descarte) una carta de animal no volador de menor
-// PV. Prefiere destruir OTRA carta si el mazo tiene alguna elegible; solo
-// se destruye a SÍ MISMO cuando es la única en el mazo. Si el mazo no tiene
-// ningún animal no volador (incluido él mismo), no pasa nada. No suma PV
-// directamente: su "coste" es que esa otra carta (o él mismo) deja de
-// contar para nada. Se guarda en player.destroyedCards (fuera de mazo/mano/
-// descarte, así que no cuenta para nada más) solo para poder mostrarla en
-// el resumen final de la partida.
+// VALOR REAL (ver computedCardValue: PV base + cualquier bonus onScore
+// propio, no solo el PV impreso). Prefiere destruir OTRA carta si el mazo
+// tiene alguna elegible; solo se destruye a SÍ MISMO cuando es la única en
+// el mazo. Si el mazo no tiene ningún animal no volador (incluido él
+// mismo), no pasa nada. No suma PV directamente: su "coste" es que esa otra
+// carta (o él mismo) deja de contar para nada. Se guarda en
+// player.destroyedCards (fuera de mazo/mano/descarte, así que no cuenta
+// para nada más) solo para poder mostrarla en el resumen final de la
+// partida.
 registerScoreEffect('destroyWeakestNonFlyingFromDeckOnScore', (player, _effect, _allCards, sourceCard) => {
   const idx = weakestNonFlyingInDeck(player, sourceCard, true) ?? weakestNonFlyingInDeck(player, sourceCard, false);
   if (idx !== null) player.destroyedCards.push(...player.deck.splice(idx, 1));
