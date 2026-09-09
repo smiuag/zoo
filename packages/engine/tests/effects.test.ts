@@ -672,9 +672,11 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(coins).toHaveLength(1);
     expect(coins[0].value).toBe(2);
 
-    // La tortuga vuelve al mazo compartido de su especie, no al descarte.
+    // La tortuga vuelve al mercado, no al descarte, y queda comprable de
+    // inmediato (ocupa ya el hueco de su especie en vez de esperar en el
+    // mazo compartido).
     expect(player.discard.some((c) => c.id === 'turtle')).toBe(false);
-    expect(state.sharedDecks.turtle?.some((c) => c.instanceId === turtle.instanceId)).toBe(true);
+    expect(state.animalTrack.some((c) => c.instanceId === turtle.instanceId)).toBe(true);
 
     // Coge gratis, sin resolver su habilidad, el pez dorado elegido.
     expect(player.discard.some((c) => c.instanceId === goldfish.instanceId)).toBe(true);
@@ -692,7 +694,8 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     playCard(state, player.id, flamingo.instanceId, flamingo.instanceId, chosen.instanceId);
 
     expect(player.discard.some((c) => c.instanceId === flamingo.instanceId)).toBe(false);
-    expect(state.sharedDecks.flamingo?.some((c) => c.instanceId === flamingo.instanceId)).toBe(true);
+    // Queda comprable de inmediato, ocupando ya el hueco de su especie.
+    expect(state.animalTrack.some((c) => c.instanceId === flamingo.instanceId)).toBe(true);
     expect(player.discard.some((c) => c.instanceId === chosen.instanceId)).toBe(true);
     expect(state.animalTrack).toHaveLength(marketBefore);
   });
@@ -790,8 +793,8 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(1);
     expect(coins[0].value).toBe(1);
-    // El intercambio en sí (devolverla al mazo compartido, coger el otro animal gratis) sigue funcionando.
-    expect(state.sharedDecks.turtle?.some((c) => c.instanceId === turtle.instanceId)).toBe(true);
+    // El intercambio en sí (devolverla al mercado, comprable ya, coger el otro animal gratis) sigue funcionando.
+    expect(state.animalTrack.some((c) => c.instanceId === turtle.instanceId)).toBe(true);
     expect(player.discard.some((c) => c.instanceId === chosen.instanceId)).toBe(true);
   });
 

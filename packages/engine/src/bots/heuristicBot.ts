@@ -181,7 +181,7 @@ function swapSelfWithTopOfDeckBonus(card: CardInstance, player: Player): number 
   if (!card.effects.some((e) => e.type === 'swapSelfWithTopOfDeck')) return 0;
   const top = player.deck[player.deck.length - 1];
   if (!top) return 0; // mazo vacío: el efecto no hace nada (ver registry.ts)
-  if (top.id === card.id) return -50; // no-op: misma carta encima, evita el bucle
+  if (top.id === card.id) return -1000; // no-op: misma carta encima, evita el bucle (debe ganarle a los 10 de endTurn: 100 - 1000 < 10)
   const worth = top.type === 'coin' ? (top.value ?? 0) : top.victoryPoints;
   return 1 + worth * 0.5;
 }

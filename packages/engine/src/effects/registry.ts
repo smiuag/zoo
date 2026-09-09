@@ -396,13 +396,23 @@ registerEffect('returnAnimalForUpgrade', (state, player, effect, context) => {
 
   const [returned] = zone.splice(idx, 1);
   const deck = state.sharedDecks[returned.species ?? ''];
-  if (deck) deck.push(returned);
-  // Si el hueco de esa especie en el mercado estaba vacío (mazo Y hueco
-  // agotados a la vez), esto lo repone YA con la carta recién devuelta, en
-  // vez de dejarla esperando en la pila sin que nada vuelva a sacarla de
-  // ahí (refillAnimalMarket no se llama solo por dejar algo en sharedDecks:
-  // solo la comprueba en momentos concretos, como al comprar esa especie).
-  refillHook?.(state, returned.species);
+  // La carta devuelta debe quedar comprable YA MISMO, no esperando su turno
+  // en el mazo compartido. Si el hueco de mercado de su especie ya está
+  // ocupado (el caso normal), la devuelta ocupa ese hueco de inmediato y la
+  // que estaba ahí pasa al mazo compartido en su lugar. Si el hueco estaba
+  // vacío (mazo Y hueco agotados a la vez), se repone directamente con ella
+  // vía refillHook (sin esto se quedaría esperando en la pila sin que nada
+  // volviera a sacarla de ahí: refillAnimalMarket no se llama solo por dejar
+  // algo en sharedDecks, solo la comprueba en momentos concretos, como al
+  // comprar esa especie).
+  const marketIdx = state.animalTrack.findIndex((c) => c.species === returned.species);
+  if (marketIdx !== -1) {
+    const [displaced] = state.animalTrack.splice(marketIdx, 1, returned);
+    if (deck) deck.push(displaced);
+  } else {
+    if (deck) deck.push(returned);
+    refillHook?.(state, returned.species);
+  }
 
   if (foundInHand) {
     for (const e of returned.effects.filter((e) => e.trigger === 'onPlay')) {
