@@ -21,6 +21,18 @@ function setupClean() {
 }
 
 describe('habilidades de animales al jugarlos (onPlay)', () => {
+  it('águila: al jugarla, robas 1 carta', () => {
+    const { state, player } = setupClean();
+    const eagle = freshInstance('eagle', 'test');
+    player.hand = [eagle];
+    player.deck = [freshInstance('coin-1', 'draw1')];
+
+    playCard(state, player.id, eagle.instanceId);
+
+    expect(player.hand).toHaveLength(1);
+    expect(player.hand[0].instanceId).toBe('coin-1#draw1');
+  });
+
   it('mono: cada rival ELIGE qué descarta (no al azar); si solo tiene monedas, no le queda más remedio y robas 1 carta', () => {
     const { state, player, opponent } = setupClean();
     opponent.hand = [freshInstance('coin-1', 'o1'), freshInstance('coin-2', 'o2')]; // sin ningún animal que proteger sus monedas

@@ -30,7 +30,7 @@ COUNTS = {
     "sloth": 20,
     "coin-1": 35,
     "coin-2": 20,
-    "coin-3": 19,
+    "coin-3": 13,
 }
 DEFAULT_ANIMAL_COPIES = 10  # especies de coste < 5: 10 copias cada una
 HIGH_COST_ANIMAL_COPIES = 6  # especies de coste 5 o más: solo 6 copias (escasez), igual que el motor

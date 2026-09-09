@@ -20,7 +20,11 @@ const SPECIES_ICONS: Record<string, string> = {
   albatross: '🦢',
   crocodile: '🐊',
   hippopotamus: '🦛',
-  vulture: '🦅',
+  // 🦅 (el emoji real de "águila") es para la especie eagle: Unicode no
+  // tiene uno de buitre, así que se le da 🦴 (carroñero) como aproximación
+  // distinguible en vez de duplicar el mismo icono en 2 especies distintas.
+  vulture: '🦴',
+  eagle: '🦅',
   sloth: '🦥',
   duck: '🦆',
   flamingo: '🦩',

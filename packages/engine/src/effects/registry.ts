@@ -496,6 +496,17 @@ registerScoreEffect('scorePerHabitatCount', (_player, effect, allCards) => {
   return count * multiplier;
 });
 
+// Águila: +1PV (× `multiplier`, por defecto 1) por cada animal de coste
+// `minCost` o más que tengas en TODA tu colección (mazo + mano + descarte),
+// al final de la partida. Se cuenta a sí misma (coste 5): igual que el
+// Albatros con "volador", no hace falta excluirse.
+registerScoreEffect('scorePerCostAtLeast', (_player, effect, allCards) => {
+  const minCost = typeof effect.params?.minCost === 'number' ? effect.params.minCost : 0;
+  const multiplier = typeof effect.params?.multiplier === 'number' ? effect.params.multiplier : 1;
+  const count = allCards.filter((c) => c.type === 'animal' && (c.marketCost ?? 0) >= minCost).length;
+  return count * multiplier;
+});
+
 // Pingüino: al final de la partida, +1PV por cada ESPECIE de animal
 // distinta que tengas en toda tu colección (una copia y diez de la misma
 // especie cuentan igual: solo importa la variedad).

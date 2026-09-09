@@ -96,8 +96,9 @@ function effectBonus(card: CardInstance): number {
         break;
       case 'scorePerHabitatCount':
       case 'scorePerDistinctSpecies':
+      case 'scorePerCostAtLeast':
         // El valor real depende de cuántos animales de ese hábitat/especies
-        // distintas lleguen a poseerse: aproximación fija.
+        // distintas/coste mínimo lleguen a poseerse: aproximación fija.
         bonus += 2;
         break;
       case 'scoreBonusIfSpeciesCountAtLeast':

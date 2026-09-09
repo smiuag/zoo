@@ -31,12 +31,12 @@ describe('createGame', () => {
     expect(active.bonusPurchasingPowerThisTurn).toBe(0);
   });
 
-  it('el mercado de animales empieza con 1 hueco por cada una de las 28 especies', () => {
+  it('el mercado de animales empieza con 1 hueco por cada una de las 29 especies', () => {
     const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
 
-    expect(state.animalTrack).toHaveLength(28);
+    expect(state.animalTrack).toHaveLength(29);
     const species = new Set(state.animalTrack.map((c) => c.species));
-    expect(species.size).toBe(28);
+    expect(species.size).toBe(29);
   });
 
   it('cada mazo de especie tiene sus copias fijas (menos 1 ya repuesta en el mercado): 10, o solo 6 si cuesta 5 o más', () => {

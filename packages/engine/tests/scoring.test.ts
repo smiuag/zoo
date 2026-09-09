@@ -86,6 +86,23 @@ describe('scorePlayer', () => {
     expect(score).toBe(2 + 1 + 3);
   });
 
+  it('águila da +1PV por cada animal de coste 5 o más que tenga en TODA su colección (se cuenta a sí misma, esté donde esté)', () => {
+    const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
+    const player = getActivePlayer(state);
+
+    const eagle = { ...getCard('eagle'), instanceId: 'eagle#test' }; // 0PV base, coste 5
+    const lion = { ...getCard('lion'), instanceId: 'lion#test' }; // 3PV, coste 5: cuenta
+    const turtle = { ...getCard('turtle'), instanceId: 'turtle#test' }; // 1PV, coste 2: no cuenta
+    player.hand.push(eagle, lion, turtle);
+    // Este león está en el mazo, no en la mano: también cuenta para el bonus del águila.
+    player.deck.push({ ...getCard('lion'), instanceId: 'lion#outside' });
+
+    const score = scorePlayer(state, player);
+    // águila(0PV) + león×2(3+3PV) + tortuga(1PV) + bonus águila: 3 animales de
+    // coste≥5 en TODA la colección (águila + 2 leones) × 1 = 3.
+    expect(score).toBe(0 + 3 + 3 + 1 + 3);
+  });
+
   it('el Cocodrilo elimina, antes de puntuar, el animal NO VOLADOR de menor valor real de TODA su colección (mazo, mano o descarte), ignorando solo lo volador', () => {
     const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
     const player = getActivePlayer(state);

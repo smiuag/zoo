@@ -1,0 +1,27 @@
+{
+  "id": "eagle",
+  "name": "Águila",
+  "type": "animal",
+  "species": "eagle",
+  "marketCost": 5,
+  "victoryPoints": 0,
+  "text": "Al jugarla, robas 1 carta. Al final de la partida, +1PV por cada animal de coste 5 o más que tengas en todo tu mazo.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "drawCards",
+      "params": {
+        "amount": 1
+      }
+    },
+    {
+      "trigger": "onScore",
+      "type": "scorePerCostAtLeast",
+      "params": {
+        "minCost": 5,
+        "multiplier": 1
+      }
+    }
+  ],
+  "habitats": ["bird"]
+}

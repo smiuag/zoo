@@ -118,10 +118,10 @@ body {
   max-width: calc(3 * var(--card-w) + 2 * 0.6rem);
 }
 
-/* Mercado: rejilla fija de 6 columnas. 28 animales + Plata + Oro = 30
-   huecos = exactamente 5 filas de 6, así que no hace falta envolver por
-   ancho disponible como en la mano. --card-h algo menor que el normal
-   (184px) para que las 5 filas quepan mejor sin tanto scroll. */
+/* Mercado: rejilla fija de 6 columnas. 29 animales + Plata + Oro = 31
+   huecos (5 filas completas + 1 con solo 1 hueco), así que no hace falta
+   envolver por ancho disponible como en la mano. --card-h algo menor que
+   el normal (184px) para que las filas quepan mejor sin tanto scroll. */
 .card-row--market {
   display: grid;
   grid-template-columns: repeat(6, var(--card-w));

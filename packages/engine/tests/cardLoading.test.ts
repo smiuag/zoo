@@ -30,13 +30,14 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   turtle: { cost: 2, pv: 1 },
   platypus: { cost: 3, pv: 2 },
   rabbit: { cost: 2, pv: 2 },
+  eagle: { cost: 5, pv: 0 },
 };
 
 describe('card registry', () => {
   it('carga y valida todos los ficheros de datos de cartas', () => {
     const cards = getAllCards();
-    // 28 especies de mercado + 1 Perezoso (solo de mazo inicial) + 3 monedas = 32.
-    expect(cards.length).toBe(32);
+    // 29 especies de mercado + 1 Perezoso (solo de mazo inicial) + 3 monedas = 33.
+    expect(cards.length).toBe(33);
   });
 
   it('el Perezoso es terrestre, no cuesta ni da nada, y no está en el mercado de animales', () => {
@@ -65,9 +66,9 @@ describe('card registry', () => {
     expect(getCard('coin-3').marketCost).toBe(5);
   });
 
-  it('expone las 28 especies de animal (1 carta cada una, sin sexo) con su coste/PV según tabla', () => {
+  it('expone las 29 especies de animal (1 carta cada una, sin sexo) con su coste/PV según tabla', () => {
     const species = Object.keys(SPECIES_TIERS);
-    expect(species).toHaveLength(28);
+    expect(species).toHaveLength(29);
     for (const id of species) {
       const card = getCard(id);
       expect(card.type).toBe('animal');
