@@ -45,6 +45,12 @@ export interface Player {
   // recordRichestTurn en engine.ts. null hasta el primer beginPlayerTurn.
   // Solo para el resumen final de la partida.
   richestTurn: { round: number; amount: number } | null;
+  // Cartas eliminadas de verdad de la colección por un efecto onScore
+  // destructivo (de momento, solo el Cocodrilo, ver
+  // destroyWeakestNonFlyingFromDeckOnScore): ya no cuentan para nada
+  // (mazo/mano/descarte, PV), pero se guardan aparte solo para poder
+  // mostrarlas en el resumen final de la partida.
+  destroyedCards: CardInstance[];
 }
 
 export interface GameState {

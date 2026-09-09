@@ -23,16 +23,21 @@ interface CardViewProps {
   // "∞" para las monedas comprables, de suministro ilimitado). Solo se
   // muestra en las cartas del mercado, no en la mano.
   remainingLabel?: string;
+  // Eliminada por el Cocodrilo al final de la partida (ver
+  // player.destroyedCards): se marca con una X roja encima, para el resumen
+  // final. Nunca es clicable (no tiene sentido interactuar con ella).
+  destroyed?: boolean;
 }
 
-export function CardView({ card, onClick, disabled, compact, remainingLabel }: CardViewProps) {
-  const clickable = Boolean(onClick) && !disabled;
+export function CardView({ card, onClick, disabled, compact, remainingLabel, destroyed }: CardViewProps) {
+  const clickable = Boolean(onClick) && !disabled && !destroyed;
   const bits: string[] = [];
   if (card.type === 'animal') bits.push(habitatLabel(card));
   if (card.value) bits.push(`vale ${card.value}`);
 
   const classNames = ['card', cardAccentClass(card)];
   if (disabled) classNames.push('card--disabled');
+  if (destroyed) classNames.push('card--destroyed');
   if (clickable) classNames.push('card--clickable');
   if (compact) classNames.push('card--compact');
 
@@ -57,6 +62,11 @@ export function CardView({ card, onClick, disabled, compact, remainingLabel }: C
       <div className="card__name">{card.name}</div>
       <div className="card__footer">{bits.join(' · ')}</div>
       {remainingLabel !== undefined && <span className="card__badge">×{remainingLabel}</span>}
+      {destroyed && (
+        <span className="card__destroyed-mark" aria-label="Eliminada por el Cocodrilo">
+          ✕
+        </span>
+      )}
       {card.text && (
         // Al pasar el ratio: qué hace la carta, más grande y claro que el
         // texto minúsculo de la propia carta (sustituye al `title` nativo,

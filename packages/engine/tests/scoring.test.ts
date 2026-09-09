@@ -112,6 +112,8 @@ describe('scorePlayer', () => {
     // La tortuga (1PV, la más débil elegible) fue destruida antes de puntuar.
     // Quedan cocodrilo(7PV) + búho(3PV) + hipopótamo(4PV) + pez de colores(1PV).
     expect(score).toBe(7 + 3 + 4 + 1);
+    // Se guarda aparte, solo para el resumen final (no cuenta para el score).
+    expect(player.destroyedCards.map((c) => c.instanceId)).toEqual(['turtle#weak']);
   });
 
   it('el Cocodrilo se destruye a sí mismo si es la única carta no voladora de su mazo', () => {
@@ -131,6 +133,7 @@ describe('scorePlayer', () => {
 
     expect(player.deck.some((c) => c.instanceId === 'croc#solo')).toBe(false);
     expect(score).toBe(0);
+    expect(player.destroyedCards.map((c) => c.instanceId)).toEqual(['croc#solo']);
   });
 
   it('con 2 cocodrilos en el mazo, cada uno prefiere destruir al otro antes que a sí mismo', () => {
@@ -178,6 +181,8 @@ describe('scorePlayer', () => {
     expect(player.deck.some((c) => c.instanceId === 'hippo#1')).toBe(true);
     expect(player.deck.some((c) => c.instanceId === 'hippo#2')).toBe(true);
     expect(player.deck.some((c) => c.instanceId === 'croc#test')).toBe(true);
+    // Tampoco se acumula en destroyedCards en cada llamada: solo 1 entrada.
+    expect(player.destroyedCards).toHaveLength(1);
   });
 
   it('pingüino da +1PV por cada especie DISTINTA en su mazo, no por copia', () => {

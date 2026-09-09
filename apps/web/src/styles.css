@@ -362,6 +362,28 @@ body {
   filter: grayscale(0.4);
 }
 
+/* Eliminada por el Cocodrilo (ver player.destroyedCards): sigue leyéndose
+   con claridad (a diferencia de card--disabled) porque el resumen final es
+   precisamente para poder verla, pero la X roja encima deja clarísimo que
+   ya no cuenta para nada. */
+.card--destroyed {
+  filter: grayscale(0.5);
+}
+
+.card__destroyed-mark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 4.5rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--danger);
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+}
+
 .card__top {
   width: 100%;
   display: flex;
@@ -664,6 +686,22 @@ body {
 
 .collection-entry {
   position: relative;
+}
+
+/* Separa las cartas eliminadas por el Cocodrilo del resto de la colección
+   en el popup de "ver mazo": una cabecera propia + un borde superior, para
+   que quede claro que ya no forman parte de la baraja de verdad. */
+.collection-destroyed {
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+  border-top: 1px dashed var(--panel-border);
+}
+
+.collection-destroyed__title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--danger);
+  margin: 0 0 0.5rem;
 }
 
 .collection-entry__count {

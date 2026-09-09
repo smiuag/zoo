@@ -154,6 +154,21 @@ export default function App() {
     );
   }
 
+  // Cartas eliminadas por el Cocodrilo (player.destroyedCards): agrupadas
+  // igual que groupedCollection, pero sin puntos (ya no puntúan nada), solo
+  // para el popup de "ver mazo" del resumen final.
+  function groupedDestroyed(player: (typeof state.players)[number]): { card: CardInstance; count: number }[] {
+    const byId = new Map<string, { card: CardInstance; count: number }>();
+    for (const card of player.destroyedCards) {
+      const entry = byId.get(card.id);
+      if (entry) entry.count += 1;
+      else byId.set(card.id, { card, count: 1 });
+    }
+    return [...byId.values()].sort(
+      (a, b) => (a.card.marketCost ?? 0) - (b.card.marketCost ?? 0) || a.card.name.localeCompare(b.card.name)
+    );
+  }
+
   // "4× 6 PV" si las 4 copias valen lo mismo (el caso normal); si no (solo
   // le pasa al Periquito: la bonificación de "4 copias o más" solo se la
   // lleva 1 copia) se muestra el total sin el multiplicador, que sería
@@ -458,6 +473,21 @@ export default function App() {
                 );
               })}
             </div>
+            {viewedPlayer.destroyedCards.length > 0 && (
+              <div className="collection-destroyed">
+                <p className="collection-destroyed__title">
+                  🐊 Eliminadas por el Cocodrilo ({viewedPlayer.destroyedCards.length}, ya no puntúan)
+                </p>
+                <div className="card-row">
+                  {groupedDestroyed(viewedPlayer).map(({ card, count }) => (
+                    <div key={card.id} className="collection-entry">
+                      <CardView card={card} destroyed />
+                      {count > 1 && <span className="collection-entry__count">×{count}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -546,9 +546,11 @@ function weakestNonFlyingInDeck(player: Player, sourceCard: CardInstance, exclud
 // se destruye a SÍ MISMO cuando es la única en el mazo. Si el mazo no tiene
 // ningún animal no volador (incluido él mismo), no pasa nada. No suma PV
 // directamente: su "coste" es que esa otra carta (o él mismo) deja de
-// contar para nada.
+// contar para nada. Se guarda en player.destroyedCards (fuera de mazo/mano/
+// descarte, así que no cuenta para nada más) solo para poder mostrarla en
+// el resumen final de la partida.
 registerScoreEffect('destroyWeakestNonFlyingFromDeckOnScore', (player, _effect, _allCards, sourceCard) => {
   const idx = weakestNonFlyingInDeck(player, sourceCard, true) ?? weakestNonFlyingInDeck(player, sourceCard, false);
-  if (idx !== null) player.deck.splice(idx, 1);
+  if (idx !== null) player.destroyedCards.push(...player.deck.splice(idx, 1));
   return 0;
 });

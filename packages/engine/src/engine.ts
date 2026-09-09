@@ -298,6 +298,7 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
       playedThisTurn: [],
       purchasesCount: 0,
       richestTurn: null,
+      destroyedCards: [],
     };
   });
 
