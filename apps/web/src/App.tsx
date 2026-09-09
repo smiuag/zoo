@@ -4,7 +4,6 @@ import { CardView } from './components/CardView';
 import { GameSetup } from './components/GameSetup';
 import { buyAnimalActionFor, buyCoinActionFor, playCardActionsFor } from './lib/actionQuery';
 import { BOT_ALGORITHM_OPTIONS } from './lib/botAlgorithms';
-import type { GameConfig } from './lib/gameConfig';
 import { buildPlayCardTargetChoice, type PendingChoice } from './lib/pendingChoice';
 import { useGame, type BotAlgorithm } from './state/useGame';
 
@@ -27,18 +26,6 @@ export default function App() {
     setBotAlgorithm,
   } = useGame();
 
-  // El "pase y juega" (varios humanos en el mismo dispositivo) solo importa
-  // con 2+ jugadores humanos: se resetea cada vez que arranca una partida
-  // nueva de verdad (no basta con lo que ya hace restart(), que solo vuelve
-  // al formulario — la propia partida nueva empieza siempre en el turno 1,
-  // y sin este reseteo un state.turn coincidente con el de la partida
-  // anterior podría saltarse el aviso del primer turno).
-  const [revealedTurn, setRevealedTurn] = useState<number | null>(null);
-  function handleStart(config: GameConfig) {
-    setRevealedTurn(null);
-    startGame(config);
-  }
-
   const activePlayer = getActivePlayer(state);
   // Qué jugador humano mostrar en el panel principal (mano, mazo, valor de
   // compra...): mientras es el turno de un humano, el que le toca; mientras
@@ -50,11 +37,6 @@ export default function App() {
   const human = state.players.find((p) => p.id === lastHumanIdRef.current) ?? state.players[0];
   const bots = state.players.filter((p) => !humanIds.includes(p.id));
   const scoreFor = (playerId: string) => scores.find((s) => s.playerId === playerId)?.score ?? 0;
-  // "Pase y juega": con 2+ humanos, cada vez que le toca a uno DISTINTO se
-  // pide confirmar antes de revelar su mano, para que el jugador anterior no
-  // se la deje puesta sin querer. Con 1 solo humano (el caso normal) nunca
-  // se activa.
-  const needsHandoff = phase === 'playing' && humanTurn && humanIds.length > 1 && revealedTurn !== state.turn;
   // Mientras la partida sigue en curso, el mazo de OTRO jugador humano es
   // información privada: solo se puede "ver el mazo" de un bot en cualquier
   // momento, o del propio humano activo, o de cualquiera una vez terminada
@@ -247,27 +229,7 @@ export default function App() {
   }
 
   if (phase === 'setup') {
-    return <GameSetup onStart={handleStart} />;
-  }
-
-  // "Pase y juega": antes de revelar la mano/mazo/valor de compra del
-  // jugador que acaba de empezar turno, se le pide confirmar que es él
-  // quien tiene el dispositivo ahora — así el jugador anterior no se queda
-  // viendo (ni deja visto sin querer) lo que no es suyo.
-  if (needsHandoff) {
-    return (
-      <div className="app app--setup">
-        <div className="panel setup-panel setup-panel--handoff">
-          <div className="panel__header">
-            <h2>Turno de {activePlayer.name}</h2>
-          </div>
-          <p>Pasa el dispositivo a {activePlayer.name} antes de continuar.</p>
-          <button className="btn btn--primary" onClick={() => setRevealedTurn(state.turn)}>
-            Ya lo tengo yo — empezar mi turno
-          </button>
-        </div>
-      </div>
-    );
+    return <GameSetup onStart={startGame} />;
   }
 
   return (

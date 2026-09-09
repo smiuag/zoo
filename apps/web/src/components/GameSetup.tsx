@@ -79,8 +79,7 @@ export function GameSetup({ onStart }: GameSetupProps) {
           </select>
           {numHumans > 1 && (
             <span className="setup-hint">
-              Turno rotatorio en este mismo dispositivo: cuando le toque a cada jugador, se le pedirá pasar el
-              turno antes de ver su mano.
+              Turno rotatorio en este mismo dispositivo: el indicador de turno siempre muestra a quién le toca.
             </span>
           )}
         </div>

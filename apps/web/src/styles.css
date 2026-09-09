@@ -778,11 +778,6 @@ body {
   gap: 0.9rem;
 }
 
-.setup-panel--handoff {
-  text-align: center;
-  align-items: center;
-}
-
 .setup-row {
   display: flex;
   align-items: center;
