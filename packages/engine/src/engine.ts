@@ -411,17 +411,17 @@ function targetedEffectCandidates(state: GameState, card: CardInstance): CardIns
 // este turno" = effectiveHand: lo que tienes ahora en la mano más lo que
 // ya hayas jugado en este mismo turno (mismo criterio que el resto de
 // efectos que miran "tu mano", ver effectiveHand()); no incluye ni el
-// mazo ni cartas jugadas en turnos anteriores. Se excluye el Perezoso (y
-// cualquier otro animal que no sea una especie de mercado real, ver
-// isMarketSpecies): no tiene hueco de mercado al que volver, así que
-// "devolverlo" no tiene sentido — solo colaría en el mazo compartido de
-// sloth (la reserva privada de la Jirafa) sin ningún hueco que lo muestre
-// para comprar. Si un animal devuelto no tiene ningún destino posible en
-// el mercado, se ofrece igual la variante sin `secondaryTargetInstanceId`
-// (se juega su habilidad pero no se coge nada a cambio).
+// mazo ni cartas jugadas en turnos anteriores. El Perezoso SÍ se puede
+// devolver (coste 0, así que se puede cambiar por cualquier animal de hasta
+// 2 de coste): aunque no tenga hueco de mercado propio, returnAnimalForUpgrade
+// en registry.ts lo manda de vuelta a su reserva compartida sin colarlo
+// nunca en el mercado (ver isMarketSpecies en refillAnimalMarket). Si un
+// animal devuelto no tiene ningún destino posible en el mercado, se ofrece
+// igual la variante sin `secondaryTargetInstanceId` (se juega su habilidad
+// pero no se coge nada a cambio).
 function returnAnimalForUpgradeActions(state: GameState, player: Player, card: CardInstance, effect: Effect): Action[] {
   const costDelta = typeof effect.params?.maxCostDelta === 'number' ? effect.params.maxCostDelta : 1;
-  const sources = effectiveHand(player).filter((c) => c.type === 'animal' && isMarketSpecies(c.species ?? ''));
+  const sources = effectiveHand(player).filter((c) => c.type === 'animal');
   const actions: Action[] = [];
   for (const source of sources) {
     const maxCost = (source.marketCost ?? 0) + costDelta;
