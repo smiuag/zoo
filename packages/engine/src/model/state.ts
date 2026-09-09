@@ -131,6 +131,18 @@ export function effectiveHand(player: Player): CardInstance[] {
   return [...player.hand, ...player.playedThisTurn];
 }
 
+// Cuando una carta jugada este turno se va del todo de la mano/descarte por
+// OTRO efecto (el Flamenco la devuelve al mercado, el Murciélago la manda
+// encima de su propio mazo), hay que sacarla también de playedThisTurn: si
+// se queda ahí, effectiveHand() la sigue contando como "en tu mano" para el
+// resto del turno (p. ej. un segundo Flamenco seguiría ofreciéndola como
+// objetivo a devolver aunque el jugador ya no la tenga en ningún sitio
+// válido). Sin efecto si la carta no estaba en la lista.
+export function removeFromPlayedThisTurn(player: Player, instanceId: string): void {
+  const idx = player.playedThisTurn.findIndex((c) => c.instanceId === instanceId);
+  if (idx !== -1) player.playedThisTurn.splice(idx, 1);
+}
+
 // Quita y devuelve una carta cualquiera de la mano del jugador, elegida al
 // azar. Usado por efectos que afectan a las manos de otros jugadores sin
 // que el motor tenga que pedirles una elección interactiva (p. ej. el mono

@@ -4,6 +4,7 @@ import {
   drawCards,
   effectiveHand,
   mintInstance,
+  removeFromPlayedThisTurn,
   takeRandomFromHand,
   type CardInstance,
   type GameState,
@@ -188,9 +189,12 @@ registerEffect('drawThenTopdeck', (_state, player, effect, context) => {
 // playedThisTurn antes de resolver este efecto (igual que el Flamenco
 // devolviéndose a sí mismo, ver returnAnimalForUpgrade): se le saca de ahí
 // y, en vez de quedarse descartado, vuelve a su mazo (encima), mientras la
-// carta que estaba encima del mazo pasa a la mano. Si el mazo está vacío no
-// hay nada con lo que intercambiarse: se queda en el descarte, como
-// cualquier carta normal.
+// carta que estaba encima del mazo pasa a la mano. Se saca también de
+// playedThisTurn (ver removeFromPlayedThisTurn): una vez de vuelta en el
+// mazo ya no es "tu mano de este turno", así que un Flamenco jugado después
+// no debe poder ofrecerlo como objetivo a devolver (ya no está ni en mano
+// ni en descarte). Si el mazo está vacío no hay nada con lo que
+// intercambiarse: se queda en el descarte, como cualquier carta normal.
 registerEffect('swapSelfWithTopOfDeck', (_state, player) => {
   if (player.deck.length === 0) return;
 
@@ -200,6 +204,7 @@ registerEffect('swapSelfWithTopOfDeck', (_state, player) => {
   if (idx === -1) return;
 
   const [card] = player.discard.splice(idx, 1);
+  removeFromPlayedThisTurn(player, card.instanceId);
   const top = player.deck.pop()!;
   player.deck.push(card);
   player.hand.push(top);
@@ -395,6 +400,12 @@ registerEffect('returnAnimalForUpgrade', (state, player, effect, context) => {
   if (idx === -1) return;
 
   const [returned] = zone.splice(idx, 1);
+  // Se va del todo de la mano/descarte del jugador (pasa al mercado): si
+  // seguía en playedThisTurn (porque se jugó antes este mismo turno y se
+  // devuelve desde el descarte), hay que sacarla de ahí también, o un
+  // segundo Flamenco (u otro efecto que mire effectiveHand) seguiría
+  // ofreciéndola como si el jugador aún la tuviera.
+  removeFromPlayedThisTurn(player, returned.instanceId);
   const deck = state.sharedDecks[returned.species ?? ''];
   // La carta devuelta debe quedar comprable YA MISMO, no esperando su turno
   // en el mazo compartido. Si el hueco de mercado de su especie ya está

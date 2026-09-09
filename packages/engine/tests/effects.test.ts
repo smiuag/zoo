@@ -798,6 +798,30 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.discard.some((c) => c.instanceId === chosen.instanceId)).toBe(true);
   });
 
+  it('flamenco: tras devolver un animal ya jugado este turno, un SEGUNDO Flamenco ya no lo ofrece como objetivo (ya no lo tienes)', () => {
+    const { state, player } = setupClean();
+    const flamingo1 = freshInstance('flamingo', 'f1');
+    const flamingo2 = freshInstance('flamingo', 'f2');
+    const turtle = freshInstance('turtle', 't1');
+    player.hand = [flamingo1, flamingo2];
+    // La Tortuga ya se jugó antes este turno: está en el descarte y en
+    // playedThisTurn, igual que en el test anterior.
+    player.discard.push(turtle);
+    player.playedThisTurn.push(turtle);
+
+    const maxCost = (turtle.marketCost ?? 0) + 2;
+    const chosen = state.animalTrack.find((c) => (c.marketCost ?? 0) <= maxCost)!;
+
+    playCard(state, player.id, flamingo1.instanceId, turtle.instanceId, chosen.instanceId);
+
+    // La Tortuga ya está en el mercado, no en la mano/descarte del jugador:
+    // el segundo Flamenco no debe seguir ofreciéndola como objetivo.
+    const actions = getLegalActions(state, player.id);
+    expect(
+      actions.some((a) => a.type === 'playCard' && a.instanceId === flamingo2.instanceId && a.targetInstanceId === turtle.instanceId)
+    ).toBe(false);
+  });
+
   it('flamenco: ofrece una variante por cada combinación de (animal a devolver) x (animal del mercado a coger)', () => {
     const { state, player } = setupClean();
     const flamingo = freshInstance('flamingo', 'test');
@@ -843,6 +867,10 @@ describe('murciélago: se intercambia por la carta de encima del mazo, sin elegi
     expect(player.hand.some((c) => c.instanceId === top.instanceId)).toBe(true);
     expect(player.discard.some((c) => c.instanceId === bat.instanceId)).toBe(false);
     expect(player.deck).toEqual([bat]);
+    // Ya no está ni en mano ni en descarte (está de vuelta en el mazo): un
+    // Flamenco jugado después no debe poder ofrecerlo como objetivo a
+    // devolver.
+    expect(player.playedThisTurn.some((c) => c.instanceId === bat.instanceId)).toBe(false);
   });
 
   it('con el mazo vacío no hay nada con lo que intercambiarse: se queda en el descarte, como cualquier carta', () => {
