@@ -21,6 +21,17 @@
   box-sizing: border-box;
 }
 
+/* Red de seguridad: si algo se nos escapa (un elemento con un ancho fijo
+   mayor que la pantalla), que se recorte en vez de generar scroll
+   horizontal en toda la página — el vertical es normal, el horizontal en
+   el body no debería pasar nunca (ver responsive más abajo, sobre todo el
+   mercado, que era la causa real). */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -32,6 +43,82 @@ body {
   max-width: 1560px;
   margin: 0 auto;
   padding: 1.25rem 1rem 3rem;
+}
+
+/* ---------- Responsive: móvil/tablet ----------
+   El culprit real del scroll horizontal era el mercado (rejilla de
+   columnas de ancho FIJO, ver .card-row--market): a partir de aquí las
+   cartas encogen y las rejillas pasan a envolver según el ancho
+   disponible en vez de un nº de columnas fijo, para aprovechar mejor la
+   pantalla sin desbordar nunca a los lados. */
+@media (max-width: 860px) {
+  :root {
+    --card-w: 96px;
+    --card-h: 138px;
+  }
+
+  .app {
+    padding: 0.75rem 0.6rem 2rem;
+  }
+
+  /* El resto de tamaños de fuente de la carta son fijos en rem: sin esto,
+     el texto de una carta de 96px de ancho se ve igual de grande que en
+     una de 128px, y no cabe. */
+  .card__icon,
+  .card__icon-img {
+    font-size: 2.3rem;
+  }
+  .card__icon-img {
+    width: 2.3rem;
+    height: 2.3rem;
+  }
+  .card__name {
+    font-size: 0.62rem;
+    min-height: 1.5em;
+  }
+  .card__top {
+    font-size: 0.58rem;
+  }
+  .card__footer {
+    font-size: 0.56rem;
+  }
+  .card__badge {
+    font-size: 0.58rem;
+    padding: 0.05rem 0.3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --card-w: 76px;
+    --card-h: 112px;
+  }
+
+  .app {
+    padding: 0.5rem 0.4rem 1.5rem;
+  }
+
+  .card__icon,
+  .card__icon-img {
+    font-size: 1.7rem;
+  }
+  .card__icon-img {
+    width: 1.7rem;
+    height: 1.7rem;
+  }
+  .card__name {
+    font-size: 0.52rem;
+    min-height: 1.4em;
+  }
+  .card__top {
+    font-size: 0.5rem;
+  }
+  .card__footer {
+    font-size: 0.46rem;
+  }
+  .card__tooltip {
+    max-width: min(260px, 75vw);
+  }
 }
 
 /* ---------- Layout: izquierda (turno/mano/controles) + derecha (mercado) ---------- */
@@ -118,14 +205,32 @@ body {
   max-width: calc(3 * var(--card-w) + 2 * 0.6rem);
 }
 
-/* Mercado: rejilla fija de 7 columnas. 29 animales + Plata + Oro = 31
-   huecos (4 filas completas + 1 con solo 3), así que no hace falta
-   envolver por ancho disponible como en la mano. --card-h algo menor que
-   el normal (184px) para que las filas quepan mejor sin tanto scroll. */
+/* Mercado: columnas de ancho FIJO (var(--card-w)) pero en número
+   VARIABLE según el ancho real disponible (auto-fill), no un recuento fijo
+   — con la ventana de escritorio habitual caben 7 (29 animales + Plata +
+   Oro = 31 huecos, 4 filas completas + 1 con solo 3), pero un recuento
+   fijo de 7 desbordaba el panel en cuanto la columna derecha del layout
+   era algo más estrecha (ventana no maximizada, u ocupando media
+   pantalla), y era precisamente lo que rompía el móvil al encoger
+   --card-w (7 columnas de ancho fijo no reducen su ancho TOTAL aunque
+   cada carta sea más pequeña). --card-h algo menor que el normal (184px)
+   para que las filas quepan mejor sin tanto scroll. */
 .card-row--market {
   display: grid;
-  grid-template-columns: repeat(7, var(--card-w));
+  grid-template-columns: repeat(auto-fill, var(--card-w));
   --card-h: 165px;
+}
+
+@media (max-width: 860px) {
+  .card-row--market {
+    --card-h: 132px;
+  }
+}
+
+@media (max-width: 480px) {
+  .card-row--market {
+    --card-h: 106px;
+  }
 }
 
 /* ---------- Controles de turno (carrito, terminar/reiniciar turno) ---------- */
@@ -682,6 +787,18 @@ body {
   max-height: 92vh;
   overflow-y: auto;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 480px) {
+  /* Aprovecha casi toda la pantalla en vez de dejar un marco de "backdrop"
+     grande alrededor, que en un móvil sobra más que ayuda. */
+  .modal-backdrop {
+    padding: 0.4rem;
+  }
+  .modal {
+    padding: 0.7rem;
+    max-height: 96vh;
+  }
 }
 
 .collection-entry {
