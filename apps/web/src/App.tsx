@@ -221,7 +221,7 @@ export default function App() {
   // Valor total de la baraja: suma del coste de mercado (marketCost) de
   // toda la colección, esté donde esté (mazo/mano/descarte) y se haya
   // conseguido como se haya conseguido (comprada, capturada gratis por
-  // Elefante/Araña/Flamenco, o regalada por Jirafa/Conejos) — no es lo
+  // Elefante/Araña/Flamenco, o regalada por la Jirafa) — no es lo
   // mismo que los PV: aquí cuenta lo que "valdría" recomponer la colección
   // entera al precio de mercado, no lo que puntúa.
   function deckValue(player: (typeof state.players)[number]): number {

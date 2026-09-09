@@ -5,6 +5,7 @@ import {
   effectiveHand,
   mintInstance,
   removeFromPlayedThisTurn,
+  shuffle,
   takeRandomFromHand,
   type CardInstance,
   type GameState,
@@ -347,25 +348,26 @@ registerEffect('topdeckSlothForChosenPlayer', (state, _player, _effect, context)
   target.deck.push(sloth);
 });
 
-// Conejos: el jugador que elijas (context.targetPlayerId) recibe un Conejo
-// NUEVO del mismo mazo de mercado de la especie (state.sharedDecks['rabbit'],
-// el mismo del que también se reponen las compras — solo hay 10 Conejos en
-// total en toda la partida, no una reserva aparte) directo a su descarte (a
-// diferencia de la Jirafa, que lo pone encima del mazo: este va al
-// descarte, así que no le hace robarlo antes de lo que le tocaría, pero SÍ
-// resta 2PV ya mismo si la partida termina antes de que lo juegue). Como
-// comparte pila con las compras normales, jugar Conejos SÍ puede agotar el
-// mazo de mercado antes de lo habitual. Si ya está vacío, no pasa nada
-// (nunca toca el que esté visible en el mercado, state.animalTrack: ese
-// sigue en venta con normalidad). Con 1 solo jugador no hay a quién elegir,
-// tampoco pasa nada.
-registerEffect('addRabbitToChosenPlayerDiscard', (state, player, _effect, context) => {
-  if (!context.targetPlayerId) return;
-  const target = state.players.find((p) => p.id === context.targetPlayerId);
-  if (!target || target.id === player.id) return;
-  const rabbit = state.sharedDecks['rabbit']?.pop();
-  if (!rabbit) return;
-  target.discard.push(rabbit);
+// Conejos: muestra la carta de encima de tu mazo; si NO es un animal de
+// coste superior a params.maxCost (por defecto 2) —es decir, si es una
+// moneda, o un animal de ese coste o menos— la añade a tu mano. Si es un
+// animal más caro, se queda tal cual encima del mazo (no se roba, no pasa
+// nada más): seguirá siendo la próxima carta en robarse con normalidad. Si
+// el mazo está vacío se baraja el descarte primero, igual que un robo
+// normal (ver drawCards); si tras eso sigue sin haber nada, no pasa nada.
+registerEffect('drawTopUnlessExpensiveAnimal', (_state, player, effect) => {
+  const maxCost = typeof effect.params?.maxCost === 'number' ? effect.params.maxCost : 2;
+  if (player.deck.length === 0) {
+    if (player.discard.length === 0) return;
+    player.deck = shuffle(player.discard);
+    player.discard = [];
+  }
+  const top = player.deck[player.deck.length - 1];
+  if (!top) return;
+  const isExpensiveAnimal = top.type === 'animal' && (top.marketCost ?? 0) > maxCost;
+  if (isExpensiveAnimal) return;
+  player.deck.pop();
+  player.hand.push(top);
 });
 
 // Flamenco: devuelve al mazo compartido de su especie el animal elegido

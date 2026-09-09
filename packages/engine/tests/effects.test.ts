@@ -431,11 +431,10 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(state.sharedDecks.sloth).toHaveLength(reserveBefore - 1);
   });
 
-  it('pato / conejos: getLegalActions NO te ofrece elegirte a ti mismo como objetivo (a diferencia de la Jirafa)', () => {
+  it('pato: getLegalActions NO te ofrece elegirte a ti mismo como objetivo (a diferencia de la Jirafa)', () => {
     const { state, player } = setupClean();
     const duck = freshInstance('duck', 'test');
-    const rabbit = freshInstance('rabbit', 'test');
-    player.hand = [duck, rabbit];
+    player.hand = [duck];
 
     const actions = getLegalActions(state, player.id);
     const selfTargeted = actions.filter(
@@ -445,45 +444,64 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(selfTargeted).toHaveLength(0);
   });
 
-  it('conejos: el jugador que elijas recibe un Conejo NUEVO del mismo mazo de mercado en su descarte', () => {
-    const { state, player, opponent } = setupClean();
+  it('conejos: si la carta de encima del mazo NO es un animal de coste superior a 2 (aquí, una moneda), la añade a la mano', () => {
+    const { state, player } = setupClean();
     const rabbitCard = freshInstance('rabbit', 'test');
+    const coin = freshInstance('coin-1', 'top');
     player.hand = [rabbitCard];
-    // Comparte pila con las compras normales (solo hay 10 Conejos en total,
-    // no una reserva aparte): reserveBefore ya refleja que 1 copia está en
-    // el mercado visible (animalTrack) desde la creación de la partida.
-    const reserveBefore = state.sharedDecks['rabbit']?.length ?? 0;
-    const expectedRabbit = state.sharedDecks['rabbit']?.[reserveBefore - 1];
-
-    playCard(state, player.id, rabbitCard.instanceId, undefined, undefined, opponent.id);
-
-    expect(opponent.discard).toHaveLength(1);
-    expect(opponent.discard[0]).toBe(expectedRabbit);
-    expect(state.sharedDecks['rabbit']).toHaveLength(reserveBefore - 1);
-  });
-
-  it('conejos: si ya no queda ningún Conejo en el mazo de mercado, no pasa nada', () => {
-    const { state, player, opponent } = setupClean();
-    const rabbitCard = freshInstance('rabbit', 'test');
-    player.hand = [rabbitCard];
-    state.sharedDecks['rabbit'] = [];
-
-    playCard(state, player.id, rabbitCard.instanceId, undefined, undefined, opponent.id);
-
-    expect(opponent.discard).toHaveLength(0);
-  });
-
-  it('conejos: sin elegir jugador (sin rivales o sin objetivo), no pasa nada', () => {
-    const { state, player, opponent } = setupClean();
-    const rabbitCard = freshInstance('rabbit', 'test');
-    player.hand = [rabbitCard];
-    const reserveBefore = state.sharedDecks['rabbit']?.length ?? 0;
+    player.deck = [coin]; // encima del mazo (pop() roba del final)
 
     playCard(state, player.id, rabbitCard.instanceId);
 
-    expect(opponent.discard).toHaveLength(0);
-    expect(state.sharedDecks['rabbit']).toHaveLength(reserveBefore);
+    expect(player.hand.some((c) => c.instanceId === 'coin-1#top')).toBe(true);
+    expect(player.deck).toHaveLength(0);
   });
+
+  it('conejos: si es un animal de coste 2 o menos, también la añade a la mano', () => {
+    const { state, player } = setupClean();
+    const rabbitCard = freshInstance('rabbit', 'test');
+    const turtle = freshInstance('turtle', 'top'); // coste 2
+    player.hand = [rabbitCard];
+    player.deck = [turtle];
+
+    playCard(state, player.id, rabbitCard.instanceId);
+
+    expect(player.hand.some((c) => c.instanceId === 'turtle#top')).toBe(true);
+    expect(player.deck).toHaveLength(0);
+  });
+
+  it('conejos: si es un animal de coste SUPERIOR a 2, se queda encima del mazo (no se roba)', () => {
+    const { state, player } = setupClean();
+    const rabbitCard = freshInstance('rabbit', 'test');
+    const lion = freshInstance('lion', 'top'); // coste 5
+    player.hand = [rabbitCard];
+    player.deck = [lion];
+
+    playCard(state, player.id, rabbitCard.instanceId);
+
+    expect(player.hand.some((c) => c.instanceId === 'lion#top')).toBe(false);
+    expect(player.deck).toEqual([lion]);
+  });
+
+  it('conejos: si el mazo está vacío, baraja el descarte primero (igual que un robo normal) antes de mirar', () => {
+    const { state, player } = setupClean();
+    const rabbitCard = freshInstance('rabbit', 'test');
+    const coin = freshInstance('coin-1', 'discarded');
+    player.hand = [rabbitCard];
+    player.deck = [];
+    player.discard = [coin];
+
+    playCard(state, player.id, rabbitCard.instanceId);
+
+    // El propio Conejo se descarta (por playCard) antes de resolver su
+    // efecto, así que el descarte a barajar es [moneda, Conejo] — ambos
+    // valen "no animal caro", así que cuál caiga arriba tras barajar da
+    // igual: se roba 1 sí o sí, sin dejar nada en el descarte.
+    expect(player.hand).toHaveLength(1);
+    expect(player.discard).toHaveLength(0);
+    expect(player.deck).toHaveLength(1);
+  });
+
 
   it('araña: captura gratis un animal VOLADOR o ACUÁTICO del mercado de coste 3 o menos', () => {
     const { state, player } = setupClean();

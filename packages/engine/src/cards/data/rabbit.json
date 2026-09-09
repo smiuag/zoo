@@ -4,12 +4,15 @@
   "type": "animal",
   "species": "rabbit",
   "marketCost": 2,
-  "victoryPoints": -2,
-  "text": "Elige un jugador: añade un Conejo de la reserva a su descarte.",
+  "victoryPoints": 2,
+  "text": "Muestra la carta de encima de tu baraja. Si no es un animal de coste superior a 2, añádela a tu mano.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "addRabbitToChosenPlayerDiscard"
+      "type": "drawTopUnlessExpensiveAnimal",
+      "params": {
+        "maxCost": 2
+      }
     }
   ],
   "habitats": ["land"]

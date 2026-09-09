@@ -192,9 +192,8 @@ function checkFinalRoundTrigger(state: GameState): void {
   // reserva de Perezosos para la Jirafa también vive en sharedDecks (ver
   // createGame) pero no es una especie del mercado (esa clave no está en
   // ANIMAL_SPECIES), así que agotarla no debería adelantar el fin de la
-  // partida. El Conejo SÍ es una especie de mercado normal (su propio mazo
-  // de sharedDecks['rabbit'] es el mismo que agotan tanto las compras como
-  // el efecto de la carta), así que a ese sí le aplica el criterio normal.
+  // partida. El Conejo SÍ es una especie de mercado normal, así que a ese
+  // sí le aplica el criterio normal.
   const emptyDecks = ANIMAL_SPECIES.filter((species) => state.sharedDecks[species]?.length === 0).length;
   if (emptyDecks >= FINAL_ROUND_EMPTY_DECK_THRESHOLD) {
     state.finalRoundTriggerPlayerIndex = state.activePlayerIndex;
@@ -370,20 +369,15 @@ function requireActivePlayer(state: GameState, playerId: string): Player {
 // elecciones encadenadas (qué animal devolver + qué animal coger a
 // cambio), no solo una lista plana de candidatos.
 // Efectos que necesitan elegir un JUGADOR (no una carta) como objetivo: el
-// Pato (de quién robar 1 moneda), la Jirafa (a quién le cae un Perezoso
-// encima del mazo) y los Conejos (a quién le cae un Conejo de la reserva en
-// el descarte). Ver PLAYER_TARGETED_EFFECT_TYPES más abajo, en
+// Pato (de quién robar 1 moneda) y la Jirafa (a quién le cae un Perezoso
+// encima del mazo). Ver PLAYER_TARGETED_EFFECT_TYPES más abajo, en
 // getLegalActions.
-const PLAYER_TARGETED_EFFECT_TYPES = new Set([
-  'stealCoinFromChosenPlayer',
-  'topdeckSlothForChosenPlayer',
-  'addRabbitToChosenPlayerDiscard',
-]);
+const PLAYER_TARGETED_EFFECT_TYPES = new Set(['stealCoinFromChosenPlayer', 'topdeckSlothForChosenPlayer']);
 
 // De los de arriba, la Jirafa es la única que también puede elegirse A SÍ
 // MISMA como objetivo (ponerte el Perezoso a ti mismo encima del mazo): el
-// Pato robar de tu propia mano o los Conejos maldecirte a ti mismo no
-// tendrían ningún sentido, así que esos 2 se quedan sin poder auto-elegirse.
+// Pato robar de tu propia mano no tendría ningún sentido, así que se queda
+// sin poder auto-elegirse.
 const SELF_TARGETABLE_PLAYER_EFFECT_TYPES = new Set(['topdeckSlothForChosenPlayer']);
 
 function targetedEffectCandidates(state: GameState, card: CardInstance): CardInstance[] | null {
