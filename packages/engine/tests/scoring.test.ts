@@ -86,32 +86,34 @@ describe('scorePlayer', () => {
     expect(score).toBe(2 + 1 + 3);
   });
 
-  it('el Cocodrilo elimina, antes de puntuar, el animal NO VOLADOR de menor PV de su MAZO, ignorando lo volador y lo que no esté en el mazo', () => {
+  it('el Cocodrilo elimina, antes de puntuar, el animal NO VOLADOR de menor valor real de TODA su colección (mazo, mano o descarte), ignorando solo lo volador', () => {
     const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
     const player = getActivePlayer(state);
     // La destrucción del Cocodrilo solo se aplica con la partida terminada
     // (ver scoring.ts): en mitad de la partida solo puntúa, sin destruir.
     state.gameOver = true;
     player.deck = []; // mazo inicial fuera, para un escenario determinista
+    player.hand = []; // la mano inicial (repartida por createGame) también, o sus Perezosos/monedas seguirían siendo candidatos
 
-    const crocodile = { ...getCard('crocodile'), instanceId: 'croc#test' }; // en la mano: su ubicación no importa para disparar el efecto
-    const owl = { ...getCard('owl'), instanceId: 'owl#bird' }; // volador, 3PV: en el mazo pero se salva por ser volador
-    const turtle = { ...getCard('turtle'), instanceId: 'turtle#weak' }; // terrestre-acuático, 1PV: la más débil elegible, debe destruirse
+    const crocodile = { ...getCard('crocodile'), instanceId: 'croc#test' };
+    const owl = { ...getCard('owl'), instanceId: 'owl#bird' }; // volador, 3PV: se salva SIEMPRE por ser volador, esté donde esté
+    const turtle = { ...getCard('turtle'), instanceId: 'turtle#weak' }; // terrestre-acuático, 1PV: la más débil elegible, debe destruirse aunque esté en la MANO
     const hippo = { ...getCard('hippopotamus'), instanceId: 'hippo#strong' }; // terrestre-acuático, 4PV: sobrevive por ser más fuerte
-    const goldfish = { ...getCard('goldfish'), instanceId: 'goldfish#hand' }; // acuático, 1PV, pero en la MANO: se salva por no estar en el mazo
-    player.hand.push(crocodile, goldfish);
-    player.deck.push(owl, turtle, hippo);
+    // El Cocodrilo y la Tortuga (la más débil) van a la MANO a propósito:
+    // antes el Cocodrilo solo miraba el mazo de robo, así que esto habría
+    // salvado a la Tortuga por no estar ahí. Ahora mira toda la colección.
+    player.hand.push(crocodile, turtle);
+    player.deck.push(owl, hippo);
 
     const score = scorePlayer(state, player);
 
-    expect(player.deck.some((c) => c.instanceId === 'turtle#weak')).toBe(false);
+    expect(player.hand.some((c) => c.instanceId === 'turtle#weak')).toBe(false);
     expect(player.deck.some((c) => c.instanceId === 'owl#bird')).toBe(true);
     expect(player.deck.some((c) => c.instanceId === 'hippo#strong')).toBe(true);
-    expect(player.hand.some((c) => c.instanceId === 'goldfish#hand')).toBe(true);
     expect(player.hand.some((c) => c.instanceId === 'croc#test')).toBe(true);
     // La tortuga (1PV, la más débil elegible) fue destruida antes de puntuar.
-    // Quedan cocodrilo(7PV) + búho(3PV) + hipopótamo(4PV) + pez de colores(1PV).
-    expect(score).toBe(7 + 3 + 4 + 1);
+    // Quedan cocodrilo(7PV) + búho(3PV) + hipopótamo(4PV).
+    expect(score).toBe(7 + 3 + 4);
     // Se guarda aparte, solo para el resumen final (no cuenta para el score).
     expect(player.destroyedCards.map((c) => c.instanceId)).toEqual(['turtle#weak']);
   });
@@ -121,6 +123,7 @@ describe('scorePlayer', () => {
     const player = getActivePlayer(state);
     state.gameOver = true;
     player.deck = [];
+    player.hand = []; // la mano inicial repartida por createGame también, o sus Perezosos/monedas seguirían siendo candidatos
 
     const crocodile = { ...getCard('crocodile'), instanceId: 'croc#test' }; // 7PV, terrestre-acuático
     // Oso polar: 0PV impreso (el más bajo posible), pero +1PV por cada
@@ -148,7 +151,12 @@ describe('scorePlayer', () => {
     const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
     const player = getActivePlayer(state);
     state.gameOver = true;
-    player.deck = []; // mazo inicial fuera: sin él, un Perezoso (0PV, terrestre) del reparto inicial sería un candidato más débil que el propio Cocodrilo
+    // Se limpian mazo Y mano: un Perezoso o moneda del reparto inicial (0PV,
+    // terrestre) sería un candidato más débil que el propio Cocodrilo,
+    // arruinando el escenario "es la única carta elegible" que este test
+    // quiere probar.
+    player.deck = [];
+    player.hand = [];
 
     const crocodile = { ...getCard('crocodile'), instanceId: 'croc#solo' };
     player.deck.push(crocodile);
@@ -169,6 +177,7 @@ describe('scorePlayer', () => {
     const player = getActivePlayer(state);
     state.gameOver = true;
     player.deck = [];
+    player.hand = []; // sin esto, un Perezoso/moneda de la mano inicial (0PV) competiría con los cocodrilos
 
     player.deck.push(
       { ...getCard('crocodile'), instanceId: 'croc#a' },
@@ -190,6 +199,7 @@ describe('scorePlayer', () => {
     const player = getActivePlayer(state);
     state.gameOver = true;
     player.deck = [];
+    player.hand = []; // sin esto, un Perezoso/moneda de la mano inicial (0PV) sería el objetivo en vez del pez de colores
 
     const crocodile = { ...getCard('crocodile'), instanceId: 'croc#test' };
     const hippo1 = { ...getCard('hippopotamus'), instanceId: 'hippo#1' };
@@ -211,6 +221,67 @@ describe('scorePlayer', () => {
     expect(player.deck.some((c) => c.instanceId === 'croc#test')).toBe(true);
     // Tampoco se acumula en destroyedCards en cada llamada: solo 1 entrada.
     expect(player.destroyedCards).toHaveLength(1);
+  });
+
+  it('repro: con Orcas (bonus alto) y un Perezoso en la mano, destruye el Perezoso y no la Tortuga del mazo', () => {
+    const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
+    const player = getActivePlayer(state);
+    state.gameOver = true;
+    player.deck = [];
+    player.hand = [];
+
+    const crocodile = { ...getCard('crocodile'), instanceId: 'croc#test' };
+    // 3 Orcas: 2PV base + 1PV por cada acuático de la colección. Con
+    // crocodile/turtle/sloth también acuáticos o terrestres variados, su
+    // valor real queda muy por encima de 0-1PV: nunca deben ser el objetivo.
+    const orca1 = { ...getCard('orca'), instanceId: 'orca#1' };
+    const orca2 = { ...getCard('orca'), instanceId: 'orca#2' };
+    const orca3 = { ...getCard('orca'), instanceId: 'orca#3' };
+    const turtle = { ...getCard('turtle'), instanceId: 'turtle#deck' }; // 1PV, sin bonus, en el MAZO
+    const sloth = { ...getCard('sloth'), instanceId: 'sloth#hand' }; // 0PV, sin bonus, en la MANO: el objetivo correcto
+    player.hand.push(crocodile, sloth);
+    player.deck.push(orca1, orca2, orca3, turtle);
+
+    scorePlayer(state, player);
+
+    expect(player.hand.some((c) => c.instanceId === 'sloth#hand')).toBe(false);
+    expect(player.deck.some((c) => c.instanceId === 'turtle#deck')).toBe(true);
+    expect(player.deck.some((c) => c.instanceId === 'orca#1')).toBe(true);
+    expect(player.deck.some((c) => c.instanceId === 'orca#2')).toBe(true);
+    expect(player.deck.some((c) => c.instanceId === 'orca#3')).toBe(true);
+    expect(player.destroyedCards.map((c) => c.instanceId)).toEqual(['sloth#hand']);
+  });
+
+  it('repro: 3 Cocodrilos con el mazo de robo vacío (todo en mano/descarte, lo normal al final de la partida) siguen destruyendo algo cada uno', () => {
+    const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
+    const player = getActivePlayer(state);
+    state.gameOver = true;
+    // El mazo de robo se queda VACÍO a propósito: es la situación típica al
+    // terminar la partida (endTurn roba una mano nueva justo antes de
+    // comprobar el fin de partida, ver engine.ts), y antes de este fix el
+    // Cocodrilo solo miraba el mazo de robo, así que con esto vacío ninguno
+    // de los 3 destruía nada.
+    player.deck = [];
+    player.hand = [];
+    player.discard = [];
+
+    const crocodiles = [
+      { ...getCard('crocodile'), instanceId: 'croc#a' },
+      { ...getCard('crocodile'), instanceId: 'croc#b' },
+      { ...getCard('crocodile'), instanceId: 'croc#c' },
+    ];
+    const hippos = [
+      { ...getCard('hippopotamus'), instanceId: 'hippo#1' },
+      { ...getCard('hippopotamus'), instanceId: 'hippo#2' },
+      { ...getCard('hippopotamus'), instanceId: 'hippo#3' },
+    ];
+    // Repartidos entre mano y descarte, ninguno en el mazo de robo.
+    player.hand.push(...crocodiles);
+    player.discard.push(...hippos);
+
+    scorePlayer(state, player);
+
+    expect(player.destroyedCards).toHaveLength(3);
   });
 
   it('pingüino da +1PV por cada especie DISTINTA en su mazo, no por copia', () => {

@@ -122,7 +122,7 @@ describe('card registry', () => {
     });
     expect(getCard('crocodile').effects[1]).toMatchObject({
       trigger: 'onScore',
-      type: 'destroyWeakestNonFlyingFromDeckOnScore',
+      type: 'destroyWeakestNonFlyingOnScore',
     });
     expect(getCard('orca').effects[0]).toMatchObject({
       trigger: 'onPlay',

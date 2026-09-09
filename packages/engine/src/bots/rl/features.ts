@@ -32,7 +32,7 @@ const EFFECT_TYPES = [
   'scorePerHabitatCount',
   'scorePerDistinctSpecies',
   'scoreBonusIfSpeciesCountAtLeast',
-  'destroyWeakestNonFlyingFromDeckOnScore',
+  'destroyWeakestNonFlyingOnScore',
   'swapSelfWithTopOfDeck',
 ] as const;
 

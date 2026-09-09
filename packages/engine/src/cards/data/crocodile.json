@@ -5,7 +5,7 @@
   "species": "crocodile",
   "marketCost": 5,
   "victoryPoints": 7,
-  "text": "Añade 1 a tu valor de compra. Al final de la partida, antes de la puntuación, elimina de tu mazo una carta de animal no volador.",
+  "text": "Añade 1 a tu valor de compra. Al final de la partida, antes de la puntuación, elimina de tu colección una carta de animal no volador.",
   "effects": [
     {
       "trigger": "onPlay",
@@ -16,7 +16,7 @@
     },
     {
       "trigger": "onScore",
-      "type": "destroyWeakestNonFlyingFromDeckOnScore"
+      "type": "destroyWeakestNonFlyingOnScore"
     }
   ],
   "habitats": [
