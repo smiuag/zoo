@@ -43,7 +43,7 @@ export const DEFAULT_BOT_ALGORITHMS_BY_SEAT: BotAlgorithm[] = [
 // elegida, esa es la ÚNICA forma en que termina la partida (el criterio de
 // agotar mazos compartidos queda desactivado, ver endTurn en engine.ts) —
 // esto le da al jugador control real sobre cuánto dura.
-export const ROUND_LIMIT_OPTIONS = [10, 20, 30] as const;
+export const ROUND_LIMIT_OPTIONS = [10, 15, 20] as const;
 export type RoundLimit = (typeof ROUND_LIMIT_OPTIONS)[number];
 export const DEFAULT_ROUND_LIMIT: RoundLimit = 20;
 
