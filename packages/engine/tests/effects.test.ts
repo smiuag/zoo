@@ -772,6 +772,34 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(actions.some((a) => a.type === 'playCard' && a.targetInstanceId === flamingo.instanceId)).toBe(true);
   });
 
+  it('flamenco: NO ofrece un Perezoso de la mano como objetivo a devolver (no es una especie de mercado real)', () => {
+    const { state, player } = setupClean();
+    const flamingo = freshInstance('flamingo', 'test');
+    const sloth = freshInstance('sloth', 's1');
+    player.hand = [flamingo, sloth];
+
+    const actions = getLegalActions(state, player.id);
+    expect(actions.some((a) => a.type === 'playCard' && a.targetInstanceId === sloth.instanceId)).toBe(false);
+    // El propio Flamenco (especie de mercado real) sí sigue ofrecido.
+    expect(actions.some((a) => a.type === 'playCard' && a.targetInstanceId === flamingo.instanceId)).toBe(true);
+  });
+
+  it('flamenco: si se fuerza a devolver un Perezoso (fuera de las acciones legales normales), no cuela un Perezoso comprable en el mercado', () => {
+    const { state, player } = setupClean();
+    const flamingo = freshInstance('flamingo', 'test');
+    const sloth = freshInstance('sloth', 's1');
+    player.hand = [flamingo, sloth];
+    const goldfish = state.animalTrack.find((c) => c.species === 'goldfish')!;
+
+    // playCard no valida el target contra getLegalActions (igual que el
+    // resto de tests de este archivo): esto comprueba que refillAnimalMarket
+    // en sí mismo nunca cuela una especie que no sea de mercado, aunque
+    // algo llegue a pedírselo.
+    playCard(state, player.id, flamingo.instanceId, sloth.instanceId, goldfish.instanceId);
+
+    expect(state.animalTrack.some((c) => c.species === 'sloth')).toBe(false);
+  });
+
   it('flamenco: puede devolver un animal ya jugado este turno para el intercambio, pero SIN volver a disparar su habilidad (ya se usó al jugarlo)', () => {
     const { state, player } = setupClean();
     const flamingo = freshInstance('flamingo', 'test');

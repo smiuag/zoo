@@ -206,8 +206,20 @@ function checkFinalRoundTrigger(state: GameState): void {
 // Siempre intenta tener 1 hueco por especie (27 en total); al comprarse uno
 // se repone solo el hueco de esa especie, con una copia del mazo compartido
 // de esa especie.
+//
+// onlySpecies puede llegar aquí con CUALQUIER species (p. ej. el Flamenco
+// devolviendo un Perezoso de la mano, ver returnAnimalForUpgrade en
+// registry.ts, que no sabe ni le importa si esa especie tiene hueco de
+// mercado). "sloth" tiene su propia entrada en sharedDecks (la reserva de
+// la Jirafa, ver createGame), pero NO es una especie de mercado — sin este
+// filtro, el hueco inexistente de "sloth" se "repondría" igualmente,
+// colando un Perezoso comprable gratis en el mercado.
+function isMarketSpecies(species: string): species is (typeof ANIMAL_SPECIES)[number] {
+  return (ANIMAL_SPECIES as readonly string[]).includes(species);
+}
+
 function refillAnimalMarket(state: GameState, onlySpecies?: string): void {
-  const speciesToFill = onlySpecies ? [onlySpecies] : [...ANIMAL_SPECIES];
+  const speciesToFill = onlySpecies ? [onlySpecies].filter(isMarketSpecies) : [...ANIMAL_SPECIES];
   for (const species of speciesToFill) {
     if (state.animalTrack.some((c) => c.species === species)) continue;
     const deck = state.sharedDecks[species];
@@ -399,13 +411,17 @@ function targetedEffectCandidates(state: GameState, card: CardInstance): CardIns
 // este turno" = effectiveHand: lo que tienes ahora en la mano más lo que
 // ya hayas jugado en este mismo turno (mismo criterio que el resto de
 // efectos que miran "tu mano", ver effectiveHand()); no incluye ni el
-// mazo ni cartas jugadas en turnos anteriores. Si un animal devuelto no
-// tiene ningún destino posible en el mercado, se ofrece igual la variante
-// sin `secondaryTargetInstanceId` (se juega su habilidad pero no se coge
-// nada a cambio).
+// mazo ni cartas jugadas en turnos anteriores. Se excluye el Perezoso (y
+// cualquier otro animal que no sea una especie de mercado real, ver
+// isMarketSpecies): no tiene hueco de mercado al que volver, así que
+// "devolverlo" no tiene sentido — solo colaría en el mazo compartido de
+// sloth (la reserva privada de la Jirafa) sin ningún hueco que lo muestre
+// para comprar. Si un animal devuelto no tiene ningún destino posible en
+// el mercado, se ofrece igual la variante sin `secondaryTargetInstanceId`
+// (se juega su habilidad pero no se coge nada a cambio).
 function returnAnimalForUpgradeActions(state: GameState, player: Player, card: CardInstance, effect: Effect): Action[] {
   const costDelta = typeof effect.params?.maxCostDelta === 'number' ? effect.params.maxCostDelta : 1;
-  const sources = effectiveHand(player).filter((c) => c.type === 'animal');
+  const sources = effectiveHand(player).filter((c) => c.type === 'animal' && isMarketSpecies(c.species ?? ''));
   const actions: Action[] = [];
   for (const source of sources) {
     const maxCost = (source.marketCost ?? 0) + costDelta;
