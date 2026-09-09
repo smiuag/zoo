@@ -1,32 +1,67 @@
 import { useEffect, useRef, useState } from 'react';
-import { getCard, scoreCardContributions, type Action, type CardInstance, type GameState } from '@zoo/engine';
+import { getActivePlayer, getCard, scoreCardContributions, type Action, type CardInstance, type Player } from '@zoo/engine';
 import { CardView } from './components/CardView';
+import { GameSetup } from './components/GameSetup';
 import { buyAnimalActionFor, buyCoinActionFor, playCardActionsFor } from './lib/actionQuery';
 import { BOT_ALGORITHM_OPTIONS } from './lib/botAlgorithms';
+import type { GameConfig } from './lib/gameConfig';
 import { buildPlayCardTargetChoice, type PendingChoice } from './lib/pendingChoice';
-import { ROUND_LIMIT_OPTIONS, useGame, type BotAlgorithm, type RoundLimit } from './state/useGame';
+import { useGame, type BotAlgorithm } from './state/useGame';
 
 const PURCHASABLE_COIN_IDS = ['coin-2', 'coin-3'];
 
 export default function App() {
   const {
+    phase,
     state,
-    humanId,
+    humanIds,
     humanTurn,
     legalActions,
     scores,
     canRestartTurn,
     botAlgorithms,
-    roundLimit,
+    startGame,
     doAction,
     restart,
     restartTurn,
     setBotAlgorithm,
-    setRoundLimit,
   } = useGame();
-  const human = state.players.find((p) => p.id === humanId)!;
-  const bots = state.players.filter((p) => p.id !== humanId);
+
+  // El "pase y juega" (varios humanos en el mismo dispositivo) solo importa
+  // con 2+ jugadores humanos: se resetea cada vez que arranca una partida
+  // nueva de verdad (no basta con lo que ya hace restart(), que solo vuelve
+  // al formulario — la propia partida nueva empieza siempre en el turno 1,
+  // y sin este reseteo un state.turn coincidente con el de la partida
+  // anterior podría saltarse el aviso del primer turno).
+  const [revealedTurn, setRevealedTurn] = useState<number | null>(null);
+  function handleStart(config: GameConfig) {
+    setRevealedTurn(null);
+    startGame(config);
+  }
+
+  const activePlayer = getActivePlayer(state);
+  // Qué jugador humano mostrar en el panel principal (mano, mazo, valor de
+  // compra...): mientras es el turno de un humano, el que le toca; mientras
+  // juegan los bots, se sigue mostrando el último humano activo (nada
+  // interactivo depende de esto, solo evita que el panel "desaparezca"
+  // entre turno humano y turno de bots).
+  const lastHumanIdRef = useRef<string>(humanIds[0]);
+  if (humanTurn) lastHumanIdRef.current = activePlayer.id;
+  const human = state.players.find((p) => p.id === lastHumanIdRef.current) ?? state.players[0];
+  const bots = state.players.filter((p) => !humanIds.includes(p.id));
   const scoreFor = (playerId: string) => scores.find((s) => s.playerId === playerId)?.score ?? 0;
+  // "Pase y juega": con 2+ humanos, cada vez que le toca a uno DISTINTO se
+  // pide confirmar antes de revelar su mano, para que el jugador anterior no
+  // se la deje puesta sin querer. Con 1 solo humano (el caso normal) nunca
+  // se activa.
+  const needsHandoff = phase === 'playing' && humanTurn && humanIds.length > 1 && revealedTurn !== state.turn;
+  // Mientras la partida sigue en curso, el mazo de OTRO jugador humano es
+  // información privada: solo se puede "ver el mazo" de un bot en cualquier
+  // momento, o del propio humano activo, o de cualquiera una vez terminada
+  // la partida (el resumen final es público a propósito).
+  function canViewPlayer(p: Player): boolean {
+    return state.gameOver || !humanIds.includes(p.id) || p.id === activePlayer.id;
+  }
   // Solo de cara a mostrarlo (el motor no depende del orden de animalTrack):
   // más barato primero, y a igualdad de coste por nombre para que no salten
   // de sitio entre renders.
@@ -39,9 +74,13 @@ export default function App() {
   const choiceRef = useRef<HTMLDivElement>(null);
   const viewedPlayer = state.players.find((p) => p.id === viewedPlayerId) ?? null;
 
-  // Nuevo turno: se cierra cualquier menú contextual abierto.
+  // Nuevo turno: se cierra cualquier menú contextual abierto, y también el
+  // popup de "ver mazo" — si quedó abierto sobre el mazo de otro humano,
+  // que ya no tocaría poder ver (ver canViewPlayer), no debe seguir a la
+  // vista tras el cambio de turno.
   useEffect(() => {
     setPendingChoice(null);
+    setViewedPlayerId(null);
   }, [state.turn]);
 
   // El menú contextual vive junto a la mano, pero si la página tiene mucho
@@ -207,6 +246,30 @@ export default function App() {
     return [...player.deck, ...player.hand, ...player.discard].reduce((sum, c) => sum + (c.marketCost ?? 0), 0);
   }
 
+  if (phase === 'setup') {
+    return <GameSetup onStart={handleStart} />;
+  }
+
+  // "Pase y juega": antes de revelar la mano/mazo/valor de compra del
+  // jugador que acaba de empezar turno, se le pide confirmar que es él
+  // quien tiene el dispositivo ahora — así el jugador anterior no se queda
+  // viendo (ni deja visto sin querer) lo que no es suyo.
+  if (needsHandoff) {
+    return (
+      <div className="app app--setup">
+        <div className="panel setup-panel setup-panel--handoff">
+          <div className="panel__header">
+            <h2>Turno de {activePlayer.name}</h2>
+          </div>
+          <p>Pasa el dispositivo a {activePlayer.name} antes de continuar.</p>
+          <button className="btn btn--primary" onClick={() => setRevealedTurn(state.turn)}>
+            Ya lo tengo yo — empezar mi turno
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       {state.gameOver && (
@@ -280,37 +343,33 @@ export default function App() {
               ) : (
                 <span className="status-pill">
                   Ronda {state.round}/{state.maxRounds ?? '∞'} —{' '}
-                  {humanTurn ? 'tu turno' : `esperando a ${state.players.find((p) => p.id === getActiveId(state))?.name}`}
+                  {humanTurn ? `turno de ${activePlayer.name}` : `esperando a ${activePlayer.name}`}
                 </span>
               )}
-              <select
-                className="bot-algorithm-select"
-                value={roundLimit}
-                onChange={(e) => setRoundLimit(Number(e.target.value) as RoundLimit)}
-                title="Duración de la próxima partida nueva (no afecta a la partida en curso)"
-              >
-                {ROUND_LIMIT_OPTIONS.map((rounds) => (
-                  <option key={rounds} value={rounds}>
-                    {rounds} rondas
-                  </option>
-                ))}
-              </select>
               <button className="btn btn--ghost" onClick={restart}>
                 ↺ Nueva partida
               </button>
             </div>
 
             <ul className="scoreboard">
-              {state.players.map((p) => (
-                <li
-                  key={p.id}
-                  className={p.id === humanId ? 'scoreboard__me scoreboard__clickable' : 'scoreboard__clickable'}
-                  onClick={() => setViewedPlayerId(p.id)}
-                  title="Ver mazo"
-                >
-                  <strong>{p.name}</strong>: {scoreFor(p.id)} PV
-                </li>
-              ))}
+              {state.players.map((p) => {
+                const clickable = canViewPlayer(p);
+                return (
+                  <li
+                    key={p.id}
+                    className={[
+                      humanIds.includes(p.id) && 'scoreboard__me',
+                      clickable && 'scoreboard__clickable',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    onClick={clickable ? () => setViewedPlayerId(p.id) : undefined}
+                    title={clickable ? 'Ver mazo' : 'Mazo privado hasta que termine la partida'}
+                  >
+                    <strong>{p.name}</strong>: {scoreFor(p.id)} PV
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
@@ -493,8 +552,4 @@ export default function App() {
       )}
     </div>
   );
-}
-
-function getActiveId(state: GameState) {
-  return state.players[state.activePlayerIndex]?.id;
 }

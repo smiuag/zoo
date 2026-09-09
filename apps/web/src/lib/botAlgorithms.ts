@@ -1,4 +1,4 @@
-import type { BotAlgorithm } from '../state/useGame';
+import type { BotAlgorithm } from './gameConfig';
 
 // Etiquetas en español para el desplegable de algoritmo por hueco de bot en
 // el panel "Otros jugadores".

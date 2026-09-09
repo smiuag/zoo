@@ -760,3 +760,72 @@ body {
   overflow-y: auto;
   padding-bottom: 0.2rem;
 }
+
+/* ---------- Formulario de creación de partida / "pase y juega" ---------- */
+
+.app--setup {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.setup-panel {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.setup-panel--handoff {
+  text-align: center;
+  align-items: center;
+}
+
+.setup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.setup-row label {
+  font-weight: 600;
+}
+
+.setup-row select {
+  font: inherit;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  background: var(--panel-bg);
+  color: var(--ink);
+}
+
+.setup-hint {
+  flex-basis: 100%;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.setup-bot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--bg);
+  border-radius: 8px;
+}
+
+.setup-row--bot select {
+  flex: 1;
+  max-width: 240px;
+}
+
+.setup-error {
+  color: var(--danger);
+  font-size: 0.82rem;
+  margin: 0;
+}

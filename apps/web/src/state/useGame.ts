@@ -19,24 +19,10 @@ import {
   type PlayerScore,
 } from '@zoo/engine';
 import { buildStarterDeck } from '../lib/starterDeck';
+import { defaultGameConfig, type BotAlgorithm, type GameConfig } from '../lib/gameConfig';
 
-export const HUMAN_ID = 'human';
-const BOT_COUNT = 4;
-
-// Los 8 algoritmos de IA disponibles para cada hueco de bot: rl es el
-// generalista sin restricciones entrenado por self-play (packages/engine/
-// scripts/rl), rlLand/rlBird/rlAquatic son especialistas entrenados con la
-// misma red pero restringidos a comprar solo animales de un hábitat, y el
-// resto son los bots heurísticos/aleatorios ya existentes.
-export type BotAlgorithm =
-  | 'rl'
-  | 'rlLand'
-  | 'rlBird'
-  | 'rlAquatic'
-  | 'heuristic'
-  | 'random'
-  | 'expensiveFirst'
-  | 'animalBuyer';
+export type { BotAlgorithm, GameConfig, RoundLimit } from '../lib/gameConfig';
+export { DEFAULT_ROUND_LIMIT, MAX_BOTS, MAX_HUMANS, MIN_BOTS, MIN_HUMANS, MIN_TOTAL_PLAYERS, ROUND_LIMIT_OPTIONS } from '../lib/gameConfig';
 
 const BOT_REGISTRY: Record<BotAlgorithm, Bot> = {
   rl: rlBot,
@@ -50,26 +36,6 @@ const BOT_REGISTRY: Record<BotAlgorithm, Bot> = {
 };
 
 const DEFAULT_BOT_ALGORITHM: BotAlgorithm = 'rl';
-
-// Duraciones de partida seleccionables (en rondas: 1 turno de cada
-// jugador). No hay opción "sin límite" a propósito: con una duración
-// elegida, esa es la ÚNICA forma en que termina la partida (el criterio
-// de agotar mazos compartidos queda desactivado, ver endTurn en
-// engine.ts) — esto le da al jugador control real sobre cuánto dura.
-export const ROUND_LIMIT_OPTIONS = [10, 20, 30] as const;
-export type RoundLimit = (typeof ROUND_LIMIT_OPTIONS)[number];
-const DEFAULT_ROUND_LIMIT: RoundLimit = 20;
-
-// Por defecto, cada hueco es un bot RL distinto (el generalista + los 3
-// especialistas de hábitat): una partida nueva ya enfrenta a los 4 sin
-// tener que tocar los desplegables.
-const DEFAULT_BOT_ALGORITHMS_BY_SEAT: BotAlgorithm[] = ['rl', 'rlLand', 'rlBird', 'rlAquatic'];
-
-function defaultBotAlgorithms(): Record<string, BotAlgorithm> {
-  return Object.fromEntries(
-    Array.from({ length: BOT_COUNT }, (_, i) => [`bot-${i}`, DEFAULT_BOT_ALGORITHMS_BY_SEAT[i] ?? DEFAULT_BOT_ALGORITHM])
-  );
-}
 
 // Red de seguridad: un bot mal entrenado puede quedarse atrapado en un
 // bucle que no da PV de más (p. ej. jugar una y otra vez el mismo animal ya
@@ -114,42 +80,61 @@ function postGameLog(lines: string[], clear = false): void {
   );
 }
 
-function newGame(maxRounds: RoundLimit): GameState {
-  return createGame(
-    [
-      { id: HUMAN_ID, name: 'Tú', deck: buildStarterDeck() },
-      ...Array.from({ length: BOT_COUNT }, (_, i) => ({
-        id: `bot-${i}`,
-        name: `Bot ${i + 1}`,
-        deck: buildStarterDeck(),
-      })),
-    ],
-    { maxRounds }
-  );
+// Nombre por defecto de cada jugador humano: con 1 solo (el caso más común,
+// antes el único posible), "Tú"; con varios —turno rotatorio en el mismo
+// dispositivo, ver el "pase y juega" en App.tsx— numerados para
+// distinguirlos en el marcador.
+function humanName(index: number, total: number): string {
+  return total === 1 ? 'Tú' : `Jugador ${index + 1}`;
+}
+
+function newGame(config: GameConfig): GameState {
+  const humans = Array.from({ length: config.numHumans }, (_, i) => ({
+    id: `human-${i}`,
+    name: humanName(i, config.numHumans),
+    deck: buildStarterDeck(),
+  }));
+  const bots = config.botAlgorithms.map((_, i) => ({
+    id: `bot-${i}`,
+    name: `Bot ${i + 1}`,
+    deck: buildStarterDeck(),
+  }));
+  return createGame([...humans, ...bots], { maxRounds: config.roundLimit });
 }
 
 export interface UseGame {
+  // 'setup': todavía no hay partida real en curso, App.tsx muestra el
+  // formulario de creación (nº de humanos/bots y su tipo). 'playing': hay
+  // una partida en curso (o recién terminada, hasta pulsar "Nueva partida").
+  phase: 'setup' | 'playing';
   state: GameState;
-  humanId: string;
+  // Todos los jugadores humanos de la partida en curso (1 si es solitario
+  // contra bots, más si es "pase y juega" local). Sustituye al antiguo
+  // HUMAN_ID fijo.
+  humanIds: string[];
   humanTurn: boolean;
   legalActions: Action[];
   scores: PlayerScore[];
   canRestartTurn: boolean;
   botAlgorithms: Record<string, BotAlgorithm>;
-  roundLimit: RoundLimit;
+  startGame: (config: GameConfig) => void;
   doAction: (action: Action) => void;
+  // Vuelve a mostrar el formulario de creación de partida (no crea la
+  // partida nueva por su cuenta: eso lo hace startGame cuando el jugador
+  // confirma el formulario).
   restart: () => void;
   restartTurn: () => void;
   setBotAlgorithm: (botId: string, algorithm: BotAlgorithm) => void;
-  // Solo cambia la duración elegida para la PRÓXIMA partida nueva (no
-  // afecta a la que está en curso: cambiar `state.maxRounds` a mitad de
-  // partida podría dejarla ya "caducada" de golpe si ya se jugaron más
-  // rondas que el nuevo límite).
-  setRoundLimit: (rounds: RoundLimit) => void;
 }
 
 export function useGame(): UseGame {
-  const stateRef = useRef<GameState>(newGame(DEFAULT_ROUND_LIMIT));
+  // Placeholder hasta el primer startGame(): nunca se juega ni se muestra
+  // (App.tsx renderiza el formulario mientras phase === 'setup'), pero
+  // mantener `state` siempre no-nulo evita comprobaciones null por todo
+  // App.tsx.
+  const stateRef = useRef<GameState>(newGame(defaultGameConfig()));
+  const [phase, setPhase] = useState<'setup' | 'playing'>('setup');
+  const [humanIds, setHumanIds] = useState<string[]>(['human-0']);
   // Foto del estado tal cual estaba al EMPEZAR el turno humano actual (antes
   // de cualquier acción suya), para poder deshacerlo entero con "reiniciar
   // turno". Se clona (no solo se guarda la referencia) porque el motor muta
@@ -161,29 +146,23 @@ export function useGame(): UseGame {
   const botTurnActionCountRef = useRef<{ turn: number; count: number }>({ turn: -1, count: 0 });
   const [, setTick] = useState(0);
   const rerender = () => setTick((t) => t + 1);
-  const [botAlgorithms, setBotAlgorithms] = useState<Record<string, BotAlgorithm>>(defaultBotAlgorithms);
-  const [roundLimit, setRoundLimit] = useState<RoundLimit>(DEFAULT_ROUND_LIMIT);
+  const [botAlgorithms, setBotAlgorithms] = useState<Record<string, BotAlgorithm>>({});
 
   const state = stateRef.current;
-
-  // Arranca el archivo game.log en blanco para la partida inicial de esta
-  // sesión (restart() lo vuelve a limpiar para partidas posteriores).
-  useEffect(() => {
-    postGameLog(['=== Nueva partida ==='], true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // El motor muta el GameState en el sitio; después de cada acción (propia
   // o de un bot) forzamos un re-render. Este efecto, sin dependencias, se
   // reevalúa tras cada render: mientras el turno activo sea de un bot,
-  // encadena sus acciones automáticamente hasta que vuelva a tocarle al
-  // humano o termine la partida.
+  // encadena sus acciones automáticamente hasta que vuelva a tocarle a algún
+  // humano o termine la partida. No hace nada mientras se está en el
+  // formulario de creación (phase 'setup'): el placeholder de arriba nunca
+  // debe jugarse solo.
   useEffect(() => {
-    if (state.gameOver) return;
+    if (phase !== 'playing' || state.gameOver) return;
 
-    if (getActivePlayer(state).id === HUMAN_ID) {
-      // Justo al empezar el turno humano (todavía sin ninguna acción suya
-      // aplicada) se guarda la foto para poder volver aquí.
+    if (humanIds.includes(getActivePlayer(state).id)) {
+      // Justo al empezar el turno de un humano (todavía sin ninguna acción
+      // suya aplicada) se guarda la foto para poder volver aquí.
       if (turnSnapshotRef.current?.turn !== state.turn) {
         turnSnapshotRef.current = { turn: state.turn, snapshot: structuredClone(state) };
       }
@@ -192,7 +171,7 @@ export function useGame(): UseGame {
 
     let guard = 0;
     let acted = false;
-    while (!state.gameOver && getActivePlayer(state).id !== HUMAN_ID && guard < 1000) {
+    while (!state.gameOver && !humanIds.includes(getActivePlayer(state).id) && guard < 1000) {
       const bot = getActivePlayer(state);
 
       if (botTurnActionCountRef.current.turn !== state.turn) {
@@ -225,7 +204,7 @@ export function useGame(): UseGame {
       guard++;
       acted = true;
     }
-    if (guard >= 1000 && !state.gameOver && getActivePlayer(state).id !== HUMAN_ID) {
+    if (guard >= 1000 && !state.gameOver && !humanIds.includes(getActivePlayer(state).id)) {
       const warning = '[bot] Límite global de 1000 acciones encadenadas alcanzado: se corta el autoplay para revisar.';
       // eslint-disable-next-line no-console
       console.warn(warning);
@@ -234,29 +213,47 @@ export function useGame(): UseGame {
     if (acted) rerender();
   });
 
-  const humanTurn = !state.gameOver && getActivePlayer(state).id === HUMAN_ID;
-  const legalActions = humanTurn ? getLegalActions(state, HUMAN_ID) : [];
+  const humanTurn = phase === 'playing' && !state.gameOver && humanIds.includes(getActivePlayer(state).id);
+  const legalActions = humanTurn ? getLegalActions(state, getActivePlayer(state).id) : [];
   const scores = scoreGame(state);
   const canRestartTurn = humanTurn && turnSnapshotRef.current?.turn === state.turn;
 
   function doAction(action: Action) {
     if (!humanTurn) return;
+    const player = getActivePlayer(state);
     const turnBeforeAction = state.turn;
     const logLenBefore = state.log.length;
-    applyAction(state, HUMAN_ID, action);
+    applyAction(state, player.id, action);
     const engineLines = state.log.slice(logLenBefore);
     postGameLog([
-      `T${turnBeforeAction} | Tú | ${describeAction(action)}`,
+      `T${turnBeforeAction} | ${player.name} | ${describeAction(action)}`,
       ...engineLines.map((l) => `    -> ${l}`),
     ]);
     rerender();
   }
 
-  function restart() {
-    stateRef.current = newGame(roundLimit);
+  function startGame(config: GameConfig) {
+    stateRef.current = newGame(config);
     turnSnapshotRef.current = null;
-    postGameLog(['=== Nueva partida (reinicio) ==='], true);
+    botTurnActionCountRef.current = { turn: -1, count: 0 };
+    setHumanIds(Array.from({ length: config.numHumans }, (_, i) => `human-${i}`));
+    const nextBotAlgorithms: Record<string, BotAlgorithm> = {};
+    config.botAlgorithms.forEach((algorithm, i) => {
+      nextBotAlgorithms[`bot-${i}`] = algorithm;
+    });
+    setBotAlgorithms(nextBotAlgorithms);
+    setPhase('playing');
+    postGameLog(['=== Nueva partida ==='], true);
     rerender();
+  }
+
+  // Vuelve al formulario de creación en vez de lanzar directamente otra
+  // partida con la misma configuración: así el jugador puede cambiar nº de
+  // humanos/bots y su tipo cada vez, tal como pide el enunciado ("que al
+  // crear la partida lo primero que te pregunte sea..."). startGame() se
+  // encarga de crear la partida de verdad cuando confirme el formulario.
+  function restart() {
+    setPhase('setup');
   }
 
   function restartTurn() {
@@ -267,25 +264,28 @@ export function useGame(): UseGame {
     rerender();
   }
 
-  // No se resetea en restart(): la elección de algoritmo por hueco de bot es
-  // una preferencia de la sesión, no del estado de una partida concreta.
+  // No se resetea al volver al formulario: la elección de algoritmo por
+  // hueco de bot hecha a mitad de partida (desplegable del panel "Bots") es
+  // una preferencia de la sesión, pero cada startGame() la vuelve a fijar
+  // según lo elegido en el formulario, así que este setter solo importa
+  // mientras hay una partida en curso.
   function setBotAlgorithm(botId: string, algorithm: BotAlgorithm) {
     setBotAlgorithms((prev) => ({ ...prev, [botId]: algorithm }));
   }
 
   return {
+    phase,
     state,
-    humanId: HUMAN_ID,
+    humanIds,
     humanTurn,
     legalActions,
     scores,
     canRestartTurn,
     botAlgorithms,
-    roundLimit,
+    startGame,
     doAction,
     restart,
     restartTurn,
     setBotAlgorithm,
-    setRoundLimit,
   };
 }
