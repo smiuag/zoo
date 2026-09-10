@@ -3,7 +3,7 @@
   "name": "Elefante",
   "type": "animal",
   "species": "elephant",
-  "marketCost": 5,
+  "marketCost": 6,
   "victoryPoints": 3,
   "text": "Capturas gratis (sin gastar monedas) el animal TERRESTRE del mercado que elijas, de coste 5 o menos.",
   "effects": [

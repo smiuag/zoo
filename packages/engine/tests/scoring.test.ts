@@ -91,7 +91,7 @@ describe('scorePlayer', () => {
     const player = getActivePlayer(state);
 
     const eagle = { ...getCard('eagle'), instanceId: 'eagle#test' }; // 0PV base, coste 5
-    const lion = { ...getCard('lion'), instanceId: 'lion#test' }; // 5PV, coste 6: cuenta
+    const lion = { ...getCard('lion'), instanceId: 'lion#test' }; // 5PV, coste 5: cuenta
     const turtle = { ...getCard('turtle'), instanceId: 'turtle#test' }; // 1PV, coste 2: no cuenta
     player.hand.push(eagle, lion, turtle);
     // Este león está en el mazo, no en la mano: también cuenta para el bonus del águila.

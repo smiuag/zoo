@@ -481,7 +481,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   it('conejos: si es un animal de coste SUPERIOR a 3, se queda encima del mazo (no se roba)', () => {
     const { state, player } = setupClean();
     const rabbitCard = freshInstance('rabbit', 'test');
-    const lion = freshInstance('lion', 'top'); // coste 6
+    const lion = freshInstance('lion', 'top'); // coste 5
     player.hand = [rabbitCard];
     player.deck = [lion];
 

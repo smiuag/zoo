@@ -3,7 +3,7 @@
   "name": "León",
   "type": "animal",
   "species": "lion",
-  "marketCost": 6,
+  "marketCost": 5,
   "victoryPoints": 5,
   "text": "Añade 4 a tu valor de compra.",
   "effects": [
