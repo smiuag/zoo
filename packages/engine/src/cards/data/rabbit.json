@@ -5,11 +5,14 @@
   "species": "rabbit",
   "marketCost": 2,
   "victoryPoints": 2,
-  "text": "Mejora 1 moneda de tu mano (de 1 a 2, o de 2 a 3).",
+  "text": "Muestra la carta de encima de tu baraja. Si no es un animal de coste superior a 3, añádela a tu mano.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "upgradeCoin"
+      "type": "drawTopUnlessExpensiveAnimal",
+      "params": {
+        "maxCost": 3
+      }
     }
   ],
   "habitats": ["land"]

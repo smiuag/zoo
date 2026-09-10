@@ -85,7 +85,7 @@ function effectBonus(card: CardInstance): number {
         bonus += 2; // recupera un animal ya jugado: valor real depende de cuál, aproximación fija
         break;
       case 'drawTopUnlessExpensiveAnimal':
-        // Tortuga: robo condicional (casi siempre útil, salvo que encima
+        // Conejos: robo condicional (casi siempre útil, salvo que encima
         // del mazo haya justo un animal caro) — aproximación fija, algo
         // menos que un robo garantizado (drawCards vale 2 por carta).
         bonus += 1.5;

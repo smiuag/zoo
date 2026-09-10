@@ -9,7 +9,7 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   peacock: { cost: 2, pv: 1 },
   dolphin: { cost: 3, pv: 2 },
   giraffe: { cost: 6, pv: 5 },
-  hippopotamus: { cost: 5, pv: 4 },
+  hippopotamus: { cost: 6, pv: 4 },
   tiger: { cost: 4, pv: 3 },
   lion: { cost: 5, pv: 5 },
   monkey: { cost: 4, pv: 2 },
@@ -91,7 +91,7 @@ describe('card registry', () => {
     });
     expect(getCard('penguin').effects[1]).toMatchObject({ trigger: 'onScore', type: 'scorePerDistinctSpecies' });
     expect(getCard('peacock').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 1 } });
-    expect(getCard('hippopotamus').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 2 } });
+    expect(getCard('hippopotamus').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 3 } });
     expect(getCard('lion').effects[0]).toMatchObject({
       type: 'gainFlatBonusPurchasingPower',
       params: { amount: 4 },
@@ -106,10 +106,7 @@ describe('card registry', () => {
       params: { habitat: 'land', maxCost: 5 },
     });
     expect(getCard('giraffe').effects[0]).toMatchObject({ type: 'retrieveAnimalFromDiscard' });
-    expect(getCard('turtle').effects[0]).toMatchObject({
-      type: 'drawTopUnlessExpensiveAnimal',
-      params: { maxCost: 3 },
-    });
+    expect(getCard('turtle').effects[0]).toMatchObject({ type: 'upgradeCoin' });
     expect(getCard('spider').effects[0]).toMatchObject({
       type: 'freeCaptureUpToCost',
       params: { habitat: ['bird', 'aquatic'], maxCost: 3 },
@@ -117,8 +114,8 @@ describe('card registry', () => {
     expect(getCard('hyena').effects[0]).toMatchObject({ type: 'discardAnimalFromEachOpponent' });
     expect(getCard('crocodile').effects[0]).toMatchObject({
       trigger: 'onPlay',
-      type: 'gainFlatBonusPurchasingPower',
-      params: { amount: 1 },
+      type: 'drawCards',
+      params: { amount: 2 },
     });
     expect(getCard('crocodile').effects[1]).toMatchObject({
       trigger: 'onScore',
@@ -180,7 +177,10 @@ describe('card registry', () => {
     expect(getCard('platypus').effects[0]).toMatchObject({
       type: 'gainBonusPurchasingPowerPerDistinctSpeciesInHand',
     });
-    expect(getCard('rabbit').effects[0]).toMatchObject({ type: 'upgradeCoin' });
+    expect(getCard('rabbit').effects[0]).toMatchObject({
+      type: 'drawTopUnlessExpensiveAnimal',
+      params: { maxCost: 3 },
+    });
   });
 
   it('lanza un error para un id de carta desconocido', () => {

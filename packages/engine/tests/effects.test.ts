@@ -374,13 +374,13 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.playedThisTurn.some((c) => c.id === 'elephant')).toBe(true);
   });
 
-  it('conejo: mejora 1 moneda de la mano de 1 a 2', () => {
+  it('tortuga: mejora 1 moneda de la mano de 1 a 2', () => {
     const { state, player } = setupClean();
     const coin = freshInstance('coin-1', 'c1');
-    const rabbitCard = freshInstance('rabbit', 'test');
-    player.hand = [coin, rabbitCard];
+    const turtle = freshInstance('turtle', 'test');
+    player.hand = [coin, turtle];
 
-    playCard(state, player.id, rabbitCard.instanceId);
+    playCard(state, player.id, turtle.instanceId);
 
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(1);
@@ -472,57 +472,57 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(selfTargeted).toHaveLength(0);
   });
 
-  it('tortuga: si la carta de encima del mazo NO es un animal de coste superior a 3 (aquí, una moneda), la añade a la mano', () => {
+  it('conejos: si la carta de encima del mazo NO es un animal de coste superior a 3 (aquí, una moneda), la añade a la mano', () => {
     const { state, player } = setupClean();
-    const turtle = freshInstance('turtle', 'test');
+    const rabbitCard = freshInstance('rabbit', 'test');
     const coin = freshInstance('coin-1', 'top');
-    player.hand = [turtle];
+    player.hand = [rabbitCard];
     player.deck = [coin]; // encima del mazo (pop() roba del final)
 
-    playCard(state, player.id, turtle.instanceId);
+    playCard(state, player.id, rabbitCard.instanceId);
 
     expect(player.hand.some((c) => c.instanceId === 'coin-1#top')).toBe(true);
     expect(player.deck).toHaveLength(0);
   });
 
-  it('tortuga: si es un animal de coste 3 o menos, también la añade a la mano', () => {
+  it('conejos: si es un animal de coste 3 o menos, también la añade a la mano', () => {
     const { state, player } = setupClean();
-    const turtle = freshInstance('turtle', 'test');
+    const rabbitCard = freshInstance('rabbit', 'test');
     const dolphin = freshInstance('dolphin', 'top'); // coste 3, justo en el límite
-    player.hand = [turtle];
+    player.hand = [rabbitCard];
     player.deck = [dolphin];
 
-    playCard(state, player.id, turtle.instanceId);
+    playCard(state, player.id, rabbitCard.instanceId);
 
     expect(player.hand.some((c) => c.instanceId === 'dolphin#top')).toBe(true);
     expect(player.deck).toHaveLength(0);
   });
 
-  it('tortuga: si es un animal de coste SUPERIOR a 3, se queda encima del mazo (no se roba)', () => {
+  it('conejos: si es un animal de coste SUPERIOR a 3, se queda encima del mazo (no se roba)', () => {
     const { state, player } = setupClean();
-    const turtle = freshInstance('turtle', 'test');
+    const rabbitCard = freshInstance('rabbit', 'test');
     const lion = freshInstance('lion', 'top'); // coste 5
-    player.hand = [turtle];
+    player.hand = [rabbitCard];
     player.deck = [lion];
 
-    playCard(state, player.id, turtle.instanceId);
+    playCard(state, player.id, rabbitCard.instanceId);
 
     expect(player.hand.some((c) => c.instanceId === 'lion#top')).toBe(false);
     expect(player.deck).toEqual([lion]);
   });
 
-  it('tortuga: si el mazo está vacío, baraja el descarte primero (igual que un robo normal) antes de mirar', () => {
+  it('conejos: si el mazo está vacío, baraja el descarte primero (igual que un robo normal) antes de mirar', () => {
     const { state, player } = setupClean();
-    const turtle = freshInstance('turtle', 'test');
+    const rabbitCard = freshInstance('rabbit', 'test');
     const coin1 = freshInstance('coin-1', 'discarded1');
     const coin2 = freshInstance('coin-1', 'discarded2');
-    player.hand = [turtle];
+    player.hand = [rabbitCard];
     player.deck = [];
     player.discard = [coin1, coin2];
 
-    playCard(state, player.id, turtle.instanceId);
+    playCard(state, player.id, rabbitCard.instanceId);
 
-    // La propia Tortuga NO cuenta para este barajeo: al jugarla se queda "en
+    // El propio Conejo NO cuenta para este barajeo: al jugarlo se queda "en
     // el limbo" (playedThisTurn), no en el descarte de verdad todavía (ver
     // playCard en engine.ts). Se baraja [moneda1, moneda2], se roba 1 (no
     // animal caro), queda 1 en el mazo.
@@ -588,7 +588,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   it('hiena: cada rival muestra su mano y descarta el animal de MAYOR coste', () => {
     const { state, player, opponent } = setupClean();
     const cheap = freshInstance('dolphin', 'cheap'); // coste 3
-    const costly = freshInstance('hippopotamus', 'costly'); // coste 5
+    const costly = freshInstance('hippopotamus', 'costly'); // coste 6
     opponent.hand = [cheap, costly];
     const hyena = freshInstance('hyena', 'test');
     player.hand = [hyena];
@@ -704,26 +704,26 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   it('flamenco: devuelve un animal de tu mano al mazo compartido, resuelve su habilidad, y coge gratis del mercado el que el jugador elija (coste+1 como mucho)', () => {
     const { state, player } = setupClean();
     const flamingo = freshInstance('flamingo', 'test');
-    const rabbitCard = freshInstance('rabbit', 'r1'); // coste 2, sube 1 moneda de 1 a 2
+    const turtle = freshInstance('turtle', 't1'); // coste 2, sube 1 moneda de 1 a 2
     const coin = freshInstance('coin-1', 'c1');
-    player.hand = [flamingo, rabbitCard, coin];
+    player.hand = [flamingo, turtle, coin];
     const marketBefore = state.animalTrack.length;
 
     const goldfishIdx = state.animalTrack.findIndex((c) => c.species === 'goldfish'); // coste 1
     const goldfish = state.animalTrack[goldfishIdx];
 
-    playCard(state, player.id, flamingo.instanceId, rabbitCard.instanceId, goldfish.instanceId);
+    playCard(state, player.id, flamingo.instanceId, turtle.instanceId, goldfish.instanceId);
 
-    // Se resuelve la habilidad del conejo devuelto: mejora la moneda de 1 a 2.
+    // Se resuelve la habilidad de la tortuga devuelta: mejora la moneda de 1 a 2.
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(1);
     expect(coins[0].value).toBe(2);
 
-    // El conejo vuelve al mercado, no al descarte, y queda comprable de
+    // La tortuga vuelve al mercado, no al descarte, y queda comprable de
     // inmediato (ocupa ya el hueco de su especie en vez de esperar en el
     // mazo compartido).
-    expect(player.discard.some((c) => c.id === 'rabbit')).toBe(false);
-    expect(state.animalTrack.some((c) => c.instanceId === rabbitCard.instanceId)).toBe(true);
+    expect(player.discard.some((c) => c.id === 'turtle')).toBe(false);
+    expect(state.animalTrack.some((c) => c.instanceId === turtle.instanceId)).toBe(true);
 
     // Coge gratis, sin resolver su habilidad, el pez dorado elegido.
     expect(player.discard.some((c) => c.instanceId === goldfish.instanceId)).toBe(true);
@@ -853,25 +853,25 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   it('flamenco: puede devolver un animal ya jugado este turno para el intercambio, pero SIN volver a disparar su habilidad (ya se usó al jugarlo)', () => {
     const { state, player } = setupClean();
     const flamingo = freshInstance('flamingo', 'test');
-    const rabbitCard = freshInstance('rabbit', 'r1'); // coste 2, su habilidad sube 1 moneda de 1 a 2
+    const turtle = freshInstance('turtle', 't1'); // coste 2, su habilidad sube 1 moneda de 1 a 2
     const coin = freshInstance('coin-1', 'c1');
     player.hand = [flamingo, coin];
-    // El Conejo ya se jugó antes este turno (por eso está en playedThisTurn,
+    // La Tortuga ya se jugó antes este turno (por eso está en playedThisTurn,
     // "en el limbo", no en el descarte de verdad todavía): su habilidad ya
     // se resolvió entonces, en un playCard aparte que este test no simula.
-    player.playedThisTurn.push(rabbitCard);
+    player.playedThisTurn.push(turtle);
 
-    const maxCost = (rabbitCard.marketCost ?? 0) + 2;
+    const maxCost = (turtle.marketCost ?? 0) + 2;
     const chosen = state.animalTrack.find((c) => (c.marketCost ?? 0) <= maxCost)!;
 
-    playCard(state, player.id, flamingo.instanceId, rabbitCard.instanceId, chosen.instanceId);
+    playCard(state, player.id, flamingo.instanceId, turtle.instanceId, chosen.instanceId);
 
-    // La moneda sigue en 1: devolver el Conejo ya jugado NO vuelve a subirla.
+    // La moneda sigue en 1: devolver la Tortuga ya jugada NO vuelve a subirla.
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(1);
     expect(coins[0].value).toBe(1);
-    // El intercambio en sí (devolverlo al mercado, comprable ya, coger el otro animal gratis) sigue funcionando.
-    expect(state.animalTrack.some((c) => c.instanceId === rabbitCard.instanceId)).toBe(true);
+    // El intercambio en sí (devolverla al mercado, comprable ya, coger el otro animal gratis) sigue funcionando.
+    expect(state.animalTrack.some((c) => c.instanceId === turtle.instanceId)).toBe(true);
     expect(player.discard.some((c) => c.instanceId === chosen.instanceId)).toBe(true);
   });
 
