@@ -5,13 +5,13 @@
   "species": "hippopotamus",
   "marketCost": 6,
   "victoryPoints": 4,
-  "text": "Robas 3 cartas.",
+  "text": "Robas 2 cartas.",
   "effects": [
     {
       "trigger": "onPlay",
       "type": "drawCards",
       "params": {
-        "amount": 3
+        "amount": 2
       }
     }
   ],

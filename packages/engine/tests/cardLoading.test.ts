@@ -92,7 +92,7 @@ describe('card registry', () => {
     });
     expect(getCard('penguin').effects[1]).toMatchObject({ trigger: 'onScore', type: 'scorePerDistinctSpecies' });
     expect(getCard('peacock').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 1 } });
-    expect(getCard('hippopotamus').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 3 } });
+    expect(getCard('hippopotamus').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 2 } });
     expect(getCard('lion').effects[0]).toMatchObject({
       type: 'gainFlatBonusPurchasingPower',
       params: { amount: 4 },
@@ -116,7 +116,7 @@ describe('card registry', () => {
     expect(getCard('crocodile').effects[0]).toMatchObject({
       trigger: 'onPlay',
       type: 'drawCards',
-      params: { amount: 2 },
+      params: { amount: 1 },
     });
     expect(getCard('crocodile').effects[1]).toMatchObject({
       trigger: 'onScore',

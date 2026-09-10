@@ -5,13 +5,13 @@
   "species": "crocodile",
   "marketCost": 5,
   "victoryPoints": 7,
-  "text": "Robas 2 cartas. Al final de la partida, antes de la puntuación, elimina de tu colección una carta de animal no volador.",
+  "text": "Robas 1 carta. Al final de la partida, antes de la puntuación, elimina de tu colección una carta de animal no volador.",
   "effects": [
     {
       "trigger": "onPlay",
       "type": "drawCards",
       "params": {
-        "amount": 2
+        "amount": 1
       }
     },
     {
