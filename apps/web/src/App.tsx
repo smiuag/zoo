@@ -157,7 +157,11 @@ export default function App() {
   function groupedCollection(
     player: (typeof state.players)[number]
   ): { card: CardInstance; count: number; perCardPoints: number[] }[] {
-    const all = [...player.deck, ...player.hand, ...player.discard];
+    // Incluye playedThisTurn: lo jugado este turno todavía no está en el
+    // descarte de verdad (sigue "en el limbo" hasta terminar el turno, ver
+    // playCard/endTurn en el motor), pero sigue siendo del jugador — relevante
+    // sobre todo al ver tu propio mazo en mitad de tu turno (ver canViewPlayer).
+    const all = [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn];
     const contributions = scoreCardContributions(player);
     const byId = new Map<string, { card: CardInstance; count: number; perCardPoints: number[] }>();
     for (const card of all) {
@@ -210,7 +214,9 @@ export default function App() {
   // motor), salvo que aquí no se aplica el ×2 especial del Pez de colores
   // (esto es solo un recuento informativo, no un cálculo de puntuación).
   function habitatCounts(player: (typeof state.players)[number]): { land: number; bird: number; aquatic: number } {
-    const all = [...player.deck, ...player.hand, ...player.discard].filter((c) => c.type === 'animal');
+    const all = [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn].filter(
+      (c) => c.type === 'animal'
+    );
     return {
       land: all.filter((c) => c.habitats?.includes('land')).length,
       bird: all.filter((c) => c.habitats?.includes('bird')).length,
@@ -225,7 +231,10 @@ export default function App() {
   // mismo que los PV: aquí cuenta lo que "valdría" recomponer la colección
   // entera al precio de mercado, no lo que puntúa.
   function deckValue(player: (typeof state.players)[number]): number {
-    return [...player.deck, ...player.hand, ...player.discard].reduce((sum, c) => sum + (c.marketCost ?? 0), 0);
+    return [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn].reduce(
+      (sum, c) => sum + (c.marketCost ?? 0),
+      0
+    );
   }
 
   if (phase === 'setup') {

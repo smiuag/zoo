@@ -38,8 +38,11 @@ const EFFECT_TYPES = [
 
 const MAX_OPPONENTS = 3;
 
+// Incluye playedThisTurn: lo jugado este turno todavía no está en el
+// descarte de verdad (sigue "en el limbo" hasta terminar el turno, ver
+// playCard/endTurn en engine.ts), pero sigue siendo del jugador.
 function fullCollection(player: Player): CardInstance[] {
-  return [...player.deck, ...player.hand, ...player.discard];
+  return [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn];
 }
 
 function habitatCounts(cards: CardInstance[]): number[] {
@@ -147,13 +150,16 @@ function actingCard(state: GameState, player: Player, action: Action): CardInsta
 }
 
 // Solo relevante para las acciones "playCard" con targetInstanceId (Elefante
-// / Araña eligiendo qué capturar gratis, Flamenco eligiendo qué devolver):
-// el objetivo puede estar en el mercado o en la propia mano/descarte.
+// / Araña eligiendo qué capturar gratis, Flamenco eligiendo qué devolver,
+// Jirafa eligiendo qué recuperar): el objetivo puede estar en el mercado, en
+// la propia mano, en lo ya jugado este turno (playedThisTurn, ver
+// returnAnimalForUpgrade en el motor) o en el descarte.
 function targetCard(state: GameState, player: Player, action: Action): CardInstance | undefined {
   if (action.type !== 'playCard' || !action.targetInstanceId) return undefined;
   return (
     state.animalTrack.find((c) => c.instanceId === action.targetInstanceId) ??
     player.hand.find((c) => c.instanceId === action.targetInstanceId) ??
+    player.playedThisTurn.find((c) => c.instanceId === action.targetInstanceId) ??
     player.discard.find((c) => c.instanceId === action.targetInstanceId)
   );
 }

@@ -537,10 +537,13 @@ export function playCard(
   if (card.type === 'coin') throw new Error('Las monedas no se juegan: se gastan solas al pagar una compra');
 
   player.hand.splice(cardIndex, 1);
-  player.discard.push(card);
-  // Antes de resolver el efecto: para los efectos que cuentan animales "en
-  // tu mano" (ver effectiveHand), esta carta debe contarse a sí misma, y
-  // seguir contando el resto del turno aunque ya esté en el descarte.
+  // NO va al descarte todavía: se queda "en el limbo" (playedThisTurn) hasta
+  // que termine el turno (ver endTurn), que es cuando de verdad se descarta
+  // — igual que el resto de la mano no jugada. Antes de resolver el efecto:
+  // para los efectos que cuentan animales "en tu mano" (ver effectiveHand),
+  // esta carta debe contarse a sí misma, y seguir contando el resto del
+  // turno. Solo lo que se COMPRA o se CAPTURA (buyAnimal/buyCoin/capturas
+  // gratis de efectos) va directo al descarte de verdad.
   player.playedThisTurn.push(card);
 
   for (const effect of card.effects.filter((e) => e.trigger === 'onPlay')) {
@@ -608,14 +611,17 @@ export function buyCoin(state: GameState, playerId: string, coinId: (typeof PURC
 export function endTurn(state: GameState, playerId: string): void {
   const player = requireActivePlayer(state, playerId);
 
-  // Lo que quede en la mano sin jugar (monedas incluidas) se descarta;
-  // volverá a circular cuando el mazo se reponga del descarte. Justo
-  // después robas YA tu mano siguiente (como el "clean-up" de Dominion),
-  // así la llevas contigo durante los turnos de los demás: si no, un rival
-  // que juegue Mono/Buitre/Hiena/Pato (miran tu mano) siempre te
-  // encontraría con la mano vacía y el efecto nunca haría nada.
-  player.discard.push(...player.hand);
+  // Lo que quede en la mano sin jugar (monedas incluidas) se descarta, y
+  // también lo jugado este turno (playedThisTurn: hasta ahora solo estaba
+  // "en el limbo", contando para effectiveHand pero sin ser descarte de
+  // verdad todavía — ver playCard). Volverá a circular cuando el mazo se
+  // reponga del descarte. Justo después robas YA tu mano siguiente (como el
+  // "clean-up" de Dominion), así la llevas contigo durante los turnos de los
+  // demás: si no, un rival que juegue Mono/Buitre/Hiena/Pato (miran tu mano)
+  // siempre te encontraría con la mano vacía y el efecto nunca haría nada.
+  player.discard.push(...player.hand, ...player.playedThisTurn);
   player.hand = [];
+  player.playedThisTurn = [];
   drawCards(player, STARTING_HAND_SIZE);
 
   const nextIndex = (state.activePlayerIndex + 1) % state.players.length;

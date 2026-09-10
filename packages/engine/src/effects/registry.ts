@@ -21,9 +21,9 @@ export interface EffectContext {
   // Solo lo usa el Flamenco: qué animal del mercado coge a cambio del que
   // devuelve (targetInstanceId). El resto de efectos lo ignora.
   secondaryTargetInstanceId?: string;
-  // Qué jugador (de entre los demás) elige el Pato o la Jirafa como
-  // objetivo de su efecto. engine.ts lo rellena a partir de la elección del
-  // jugador (una variante de la acción "playCard" por rival posible, ver
+  // Qué jugador (de entre los demás) elige el Pato como objetivo de su
+  // efecto. engine.ts lo rellena a partir de la elección del jugador (una
+  // variante de la acción "playCard" por rival posible, ver
   // getLegalActions). El resto de efectos lo ignora.
   targetPlayerId?: string;
 }
@@ -143,17 +143,18 @@ registerEffect('chooseDiscardFromEachOpponent', (state, player, effect) => {
 
 // Genérico (sin ninguna carta que lo use por ahora, pero registrado por si
 // hace falta en el futuro): 1 moneda extra para comprar ESTE TURNO por cada
-// copia de params.species que tengas en tu descarte (la que se está
-// jugando ya se descartó antes de resolver esto, así que la 1ª copia da 1,
-// la 2ª da 2, etc.). Igual que el León o Serpiente/Loro: no es dinero real,
-// no añade cartas de moneda a la mano ni al mazo, solo aumenta lo que
-// puedes gastar hasta que termine el turno.
+// copia de params.species que tengas en tu descarte, incluidas las que hayas
+// jugado ya este mismo turno (playedThisTurn: NO están en el descarte de
+// verdad todavía, solo pasan a él al terminar el turno, ver playCard/endTurn
+// en engine.ts). Igual que el León o Serpiente/Loro: no es dinero real, no
+// añade cartas de moneda a la mano ni al mazo, solo aumenta lo que puedes
+// gastar hasta que termine el turno.
 registerEffect('gainBonusPurchasingPowerPerSpeciesInDiscard', (_state, player, effect) => {
   const species = effect.params?.species;
   if (typeof species !== 'string') {
     throw new Error('El efecto "gainBonusPurchasingPowerPerSpeciesInDiscard" requiere params: { species: string }');
   }
-  const count = player.discard.filter((c) => c.species === species).length;
+  const count = [...player.discard, ...player.playedThisTurn].filter((c) => c.species === species).length;
   player.bonusPurchasingPowerThisTurn += count;
 });
 
@@ -346,21 +347,21 @@ registerEffect('drawTopUnlessExpensiveAnimal', (_state, player, effect) => {
 // (context.targetInstanceId, de tu mano ESTE TURNO: lo que sigues teniendo
 // en la mano, o algo que ya hayas jugado este mismo turno — ver
 // returnAnimalForUpgradeActions en engine.ts, que es quien restringe los
-// candidatos ofrecidos). Por eso se busca primero en player.hand y luego
-// en player.discard: puede ser el propio Flamenco, que para cuando se
-// resuelve esto ya está en tu descarte porque playCard lo mueve ahí antes
-// de resolver su onPlay, o cualquier otra carta jugada antes este turno.
-// SOLO se resuelve el onPlay de la carta devuelta si todavía estaba en la
-// MANO (foundInHand): si hace falta caer al descarte para encontrarla es
-// porque ya se jugó antes este turno (o es el propio Flamenco, recién
-// descartado por su propio playCard) — en ambos casos su habilidad ya se
-// disparó (a mano, jugándola de verdad, o no tiene sentido dispararla dos
-// veces sobre sí misma), así que volver a resolverla sería duplicarla. Solo
-// se le da ese "usa su habilidad" gratis a la que de verdad no se había
-// jugado todavía. Luego coges gratis del mercado, SIN resolver su efecto,
-// el animal que el jugador haya elegido (context.secondaryTargetInstanceId)
-// de coste como mucho effect.params.maxCostDelta (por defecto 1) más que
-// el devuelto.
+// candidatos ofrecidos). Por eso se busca primero en player.hand y luego en
+// player.playedThisTurn: puede ser el propio Flamenco, que para cuando se
+// resuelve esto ya está ahí porque playCard lo saca de la mano antes de
+// resolver su onPlay (pero NO lo manda al descarte de verdad hasta que
+// termine el turno, ver endTurn en engine.ts), o cualquier otra carta jugada
+// antes este mismo turno. SOLO se resuelve el onPlay de la carta devuelta si
+// todavía estaba en la MANO (foundInHand): si hace falta buscarla en
+// playedThisTurn es porque ya se jugó antes este turno (o es el propio
+// Flamenco, recién jugado) — en ambos casos su habilidad ya se disparó (a
+// mano, jugándola de verdad, o no tiene sentido dispararla dos veces sobre
+// sí misma), así que volver a resolverla sería duplicarla. Solo se le da ese
+// "usa su habilidad" gratis a la que de verdad no se había jugado todavía.
+// Luego coges gratis del mercado, SIN resolver su efecto, el animal que el
+// jugador haya elegido (context.secondaryTargetInstanceId) de coste como
+// mucho effect.params.maxCostDelta (por defecto 1) más que el devuelto.
 registerEffect('returnAnimalForUpgrade', (state, player, effect, context) => {
   if (!context.targetInstanceId) return;
 
@@ -368,17 +369,16 @@ registerEffect('returnAnimalForUpgrade', (state, player, effect, context) => {
   let idx = zone.findIndex((c) => c.instanceId === context.targetInstanceId && c.type === 'animal');
   const foundInHand = idx !== -1;
   if (!foundInHand) {
-    zone = player.discard;
+    zone = player.playedThisTurn;
     idx = zone.findIndex((c) => c.instanceId === context.targetInstanceId && c.type === 'animal');
   }
   if (idx === -1) return;
 
   const [returned] = zone.splice(idx, 1);
-  // Se va del todo de la mano/descarte del jugador (pasa al mercado): si
-  // seguía en playedThisTurn (porque se jugó antes este mismo turno y se
-  // devuelve desde el descarte), hay que sacarla de ahí también, o un
-  // segundo Flamenco (u otro efecto que mire effectiveHand) seguiría
-  // ofreciéndola como si el jugador aún la tuviera.
+  // Si se encontró en la mano (nunca estuvo en playedThisTurn) esto es un
+  // no-op; si se encontró en playedThisTurn ya se ha quitado con el splice
+  // de arriba, así que esto también es un no-op — se deja igualmente por si
+  // algún día deja de usarse zone.splice() directamente sobre esa lista.
   removeFromPlayedThisTurn(player, returned.instanceId);
   const deck = state.sharedDecks[returned.species ?? ''];
   // La carta devuelta debe quedar comprable YA MISMO, no esperando su turno

@@ -1,12 +1,19 @@
 import { DESTRUCTIVE_SCORE_EFFECT_TYPES, resolveScoreEffect } from './effects/registry';
 import type { CardInstance, GameState, Player } from './model/state';
 
+// Incluye playedThisTurn (el "limbo" de lo ya jugado este turno pero
+// todavía sin descartar de verdad, ver playCard/endTurn en engine.ts): esas
+// cartas siguen siendo del jugador y deben puntuar igual, tanto si esto se
+// llama al terminar la partida como si es el marcador en vivo de la web a
+// mitad del turno de alguien.
 function collectAllCards(player: Player): CardInstance[] {
-  return [...player.deck, ...player.hand, ...player.discard];
+  return [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn];
 }
 
 function isStillInCollection(player: Player, instanceId: string): boolean {
-  return [player.deck, player.hand, player.discard].some((zone) => zone.some((c) => c.instanceId === instanceId));
+  return [player.deck, player.hand, player.discard, player.playedThisTurn].some((zone) =>
+    zone.some((c) => c.instanceId === instanceId)
+  );
 }
 
 export function scorePlayer(state: GameState, player: Player): number {

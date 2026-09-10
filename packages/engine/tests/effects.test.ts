@@ -238,7 +238,10 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     playCard(state, player.id, goldfish.instanceId);
 
     expect(player.bonusPurchasingPowerThisTurn).toBe(0);
-    expect(player.discard.some((c) => c.id === 'goldfish')).toBe(true);
+    // Jugada, no descartada todavía: se queda "en el limbo" hasta que
+    // termine el turno (ver playCard/endTurn en engine.ts).
+    expect(player.playedThisTurn.some((c) => c.id === 'goldfish')).toBe(true);
+    expect(player.discard.some((c) => c.id === 'goldfish')).toBe(false);
   });
 
   it('serpiente: gana 1 moneda extra por cada animal terrestre en su mano al jugarla (se cuenta a sí misma)', () => {
@@ -324,7 +327,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(state.animalTrack).toHaveLength(marketBefore);
     expect(state.animalTrack.some((c) => c.instanceId === target.instanceId)).toBe(false);
     expect(player.discard.some((c) => c.instanceId === target.instanceId)).toBe(true);
-    expect(player.discard.some((c) => c.id === 'elephant')).toBe(true);
+    expect(player.playedThisTurn.some((c) => c.id === 'elephant')).toBe(true);
   });
 
   it('elefante: no puede capturar un animal terrestre de coste mayor a 5', () => {
@@ -341,7 +344,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     // No es un candidato legal (supera el coste máximo): se ignora.
     expect(state.animalTrack).toHaveLength(marketBefore);
     expect(state.animalTrack.some((c) => c.instanceId === tooExpensive.instanceId)).toBe(true);
-    expect(player.discard.some((c) => c.id === 'elephant')).toBe(true);
+    expect(player.playedThisTurn.some((c) => c.id === 'elephant')).toBe(true);
   });
 
   it('elefante: no puede capturar un animal que no sea terrestre', () => {
@@ -356,7 +359,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     // targetInstanceId no es un candidato legal (no es terrestre): se ignora.
     expect(state.animalTrack).toHaveLength(marketBefore);
     expect(state.animalTrack.some((c) => c.instanceId === nonLandTarget.instanceId)).toBe(true);
-    expect(player.discard.some((c) => c.id === 'elephant')).toBe(true);
+    expect(player.playedThisTurn.some((c) => c.id === 'elephant')).toBe(true);
   });
 
   it('elefante: sin elegir objetivo, no captura nada (no hace nada por defecto)', () => {
@@ -368,7 +371,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     playCard(state, player.id, elephant.instanceId);
 
     expect(state.animalTrack).toHaveLength(marketBefore);
-    expect(player.discard.some((c) => c.id === 'elephant')).toBe(true);
+    expect(player.playedThisTurn.some((c) => c.id === 'elephant')).toBe(true);
   });
 
   it('conejo: mejora 1 moneda de la mano de 1 a 2', () => {
@@ -439,6 +442,23 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(targets).toEqual([snake.instanceId, lion.instanceId].sort());
   });
 
+  it('jirafa: NO puede recuperar un animal jugado este mismo turno (sigue "en el limbo", no en el descarte de verdad)', () => {
+    const { state, player } = setupClean();
+    const lion = freshInstance('lion', 'test');
+    const giraffe = freshInstance('giraffe', 'g1');
+    player.hand = [lion, giraffe];
+
+    playCard(state, player.id, lion.instanceId);
+    expect(player.discard.some((c) => c.instanceId === lion.instanceId)).toBe(false);
+    expect(player.playedThisTurn.some((c) => c.instanceId === lion.instanceId)).toBe(true);
+
+    const actions = getLegalActions(state, player.id);
+    const giraffeActions = actions.filter((a) => a.type === 'playCard' && a.instanceId === giraffe.instanceId);
+    // Sin ningún animal en el descarte de verdad, la Jirafa no ofrece
+    // ninguna variante con target: el León recién jugado no cuenta.
+    expect(giraffeActions).toEqual([{ type: 'playCard', instanceId: giraffe.instanceId }]);
+  });
+
   it('pato: getLegalActions NO te ofrece elegirte a ti mismo como objetivo', () => {
     const { state, player } = setupClean();
     const duck = freshInstance('duck', 'test');
@@ -494,17 +514,18 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   it('tortuga: si el mazo está vacío, baraja el descarte primero (igual que un robo normal) antes de mirar', () => {
     const { state, player } = setupClean();
     const turtle = freshInstance('turtle', 'test');
-    const coin = freshInstance('coin-1', 'discarded');
+    const coin1 = freshInstance('coin-1', 'discarded1');
+    const coin2 = freshInstance('coin-1', 'discarded2');
     player.hand = [turtle];
     player.deck = [];
-    player.discard = [coin];
+    player.discard = [coin1, coin2];
 
     playCard(state, player.id, turtle.instanceId);
 
-    // La propia Tortuga se descarta (por playCard) antes de resolver su
-    // efecto, así que el descarte a barajar es [moneda, Tortuga] — ambos
-    // valen "no animal caro", así que cuál caiga arriba tras barajar da
-    // igual: se roba 1 sí o sí, sin dejar nada en el descarte.
+    // La propia Tortuga NO cuenta para este barajeo: al jugarla se queda "en
+    // el limbo" (playedThisTurn), no en el descarte de verdad todavía (ver
+    // playCard en engine.ts). Se baraja [moneda1, moneda2], se roba 1 (no
+    // animal caro), queda 1 en el mazo.
     expect(player.hand).toHaveLength(1);
     expect(player.discard).toHaveLength(0);
     expect(player.deck).toHaveLength(1);
@@ -526,7 +547,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(state.animalTrack).toHaveLength(marketBefore);
     expect(state.animalTrack.some((c) => c.instanceId === target.instanceId)).toBe(false);
     expect(player.discard.some((c) => c.instanceId === target.instanceId)).toBe(true);
-    expect(player.discard.some((c) => c.id === 'spider')).toBe(true);
+    expect(player.playedThisTurn.some((c) => c.id === 'spider')).toBe(true);
   });
 
   it('araña: no puede capturar un animal que no sea volador ni acuático', () => {
@@ -543,7 +564,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     // targetInstanceId no es un candidato legal (ni volador ni acuático): se ignora.
     expect(state.animalTrack).toHaveLength(marketBefore);
     expect(state.animalTrack.some((c) => c.instanceId === landOnlyTarget.instanceId)).toBe(true);
-    expect(player.discard.some((c) => c.id === 'spider')).toBe(true);
+    expect(player.playedThisTurn.some((c) => c.id === 'spider')).toBe(true);
   });
 
   it('araña: no puede capturar un animal volador/acuático de coste mayor a 3', () => {
@@ -561,7 +582,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     // targetInstanceId no es un candidato legal (supera el coste máximo): se ignora.
     expect(state.animalTrack).toHaveLength(marketBefore);
     expect(state.animalTrack.some((c) => c.instanceId === tooExpensive.instanceId)).toBe(true);
-    expect(player.discard.some((c) => c.id === 'spider')).toBe(true);
+    expect(player.playedThisTurn.some((c) => c.id === 'spider')).toBe(true);
   });
 
   it('hiena: cada rival muestra su mano y descarta el animal de MAYOR coste', () => {
@@ -787,7 +808,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     const oldDiscard = freshInstance('snake', 's2'); // descartada en un turno anterior
     const inDeck = freshInstance('snake', 's3'); // nunca robada, sigue en el mazo
     player.hand = [flamingo];
-    player.discard.push(playedThisTurn, oldDiscard);
+    player.discard.push(oldDiscard);
     player.playedThisTurn.push(playedThisTurn);
     player.deck.push(inDeck);
 
@@ -835,10 +856,9 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     const rabbitCard = freshInstance('rabbit', 'r1'); // coste 2, su habilidad sube 1 moneda de 1 a 2
     const coin = freshInstance('coin-1', 'c1');
     player.hand = [flamingo, coin];
-    // El Conejo ya se jugó antes este turno (por eso está en el descarte y
-    // en playedThisTurn): su habilidad ya se resolvió entonces, en un
-    // playCard aparte que este test no simula.
-    player.discard.push(rabbitCard);
+    // El Conejo ya se jugó antes este turno (por eso está en playedThisTurn,
+    // "en el limbo", no en el descarte de verdad todavía): su habilidad ya
+    // se resolvió entonces, en un playCard aparte que este test no simula.
     player.playedThisTurn.push(rabbitCard);
 
     const maxCost = (rabbitCard.marketCost ?? 0) + 2;
@@ -861,9 +881,8 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     const flamingo2 = freshInstance('flamingo', 'f2');
     const turtle = freshInstance('turtle', 't1');
     player.hand = [flamingo1, flamingo2];
-    // La Tortuga ya se jugó antes este turno: está en el descarte y en
-    // playedThisTurn, igual que en el test anterior.
-    player.discard.push(turtle);
+    // La Tortuga ya se jugó antes este turno: está en playedThisTurn ("en el
+    // limbo"), igual que en el test anterior.
     player.playedThisTurn.push(turtle);
 
     const maxCost = (turtle.marketCost ?? 0) + 2;
