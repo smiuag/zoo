@@ -45,82 +45,6 @@ body {
   padding: 1.25rem 1rem 3rem;
 }
 
-/* ---------- Responsive: móvil/tablet ----------
-   El culprit real del scroll horizontal era el mercado (rejilla de
-   columnas de ancho FIJO, ver .card-row--market): a partir de aquí las
-   cartas encogen y las rejillas pasan a envolver según el ancho
-   disponible en vez de un nº de columnas fijo, para aprovechar mejor la
-   pantalla sin desbordar nunca a los lados. */
-@media (max-width: 860px) {
-  :root {
-    --card-w: 96px;
-    --card-h: 138px;
-  }
-
-  .app {
-    padding: 0.75rem 0.6rem 2rem;
-  }
-
-  /* El resto de tamaños de fuente de la carta son fijos en rem: sin esto,
-     el texto de una carta de 96px de ancho se ve igual de grande que en
-     una de 128px, y no cabe. */
-  .card__icon,
-  .card__icon-img {
-    font-size: 2.3rem;
-  }
-  .card__icon-img {
-    width: 2.3rem;
-    height: 2.3rem;
-  }
-  .card__name {
-    font-size: 0.62rem;
-    min-height: 1.5em;
-  }
-  .card__top {
-    font-size: 0.58rem;
-  }
-  .card__footer {
-    font-size: 0.56rem;
-  }
-  .card__badge {
-    font-size: 0.58rem;
-    padding: 0.05rem 0.3rem;
-  }
-}
-
-@media (max-width: 480px) {
-  :root {
-    --card-w: 76px;
-    --card-h: 112px;
-  }
-
-  .app {
-    padding: 0.5rem 0.4rem 1.5rem;
-  }
-
-  .card__icon,
-  .card__icon-img {
-    font-size: 1.7rem;
-  }
-  .card__icon-img {
-    width: 1.7rem;
-    height: 1.7rem;
-  }
-  .card__name {
-    font-size: 0.52rem;
-    min-height: 1.4em;
-  }
-  .card__top {
-    font-size: 0.5rem;
-  }
-  .card__footer {
-    font-size: 0.46rem;
-  }
-  .card__tooltip {
-    max-width: min(260px, 75vw);
-  }
-}
-
 /* ---------- Layout: izquierda (turno/mano/controles) + derecha (mercado) ---------- */
 
 .layout {
@@ -556,11 +480,12 @@ body {
   width: 100%;
 }
 
+/* display:block (no flex): con flex + justify-content:center el texto que
+   no cabía se centraba desbordando por los DOS lados ("lador - Acuáti") y
+   text-overflow no actuaba; en bloque se recorta por la derecha con "…". */
 .card__footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
+  display: block;
+  text-align: center;
   font-size: 0.65rem;
   color: var(--muted);
   min-height: 1em;
@@ -655,6 +580,87 @@ body {
   color: var(--muted);
   font-size: 0.75rem;
   border-style: dashed;
+}
+
+/* ---------- Responsive: móvil/tablet ----------
+   El culprit real del scroll horizontal era el mercado (rejilla de
+   columnas de ancho FIJO, ver .card-row--market): a partir de aquí las
+   cartas encogen y las rejillas pasan a envolver según el ancho
+   disponible en vez de un nº de columnas fijo, para aprovechar mejor la
+   pantalla sin desbordar nunca a los lados.
+
+   OJO: este bloque tiene que ir DESPUÉS de las reglas base de .card__*
+   (misma especificidad: gana la última declarada). Estuvo al principio del
+   fichero y las reglas base lo pisaban, con lo que en móvil las cartas
+   encogían pero el texto seguía al tamaño de escritorio y se salía. */
+@media (max-width: 860px) {
+  :root {
+    --card-w: 96px;
+    --card-h: 138px;
+  }
+
+  .app {
+    padding: 0.75rem 0.6rem 2rem;
+  }
+
+  /* El resto de tamaños de fuente de la carta son fijos en rem: sin esto,
+     el texto de una carta de 96px de ancho se ve igual de grande que en
+     una de 128px, y no cabe. */
+  .card__icon,
+  .card__icon-img {
+    font-size: 2.3rem;
+  }
+  .card__icon-img {
+    width: 2.3rem;
+    height: 2.3rem;
+  }
+  .card__name {
+    font-size: 0.62rem;
+    min-height: 1.5em;
+  }
+  .card__top {
+    font-size: 0.58rem;
+  }
+  .card__footer {
+    font-size: 0.56rem;
+  }
+  .card__badge {
+    font-size: 0.58rem;
+    padding: 0.05rem 0.3rem;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --card-w: 76px;
+    --card-h: 112px;
+  }
+
+  .app {
+    padding: 0.5rem 0.4rem 1.5rem;
+  }
+
+  .card__icon,
+  .card__icon-img {
+    font-size: 1.7rem;
+  }
+  .card__icon-img {
+    width: 1.7rem;
+    height: 1.7rem;
+  }
+  .card__name {
+    font-size: 0.52rem;
+    min-height: 1.4em;
+  }
+  .card__top {
+    font-size: 0.5rem;
+  }
+  .card__footer {
+    font-size: 0.46rem;
+  }
+  .card__tooltip {
+    max-width: min(260px, 75vw);
+  }
 }
 
 /* ---------- Market ---------- */
