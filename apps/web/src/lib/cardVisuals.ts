@@ -123,7 +123,9 @@ const HABITAT_LABELS: Array<{ key: 'land' | 'bird' | 'aquatic'; label: string }>
 ];
 
 export function habitatLabel(card: CardInstance): string {
-  return HABITAT_LABELS.filter(({ key }) => card.habitats?.includes(key))
-    .map(({ label }) => label)
-    .join(' - ');
+  const matched = HABITAT_LABELS.filter(({ key }) => card.habitats?.includes(key));
+  // Un animal con los 3 hábitats a la vez (Pingüino, Pato) se etiqueta
+  // "Todoterreno" en vez de listar los 3 por separado.
+  if (matched.length === HABITAT_LABELS.length) return 'Todoterreno';
+  return matched.map(({ label }) => label).join(' - ');
 }

@@ -26,7 +26,7 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   seal: { cost: 3, pv: 2 },
   parakeet: { cost: 1, pv: 1 },
   owl: { cost: 4, pv: 3 },
-  bat: { cost: 2, pv: 2 },
+  bat: { cost: 2, pv: 1 },
   turtle: { cost: 2, pv: 1 },
   platypus: { cost: 3, pv: 2 },
   rabbit: { cost: 2, pv: 2 },
@@ -179,7 +179,7 @@ describe('card registry', () => {
     });
     expect(getCard('rabbit').effects[0]).toMatchObject({
       type: 'drawTopUnlessExpensiveAnimal',
-      params: { maxCost: 2 },
+      params: { maxCost: 3 },
     });
   });
 

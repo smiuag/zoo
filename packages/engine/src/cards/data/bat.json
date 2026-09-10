@@ -4,7 +4,7 @@
   "type": "animal",
   "species": "bat",
   "marketCost": 2,
-  "victoryPoints": 2,
+  "victoryPoints": 1,
   "text": "Cada rival elige y descarta 1 carta de su mano.",
   "effects": [
     {

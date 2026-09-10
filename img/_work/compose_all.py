@@ -107,7 +107,12 @@ def main():
         if ctype == "animal":
             photo = os.path.join(IMG_DIR, SPECIES_PHOTO[card["species"]])
             name = card["name"]
-            type_label = " - ".join(HABITAT_ES[h] for h in HABITAT_ORDER if h in card["habitats"])
+            # Un animal con los 3 hábitats a la vez (Pingüino, Pato) se
+            # etiqueta "Todoterreno" en vez de listar los 3 por separado.
+            if len(card["habitats"]) == len(HABITAT_ORDER):
+                type_label = "Todoterreno"
+            else:
+                type_label = " - ".join(HABITAT_ES[h] for h in HABITAT_ORDER if h in card["habitats"])
             cost = card["marketCost"]
             pv = card["victoryPoints"]
             text = card["text"]

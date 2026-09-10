@@ -452,7 +452,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(selfTargeted).toHaveLength(0);
   });
 
-  it('conejos: si la carta de encima del mazo NO es un animal de coste superior a 2 (aquí, una moneda), la añade a la mano', () => {
+  it('conejos: si la carta de encima del mazo NO es un animal de coste superior a 3 (aquí, una moneda), la añade a la mano', () => {
     const { state, player } = setupClean();
     const rabbitCard = freshInstance('rabbit', 'test');
     const coin = freshInstance('coin-1', 'top');
@@ -465,20 +465,20 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.deck).toHaveLength(0);
   });
 
-  it('conejos: si es un animal de coste 2 o menos, también la añade a la mano', () => {
+  it('conejos: si es un animal de coste 3 o menos, también la añade a la mano', () => {
     const { state, player } = setupClean();
     const rabbitCard = freshInstance('rabbit', 'test');
-    const turtle = freshInstance('turtle', 'top'); // coste 2
+    const dolphin = freshInstance('dolphin', 'top'); // coste 3, justo en el límite
     player.hand = [rabbitCard];
-    player.deck = [turtle];
+    player.deck = [dolphin];
 
     playCard(state, player.id, rabbitCard.instanceId);
 
-    expect(player.hand.some((c) => c.instanceId === 'turtle#top')).toBe(true);
+    expect(player.hand.some((c) => c.instanceId === 'dolphin#top')).toBe(true);
     expect(player.deck).toHaveLength(0);
   });
 
-  it('conejos: si es un animal de coste SUPERIOR a 2, se queda encima del mazo (no se roba)', () => {
+  it('conejos: si es un animal de coste SUPERIOR a 3, se queda encima del mazo (no se roba)', () => {
     const { state, player } = setupClean();
     const rabbitCard = freshInstance('rabbit', 'test');
     const lion = freshInstance('lion', 'top'); // coste 6

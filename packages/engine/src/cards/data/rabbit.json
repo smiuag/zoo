@@ -5,13 +5,13 @@
   "species": "rabbit",
   "marketCost": 2,
   "victoryPoints": 2,
-  "text": "Muestra la carta de encima de tu baraja. Si no es un animal de coste superior a 2, añádela a tu mano.",
+  "text": "Muestra la carta de encima de tu baraja. Si no es un animal de coste superior a 3, añádela a tu mano.",
   "effects": [
     {
       "trigger": "onPlay",
       "type": "drawTopUnlessExpensiveAnimal",
       "params": {
-        "maxCost": 2
+        "maxCost": 3
       }
     }
   ],
