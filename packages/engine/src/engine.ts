@@ -49,7 +49,7 @@ const FINAL_ROUND_EMPTY_DECK_THRESHOLD = 5;
 // Monedas que se pueden comprar directamente (a cambio de otras monedas),
 // además de conseguirse por efectos o el mazo inicial. Suministro
 // ilimitado: no tienen mazo compartido ni se agotan.
-const PURCHASABLE_COINS = ['coin-2', 'coin-3'] as const;
+const PURCHASABLE_COINS = ['coin-2', 'coin-3', 'coin-5'] as const;
 
 export interface CreatePlayerConfig {
   id: string;
@@ -85,7 +85,7 @@ export type Action =
   // Compra un animal del mercado (animalTrack) pagando su coste. Sin
   // trabajador ni límite por turno.
   | { type: 'buyAnimal'; trackInstanceId: string }
-  // Compra una moneda de mayor valor (coin-2 o coin-3) pagando su coste.
+  // Compra una moneda de mayor valor (coin-2, coin-3 o coin-5) pagando su coste.
   // Suministro ilimitado, no depende de un mercado con hueco.
   | { type: 'buyCoin'; coinId: (typeof PURCHASABLE_COINS)[number] }
   | { type: 'endTurn' };

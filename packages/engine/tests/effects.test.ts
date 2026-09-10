@@ -387,6 +387,33 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(coins[0].value).toBe(2);
   });
 
+  it('tortuga: mejora una moneda de 3 (Oro) a 5 (Platino) — no hay moneda de valor 4, así que salta directa', () => {
+    const { state, player } = setupClean();
+    const coin = freshInstance('coin-3', 'c1');
+    const turtle = freshInstance('turtle', 'test');
+    player.hand = [coin, turtle];
+
+    playCard(state, player.id, turtle.instanceId);
+
+    const coins = player.hand.filter((c) => c.type === 'coin');
+    expect(coins).toHaveLength(1);
+    expect(coins[0].id).toBe('coin-5');
+    expect(coins[0].value).toBe(5);
+  });
+
+  it('tortuga: si la única moneda de la mano ya es la más alta (Platino), no hace nada', () => {
+    const { state, player } = setupClean();
+    const coin = freshInstance('coin-5', 'c1');
+    const turtle = freshInstance('turtle', 'test');
+    player.hand = [coin, turtle];
+
+    playCard(state, player.id, turtle.instanceId);
+
+    const coins = player.hand.filter((c) => c.type === 'coin');
+    expect(coins).toHaveLength(1);
+    expect(coins[0].instanceId).toBe(coin.instanceId);
+  });
+
   it('jirafa: recupera a tu mano el animal elegido de tu propio descarte', () => {
     const { state, player } = setupClean();
     const giraffe = freshInstance('giraffe', 'test');

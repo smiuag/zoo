@@ -215,16 +215,24 @@ registerEffect('freeCaptureUpToCost', (state, player, effect, context) => {
   refillHook?.(state, chosen.species);
 });
 
-// Jirafa: sube de nivel 1 moneda de la mano (1->2 o 2->3), elegida al azar
-// entre las que se puedan subir.
+// Tortuga: sube de nivel 1 moneda de la mano (1->2, 2->3, o 3->5: no hay
+// moneda de valor 4, así que el Oro salta directo al Platino), elegida al
+// azar entre las que se puedan subir. El id de la carta destino no se puede
+// derivar de nextValue con un simple `coin-${nextValue}` (el Platino vale 5
+// pero su id es "coin-5" — eso sí coincide, pero conceptualmente es la
+// EXCEPCIÓN: si en el futuro se añadiera una moneda cuyo id no coincida con
+// su valor, este mapa seguiría funcionando y un `coin-${nextValue}` no).
+const COIN_UPGRADE_TARGET: Record<number, string> = { 1: 'coin-2', 2: 'coin-3', 3: 'coin-5' };
 registerEffect('upgradeCoin', (state, player) => {
-  const upgradable = player.hand.filter((c) => c.type === 'coin' && (c.value ?? 0) < 3);
+  const upgradable = player.hand.filter(
+    (c) => c.type === 'coin' && typeof c.value === 'number' && COIN_UPGRADE_TARGET[c.value] !== undefined
+  );
   if (upgradable.length === 0) return;
   const chosen = upgradable[Math.floor(Math.random() * upgradable.length)];
   const idx = player.hand.findIndex((c) => c.instanceId === chosen.instanceId);
   player.hand.splice(idx, 1);
-  const nextValue = (chosen.value ?? 1) + 1;
-  player.hand.push(mintInstance(state, getCard(`coin-${nextValue}`)));
+  const targetId = COIN_UPGRADE_TARGET[chosen.value as number];
+  player.hand.push(mintInstance(state, getCard(targetId)));
 });
 
 // León: ganas params.amount (por defecto 2) de dinero extra para comprar

@@ -7,7 +7,7 @@ import { BOT_ALGORITHM_OPTIONS } from './lib/botAlgorithms';
 import { buildPlayCardTargetChoice, type PendingChoice } from './lib/pendingChoice';
 import { useGame, type BotAlgorithm } from './state/useGame';
 
-const PURCHASABLE_COIN_IDS = ['coin-2', 'coin-3'];
+const PURCHASABLE_COIN_IDS = ['coin-2', 'coin-3', 'coin-5'];
 
 export default function App() {
   const {

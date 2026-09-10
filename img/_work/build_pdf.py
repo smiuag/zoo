@@ -31,9 +31,9 @@ def load_costs():
     return costs
 
 
-# Las 3 monedas van siempre las primeras (en este orden), delante de
+# Las 4 monedas van siempre las primeras (en este orden), delante de
 # cualquier animal aunque coincida en coste.
-COIN_ORDER = {"coin-1": 0, "coin-2": 1, "coin-3": 2}
+COIN_ORDER = {"coin-1": 0, "coin-2": 1, "coin-3": 2, "coin-5": 3}
 
 
 def load_cards():

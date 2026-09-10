@@ -36,8 +36,8 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
 describe('card registry', () => {
   it('carga y valida todos los ficheros de datos de cartas', () => {
     const cards = getAllCards();
-    // 29 especies de mercado + 1 Perezoso (solo de mazo inicial) + 3 monedas = 33.
-    expect(cards.length).toBe(33);
+    // 29 especies de mercado + 1 Perezoso (solo de mazo inicial) + 4 monedas = 34.
+    expect(cards.length).toBe(34);
   });
 
   it('el Perezoso es terrestre, no cuesta ni da nada, y no está en el mercado de animales', () => {
@@ -49,9 +49,9 @@ describe('card registry', () => {
     expect(sloth.effects).toHaveLength(0);
   });
 
-  it('expone las 3 monedas (1/2/3) sin efectos; cobre 0PV, plata 1PV, oro 2PV', () => {
-    const expectedPv: Record<number, number> = { 1: 0, 2: 1, 3: 2 };
-    for (const value of [1, 2, 3]) {
+  it('expone las 4 monedas (1/2/3/5) sin efectos; cobre 0PV, plata 1PV, oro 2PV, platino 3PV', () => {
+    const expectedPv: Record<number, number> = { 1: 0, 2: 1, 3: 2, 5: 3 };
+    for (const value of [1, 2, 3, 5]) {
       const coin = getCard(`coin-${value}`);
       expect(coin.type).toBe('coin');
       expect(coin.value).toBe(value);
@@ -60,10 +60,11 @@ describe('card registry', () => {
     }
   });
 
-  it('coin-2 y coin-3 se pueden comprar (3 y 5); coin-1 no', () => {
+  it('coin-2, coin-3 y coin-5 se pueden comprar (3, 5 y 7); coin-1 no', () => {
     expect(getCard('coin-1').marketCost).toBe(0);
     expect(getCard('coin-2').marketCost).toBe(3);
     expect(getCard('coin-3').marketCost).toBe(5);
+    expect(getCard('coin-5').marketCost).toBe(7);
   });
 
   it('expone las 29 especies de animal (1 carta cada una, sin sexo) con su coste/PV según tabla', () => {

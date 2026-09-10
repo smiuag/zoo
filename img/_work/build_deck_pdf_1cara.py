@@ -29,8 +29,9 @@ cell_h = (PAGE_H - 2 * MARGIN - (ROWS - 1) * GAP) // ROWS
 COUNTS = {
     "sloth": 20,
     "coin-1": 35,
-    "coin-2": 20,
-    "coin-3": 12,
+    "coin-2": 14,
+    "coin-3": 10,
+    "coin-5": 8,
 }
 DEFAULT_ANIMAL_COPIES = 10  # especies de coste < 5: 10 copias cada una
 HIGH_COST_ANIMAL_COPIES = 6  # especies de coste 5 o más: solo 6 copias (escasez), igual que el motor
@@ -45,9 +46,9 @@ def load_costs():
     return costs
 
 
-# Las 3 monedas van siempre las primeras (en este orden), delante de
+# Las 4 monedas van siempre las primeras (en este orden), delante de
 # cualquier animal aunque coincida en coste.
-COIN_ORDER = {"coin-1": 0, "coin-2": 1, "coin-3": 2}
+COIN_ORDER = {"coin-1": 0, "coin-2": 1, "coin-3": 2, "coin-5": 3}
 
 
 def sort_key(cid, costs):

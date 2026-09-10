@@ -1,0 +1,10 @@
+{
+  "id": "coin-5",
+  "name": "Platino",
+  "type": "coin",
+  "value": 5,
+  "marketCost": 7,
+  "victoryPoints": 3,
+  "text": "Añade 5 a tu valor de compra.",
+  "effects": []
+}

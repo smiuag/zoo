@@ -52,6 +52,7 @@ COIN_PHOTO = {
     "coin-1": "moneda1.jpg",
     "coin-2": "moneda2.jpg",
     "coin-3": "moneda3.jpg",
+    "coin-5": "moneda5.jpg",
 }
 
 
@@ -120,7 +121,7 @@ def main():
             photo = os.path.join(IMG_DIR, COIN_PHOTO[cid])
             name = card["name"]
             type_label = "Moneda"
-            # coin-2/coin-3 se pueden comprar (marketCost > 0); coin-1 no.
+            # coin-2/coin-3/coin-5 se pueden comprar (marketCost > 0); coin-1 no.
             cost = card["marketCost"] if card.get("marketCost") else "-"
             pv = card["victoryPoints"]
             text = card["text"]
