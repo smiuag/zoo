@@ -106,7 +106,10 @@ describe('card registry', () => {
       params: { habitat: 'land', maxCost: 5 },
     });
     expect(getCard('giraffe').effects[0]).toMatchObject({ type: 'retrieveAnimalFromDiscard' });
-    expect(getCard('turtle').effects[0]).toMatchObject({ type: 'upgradeCoin' });
+    expect(getCard('turtle').effects[0]).toMatchObject({
+      type: 'drawTopUnlessExpensiveAnimal',
+      params: { maxCost: 3 },
+    });
     expect(getCard('spider').effects[0]).toMatchObject({
       type: 'freeCaptureUpToCost',
       params: { habitat: ['bird', 'aquatic'], maxCost: 3 },
@@ -177,10 +180,7 @@ describe('card registry', () => {
     expect(getCard('platypus').effects[0]).toMatchObject({
       type: 'gainBonusPurchasingPowerPerDistinctSpeciesInHand',
     });
-    expect(getCard('rabbit').effects[0]).toMatchObject({
-      type: 'drawTopUnlessExpensiveAnimal',
-      params: { maxCost: 3 },
-    });
+    expect(getCard('rabbit').effects[0]).toMatchObject({ type: 'upgradeCoin' });
   });
 
   it('lanza un error para un id de carta desconocido', () => {
