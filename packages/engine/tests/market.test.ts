@@ -46,6 +46,24 @@ describe('pago con monedas', () => {
     expect(canAffordMarket(player, 3)).toBe(false);
   });
 
+  it('canAffordMarket cuenta una moneda de Platino (coin-5, valor 5) como 5', () => {
+    const { player } = setupClean();
+    player.hand = [freshInstance('coin-5', 'a')];
+    expect(canAffordMarket(player, 5)).toBe(true);
+    expect(canAffordMarket(player, 6)).toBe(false);
+  });
+
+  it('comprar con Platino + monedas de 1 combina bien los cubos (Platino + 2 de 1 paga 7)', () => {
+    const { state, player } = setupClean();
+    player.hand = [freshInstance('coin-5', 'a'), freshInstance('coin-1', 'b'), freshInstance('coin-1', 'c')];
+    const target = trackCardWithCost(state, 7);
+
+    buyAnimal(state, player.id, target.instanceId);
+
+    const coins = player.hand.filter((c) => c.type === 'coin');
+    expect(coins).toHaveLength(0);
+  });
+
   it('comprar un animal gasta las monedas mínimas necesarias (prefiere no malgastar)', () => {
     const { state, player } = setupClean();
     player.hand = [freshInstance('coin-2', 'x'), freshInstance('coin-1', 'y')];
@@ -150,7 +168,7 @@ describe('reposición del mercado', () => {
   });
 });
 
-describe('compra de monedas (coin-2 a 3, coin-3 a 5): suministro ilimitado', () => {
+describe('compra de monedas (coin-2 a 3, coin-3 a 5, coin-5 a 7): suministro ilimitado', () => {
   it('comprar una moneda de 2 cuesta 3 y va al descarte', () => {
     const { state, player } = setupClean();
     player.hand = [freshInstance('coin-1', 'a'), freshInstance('coin-1', 'b'), freshInstance('coin-1', 'c')];
@@ -170,6 +188,17 @@ describe('compra de monedas (coin-2 a 3, coin-3 a 5): suministro ilimitado', () 
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(0);
     expect(player.discard.filter((c) => c.id === 'coin-3')).toHaveLength(2); // la pagada + la comprada
+  });
+
+  it('comprar una moneda de Platino (coin-5) cuesta 7 y va al descarte', () => {
+    const { state, player } = setupClean();
+    player.hand = [freshInstance('coin-5', 'x'), freshInstance('coin-2', 'y')];
+
+    buyCoin(state, player.id, 'coin-5');
+
+    const coins = player.hand.filter((c) => c.type === 'coin');
+    expect(coins).toHaveLength(0);
+    expect(player.discard.filter((c) => c.id === 'coin-5')).toHaveLength(2); // la pagada + la comprada
   });
 
   it('falla si no hay monedas suficientes', () => {

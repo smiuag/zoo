@@ -92,7 +92,7 @@ export type Action =
 
 // --- Pago con monedas ---------------------------------------------------
 // El dinero son cartas de tipo "coin" en la mano, cada una con un valor
-// (1/2/3). Pagar un coste elige un subconjunto de esas cartas cuya suma lo
+// (1/2/3/5). Pagar un coste elige un subconjunto de esas cartas cuya suma lo
 // cubra (gastando el mínimo posible de más y, a igualdad, usando el menor
 // número de cartas) y las descarta enteras. Si pagan de más, esa
 // diferencia no se pierde: se convierte en valor de compra genérico para
@@ -102,39 +102,60 @@ function coinsInHand(player: Player): CardInstance[] {
   return player.hand.filter((c) => c.type === 'coin');
 }
 
-// Solo hay 3 valores de moneda posibles (1/2/3), así que en vez de probar
-// las 2^n combinaciones de monedas (viable con "unas pocas monedas como
-// mucho", pero un bot de self-play puede acabar acumulando decenas gracias
-// a efectos como el del Delfín, y 2^30 ya cuelga la partida varios minutos)
-// basta con recorrer cuántas de 3 y de 2 se usan: el número óptimo de
-// monedas de 1 para cada combinación sale directo, sin necesidad de probar
-// también todas sus combinaciones.
+// Solo hay 4 valores de moneda posibles (1/2/3/5 — ver packages/engine/src/
+// cards/data/coin-*.json), así que en vez de probar las 2^n combinaciones de
+// monedas (viable con "unas pocas monedas como mucho", pero un bot de
+// self-play puede acabar acumulando decenas gracias a efectos como el del
+// Delfín, y 2^30 ya cuelga la partida varios minutos) basta con recorrer
+// cuántas de 5, de 3 y de 2 se usan: el número óptimo de monedas de 1 para
+// cada combinación sale directo, sin necesidad de probar también todas sus
+// combinaciones. IMPORTANTE: si se añade una moneda de otro valor (ver
+// registerEffect('upgradeCoin', ...) en effects/registry.ts, que tuvo el
+// mismo problema), hay que sumarle aquí su propio cubo + dimensión de bucle,
+// o esa moneda se ignorará silenciosamente al pagar/comprobar qué se puede
+// pagar — exactamente el bug que tenía el Platino (coin-5) al añadirse.
 function pickCoinsToPay(player: Player, cost: number): CardInstance[] | null {
   const ones: CardInstance[] = [];
   const twos: CardInstance[] = [];
   const threes: CardInstance[] = [];
+  const fives: CardInstance[] = [];
   for (const coin of coinsInHand(player)) {
     if (coin.value === 1) ones.push(coin);
     else if (coin.value === 2) twos.push(coin);
     else if (coin.value === 3) threes.push(coin);
+    else if (coin.value === 5) fives.push(coin);
   }
 
-  let best: { sum: number; count: number; useOnes: number; useTwos: number; useThrees: number } | null = null;
-  for (let useThrees = 0; useThrees <= threes.length; useThrees++) {
-    for (let useTwos = 0; useTwos <= twos.length; useTwos++) {
-      const partial = useThrees * 3 + useTwos * 2;
-      const useOnes = Math.min(ones.length, Math.max(0, cost - partial));
-      const sum = partial + useOnes;
-      if (sum < cost) continue;
-      const count = useOnes + useTwos + useThrees;
-      if (!best || sum < best.sum || (sum === best.sum && count < best.count)) {
-        best = { sum, count, useOnes, useTwos, useThrees };
+  let best: {
+    sum: number;
+    count: number;
+    useOnes: number;
+    useTwos: number;
+    useThrees: number;
+    useFives: number;
+  } | null = null;
+  for (let useFives = 0; useFives <= fives.length; useFives++) {
+    for (let useThrees = 0; useThrees <= threes.length; useThrees++) {
+      for (let useTwos = 0; useTwos <= twos.length; useTwos++) {
+        const partial = useFives * 5 + useThrees * 3 + useTwos * 2;
+        const useOnes = Math.min(ones.length, Math.max(0, cost - partial));
+        const sum = partial + useOnes;
+        if (sum < cost) continue;
+        const count = useOnes + useTwos + useThrees + useFives;
+        if (!best || sum < best.sum || (sum === best.sum && count < best.count)) {
+          best = { sum, count, useOnes, useTwos, useThrees, useFives };
+        }
       }
     }
   }
 
   if (!best) return null;
-  return [...ones.slice(0, best.useOnes), ...twos.slice(0, best.useTwos), ...threes.slice(0, best.useThrees)];
+  return [
+    ...ones.slice(0, best.useOnes),
+    ...twos.slice(0, best.useTwos),
+    ...threes.slice(0, best.useThrees),
+    ...fives.slice(0, best.useFives),
+  ];
 }
 
 // La moneda extra que da algún efecto (p. ej. serpiente / loro / león) este
