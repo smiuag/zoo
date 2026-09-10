@@ -3,7 +3,7 @@
   "name": "Periquito",
   "type": "animal",
   "species": "parakeet",
-  "marketCost": 1,
+  "marketCost": 2,
   "victoryPoints": 1,
   "text": "Cuenta como 2 animales voladores (para todo lo que cuente animales de ese hábitat).",
   "effects": [],
