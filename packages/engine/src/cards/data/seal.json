@@ -1,6 +1,6 @@
 {
   "id": "seal",
-  "name": "Focas",
+  "name": "Foca",
   "type": "animal",
   "species": "seal",
   "marketCost": 3,
@@ -15,5 +15,5 @@
       }
     }
   ],
-  "habitats": ["aquatic"]
+  "habitats": ["land", "aquatic"]
 }

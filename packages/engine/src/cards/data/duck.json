@@ -1,6 +1,6 @@
 {
   "id": "duck",
-  "name": "Patos",
+  "name": "Pato",
   "type": "animal",
   "species": "duck",
   "marketCost": 2,
@@ -12,5 +12,5 @@
       "type": "stealCoinFromChosenPlayer"
     }
   ],
-  "habitats": ["bird", "aquatic"]
+  "habitats": ["land", "bird", "aquatic"]
 }

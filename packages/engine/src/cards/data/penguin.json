@@ -1,9 +1,9 @@
 {
   "id": "penguin",
-  "name": "Pingüinos",
+  "name": "Pingüino",
   "type": "animal",
   "species": "penguin",
-  "marketCost": 4,
+  "marketCost": 5,
   "victoryPoints": 2,
   "text": "Añade 1 a tu valor de compra. Al final de la partida, +1PV por cada animal distinto que tengas en tu mazo.",
   "effects": [
@@ -21,6 +21,7 @@
   ],
   "habitats": [
     "land",
+    "bird",
     "aquatic"
   ]
 }

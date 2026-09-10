@@ -81,12 +81,8 @@ function effectBonus(card: CardInstance): number {
       case 'returnAnimalForUpgrade':
         bonus += 2.5; // sube 1 de coste gratis, aproximación fija
         break;
-      // swapSelfWithTopOfDeck (Murciélago) NO se valora aquí: su valor real
-      // depende de qué carta hay encima del mazo en ESTE momento (puede ser
-      // desde muy buena hasta un no-op si es otro Murciélago), así que se
-      // calcula aparte en swapSelfWithTopOfDeckBonus, con acceso al mazo.
-      case 'topdeckSlothForChosenPlayer':
-        bonus += 1; // molesta al rival elegido, pero no siempre hay Perezoso que forzar
+      case 'retrieveAnimalFromDiscard':
+        bonus += 2; // recupera un animal ya jugado: valor real depende de cuál, aproximación fija
         break;
       case 'drawTopUnlessExpensiveAnimal':
         // Conejos: robo condicional (casi siempre útil, salvo que encima
@@ -101,11 +97,6 @@ function effectBonus(card: CardInstance): number {
         // distintas/coste mínimo lleguen a poseerse: aproximación fija.
         bonus += 2;
         break;
-      case 'scoreBonusIfSpeciesCountAtLeast':
-        // Bono grande pero condicionado a reunir varias copias de la misma
-        // especie: aproximación fija, baja porque no es fácil de alcanzar.
-        bonus += 2;
-        break;
       default:
         break;
     }
@@ -114,20 +105,15 @@ function effectBonus(card: CardInstance): number {
 }
 
 // Desempate entre las variantes de una misma carta que solo difieren en a
-// qué rival apuntan (Pato, Jirafa): sin esto, effectBonus puntúa igual a
-// todos los rivales y el empate se rompe al azar (ver TIE_EPSILON abajo),
+// qué rival apunta (Pato): sin esto, effectBonus puntúa igual a todos los
+// rivales y el empate se rompe al azar (ver TIE_EPSILON abajo),
 // desperdiciando la elección. Pequeño a propósito (menor que cualquier
 // effectBonus): solo debe decidir ENTRE rivales, nunca hacer que jugar la
 // carta valga más que otra acción distinta.
-function targetPlayerBonus(state: GameState, player: Player, card: CardInstance, targetPlayerId: string | undefined): number {
+function targetPlayerBonus(state: GameState, _player: Player, card: CardInstance, targetPlayerId: string | undefined): number {
   if (!targetPlayerId) return 0;
   const target = state.players.find((p) => p.id === targetPlayerId);
   if (!target) return 0;
-  // La Jirafa ahora puede elegirse a sí misma (ver SELF_TARGETABLE_
-  // PLAYER_EFFECT_TYPES en engine.ts), pero el bot nunca debería preferirlo
-  // por su cuenta: penaliza fuerte para que, salvo que sea la ÚNICA opción
-  // (partida de 1 jugador), siempre gane cualquier rival real.
-  if (target.id === player.id) return -1000;
   const effectTypes = new Set(card.effects.map((e) => e.type));
 
   if (effectTypes.has('stealCoinFromChosenPlayer')) {
@@ -136,16 +122,6 @@ function targetPlayerBonus(state: GameState, player: Player, card: CardInstance,
     // como heurística basta con saber si merece la pena apuntarle).
     const bestCoin = Math.max(0, ...target.hand.filter((c) => c.type === 'coin').map((c) => c.value ?? 0));
     return bestCoin * 0.2;
-  }
-
-  if (effectTypes.has('topdeckSlothForChosenPlayer')) {
-    // Molesta más a quien va ganando: forzarle un Perezoso (mal animal)
-    // le cuesta más que a alguien ya rezagado.
-    const victoryPoints = [...target.deck, ...target.hand, ...target.discard].reduce(
-      (sum, c) => sum + c.victoryPoints,
-      0
-    );
-    return victoryPoints * 0.05;
   }
 
   return 0;
@@ -169,25 +145,6 @@ function drawThenTopdeckTargetBonus(sourceCard: CardInstance, player: Player, ta
   if (!card) return 0;
   const worth = card.type === 'coin' ? (card.value ?? 0) : card.victoryPoints;
   return -worth * 0.3;
-}
-
-// Murciélago: se intercambia por la carta de encima del mazo (ver
-// swapSelfWithTopOfDeck en registry.ts). Su valor real depende de qué haya
-// AHORA mismo encima del mazo: si es una carta cualquiera, se adelanta su
-// robo a cambio del propio Murciélago; pero si esa carta de encima es OTRO
-// Murciélago (típicamente porque el bot acaba de jugar uno este mismo
-// turno y lo puso ahí), el intercambio es un no-op total: misma
-// composición de cartas, solo cambia qué instancia concreta está en mano
-// vs. encima del mazo, sin ganar nada. Sin este cálculo, el bono fijo
-// trataba ese no-op como si fuera tan bueno como cualquier otro robo,
-// llevando al bot a encadenar Murciélagos sin parar cuando tenía varios.
-function swapSelfWithTopOfDeckBonus(card: CardInstance, player: Player): number {
-  if (!card.effects.some((e) => e.type === 'swapSelfWithTopOfDeck')) return 0;
-  const top = player.deck[player.deck.length - 1];
-  if (!top) return 0; // mazo vacío: el efecto no hace nada (ver registry.ts)
-  if (top.id === card.id) return -1000; // no-op: misma carta encima, evita el bucle (debe ganarle a los 10 de endTurn: 100 - 1000 < 10)
-  const worth = top.type === 'coin' ? (top.value ?? 0) : top.victoryPoints;
-  return 1 + worth * 0.5;
 }
 
 function scoreAction(state: GameState, player: Player, action: Action): number {
@@ -217,7 +174,6 @@ function scoreAction(state: GameState, player: Player, action: Action): number {
       return (
         100 +
         effectBonus(card) +
-        swapSelfWithTopOfDeckBonus(card, player) +
         targetPlayerBonus(state, player, card, action.targetPlayerId) +
         drawThenTopdeckTargetBonus(card, player, action.targetInstanceId)
       );

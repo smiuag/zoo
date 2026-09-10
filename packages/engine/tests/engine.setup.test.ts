@@ -44,7 +44,11 @@ describe('createGame', () => {
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
       { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
     ]);
+    // "sloth" no es una especie de mercado (ver isMarketSpecies en
+    // engine.ts): es solo el almacén donde aterriza un Perezoso devuelto por
+    // el Flamenco, así que no tiene un número de copias fijo que comprobar.
     for (const [species, deck] of Object.entries(state.sharedDecks)) {
+      if (species === 'sloth') continue;
       const inTrack = state.animalTrack.filter((c) => c.species === species).length;
       const expectedCopies = (getCard(species).marketCost ?? 0) >= 5 ? 6 : 10;
       expect(deck.length + inTrack).toBe(expectedCopies);

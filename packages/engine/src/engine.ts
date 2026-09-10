@@ -70,10 +70,11 @@ export type Action =
   // "targetInstanceId" solo aplica a los pocos efectos que necesitan elegir
   // un objetivo propio (el Elefante o la Araña eligiendo qué animal
   // capturar gratis del mercado; el Flamenco eligiendo qué animal de su
-  // mano devolver). "secondaryTargetInstanceId" solo lo usa el Flamenco,
+  // mano devolver; la Jirafa eligiendo qué animal recuperar de su
+  // descarte). "secondaryTargetInstanceId" solo lo usa el Flamenco,
   // para elegir qué animal del mercado coge a cambio; el resto lo ignora.
-  // "targetPlayerId" solo lo usan el Pato y la Jirafa, para elegir a qué
-  // rival afecta su efecto; el resto lo ignora.
+  // "targetPlayerId" solo lo usa el Pato, para elegir a qué rival afecta su
+  // efecto; el resto lo ignora.
   | {
       type: 'playCard';
       instanceId: string;
@@ -190,11 +191,11 @@ function payCoins(player: Player, cost: number, isAquaticAnimal = false): void {
 function checkFinalRoundTrigger(state: GameState): void {
   if (state.finalRoundTriggerPlayerIndex !== null) return;
   // Solo cuentan los mazos de especies de mercado (ANIMAL_SPECIES): la
-  // reserva de Perezosos para la Jirafa también vive en sharedDecks (ver
-  // createGame) pero no es una especie del mercado (esa clave no está en
-  // ANIMAL_SPECIES), así que agotarla no debería adelantar el fin de la
-  // partida. El Conejo SÍ es una especie de mercado normal, así que a ese
-  // sí le aplica el criterio normal.
+  // reserva de Perezosos devueltos por el Flamenco también vive en
+  // sharedDecks (ver createGame) pero no es una especie del mercado (esa
+  // clave no está en ANIMAL_SPECIES), así que agotarla no debería adelantar
+  // el fin de la partida. El Conejo SÍ es una especie de mercado normal, así
+  // que a ese sí le aplica el criterio normal.
   const emptyDecks = ANIMAL_SPECIES.filter((species) => state.sharedDecks[species]?.length === 0).length;
   if (emptyDecks >= FINAL_ROUND_EMPTY_DECK_THRESHOLD) {
     state.finalRoundTriggerPlayerIndex = state.activePlayerIndex;
@@ -210,10 +211,10 @@ function checkFinalRoundTrigger(state: GameState): void {
 // onlySpecies puede llegar aquí con CUALQUIER species (p. ej. el Flamenco
 // devolviendo un Perezoso de la mano, ver returnAnimalForUpgrade en
 // registry.ts, que no sabe ni le importa si esa especie tiene hueco de
-// mercado). "sloth" tiene su propia entrada en sharedDecks (la reserva de
-// la Jirafa, ver createGame), pero NO es una especie de mercado — sin este
-// filtro, el hueco inexistente de "sloth" se "repondría" igualmente,
-// colando un Perezoso comprable gratis en el mercado.
+// mercado). "sloth" tiene su propia entrada en sharedDecks (ver createGame),
+// pero NO es una especie de mercado — sin este filtro, el hueco inexistente
+// de "sloth" se "repondría" igualmente, colando un Perezoso comprable gratis
+// en el mercado.
 function isMarketSpecies(species: string): species is (typeof ANIMAL_SPECIES)[number] {
   return (ANIMAL_SPECIES as readonly string[]).includes(species);
 }
@@ -326,17 +327,14 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
     );
   }
 
-  // Reserva de Perezosos para la Jirafa: NO es el mazo de ningún jugador
-  // (el Perezoso ni siquiera es una especie de ANIMAL_SPECIES, nunca sale
-  // en el mercado), así que reutiliza sharedDecks solo como almacén
-  // genérico. Tantas copias como Jirafas puede haber como mucho en toda la
-  // partida (su propio tope de copias, coste 3 -> 10 copias): así nunca
-  // haría falta preocuparse de que la reserva se agote antes que las
-  // Jirafas mismas.
-  const SLOTH_RESERVE_SIZE = 10;
-  state.sharedDecks['sloth'] = shuffle(
-    Array.from({ length: SLOTH_RESERVE_SIZE }, () => mintInstance(state, getCard('sloth')))
-  );
+  // Reserva de Perezosos: NO es el mazo de ningún jugador (el Perezoso ni
+  // siquiera es una especie de ANIMAL_SPECIES, nunca sale en el mercado),
+  // así que reutiliza sharedDecks solo como almacén genérico. Empieza vacía:
+  // solo existe para que un Perezoso devuelto por el Flamenco
+  // (returnAnimalForUpgrade en registry.ts) tenga dónde aterrizar en vez de
+  // desaparecer de la partida, ya que nunca se cuela en el mercado
+  // (isMarketSpecies lo excluye) ni nada vuelve a sacar de aquí.
+  state.sharedDecks['sloth'] = [];
 
   refillAnimalMarket(state);
 
@@ -364,24 +362,18 @@ function requireActivePlayer(state: GameState, playerId: string): Player {
 }
 
 // Algunas cartas necesitan elegir un objetivo propio al jugarlas: el
-// Elefante y la Araña (qué animal del mercado capturar gratis). Devuelve
-// null si la carta no necesita elegir nada (la inmensa mayoría). El
-// Flamenco se trata aparte en getLegalActions porque necesita DOS
-// elecciones encadenadas (qué animal devolver + qué animal coger a
-// cambio), no solo una lista plana de candidatos.
+// Elefante y la Araña (qué animal del mercado capturar gratis), o la
+// Jirafa (qué animal de su propio descarte recuperar). Devuelve null si la
+// carta no necesita elegir nada (la inmensa mayoría). El Flamenco se trata
+// aparte en getLegalActions porque necesita DOS elecciones encadenadas (qué
+// animal devolver + qué animal coger a cambio), no solo una lista plana de
+// candidatos.
 // Efectos que necesitan elegir un JUGADOR (no una carta) como objetivo: el
-// Pato (de quién robar 1 moneda) y la Jirafa (a quién le cae un Perezoso
-// encima del mazo). Ver PLAYER_TARGETED_EFFECT_TYPES más abajo, en
-// getLegalActions.
-const PLAYER_TARGETED_EFFECT_TYPES = new Set(['stealCoinFromChosenPlayer', 'topdeckSlothForChosenPlayer']);
+// Pato (de quién robar 1 moneda). Ver PLAYER_TARGETED_EFFECT_TYPES más
+// abajo, en getLegalActions.
+const PLAYER_TARGETED_EFFECT_TYPES = new Set(['stealCoinFromChosenPlayer']);
 
-// De los de arriba, la Jirafa es la única que también puede elegirse A SÍ
-// MISMA como objetivo (ponerte el Perezoso a ti mismo encima del mazo): el
-// Pato robar de tu propia mano no tendría ningún sentido, así que se queda
-// sin poder auto-elegirse.
-const SELF_TARGETABLE_PLAYER_EFFECT_TYPES = new Set(['topdeckSlothForChosenPlayer']);
-
-function targetedEffectCandidates(state: GameState, card: CardInstance): CardInstance[] | null {
+function targetedEffectCandidates(state: GameState, player: Player, card: CardInstance): CardInstance[] | null {
   const freeCapture = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'freeCaptureUpToCost');
   if (freeCapture) {
     const maxCost = typeof freeCapture.params?.maxCost === 'number' ? freeCapture.params.maxCost : Infinity;
@@ -394,6 +386,10 @@ function targetedEffectCandidates(state: GameState, card: CardInstance): CardIns
         (habitats.length === 0 || habitats.some((h) => (c.habitats as string[])?.includes(h))) &&
         (!excludeHabitat || !(c.habitats as string[])?.includes(excludeHabitat))
     );
+  }
+  const retrieveFromDiscard = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'retrieveAnimalFromDiscard');
+  if (retrieveFromDiscard) {
+    return player.discard.filter((c) => c.type === 'animal');
   }
   return null;
 }
@@ -487,9 +483,7 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
       (e) => e.trigger === 'onPlay' && PLAYER_TARGETED_EFFECT_TYPES.has(e.type)
     );
     if (playerTargeted) {
-      const candidates = SELF_TARGETABLE_PLAYER_EFFECT_TYPES.has(playerTargeted.type)
-        ? state.players
-        : state.players.filter((p) => p.id !== player.id);
+      const candidates = state.players.filter((p) => p.id !== player.id);
       if (candidates.length > 0) {
         for (const candidate of candidates) {
           actions.push({ type: 'playCard', instanceId: card.instanceId, targetPlayerId: candidate.id });
@@ -500,7 +494,7 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
       continue;
     }
 
-    const candidates = targetedEffectCandidates(state, card);
+    const candidates = targetedEffectCandidates(state, player, card);
     if (candidates && candidates.length > 0) {
       for (const candidate of candidates) {
         actions.push({ type: 'playCard', instanceId: card.instanceId, targetInstanceId: candidate.instanceId });

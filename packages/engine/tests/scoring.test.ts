@@ -12,7 +12,7 @@ describe('scorePlayer', () => {
     expect(scorePlayer(state, player)).toBe(0);
   });
 
-  it('un animal en la mano suma sus PV (león: 3PV)', () => {
+  it('un animal en la mano suma sus PV (león: 5PV)', () => {
     const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
     const player = getActivePlayer(state);
     const before = scorePlayer(state, player);
@@ -20,7 +20,7 @@ describe('scorePlayer', () => {
     const lion = { ...getCard('lion'), instanceId: 'lion#test' };
     player.hand.push(lion);
 
-    expect(scorePlayer(state, player)).toBe(before + 3);
+    expect(scorePlayer(state, player)).toBe(before + 5);
   });
 
   it('un animal que sigue en el mazo (nunca se jugó) TAMBIÉN suma sus PV: cuentan estén donde estén', () => {
@@ -69,8 +69,8 @@ describe('scorePlayer', () => {
     player.deck.push({ ...getCard('dolphin'), instanceId: 'dolphin#outside' });
 
     const score = scorePlayer(state, player);
-    // orca(2PV) + delfín×2(2+2PV) + león(3PV) + bonus orca: 3 acuáticos en TODA la colección × 1 = 3.
-    expect(score).toBe(2 + 2 + 2 + 3 + 3);
+    // orca(2PV) + delfín×2(2+2PV) + león(5PV) + bonus orca: 3 acuáticos en TODA la colección × 1 = 3.
+    expect(score).toBe(2 + 2 + 2 + 5 + 3);
   });
 
   it('para el bonus de la orca, el pez de colores cuenta como 2 acuáticos, no 1', () => {
@@ -91,16 +91,16 @@ describe('scorePlayer', () => {
     const player = getActivePlayer(state);
 
     const eagle = { ...getCard('eagle'), instanceId: 'eagle#test' }; // 0PV base, coste 5
-    const lion = { ...getCard('lion'), instanceId: 'lion#test' }; // 3PV, coste 5: cuenta
+    const lion = { ...getCard('lion'), instanceId: 'lion#test' }; // 5PV, coste 6: cuenta
     const turtle = { ...getCard('turtle'), instanceId: 'turtle#test' }; // 1PV, coste 2: no cuenta
     player.hand.push(eagle, lion, turtle);
     // Este león está en el mazo, no en la mano: también cuenta para el bonus del águila.
     player.deck.push({ ...getCard('lion'), instanceId: 'lion#outside' });
 
     const score = scorePlayer(state, player);
-    // águila(0PV) + león×2(3+3PV) + tortuga(1PV) + bonus águila: 3 animales de
+    // águila(0PV) + león×2(5+5PV) + tortuga(1PV) + bonus águila: 3 animales de
     // coste≥5 en TODA la colección (águila + 2 leones) × 1 = 3.
-    expect(score).toBe(0 + 3 + 3 + 1 + 3);
+    expect(score).toBe(0 + 5 + 5 + 1 + 3);
   });
 
   it('el Cocodrilo elimina, antes de puntuar, el animal NO VOLADOR de menor valor real de TODA su colección (mazo, mano o descarte), ignorando solo lo volador', () => {
@@ -149,7 +149,7 @@ describe('scorePlayer', () => {
     // encima de lo que sugiere su PV base.
     const polarBear = { ...getCard('polar-bear'), instanceId: 'polarbear#test' };
     const turtle = { ...getCard('turtle'), instanceId: 'turtle#weak' }; // 1PV, sin bonus: el que de verdad vale menos
-    const lion = { ...getCard('lion'), instanceId: 'lion#strong' }; // 3PV, sin bonus
+    const lion = { ...getCard('lion'), instanceId: 'lion#strong' }; // 5PV, sin bonus
     player.deck.push(crocodile, polarBear, turtle, lion);
 
     scorePlayer(state, player);
@@ -312,38 +312,22 @@ describe('scorePlayer', () => {
     player.hand.push(penguin, lion1, lion2, dolphin);
 
     const score = scorePlayer(state, player);
-    // pingüino(2PV) + león×2(3+3PV) + delfín(2PV) + bonus pingüino: 4
+    // pingüino(2PV) + león×2(5+5PV) + delfín(2PV) + bonus pingüino: 4
     // especies distintas (pingüino, león, delfín Y el Perezoso del mazo
     // inicial, que sigue contando como especie aunque dé 0PV) × 1PV = 4.
-    expect(score).toBe(2 + 3 + 3 + 2 + 4);
+    expect(score).toBe(2 + 5 + 5 + 2 + 4);
   });
 
-  it('periquito: con menos de 4 copias en la colección, no da ningún bono', () => {
+  it('para el bonus del albatros, el periquito cuenta como 2 voladores, no 1', () => {
     const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
     const player = getActivePlayer(state);
-    const before = scorePlayer(state, player);
 
-    player.hand.push(
-      { ...getCard('parakeet'), instanceId: 'parakeet#1' },
-      { ...getCard('parakeet'), instanceId: 'parakeet#2' },
-      { ...getCard('parakeet'), instanceId: 'parakeet#3' }
-    );
+    const albatross = { ...getCard('albatross'), instanceId: 'albatross#test' }; // 2PV base
+    const parakeet = { ...getCard('parakeet'), instanceId: 'parakeet#test' }; // 1PV base, cuenta como 2 voladores
+    player.hand.push(albatross, parakeet);
 
-    // 3 periquitos × 0PV base, sin bono (hace falta 4 o más).
-    expect(scorePlayer(state, player)).toBe(before);
-  });
-
-  it('periquito: con 4 o más copias en la colección (estén donde estén), da +10PV UNA sola vez', () => {
-    const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
-    const player = getActivePlayer(state);
-    const before = scorePlayer(state, player);
-
-    player.hand.push({ ...getCard('parakeet'), instanceId: 'parakeet#1' }, { ...getCard('parakeet'), instanceId: 'parakeet#2' });
-    player.deck.push({ ...getCard('parakeet'), instanceId: 'parakeet#3' });
-    player.discard.push({ ...getCard('parakeet'), instanceId: 'parakeet#4' }, { ...getCard('parakeet'), instanceId: 'parakeet#5' });
-
-    // 5 periquitos × 0PV base + un único bono de +10 (no 5×10): alcanzar el
-    // umbral de 4 no debe sumar el bono por cada copia adicional.
-    expect(scorePlayer(state, player)).toBe(before + 10);
+    const score = scorePlayer(state, player);
+    // albatros(2PV) + periquito(1PV) + bonus albatros: periquito cuenta 2 + el propio albatros 1 = 3 × 1 = 3.
+    expect(score).toBe(2 + 1 + 3);
   });
 });

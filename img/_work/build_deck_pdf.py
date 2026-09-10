@@ -21,10 +21,10 @@ cell_h = (PAGE_H - 2 * MARGIN - (ROWS - 1) * GAP) // ROWS
 
 # Copias pedidas para esta tirada de impresión.
 COUNTS = {
-    "sloth": 41,
+    "sloth": 21,
     "coin-1": 49,
-    "coin-2": 20,
-    "coin-3": 14,
+    "coin-2": 16,
+    "coin-3": 10,
 }
 DEFAULT_ANIMAL_COPIES = 10  # especies de coste < 5: 10 copias cada una
 HIGH_COST_ANIMAL_COPIES = 6  # especies de coste 5 o más: solo 6 copias (escasez), igual que el motor

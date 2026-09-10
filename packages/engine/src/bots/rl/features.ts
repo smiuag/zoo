@@ -159,11 +159,11 @@ function targetCard(state: GameState, player: Player, action: Action): CardInsta
 }
 
 // Encima del propio mazo (boca abajo, pero el jugador SÍ conoce esa carta:
-// es él quien la puso ahí, ya sea al robar/barajar o con un efecto como el
-// del Murciélago). Sin esto, la red no tiene forma de distinguir "jugar
-// Murciélago cuando encima hay algo valioso" de "jugar Murciélago cuando
-// encima hay OTRO Murciélago" (un no-op total, ver swapSelfWithTopOfDeck en
-// registry.ts): ambos casos codificaban exactamente igual.
+// es él quien la puso ahí, ya sea al robar/barajar o con un efecto de
+// alguna carta). Se mantiene en el vector aunque ninguna carta actual mire
+// "lo que hay encima de mi mazo" (el Murciélago, que sí lo hacía, ya no):
+// FEATURE_DIM es fijo y los pesos entrenados asumen esta disposición de
+// columnas, así que no se puede quitar sin invalidar el modelo guardado.
 function topOfOwnDeck(player: Player): CardInstance | undefined {
   return player.deck[player.deck.length - 1];
 }

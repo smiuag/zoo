@@ -1,6 +1,6 @@
 {
   "id": "snake",
-  "name": "Serpientes",
+  "name": "Serpiente",
   "type": "animal",
   "species": "snake",
   "marketCost": 4,

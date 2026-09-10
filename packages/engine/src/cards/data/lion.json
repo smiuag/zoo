@@ -1,17 +1,17 @@
 {
   "id": "lion",
-  "name": "Leones",
+  "name": "León",
   "type": "animal",
   "species": "lion",
-  "marketCost": 5,
-  "victoryPoints": 3,
-  "text": "Añade 3 a tu valor de compra.",
+  "marketCost": 6,
+  "victoryPoints": 5,
+  "text": "Añade 4 a tu valor de compra.",
   "effects": [
     {
       "trigger": "onPlay",
       "type": "gainFlatBonusPurchasingPower",
       "params": {
-        "amount": 3
+        "amount": 4
       }
     }
   ],

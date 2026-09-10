@@ -185,32 +185,6 @@ registerEffect('drawThenTopdeck', (_state, player, effect, context) => {
   player.deck.push(card);
 });
 
-// Murciélago: se intercambia por la carta de encima de su mazo, sin elegir
-// nada (automático). playCard ya lo ha mandado al descarte y a
-// playedThisTurn antes de resolver este efecto (igual que el Flamenco
-// devolviéndose a sí mismo, ver returnAnimalForUpgrade): se le saca de ahí
-// y, en vez de quedarse descartado, vuelve a su mazo (encima), mientras la
-// carta que estaba encima del mazo pasa a la mano. Se saca también de
-// playedThisTurn (ver removeFromPlayedThisTurn): una vez de vuelta en el
-// mazo ya no es "tu mano de este turno", así que un Flamenco jugado después
-// no debe poder ofrecerlo como objetivo a devolver (ya no está ni en mano
-// ni en descarte). Si el mazo está vacío no hay nada con lo que
-// intercambiarse: se queda en el descarte, como cualquier carta normal.
-registerEffect('swapSelfWithTopOfDeck', (_state, player) => {
-  if (player.deck.length === 0) return;
-
-  const self = player.playedThisTurn[player.playedThisTurn.length - 1];
-  if (!self) return;
-  const idx = player.discard.findIndex((c) => c.instanceId === self.instanceId);
-  if (idx === -1) return;
-
-  const [card] = player.discard.splice(idx, 1);
-  removeFromPlayedThisTurn(player, card.instanceId);
-  const top = player.deck.pop()!;
-  player.deck.push(card);
-  player.hand.push(top);
-});
-
 // Elefante / Araña: capturan gratis (sin gastar monedas) el animal del
 // mercado que elija el jugador (vía targetInstanceId), no al azar.
 // params.habitat restringe a animales que TENGAN AL MENOS UNO de esos
@@ -264,10 +238,12 @@ registerEffect('gainFlatBonusPurchasingPower', (_state, player, effect) => {
 // cuentan animales de un hábitat (no en los que solo comprueban
 // elegibilidad, como la Araña o el Cocodrilo, que siguen mirando
 // simplemente si el hábitat está en su lista). El Pez de colores cuenta
-// como 2 animales acuáticos en vez de 1.
+// como 2 animales acuáticos, y el Periquito como 2 voladores, en vez de 1.
 function habitatWeight(card: CardInstance, habitat: string): number {
   if (card.type !== 'animal' || !(card.habitats as string[])?.includes(habitat)) return 0;
-  return card.id === 'goldfish' && habitat === 'aquatic' ? 2 : 1;
+  if (card.id === 'goldfish' && habitat === 'aquatic') return 2;
+  if (card.id === 'parakeet' && habitat === 'bird') return 2;
+  return 1;
 }
 
 // Serpiente / Loro: ganan "dinero para comprar" extra solo este turno (no es
@@ -333,19 +309,15 @@ registerEffect('stealCoinFromChosenPlayer', (state, player, _effect, context) =>
   player.hand.push(coin);
 });
 
-// Jirafa: el jugador que elijas (context.targetPlayerId, puede ser tú
-// mismo: ver SELF_TARGETABLE_PLAYER_EFFECT_TYPES en engine.ts) recibe un
-// Perezoso NUEVO de la reserva (state.sharedDecks.sloth, ver createGame en
-// engine.ts — no es el mazo de ningún jugador) encima de su propio mazo,
-// así que será lo próximo que robe. Si la reserva ya está vacía, no pasa
-// nada.
-registerEffect('topdeckSlothForChosenPlayer', (state, _player, _effect, context) => {
-  if (!context.targetPlayerId) return;
-  const target = state.players.find((p) => p.id === context.targetPlayerId);
-  if (!target) return;
-  const sloth = state.sharedDecks['sloth']?.pop();
-  if (!sloth) return;
-  target.deck.push(sloth);
+// Jirafa: recupera a tu mano un animal elegido (context.targetInstanceId,
+// ver targetedEffectCandidates en engine.ts) de tu propio descarte. Si tu
+// descarte no tiene ningún animal, o no se elige ninguno, no pasa nada.
+registerEffect('retrieveAnimalFromDiscard', (_state, player, _effect, context) => {
+  if (!context.targetInstanceId) return;
+  const idx = player.discard.findIndex((c) => c.instanceId === context.targetInstanceId && c.type === 'animal');
+  if (idx === -1) return;
+  const [card] = player.discard.splice(idx, 1);
+  player.hand.push(card);
 });
 
 // Conejos: muestra la carta de encima de tu mazo; si NO es un animal de
@@ -515,20 +487,6 @@ registerScoreEffect('scorePerDistinctSpecies', (_player, _effect, allCards) => {
   return species.size;
 });
 
-// Periquito: al final de la partida, +bonus PV (una sola vez, no por copia)
-// si tienes minCount o más Periquitos en toda tu colección. Solo la PRIMERA
-// copia encontrada en la colección concede el bono: si contara cada copia
-// por separado, tener 4 periquitos daría 4×7PV en vez de un bono plano de
-// 7PV al alcanzar el umbral.
-registerScoreEffect('scoreBonusIfSpeciesCountAtLeast', (_player, effect, allCards, sourceCard) => {
-  const minCount = typeof effect.params?.minCount === 'number' ? effect.params.minCount : 0;
-  const bonus = typeof effect.params?.bonus === 'number' ? effect.params.bonus : 0;
-  const sameSpecies = allCards.filter((c) => c.type === 'animal' && c.species === sourceCard.species);
-  if (sameSpecies.length < minCount) return 0;
-  if (sameSpecies[0]?.instanceId !== sourceCard.instanceId) return 0;
-  return bonus;
-});
-
 // Efectos onScore que ELIMINAN cartas de la colección (solo el Cocodrilo,
 // de momento): scorePlayer los resuelve en una fase previa, antes de sumar
 // ningún PV, para que lo que destruyan no llegue a puntuar.
@@ -536,8 +494,8 @@ export const DESTRUCTIVE_SCORE_EFFECT_TYPES = new Set(['destroyWeakestNonFlyingO
 
 // Cuánto vale REALMENTE una carta a la hora de puntuar: sus PV base más lo
 // que le sumen sus propios efectos onScore no destructivos (p. ej. el bonus
-// de hábitat de la Orca/Oso polar/Albatros, el de especies distintas del
-// Pingüino, o el de umbral del Periquito), calculado sobre la colección
+// de hábitat de la Orca/Oso polar/Albatros, o el de especies distintas del
+// Pingüino), calculado sobre la colección
 // ACTUAL del jugador (mazo + mano + descarte, en este momento). Así el
 // Cocodrilo compara lo que cada carta aporta DE VERDAD, no solo su PV
 // impreso — una carta con bonus siempre vale al menos su PV base (los

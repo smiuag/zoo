@@ -5,28 +5,28 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   goldfish: { cost: 1, pv: 1 },
   snake: { cost: 4, pv: 1 },
   parrot: { cost: 3, pv: 2 },
-  penguin: { cost: 4, pv: 2 },
+  penguin: { cost: 5, pv: 2 },
   peacock: { cost: 2, pv: 1 },
   dolphin: { cost: 3, pv: 2 },
-  giraffe: { cost: 3, pv: 3 },
+  giraffe: { cost: 6, pv: 5 },
   hippopotamus: { cost: 5, pv: 4 },
   tiger: { cost: 4, pv: 3 },
-  lion: { cost: 5, pv: 3 },
+  lion: { cost: 6, pv: 5 },
   monkey: { cost: 4, pv: 2 },
   spider: { cost: 3, pv: 3 },
   crocodile: { cost: 5, pv: 7 },
   vulture: { cost: 5, pv: 3 },
   elephant: { cost: 5, pv: 3 },
-  orca: { cost: 6, pv: 2 },
-  albatross: { cost: 6, pv: 2 },
+  orca: { cost: 7, pv: 2 },
+  albatross: { cost: 7, pv: 2 },
   hyena: { cost: 4, pv: 5 },
-  'polar-bear': { cost: 7, pv: 0 },
+  'polar-bear': { cost: 8, pv: 0 },
   duck: { cost: 2, pv: 1 },
   flamingo: { cost: 3, pv: 1 },
   seal: { cost: 3, pv: 2 },
-  parakeet: { cost: 2, pv: 0 },
+  parakeet: { cost: 1, pv: 1 },
   owl: { cost: 4, pv: 3 },
-  bat: { cost: 1, pv: 1 },
+  bat: { cost: 2, pv: 2 },
   turtle: { cost: 2, pv: 1 },
   platypus: { cost: 3, pv: 2 },
   rabbit: { cost: 2, pv: 2 },
@@ -94,7 +94,7 @@ describe('card registry', () => {
     expect(getCard('hippopotamus').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 2 } });
     expect(getCard('lion').effects[0]).toMatchObject({
       type: 'gainFlatBonusPurchasingPower',
-      params: { amount: 3 },
+      params: { amount: 4 },
     });
     expect(getCard('tiger').effects[0]).toMatchObject({ type: 'drawThenTopdeck' });
     expect(getCard('dolphin').effects[0]).toMatchObject({
@@ -105,11 +105,7 @@ describe('card registry', () => {
       type: 'freeCaptureUpToCost',
       params: { habitat: 'land', maxCost: 5 },
     });
-    expect(getCard('giraffe').effects[0]).toMatchObject({ type: 'topdeckSlothForChosenPlayer' });
-    expect(getCard('giraffe').effects[1]).toMatchObject({
-      type: 'gainFlatBonusPurchasingPower',
-      params: { amount: 1 },
-    });
+    expect(getCard('giraffe').effects[0]).toMatchObject({ type: 'retrieveAnimalFromDiscard' });
     expect(getCard('turtle').effects[0]).toMatchObject({ type: 'upgradeCoin' });
     expect(getCard('spider').effects[0]).toMatchObject({
       type: 'freeCaptureUpToCost',
@@ -171,22 +167,13 @@ describe('card registry', () => {
     });
     expect(getCard('duck').effects[0]).toMatchObject({ type: 'stealCoinFromChosenPlayer' });
     expect(getCard('flamingo').effects[0]).toMatchObject({ type: 'returnAnimalForUpgrade' });
-    expect(getCard('parakeet').effects[0]).toMatchObject({
-      trigger: 'onPlay',
-      type: 'gainFlatBonusPurchasingPower',
-      params: { amount: 1 },
-    });
-    expect(getCard('parakeet').effects[1]).toMatchObject({
-      trigger: 'onScore',
-      type: 'scoreBonusIfSpeciesCountAtLeast',
-      params: { minCount: 4, bonus: 10 },
-    });
+    expect(getCard('parakeet').effects).toHaveLength(0);
     expect(getCard('owl').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 1 } });
     expect(getCard('owl').effects[1]).toMatchObject({
       type: 'gainFlatBonusPurchasingPower',
       params: { amount: 1 },
     });
-    expect(getCard('bat').effects[0]).toMatchObject({ type: 'swapSelfWithTopOfDeck' });
+    expect(getCard('bat').effects[0]).toMatchObject({ type: 'chooseDiscardFromEachOpponent' });
     expect(getCard('platypus').effects[0]).toMatchObject({
       type: 'gainBonusPurchasingPowerPerDistinctSpeciesInHand',
     });

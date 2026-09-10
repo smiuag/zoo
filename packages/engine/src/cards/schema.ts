@@ -24,11 +24,12 @@ export const CardSchema = z.object({
   // por especie: no hay variantes de sexo.
   species: z.string().optional(),
   // Solo "animal": hábitat(s) de la especie. La mayoría tiene solo uno,
-  // pero algunas (Pingüino, Hipopótamo, Cocodrilo, Pato, Flamenco) pertenecen a varios a
-  // la vez. Lo usan tanto la etiqueta visible de la carta como los efectos
-  // "por cada animal de tipo X" (orca, oso polar, albatros, cocodrilo,
-  // pez de colores, serpiente, loro): cuentan si el hábitat buscado está
-  // en esta lista, no si es el único.
+  // pero algunas pertenecen a varios a la vez: Hipopótamo, Cocodrilo,
+  // Flamenco (2 hábitats), Foca (terrestre-acuática), y Pingüino/Pato
+  // ("todoterreno": los 3 a la vez). Lo usan tanto la etiqueta visible de la
+  // carta como los efectos "por cada animal de tipo X" (orca, oso polar,
+  // albatros, cocodrilo, pez de colores, periquito, serpiente, loro):
+  // cuentan si el hábitat buscado está en esta lista, no si es el único.
   habitats: z.array(z.enum(['land', 'bird', 'aquatic'])).default([]),
   // Solo "coin": valor en monedas (1, 2 o 3).
   value: z.number().optional(),

@@ -1,15 +1,15 @@
 {
   "id": "bat",
-  "name": "Murciélagos",
+  "name": "Murciélago",
   "type": "animal",
   "species": "bat",
-  "marketCost": 1,
-  "victoryPoints": 1,
-  "text": "Se intercambia por la carta de encima de tu mazo: la robas, y él pasa a estar encima.",
+  "marketCost": 2,
+  "victoryPoints": 2,
+  "text": "Cada rival elige y descarta 1 carta de su mano.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "swapSelfWithTopOfDeck"
+      "type": "chooseDiscardFromEachOpponent"
     }
   ],
   "habitats": ["bird"]

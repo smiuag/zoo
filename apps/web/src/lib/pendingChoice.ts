@@ -44,8 +44,8 @@ export function buildPlayCardTargetChoice(
 ): PendingChoice {
   const playActions = actions.filter((a): a is Extract<Action, { type: 'playCard' }> => a.type === 'playCard');
 
-  // Pato / Jirafa: eligen un JUGADOR, no una carta. Una opción por rival,
-  // sin segundo menú encadenado.
+  // Pato: elige un JUGADOR, no una carta. Una opción por rival, sin segundo
+  // menú encadenado.
   if (playActions.some((a) => a.targetPlayerId)) {
     const options: ChoiceOption[] = playActions.map((a) => ({
       label: state.players.find((p) => p.id === a.targetPlayerId)?.name ?? '?',

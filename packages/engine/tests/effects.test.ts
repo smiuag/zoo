@@ -104,14 +104,14 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(p1.hand).toHaveLength(1); // solo 1 de los 2 rivales tuvo que soltar moneda
   });
 
-  it('león: gana 3 de dinero extra para comprar este turno, fijo (no depende de la mano)', () => {
+  it('león: gana 4 de dinero extra para comprar este turno, fijo (no depende de la mano)', () => {
     const { state, player } = setupClean();
     const lion = freshInstance('lion', 'test');
     player.hand = [lion];
 
     playCard(state, player.id, lion.instanceId);
 
-    expect(player.bonusPurchasingPowerThisTurn).toBe(3);
+    expect(player.bonusPurchasingPowerThisTurn).toBe(4);
   });
 
   it('delfín: da 2 de valor de compra, pero restringido: solo cuenta comprando animales acuáticos', () => {
@@ -285,6 +285,18 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.bonusPurchasingPowerThisTurn).toBe(2);
   });
 
+  it('loro: el periquito en la mano cuenta como 2 animales voladores, no 1', () => {
+    const { state, player } = setupClean();
+    const parrot = freshInstance('parrot', 'test'); // volador: 1
+    const parakeet = freshInstance('parakeet', 'p1'); // volador: cuenta como 2
+    player.hand = [parrot, parakeet];
+
+    playCard(state, player.id, parrot.instanceId);
+
+    // Loro (1) + Periquito (2) = 3.
+    expect(player.bonusPurchasingPowerThisTurn).toBe(3);
+  });
+
   it('ornitorrinco: gana 1 moneda extra por cada especie DISTINTA en su mano (no por copia)', () => {
     const { state, player } = setupClean();
     const platypus = freshInstance('platypus', 'test'); // se cuenta a sí mismo
@@ -372,78 +384,62 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(coins[0].value).toBe(2);
   });
 
-  it('jirafa: el jugador que elijas recibe un Perezoso NUEVO de la reserva encima de su mazo, y ganas 1 de valor de compra', () => {
-    const { state, player, opponent } = setupClean();
+  it('jirafa: recupera a tu mano el animal elegido de tu propio descarte', () => {
+    const { state, player } = setupClean();
     const giraffe = freshInstance('giraffe', 'test');
+    const snake = freshInstance('snake', 's1'); // descartada en un turno anterior
     player.hand = [giraffe];
-    // opponent no tiene ningún Perezoso propio: el que recibe sale de la
-    // reserva, no de su mazo.
-    opponent.deck = [freshInstance('snake', 'n1'), freshInstance('lion', 'l1')];
-    const reserveBefore = state.sharedDecks.sloth?.length ?? 0;
-    const expectedSloth = state.sharedDecks.sloth?.[reserveBefore - 1];
+    player.discard = [snake];
 
-    playCard(state, player.id, giraffe.instanceId, undefined, undefined, opponent.id);
+    playCard(state, player.id, giraffe.instanceId, snake.instanceId);
 
-    expect(opponent.deck).toHaveLength(3);
-    expect(opponent.deck[opponent.deck.length - 1]).toBe(expectedSloth);
-    expect(state.sharedDecks.sloth).toHaveLength(reserveBefore - 1);
-    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
+    expect(player.hand.some((c) => c.instanceId === snake.instanceId)).toBe(true);
+    expect(player.discard.some((c) => c.instanceId === snake.instanceId)).toBe(false);
   });
 
-  it('jirafa: si la reserva de Perezosos está vacía, no pasa nada al elegido (solo el valor de compra)', () => {
-    const { state, player, opponent } = setupClean();
+  it('jirafa: sin elegir objetivo, no recupera nada', () => {
+    const { state, player } = setupClean();
     const giraffe = freshInstance('giraffe', 'test');
+    const snake = freshInstance('snake', 's1');
     player.hand = [giraffe];
-    opponent.deck = [freshInstance('snake', 'n1')];
-    const deckBefore = [...opponent.deck];
-    state.sharedDecks.sloth = [];
-
-    playCard(state, player.id, giraffe.instanceId, undefined, undefined, opponent.id);
-
-    expect(opponent.deck).toEqual(deckBefore);
-    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
-  });
-
-  it('jirafa: sin elegir jugador (sin rivales o sin objetivo), no pasa nada al mazo de nadie', () => {
-    const { state, player, opponent } = setupClean();
-    const giraffe = freshInstance('giraffe', 'test');
-    player.hand = [giraffe];
-    opponent.deck = [freshInstance('snake', 'n1')];
-    const deckBefore = [...opponent.deck];
+    player.discard = [snake];
 
     playCard(state, player.id, giraffe.instanceId);
 
-    expect(opponent.deck).toEqual(deckBefore);
-    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
+    expect(player.hand.some((c) => c.instanceId === snake.instanceId)).toBe(false);
+    expect(player.discard.some((c) => c.instanceId === snake.instanceId)).toBe(true);
   });
 
-  it('jirafa: getLegalActions te ofrece elegirte A TI MISMO como objetivo, además de a los rivales', () => {
-    const { state, player, opponent } = setupClean();
+  it('jirafa: si no hay ningún animal en el descarte, no pasa nada (no hay candidatos)', () => {
+    const { state, player } = setupClean();
     const giraffe = freshInstance('giraffe', 'test');
     player.hand = [giraffe];
+    player.discard = [];
+
+    const actions = getLegalActions(state, player.id);
+    const giraffeActions = actions.filter((a) => a.type === 'playCard' && a.instanceId === giraffe.instanceId);
+    expect(giraffeActions).toEqual([{ type: 'playCard', instanceId: giraffe.instanceId }]);
+  });
+
+  it('jirafa: getLegalActions ofrece una variante por cada animal del descarte (las monedas no cuentan)', () => {
+    const { state, player } = setupClean();
+    const giraffe = freshInstance('giraffe', 'test');
+    const snake = freshInstance('snake', 's1');
+    const lion = freshInstance('lion', 'l1');
+    const coin = freshInstance('coin-1', 'c1');
+    player.hand = [giraffe];
+    player.discard = [snake, lion, coin];
 
     const actions = getLegalActions(state, player.id);
     const targets = actions
       .filter((a): a is Extract<typeof a, { type: 'playCard' }> => a.type === 'playCard' && a.instanceId === giraffe.instanceId)
-      .map((a) => a.targetPlayerId)
+      .map((a) => a.targetInstanceId)
       .sort();
 
-    expect(targets).toEqual([player.id, opponent.id].sort());
+    expect(targets).toEqual([snake.instanceId, lion.instanceId].sort());
   });
 
-  it('jirafa: puedes elegirte a ti mismo, y el Perezoso te cae a ti', () => {
-    const { state, player } = setupClean();
-    const giraffe = freshInstance('giraffe', 'test');
-    player.hand = [giraffe];
-    const reserveBefore = state.sharedDecks.sloth?.length ?? 0;
-
-    playCard(state, player.id, giraffe.instanceId, undefined, undefined, player.id);
-
-    expect(player.deck).toHaveLength(1);
-    expect(state.sharedDecks.sloth).toHaveLength(reserveBefore - 1);
-  });
-
-  it('pato: getLegalActions NO te ofrece elegirte a ti mismo como objetivo (a diferencia de la Jirafa)', () => {
+  it('pato: getLegalActions NO te ofrece elegirte a ti mismo como objetivo', () => {
     const { state, player } = setupClean();
     const duck = freshInstance('duck', 'test');
     player.hand = [duck];
@@ -485,7 +481,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   it('conejos: si es un animal de coste SUPERIOR a 2, se queda encima del mazo (no se roba)', () => {
     const { state, player } = setupClean();
     const rabbitCard = freshInstance('rabbit', 'test');
-    const lion = freshInstance('lion', 'top'); // coste 5
+    const lion = freshInstance('lion', 'top'); // coste 6
     player.hand = [rabbitCard];
     player.deck = [lion];
 
@@ -585,17 +581,17 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
   it('hiena: si hay empate de coste, el rival "elige" y sacrifica el de menor PV', () => {
     const { state, player, opponent } = setupClean();
-    const turtle = freshInstance('turtle', 't1'); // coste 2, 1PV
-    const parakeet = freshInstance('parakeet', 'p1'); // coste 2, 0PV
-    opponent.hand = [turtle, parakeet];
+    const dolphin = freshInstance('dolphin', 'd1'); // coste 3, 2PV
+    const flamingo = freshInstance('flamingo', 'f1'); // coste 3, 1PV
+    opponent.hand = [dolphin, flamingo];
     const hyena = freshInstance('hyena', 'test');
     player.hand = [hyena];
 
     playCard(state, player.id, hyena.instanceId);
 
-    expect(opponent.hand.some((c) => c.instanceId === parakeet.instanceId)).toBe(false);
-    expect(opponent.hand.some((c) => c.instanceId === turtle.instanceId)).toBe(true);
-    expect(opponent.discard.some((c) => c.instanceId === parakeet.instanceId)).toBe(true);
+    expect(opponent.hand.some((c) => c.instanceId === flamingo.instanceId)).toBe(false);
+    expect(opponent.hand.some((c) => c.instanceId === dolphin.instanceId)).toBe(true);
+    expect(opponent.discard.some((c) => c.instanceId === flamingo.instanceId)).toBe(true);
   });
 
   it('hiena: si un rival no tiene ningún animal en mano, no pierde nada', () => {
@@ -886,7 +882,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   it('flamenco: ofrece una variante por cada combinación de (animal a devolver) x (animal del mercado a coger)', () => {
     const { state, player } = setupClean();
     const flamingo = freshInstance('flamingo', 'test');
-    const giraffe = freshInstance('giraffe', 'g1'); // coste 3
+    const giraffe = freshInstance('giraffe', 'g1'); // coste 6
     player.hand = [flamingo, giraffe];
 
     const maxCost = (giraffe.marketCost ?? 0) + 2;
@@ -904,45 +900,41 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   });
 });
 
-describe('murciélago: se intercambia por la carta de encima del mazo, sin elegir nada', () => {
+describe('murciélago: cada rival elige y descarta 1 carta de su mano', () => {
   it('no ofrece ninguna variante con target: es una única acción automática', () => {
-    const { state, player } = setupClean();
+    const { state, player, opponent } = setupClean();
     const bat = freshInstance('bat', 'test');
     player.hand = [bat];
-    player.deck.push(freshInstance('snake', 's1'));
+    opponent.hand = [freshInstance('coin-1', 'o1')];
 
     const actions = getLegalActions(state, player.id);
     const batActions = actions.filter((a) => a.type === 'playCard' && a.instanceId === bat.instanceId);
     expect(batActions).toEqual([{ type: 'playCard', instanceId: bat.instanceId }]);
   });
 
-  it('roba la carta de encima del mazo, y él mismo vuelve al mazo (no al descarte)', () => {
-    const { state, player } = setupClean();
+  it('cada rival descarta 1 carta de su mano, eligiendo él cuál (se queda con la peor)', () => {
+    const { state, player, opponent } = setupClean();
     const bat = freshInstance('bat', 'test');
-    const top = freshInstance('snake', 's1');
+    const coin = freshInstance('coin-1', 'o1'); // vale poco: es la que se sacrifica
+    const lion = freshInstance('lion', 'o2'); // vale mucho más
     player.hand = [bat];
-    player.deck.push(top);
+    opponent.hand = [coin, lion];
 
     playCard(state, player.id, bat.instanceId);
 
-    expect(player.hand.some((c) => c.instanceId === top.instanceId)).toBe(true);
-    expect(player.discard.some((c) => c.instanceId === bat.instanceId)).toBe(false);
-    expect(player.deck).toEqual([bat]);
-    // Ya no está ni en mano ni en descarte (está de vuelta en el mazo): un
-    // Flamenco jugado después no debe poder ofrecerlo como objetivo a
-    // devolver.
-    expect(player.playedThisTurn.some((c) => c.instanceId === bat.instanceId)).toBe(false);
+    expect(opponent.hand).toEqual([lion]);
+    expect(opponent.discard).toEqual([coin]);
   });
 
-  it('con el mazo vacío no hay nada con lo que intercambiarse: se queda en el descarte, como cualquier carta', () => {
-    const { state, player } = setupClean();
+  it('si un rival no tiene ninguna carta en mano, no pierde nada', () => {
+    const { state, player, opponent } = setupClean();
     const bat = freshInstance('bat', 'test');
     player.hand = [bat];
+    opponent.hand = [];
 
     playCard(state, player.id, bat.instanceId);
 
-    expect(player.hand).toHaveLength(0);
-    expect(player.discard.some((c) => c.instanceId === bat.instanceId)).toBe(true);
-    expect(player.deck).toHaveLength(0);
+    expect(opponent.hand).toHaveLength(0);
+    expect(opponent.discard).toHaveLength(0);
   });
 });

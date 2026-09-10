@@ -288,10 +288,10 @@ describe('estadísticas para el resumen final: purchasesCount y richestTurn', ()
     // Mano inicial: solo 2 monedas de 1 = 2 de valor de compra.
     expect(currentAmount(player)).toBe(2);
 
-    playCard(state, player.id, player.hand.find((c) => c.id === 'lion')!.instanceId); // +3 de valor de compra fijo (León)
+    playCard(state, player.id, player.hand.find((c) => c.id === 'lion')!.instanceId); // +4 de valor de compra fijo (León)
 
-    // Tras jugar el León: 2 monedas + 3 de bonus = 5, no solo las 2 monedas iniciales.
-    expect(player.richestTurn).toEqual({ round: state.round, amount: 5 });
+    // Tras jugar el León: 2 monedas + 4 de bonus = 6, no solo las 2 monedas iniciales.
+    expect(player.richestTurn).toEqual({ round: state.round, amount: 6 });
   });
 });
 
