@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   getActivePlayer,
   getCard,
@@ -30,6 +30,11 @@ export interface GameBoardProps {
   legalActions: Action[];
   scores: PlayerScore[];
   botAlgorithms: Record<string, BotAlgorithm>;
+  // Decidido al crear la partida (ver GameConfig): con esto desactivado no
+  // se genera la animación de "vuelo" de compra (ver FlyingCard.tsx) — el
+  // ritmo de 1s entre acciones de los bots se controla aparte, en
+  // useGame.ts, con el mismo valor.
+  animationsEnabled: boolean;
   canRestartTurn: boolean;
   doAction: (action: Action) => void;
   // Ausentes = ocultan el control correspondiente: online no ofrece
@@ -47,6 +52,7 @@ export function GameBoard({
   legalActions,
   scores,
   botAlgorithms,
+  animationsEnabled,
   canRestartTurn,
   doAction,
   onNewGame,
@@ -102,7 +108,14 @@ export function GameBoard({
   // comparar entre turnos de jugadores distintos.
   const prevActiveDiscardRef = useRef<{ playerId: string; ids: Set<string> } | null>(null);
 
-  useEffect(() => {
+  // useLayoutEffect (no useEffect): tiene que registrar el vuelo ANTES de
+  // que el navegador pinte, para que el descarte de verdad nunca llegue a
+  // mostrarse ni un solo fotograma antes de que el fantasma "llegue" (ver
+  // hiddenCount en PlayerPiles.tsx) — con useEffect normal (que se dispara
+  // DESPUÉS de pintar) se veía un parpadeo de un fotograma con la carta ya
+  // puesta antes de ocultarse de nuevo.
+  useLayoutEffect(() => {
+    if (!animationsEnabled) return;
     const prev = prevActiveDiscardRef.current;
     if (prev && prev.playerId === activePlayer.id) {
       const newlyDiscarded = activePlayer.discard.filter((c) => !prev.ids.has(c.instanceId));
@@ -119,6 +132,7 @@ export function GameBoard({
           newFlights.push({
             key: `${card.instanceId}-${activePlayer.discard.length}`,
             card,
+            toPlayerId: activePlayer.id,
             fromCenter: { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 },
             toCenter,
           });
@@ -387,7 +401,11 @@ export function GameBoard({
             </ul>
           </div>
 
-          <ActivePlayerBoard state={state} discardPileRef={discardPileRef} />
+          <ActivePlayerBoard
+            state={state}
+            discardPileRef={discardPileRef}
+            hiddenDiscardCount={flights.filter((f) => f.toPlayerId === activePlayer.id).length}
+          />
 
           {human.hand.length > 0 && (
             <div className="panel">

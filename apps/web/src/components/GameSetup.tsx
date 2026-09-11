@@ -41,6 +41,7 @@ export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
   const [numHumans, setNumHumans] = useState(1);
   const [botAlgorithms, setBotAlgorithms] = useState<BotAlgorithm[]>(DEFAULT_BOT_ALGORITHMS_BY_SEAT.slice(0, 4));
   const [roundLimit, setRoundLimit] = useState<RoundLimit>(DEFAULT_ROUND_LIMIT);
+  const [animationsEnabled, setAnimationsEnabled] = useState(true);
 
   const totalPlayers = numHumans + botAlgorithms.length;
   const canStart = totalPlayers >= MIN_TOTAL_PLAYERS;
@@ -63,12 +64,12 @@ export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canStart) return;
-    onStart({ numHumans, botAlgorithms, roundLimit });
+    onStart({ numHumans, botAlgorithms, roundLimit, animationsEnabled });
   }
 
   function handleCreateOnlineRoom() {
     if (!canGoOnline || !onCreateOnlineRoom) return;
-    onCreateOnlineRoom({ numHumans, botAlgorithms, roundLimit });
+    onCreateOnlineRoom({ numHumans, botAlgorithms, roundLimit, animationsEnabled });
   }
 
   return (
@@ -147,6 +148,20 @@ export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="setup-row">
+          <label htmlFor="setup-animations">Animaciones</label>
+          <input
+            id="setup-animations"
+            type="checkbox"
+            checked={animationsEnabled}
+            onChange={(e) => setAnimationsEnabled(e.target.checked)}
+          />
+          <span className="setup-hint">
+            Ritmo de 1s entre acciones de los bots y la carta comprada volando al descarte. Se decide una vez, para
+            toda la partida.
+          </span>
         </div>
 
         {!canStart && (

@@ -34,6 +34,7 @@ function HostOrLocalApp() {
     scores,
     canRestartTurn,
     botAlgorithms,
+    animationsEnabled,
     tick,
     startGame,
     doAction,
@@ -76,6 +77,7 @@ function HostOrLocalApp() {
     humanIds,
     botAlgorithms,
     scores,
+    animationsEnabled,
     doAction,
     tick,
     active: isOnlineHost && phase === 'playing',
@@ -129,6 +131,7 @@ function HostOrLocalApp() {
         legalActions={legalActions}
         scores={scores}
         botAlgorithms={botAlgorithms}
+        animationsEnabled={animationsEnabled}
         canRestartTurn={canRestartTurn}
         doAction={doAction}
         onNewGame={handleRestart}

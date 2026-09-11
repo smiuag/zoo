@@ -26,6 +26,12 @@ export const FLIGHT_TOTAL_MS = FLIGHT_MS + HOLD_MS + FADE_MS;
 export interface FlightSpec {
   key: string;
   card: CardInstance;
+  // A quién pertenece el descarte de destino: mientras este vuelo siga
+  // activo, ese jugador debe seguir mostrando su descarte como estaba
+  // ANTES de esta carta (ver hiddenCount en PlayerPiles.tsx) — así la
+  // carta de verdad no "aparece" en el descarte hasta que el fantasma
+  // termina de llegar, en vez de verse dos veces a la vez.
+  toPlayerId: string;
   fromCenter: { x: number; y: number };
   toCenter: { x: number; y: number };
 }

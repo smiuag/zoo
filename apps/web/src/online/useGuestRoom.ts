@@ -20,6 +20,10 @@ export interface UseGuestRoomResult {
   botAlgorithms: Record<string, BotAlgorithm>;
   scores: PlayerScore[];
   legalActions: Action[];
+  // Lo decide el host al crear la sala (ver GameConfig); true por defecto
+  // antes de recibir el primer StateSync, para no dejar el flying-card ni
+  // el ritmo de bots colgando de un valor "todavía sin saber".
+  animationsEnabled: boolean;
   sendAction: (action: Action) => void;
 }
 
@@ -93,6 +97,7 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string):
     botAlgorithms: payload?.botAlgorithms ?? {},
     scores: payload?.scores ?? [],
     legalActions,
+    animationsEnabled: payload?.animationsEnabled ?? true,
     sendAction,
   };
 }

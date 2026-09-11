@@ -24,6 +24,9 @@ export interface UseHostRoomParams {
   humanIds: string[];
   botAlgorithms: Record<string, BotAlgorithm>;
   scores: PlayerScore[];
+  // Decidido al crear la sala (ver GameConfig): se manda a todos los
+  // invitados igual, no cada uno decide por su cuenta.
+  animationsEnabled: boolean;
   doAction: (action: Action) => void;
   // Cambia cada vez que `state` muta (ver useGame): dispara la retransmisión.
   tick: number;
@@ -75,12 +78,12 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
       .subscribe();
 
     function handleActionsMessage(msg: ActionsChannelMessage) {
-      const { state, humanIds, botAlgorithms, scores, doAction, active } = latestRef.current;
+      const { state, humanIds, botAlgorithms, scores, animationsEnabled, doAction, active } = latestRef.current;
       const seat = seats.find((s) => s.seatId === msg.seatId && s.seatKey === msg.seatKey);
       if (!seat) return; // seatKey no coincide: no es dueño de ese asiento, se ignora
 
       if (msg.type === 'requestState') {
-        broadcastToSeat(seat.seatId, state, humanIds, botAlgorithms, scores, active);
+        broadcastToSeat(seat.seatId, state, humanIds, botAlgorithms, scores, animationsEnabled, active);
         return;
       }
 
@@ -104,6 +107,7 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
       humanIds: string[],
       botAlgorithms: Record<string, BotAlgorithm>,
       scores: PlayerScore[],
+      animationsEnabled: boolean,
       active: boolean
     ) {
       if (!active) return;
@@ -115,6 +119,7 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
         humanIds,
         botAlgorithms,
         scores,
+        animationsEnabled,
       };
       channel.send({ type: 'broadcast', event: 'sync', payload });
     }
@@ -147,6 +152,7 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
         humanIds: params.humanIds,
         botAlgorithms: params.botAlgorithms,
         scores: params.scores,
+        animationsEnabled: params.animationsEnabled,
       };
       channel.send({ type: 'broadcast', event: 'sync', payload });
     }

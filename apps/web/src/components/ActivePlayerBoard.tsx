@@ -7,6 +7,10 @@ interface ActivePlayerBoardProps {
   state: GameState;
   // Dónde debe "aterrizar" la animación de compra (ver FlyingCard.tsx).
   discardPileRef?: RefObject<HTMLDivElement>;
+  // Cuántas de las últimas cartas del descarte del jugador activo no se
+  // muestran todavía porque su vuelo sigue en el aire (ver
+  // FlightSpec.toPlayerId y DiscardPile en PlayerPiles.tsx).
+  hiddenDiscardCount?: number;
 }
 
 function groupByCard(cards: CardInstance[]): { card: CardInstance; count: number }[] {
@@ -29,7 +33,7 @@ function groupByCard(cards: CardInstance[]): { card: CardInstance; count: number
 // online/redact.ts: el jugado de un humano solo viaja sin redactar
 // mientras tiene el turno). La mano y el mazo de robo siguen siendo
 // siempre privados, esto no los toca.
-export function ActivePlayerBoard({ state, discardPileRef }: ActivePlayerBoardProps) {
+export function ActivePlayerBoard({ state, discardPileRef, hiddenDiscardCount = 0 }: ActivePlayerBoardProps) {
   const activePlayer = getActivePlayer(state);
   // "Disponible/pico de este turno" — el pico es lo más alto que ha tenido
   // ESTE turno (sube cuando juega algo que le da más valor de compra, nunca
@@ -63,7 +67,7 @@ export function ActivePlayerBoard({ state, discardPileRef }: ActivePlayerBoardPr
             💰 Valor de compra: {purchasingPower}/{turnPeakRef.current.peak}
           </p>
         </div>
-        <DiscardPile player={activePlayer} pileRef={discardPileRef} />
+        <DiscardPile player={activePlayer} pileRef={discardPileRef} hiddenCount={hiddenDiscardCount} />
       </div>
 
       <div className="board-section">

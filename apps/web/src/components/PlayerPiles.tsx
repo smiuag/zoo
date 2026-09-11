@@ -21,13 +21,27 @@ export function DeckPile({ player }: { player: Player }) {
 // el recuento total (no toda la pila). `pileRef` es opcional: lo usa
 // GameBoard.tsx para saber hasta dónde debe "volar" la animación de compra
 // (ver FlyingCard.tsx), apunte a esta pila o a la de ActivePlayerBoard,
-// dondequiera que esté montada ahora mismo.
-export function DiscardPile({ player, pileRef }: { player: Player; pileRef?: Ref<HTMLDivElement> }) {
-  const lastDiscarded = player.discard[player.discard.length - 1];
+// dondequiera que esté montada ahora mismo. `hiddenCount` (por defecto 0)
+// son las últimas N cartas que NO se muestran todavía porque su animación
+// de vuelo sigue en el aire (ver FlightSpec.toPlayerId en GameBoard.tsx):
+// sin esto, la carta de verdad "aparecería" en el descarte de golpe justo
+// cuando empieza a volar, en vez de solo cuando el fantasma termina de
+// llegar.
+export function DiscardPile({
+  player,
+  pileRef,
+  hiddenCount = 0,
+}: {
+  player: Player;
+  pileRef?: Ref<HTMLDivElement>;
+  hiddenCount?: number;
+}) {
+  const visibleCount = Math.max(0, player.discard.length - hiddenCount);
+  const lastDiscarded = player.discard[visibleCount - 1];
   return (
     <div className="pile pile--discard" title={`Descarte de ${player.name}`} ref={pileRef}>
       {lastDiscarded ? (
-        <CardView card={lastDiscarded} compact badgePrefix="" remainingLabel={String(player.discard.length)} />
+        <CardView card={lastDiscarded} compact badgePrefix="" remainingLabel={String(visibleCount)} />
       ) : (
         <div className="card card--compact card--empty" />
       )}

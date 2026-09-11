@@ -52,6 +52,12 @@ export interface GameConfig {
   // Un algoritmo por hueco de bot (longitud = nº de bots elegido).
   botAlgorithms: BotAlgorithm[];
   roundLimit: RoundLimit;
+  // Decidido al crear la partida por quien la crea (en online, se aplica
+  // igual para todos los que se unan): con esto desactivado, los bots
+  // actúan sin ningún retraso artificial (ver BOT_STEP_DELAY_MS en
+  // useGame.ts) y no se genera la animación de "vuelo" de compra (ver
+  // FlyingCard.tsx) — no toca la de aparición suave de cartas nuevas.
+  animationsEnabled: boolean;
 }
 
 export function defaultGameConfig(): GameConfig {
@@ -59,5 +65,6 @@ export function defaultGameConfig(): GameConfig {
     numHumans: 1,
     botAlgorithms: DEFAULT_BOT_ALGORITHMS_BY_SEAT.slice(0, 4),
     roundLimit: DEFAULT_ROUND_LIMIT,
+    animationsEnabled: true,
   };
 }

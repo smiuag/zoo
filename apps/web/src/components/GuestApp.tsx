@@ -8,7 +8,7 @@ interface GuestAppProps {
 }
 
 export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
-  const { status, state, humanIds, botAlgorithms, scores, legalActions, sendAction } = useGuestRoom(
+  const { status, state, humanIds, botAlgorithms, scores, legalActions, animationsEnabled, sendAction } = useGuestRoom(
     roomCode,
     seatId,
     seatKey
@@ -38,6 +38,7 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
       legalActions={legalActions}
       scores={scores}
       botAlgorithms={botAlgorithms}
+      animationsEnabled={animationsEnabled}
       canRestartTurn={false}
       doAction={sendAction}
     />

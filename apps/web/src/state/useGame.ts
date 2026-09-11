@@ -131,6 +131,10 @@ export interface UseGame {
   scores: PlayerScore[];
   canRestartTurn: boolean;
   botAlgorithms: Record<string, BotAlgorithm>;
+  // Decidido al crear ESTA partida (ver GameConfig): si está desactivado,
+  // los bots actúan sin ningún retraso artificial y no hay animación de
+  // "vuelo" de compra — GameBoard.tsx lo usa para no generar esos vuelos.
+  animationsEnabled: boolean;
   // Sube cada vez que `state` cambia de verdad (tras cualquier acción, propia
   // o de un bot). El propio `GameState` vive en un ref mutado en el sitio
   // (ver stateRef más abajo), así que no sirve como dependencia de efecto por
@@ -174,6 +178,10 @@ export function useGame(): UseGame {
   const [tick, setTick] = useState(0);
   const rerender = () => setTick((t) => t + 1);
   const [botAlgorithms, setBotAlgorithms] = useState<Record<string, BotAlgorithm>>({});
+  // Fijado al crear la partida (ver startGame): no cambia a mitad de
+  // partida, así que no hace falta que sea un useState (no hay setter
+  // expuesto para esto, a diferencia de botAlgorithms).
+  const animationsEnabledRef = useRef(true);
 
   const state = stateRef.current;
 
@@ -274,10 +282,12 @@ export function useGame(): UseGame {
       // Justo tras comprar un animal, terminar turno espera además lo que
       // dure entera la animación de vuelo al descarte (ver
       // FlyingCard.tsx): así el cambio de jugador nunca corta la animación
-      // a medias.
+      // a medias. Con las animaciones desactivadas (ver GameConfig), nada
+      // de esto se retrasa: los bots actúan al instante.
       const justBoughtAnimal = lastBotActionTypeRef.current === 'buyAnimal';
-      delayMs =
-        action.type === 'endTurn' && justBoughtAnimal
+      delayMs = !animationsEnabledRef.current
+        ? 0
+        : action.type === 'endTurn' && justBoughtAnimal
           ? FLIGHT_TOTAL_MS + BOT_STEP_DELAY_MS
           : BOT_PACED_ACTION_TYPES.has(action.type)
             ? BOT_STEP_DELAY_MS
@@ -339,6 +349,7 @@ export function useGame(): UseGame {
     turnSnapshotRef.current = null;
     botTurnActionCountRef.current = { turn: -1, count: 0 };
     lastBotActionTypeRef.current = null;
+    animationsEnabledRef.current = config.animationsEnabled;
     setHumanIds(Array.from({ length: config.numHumans }, (_, i) => `human-${i}`));
     const nextBotAlgorithms: Record<string, BotAlgorithm> = {};
     config.botAlgorithms.forEach((algorithm, i) => {
@@ -384,6 +395,7 @@ export function useGame(): UseGame {
     scores,
     canRestartTurn,
     botAlgorithms,
+    animationsEnabled: animationsEnabledRef.current,
     tick,
     startGame,
     doAction,

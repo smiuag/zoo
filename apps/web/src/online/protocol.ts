@@ -59,6 +59,10 @@ export interface StateSyncMessage {
   humanIds: string[];
   botAlgorithms: Record<string, BotAlgorithm>;
   scores: PlayerScore[];
+  // Decidido por el host al crear la sala (ver GameConfig): se aplica igual
+  // para todos los que se unan, así que viaja aquí en vez de dejar que cada
+  // invitado lo decida por su cuenta.
+  animationsEnabled: boolean;
 }
 
 // Mensaje de un invitado recién conectado (o que acaba de refrescar la
