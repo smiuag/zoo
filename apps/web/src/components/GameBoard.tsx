@@ -1,7 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { getActivePlayer, getCard, scoreCardContributions, type Action, type CardInstance, type GameState, type Player, type PlayerScore } from '@zoo/engine';
+import {
+  getActivePlayer,
+  getCard,
+  scoreCardContributions,
+  type Action,
+  type CardInstance,
+  type GameState,
+  type Player,
+  type PlayerScore,
+} from '@zoo/engine';
 import { ActivePlayerBoard } from './ActivePlayerBoard';
 import { CardView } from './CardView';
+import { FlyingCard, type FlightSpec } from './FlyingCard';
 import { buyAnimalActionFor, buyCoinActionFor, playCardActionsFor, resolveDiscardActionFor } from '../lib/actionQuery';
 import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
 import { buildPlayCardTargetChoice, type PendingChoice } from '../lib/pendingChoice';
@@ -47,6 +57,7 @@ export function GameBoard({
   const human = state.players.find((p) => p.id === viewerPlayerId) ?? state.players[0];
   const bots = state.players.filter((p) => !humanIds.includes(p.id));
   const scoreFor = (playerId: string) => scores.find((s) => s.playerId === playerId)?.score ?? 0;
+
   // legalActions siempre son LAS DE ESTE VISOR concreto (ver App.tsx/
   // GuestApp.tsx): si tiene alguna, puede actuar ahora mismo, sea porque es
   // su turno o porque le toca resolver un descarte forzoso pendiente (ver
@@ -55,6 +66,16 @@ export function GameBoard({
   // deja sin ninguna acción normal al jugador activo).
   const canAct = legalActions.length > 0;
   const owedDiscard = state.pendingDecision?.owed[viewerPlayerId];
+  // Cartas de tu propia mano que puedes elegir ahora mismo para el
+  // descarte pendiente (se muestran en el popup de abajo): se derivan de
+  // legalActions, nunca de owedDiscard.eligibleInstanceIds directamente,
+  // para que sea SIEMPRE justo lo que de verdad se puede pulsar.
+  const eligibleDiscardCards = owedDiscard
+    ? human.hand.filter((c) => resolveDiscardActionFor(legalActions, c.instanceId))
+    : [];
+  const discardSourcePlayerName = state.pendingDecision
+    ? (state.players.find((p) => p.id === state.pendingDecision!.sourcePlayerId)?.name ?? '')
+    : '';
   // A quién se está esperando para el banner de estado: si hay un descarte
   // pendiente, el primero de la lista que todavía lo deba (puede haber
   // varios a la vez, p. ej. el Buitre afecta a todos los rivales); si no,
@@ -62,11 +83,57 @@ export function GameBoard({
   const waitingOnPlayer = state.pendingDecision
     ? (state.players.find((p) => p.id === Object.keys(state.pendingDecision!.owed)[0]) ?? activePlayer)
     : activePlayer;
-  // Mazo (boca abajo, sin revelar nada) y descarte (la última carta en
-  // llegar, boca arriba, con el recuento total) del jugador ACTIVO — igual
-  // que "Mesa de X" (ActivePlayerBoard), viven en la fila de controles de
-  // turno de abajo, no en el panel de "Tu mano".
-  const lastDiscarded = activePlayer.discard[activePlayer.discard.length - 1];
+  // Si el visor tiene el turno ahora mismo: decide dónde se ven el
+  // mazo/descarte del jugador activo (que en ese caso es el propio visor) y
+  // si tiene sentido mostrar los controles de turno (Terminar/Reiniciar) —
+  // ver más abajo y ActivePlayerBoard.tsx.
+  const isOwnTurn = activePlayer.id === viewerPlayerId;
+
+  // --- Animación "vuelo" de compra: mercado -> descarte ------------------
+  // Recuerda la última posición en pantalla de cada carta del mercado
+  // mientras siga montada (ref-callback en cada render): al desaparecer
+  // (comprada), esa última posición conocida se queda un instante en el
+  // mapa, justo lo que hace falta para saber "de dónde viene volando".
+  const marketRectsRef = useRef<Map<string, DOMRect>>(new Map());
+  const discardPileRef = useRef<HTMLDivElement>(null);
+  const [flights, setFlights] = useState<FlightSpec[]>([]);
+  // Qué instanceId había en el descarte del jugador ACTIVO la última vez
+  // (y de quién): para detectar cuáles son nuevos de un render a otro sin
+  // comparar entre turnos de jugadores distintos.
+  const prevActiveDiscardRef = useRef<{ playerId: string; ids: Set<string> } | null>(null);
+
+  useEffect(() => {
+    const prev = prevActiveDiscardRef.current;
+    if (prev && prev.playerId === activePlayer.id) {
+      const newlyDiscarded = activePlayer.discard.filter((c) => !prev.ids.has(c.instanceId));
+      if (newlyDiscarded.length > 0 && discardPileRef.current) {
+        const toRect = discardPileRef.current.getBoundingClientRect();
+        const toCenter = { x: toRect.left + toRect.width / 2, y: toRect.top + toRect.height / 2 };
+        const newFlights: FlightSpec[] = [];
+        for (const card of newlyDiscarded) {
+          // Solo si de verdad la vimos hace un instante en el mercado (p.
+          // ej. un descarte forzoso que aterriza en el descarte no debe
+          // "volar" desde ningún sitio): sin posición conocida, sin animación.
+          const fromRect = marketRectsRef.current.get(card.instanceId);
+          if (!fromRect) continue;
+          newFlights.push({
+            key: `${card.instanceId}-${activePlayer.discard.length}`,
+            card,
+            fromCenter: { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 },
+            toCenter,
+          });
+        }
+        if (newFlights.length > 0) setFlights((f) => [...f, ...newFlights]);
+      }
+    }
+    prevActiveDiscardRef.current = { playerId: activePlayer.id, ids: new Set(activePlayer.discard.map((c) => c.instanceId)) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlayer.id, activePlayer.discard.length]);
+
+  function removeFlight(key: string) {
+    setFlights((f) => f.filter((fl) => fl.key !== key));
+  }
+
   // Mientras la partida sigue en curso, el mazo de OTRO jugador humano es
   // información privada: solo se puede "ver el mazo" de un bot en cualquier
   // momento, del propio jugador que mira esta pantalla, o de cualquiera una
@@ -106,27 +173,23 @@ export function GameBoard({
     runAction(option.action);
   }
 
-  const purchasingPower =
-    human.hand.filter((c) => c.type === 'coin').reduce((sum, c) => sum + (c.value ?? 0), 0) +
-    human.bonusPurchasingPowerThisTurn;
-
   function handleRestartTurn() {
     onRestartTurn?.();
     setPendingChoice(null);
   }
 
   function handleHandCardClick(card: CardInstance) {
-    if (card.type === 'coin') return;
-
-    // Un descarte forzoso pendiente tiene prioridad: si esta carta es una
-    // de las elegibles, un clic la descarta directamente (nunca hay
-    // ambigüedad con jugarla: mientras haya una decisión pendiente,
-    // legalActions no contiene ninguna acción "playCard").
+    // Un descarte forzoso pendiente tiene prioridad y aplica a CUALQUIER
+    // tipo de carta, monedas incluidas (p. ej. el Buitre deja elegir
+    // cualquier carta de la mano) — se comprueba antes que nada, ni
+    // siquiera el "las monedas nunca se juegan" de abajo debe bloquearlo.
     const discardAction = resolveDiscardActionFor(legalActions, card.instanceId);
     if (discardAction) {
       runAction(discardAction);
       return;
     }
+
+    if (card.type === 'coin') return; // las monedas nunca se JUEGAN: se gastan solas al pagar
 
     const acts = playCardActionsFor(legalActions, card.instanceId);
     if (acts.length === 0) return;
@@ -138,8 +201,9 @@ export function GameBoard({
   }
 
   function isHandCardClickable(card: CardInstance): boolean {
+    if (resolveDiscardActionFor(legalActions, card.instanceId)) return true;
     if (card.type === 'coin') return false;
-    return Boolean(resolveDiscardActionFor(legalActions, card.instanceId)) || playCardActionsFor(legalActions, card.instanceId).length > 0;
+    return playCardActionsFor(legalActions, card.instanceId).length > 0;
   }
 
   function handleMarketCardClick(card: CardInstance) {
@@ -323,73 +387,59 @@ export function GameBoard({
             </ul>
           </div>
 
-          <ActivePlayerBoard state={state} />
+          <ActivePlayerBoard state={state} discardPileRef={discardPileRef} />
 
-          <div className="panel">
-            <div className="turn-controls">
-              <span className="chip chip--resource">
-                💰 Valor de compra: {purchasingPower} moneda{purchasingPower === 1 ? '' : 's'}
-              </span>
-              {human.aquaticBonusPurchasingPowerThisTurn > 0 && (
-                <span className="chip chip--resource" title="Solo se puede gastar en animales acuáticos">
-                  🌊 Solo acuáticos: {human.aquaticBonusPurchasingPowerThisTurn} moneda
-                  {human.aquaticBonusPurchasingPowerThisTurn === 1 ? '' : 's'}
+          {human.hand.length > 0 && (
+            <div className="panel">
+              <div className="panel__header">
+                <h2>Tu mano</h2>
+                <span className="panel__hint">
+                  {human.hand.length} cartas · 🂠 {human.deck.length} en el mazo · 🗑️ {human.discard.length} en el
+                  descarte
                 </span>
-              )}
-              <div className="turn-controls__row">
-                <div className="pile pile--deck" title={`Mazo de ${activePlayer.name}`}>
-                  <div className="card card--compact card--facedown">
-                    <span className="card__icon">🂠</span>
-                    <span className="card__badge">{activePlayer.deck.length}</span>
-                  </div>
-                </div>
-
-                <div className="turn-controls__buttons">
-                  <button
-                    className="btn btn--primary"
-                    disabled={!legalActions.some((a) => a.type === 'endTurn')}
-                    onClick={() => runAction(legalActions.find((a) => a.type === 'endTurn'))}
-                  >
-                    Terminar turno
-                  </button>
-                  {onRestartTurn && (
-                    <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
-                      ↺ Reiniciar turno
-                    </button>
-                  )}
-                </div>
-
-                <div className="pile pile--discard" title={`Descarte de ${activePlayer.name}`}>
-                  {lastDiscarded ? (
-                    <CardView card={lastDiscarded} compact badgePrefix="" remainingLabel={String(activePlayer.discard.length)} />
-                  ) : (
-                    <div className="card card--compact card--empty" />
-                  )}
-                </div>
+              </div>
+              <div className="card-row card-row--hand">
+                {human.hand.map((card) => (
+                  <CardView
+                    key={card.instanceId}
+                    card={card}
+                    // Sin nada que hacer ahora mismo (no es tu turno y no
+                    // debes ningún descarte), ninguna carta se marca
+                    // "disabled": ese aspecto semitransparente es para "esto
+                    // en concreto no se puede, aunque otras cosas sí" — no
+                    // para "ahora mismo no te toca nada", que no es un estado
+                    // roto, solo de espera. Las monedas, aparte, NUNCA se
+                    // marcan disabled ni en tu propio turno: no son "carta que
+                    // no se puede jugar ahora", son cartas que nunca se juegan
+                    // (se gastan solas al pagar) — deben verse normales
+                    // aunque no reaccionen al clic, salvo que un descarte
+                    // pendiente sí las haga elegibles.
+                    onClick={isHandCardClickable(card) ? () => handleHandCardClick(card) : undefined}
+                    disabled={canAct && card.type !== 'coin' && !isHandCardClickable(card)}
+                  />
+                ))}
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="panel">
-            <div className="panel__header">
-              <h2>Tu mano</h2>
-              <span className="panel__hint">
-                {human.hand.length} cartas · 🂠 {human.deck.length} en el mazo · 🗑️ {human.discard.length} en el
-                descarte
-              </span>
+          {isOwnTurn && (
+            <div className="panel">
+              <div className="turn-controls">
+                <button
+                  className="btn btn--primary"
+                  disabled={!legalActions.some((a) => a.type === 'endTurn')}
+                  onClick={() => runAction(legalActions.find((a) => a.type === 'endTurn'))}
+                >
+                  Terminar turno
+                </button>
+                {onRestartTurn && (
+                  <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
+                    ↺ Reiniciar turno
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="card-row card-row--hand">
-              {human.hand.map((card) => (
-                <CardView
-                  key={card.instanceId}
-                  card={card}
-                  onClick={card.type !== 'coin' ? () => handleHandCardClick(card) : undefined}
-                  disabled={card.type !== 'coin' && !isHandCardClickable(card)}
-                />
-              ))}
-              {human.hand.length === 0 && <span className="market-empty">(vacía)</span>}
-            </div>
-          </div>
+          )}
 
           {pendingChoice && (
             <div className="panel panel--choice" ref={choiceRef}>
@@ -419,13 +469,19 @@ export function GameBoard({
           <div className="panel">
             <div className="card-row card-row--market">
               {sortedAnimalTrack.map((card) => (
-                <CardView
+                <div
                   key={card.instanceId}
-                  card={card}
-                  onClick={() => handleMarketCardClick(card)}
-                  disabled={!isMarketCardClickable(card)}
-                  remainingLabel={String((state.sharedDecks[card.species ?? ''] ?? []).length + 1)}
-                />
+                  ref={(el) => {
+                    if (el) marketRectsRef.current.set(card.instanceId, el.getBoundingClientRect());
+                  }}
+                >
+                  <CardView
+                    card={card}
+                    onClick={() => handleMarketCardClick(card)}
+                    disabled={!isMarketCardClickable(card)}
+                    remainingLabel={String((state.sharedDecks[card.species ?? ''] ?? []).length + 1)}
+                  />
+                </div>
               ))}
               {PURCHASABLE_COIN_IDS.map((coinId) => {
                 const card = { ...getCard(coinId), instanceId: coinId } as CardInstance;
@@ -480,6 +536,34 @@ export function GameBoard({
         </div>
       </div>
 
+      {owedDiscard && (
+        // Sin onClick en el backdrop ni botón de cerrar a propósito: un
+        // descarte forzoso no se puede cancelar, hay que elegir sí o sí.
+        <div className="modal-backdrop">
+          <div className="modal modal--discard">
+            <div className="panel__header">
+              <h2>
+                Descarta {owedDiscard.amount} carta{owedDiscard.amount === 1 ? '' : 's'}
+              </h2>
+            </div>
+            <p className="modal__message">
+              {discardSourcePlayerName} ha jugado <strong>{state.pendingDecision?.sourceCardName}</strong>: tienes
+              que descartar {owedDiscard.amount === 1 ? 'una carta' : `${owedDiscard.amount} cartas`} de tu mano.
+              Elige cuál{owedDiscard.amount === 1 ? '' : 'es'}.
+            </p>
+            <div className="card-row">
+              {eligibleDiscardCards.map((card) => (
+                <CardView
+                  key={card.instanceId}
+                  card={card}
+                  onClick={() => runAction(resolveDiscardActionFor(legalActions, card.instanceId))}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {viewedPlayer && (
         <div className="modal-backdrop" onClick={() => setViewedPlayerId(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -528,6 +612,10 @@ export function GameBoard({
           </div>
         </div>
       )}
+
+      {flights.map((flight) => (
+        <FlyingCard key={flight.key} flight={flight} onDone={() => removeFlight(flight.key)} />
+      ))}
     </div>
   );
 }

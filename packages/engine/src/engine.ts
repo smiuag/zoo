@@ -278,8 +278,11 @@ function beginPlayerTurn(state: GameState, player: Player): void {
 // Valor de compra TOTAL disponible ahora mismo: monedas de verdad en mano +
 // el bonus genérico (Serpiente/Loro/León/cambio de una compra...) + el
 // bonus solo-acuático (Delfín). Mismos ingredientes que canAffordMarket,
-// pero sumados en vez de comparados contra un coste.
-function currentPurchasingPower(player: Player): number {
+// pero sumados en vez de comparados contra un coste. Se exporta para que la
+// web pueda mostrar en vivo el valor de compra de OTRO jugador mientras
+// juega su turno (ver ActivePlayerMoney/GameBoard.tsx), sin duplicar esta
+// fórmula ahí.
+export function currentPurchasingPower(player: Player): number {
   const coins = player.hand.filter((c) => c.type === 'coin').reduce((sum, c) => sum + (c.value ?? 0), 0);
   return coins + player.bonusPurchasingPowerThisTurn + player.aquaticBonusPurchasingPowerThisTurn;
 }

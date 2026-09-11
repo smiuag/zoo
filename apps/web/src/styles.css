@@ -121,6 +121,38 @@ body {
   color: var(--accent);
 }
 
+/* "Mesa de X" cuando no es tu turno: mazo a la izquierda del título,
+   descarte a la derecha (ver ActivePlayerBoard.tsx) — align-items:center
+   en vez del baseline por defecto, para que las pilas (cartas, no texto) no
+   queden descolgadas respecto al título. */
+.panel__header--with-piles {
+  align-items: center;
+}
+
+/* Columna central entre el mazo y el descarte (ver
+   panel__header--with-piles): título arriba, y debajo el contador de
+   dinero cuando aplica — todo centrado entre las dos pilas, no a lo ancho
+   de todo el panel. */
+.panel__header-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  text-align: center;
+  min-width: 0;
+}
+
+/* Contador de dinero del jugador activo cuando no es tu turno, debajo del
+   título "Mesa de X" (ver ActivePlayerBoard.tsx): "disponible/pico de este
+   turno". */
+.active-player-money {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #8a6d1f;
+  white-space: nowrap;
+}
+
 .panel__hint {
   font-size: 0.78rem;
   color: var(--muted);
@@ -257,25 +289,6 @@ body {
   white-space: nowrap;
 }
 
-/* Fila con el mazo del jugador activo a la izquierda, los botones de
-   turno en el centro y su descarte a la derecha (ver GameBoard.tsx). */
-.turn-controls__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-}
-
-.turn-controls__buttons {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.5rem;
-  flex: 1 1 auto;
-  min-width: 140px;
-}
-
 .pile {
   flex: 0 0 auto;
 }
@@ -299,6 +312,25 @@ body {
 .card--empty {
   border-style: dashed;
   background: transparent;
+}
+
+/* Carta "fantasma" volando del mercado al descarte al comprarla (ver
+   FlyingCard.tsx) — puramente decorativa, nunca intercepta clics. */
+.flying-card {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  border-radius: var(--radius);
+  /* La duración/curva de la transición la fija FlyingCard.tsx por estilo
+     inline (TRANSITION): distinta según la fase (vuelo/desvanecido). */
+}
+
+/* Destello mientras vuela y mientras se queda quieta un momento en el
+   destino (ver FlyingCard.tsx): ayuda a que se note bien qué carta es. */
+.flying-card--glow {
+  box-shadow:
+    0 0 0 3px var(--accent),
+    0 0 20px 6px rgba(47, 109, 79, 0.55);
 }
 
 /* ---------- Opponent strip ---------- */
@@ -933,6 +965,19 @@ body {
     padding: 0.7rem;
     max-height: 96vh;
   }
+}
+
+/* Popup de descarte forzoso pendiente (ver GameBoard.tsx): más estrecho que
+   el de "ver mazo" (aquí solo hay unas pocas cartas entre las que elegir),
+   y sin botón de cerrar — no se puede cancelar, hay que elegir. */
+.modal--discard {
+  max-width: 640px;
+}
+
+.modal__message {
+  margin: 0 0 0.8rem;
+  font-size: 0.92rem;
+  color: var(--muted);
 }
 
 .collection-entry {

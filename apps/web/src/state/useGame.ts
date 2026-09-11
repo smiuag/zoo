@@ -18,6 +18,7 @@ import {
   type GameState,
   type PlayerScore,
 } from '@zoo/engine';
+import { FLIGHT_TOTAL_MS } from '../components/FlyingCard';
 import { buildStarterDeck } from '../lib/starterDeck';
 import { defaultGameConfig, type BotAlgorithm, type GameConfig } from '../lib/gameConfig';
 
@@ -45,12 +46,13 @@ const DEFAULT_BOT_ALGORITHM: BotAlgorithm = 'rl';
 // cambia state.turn) y, superado el límite, se le fuerza a terminar turno.
 const MAX_ACTIONS_PER_BOT_TURN = 300;
 
-// Ritmo al que se ve actuar a un bot: jugar una carta o terminar turno
-// (para poder ver lo último que hizo antes de que la pantalla pase al
-// siguiente jugador) esperan este tiempo antes de aplicarse; comprar o
-// resolver un descarte pendiente no se retrasan.
+// Ritmo al que se ve actuar a un bot: jugar una carta, comprar (animal o
+// moneda) o terminar turno esperan este tiempo antes de aplicarse — así se
+// compran de una en una en vez de todas de golpe, y se ve un instante lo
+// último que se hizo antes de pasar al siguiente jugador. Solo resolver un
+// descarte pendiente no se retrasa.
 const BOT_STEP_DELAY_MS = 1000;
-const BOT_PACED_ACTION_TYPES = new Set<Action['type']>(['playCard', 'endTurn']);
+const BOT_PACED_ACTION_TYPES = new Set<Action['type']>(['playCard', 'buyAnimal', 'buyCoin', 'endTurn']);
 
 function describeAction(action: Action): string {
   return JSON.stringify(action);
@@ -163,6 +165,12 @@ export function useGame(): UseGame {
   // Cuenta las acciones ya tomadas en el turno de bot actual, para la red de
   // seguridad de MAX_ACTIONS_PER_BOT_TURN (ver más abajo).
   const botTurnActionCountRef = useRef<{ turn: number; count: number }>({ turn: -1, count: 0 });
+  // Qué acción fue la última que aplicó un bot en su turno actual: si acaba
+  // de comprar un animal y lo siguiente es terminar turno, hay que esperar
+  // a que la animación de vuelo al descarte (ver FlyingCard.tsx) se vea
+  // entera antes de pasar de jugador, no solo el retraso normal entre
+  // pasos — ver el cálculo de delayMs más abajo.
+  const lastBotActionTypeRef = useRef<Action['type'] | null>(null);
   const [tick, setTick] = useState(0);
   const rerender = () => setTick((t) => t + 1);
   const [botAlgorithms, setBotAlgorithms] = useState<Record<string, BotAlgorithm>>({});
@@ -246,6 +254,7 @@ export function useGame(): UseGame {
 
       if (botTurnActionCountRef.current.turn !== state.turn) {
         botTurnActionCountRef.current = { turn: state.turn, count: 0 };
+        lastBotActionTypeRef.current = null;
       }
       botTurnActionCountRef.current.count++;
 
@@ -262,12 +271,23 @@ export function useGame(): UseGame {
         action = BOT_REGISTRY[algorithm].chooseAction(state, bot.id);
       }
 
-      delayMs = BOT_PACED_ACTION_TYPES.has(action.type) ? BOT_STEP_DELAY_MS : 0;
+      // Justo tras comprar un animal, terminar turno espera además lo que
+      // dure entera la animación de vuelo al descarte (ver
+      // FlyingCard.tsx): así el cambio de jugador nunca corta la animación
+      // a medias.
+      const justBoughtAnimal = lastBotActionTypeRef.current === 'buyAnimal';
+      delayMs =
+        action.type === 'endTurn' && justBoughtAnimal
+          ? FLIGHT_TOTAL_MS + BOT_STEP_DELAY_MS
+          : BOT_PACED_ACTION_TYPES.has(action.type)
+            ? BOT_STEP_DELAY_MS
+            : 0;
       applyStep = () => {
         // eslint-disable-next-line no-console
         console.log(`[bot] ${bot.name} (${algorithm}):`, action);
         const logLenBefore = state.log.length;
         applyAction(state, bot.id, action);
+        lastBotActionTypeRef.current = action.type;
         const engineLines = state.log.slice(logLenBefore);
         postGameLog([
           `T${turnBeforeAction} | ${bot.name} (${algorithm}) | ${describeAction(action)}`,
@@ -318,6 +338,7 @@ export function useGame(): UseGame {
     stateRef.current = newGame(config);
     turnSnapshotRef.current = null;
     botTurnActionCountRef.current = { turn: -1, count: 0 };
+    lastBotActionTypeRef.current = null;
     setHumanIds(Array.from({ length: config.numHumans }, (_, i) => `human-${i}`));
     const nextBotAlgorithms: Record<string, BotAlgorithm> = {};
     config.botAlgorithms.forEach((algorithm, i) => {
