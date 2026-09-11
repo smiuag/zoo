@@ -3,7 +3,7 @@
   "name": "Hipopótamo",
   "type": "animal",
   "species": "hippopotamus",
-  "marketCost": 6,
+  "marketCost": 5,
   "victoryPoints": 4,
   "text": "Robas 2 cartas.",
   "effects": [
