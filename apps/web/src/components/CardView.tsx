@@ -23,13 +23,17 @@ interface CardViewProps {
   // "∞" para las monedas comprables, de suministro ilimitado). Solo se
   // muestra en las cartas del mercado, no en la mano.
   remainingLabel?: string;
+  // Delante de remainingLabel: "×" por defecto (mercado: "quedan ×N"), pero
+  // el descarte de la mesa (ver GameBoard.tsx) lo quiere sin nada delante —
+  // ahí el número es un recuento total, no un "quedan ×N".
+  badgePrefix?: string;
   // Eliminada por el Cocodrilo al final de la partida (ver
   // player.destroyedCards): se marca con una X roja encima, para el resumen
   // final. Nunca es clicable (no tiene sentido interactuar con ella).
   destroyed?: boolean;
 }
 
-export function CardView({ card, onClick, disabled, compact, remainingLabel, destroyed }: CardViewProps) {
+export function CardView({ card, onClick, disabled, compact, remainingLabel, badgePrefix = '×', destroyed }: CardViewProps) {
   const clickable = Boolean(onClick) && !disabled && !destroyed;
   const bits: string[] = [];
   if (card.type === 'animal') bits.push(habitatLabel(card));
@@ -61,7 +65,12 @@ export function CardView({ card, onClick, disabled, compact, remainingLabel, des
       </div>
       <div className="card__name">{card.name}</div>
       <div className="card__footer">{bits.join(' · ')}</div>
-      {remainingLabel !== undefined && <span className="card__badge">×{remainingLabel}</span>}
+      {remainingLabel !== undefined && (
+        <span className="card__badge">
+          {badgePrefix}
+          {remainingLabel}
+        </span>
+      )}
       {destroyed && (
         <span className="card__destroyed-mark" aria-label="Eliminada por el Cocodrilo">
           ✕

@@ -93,12 +93,14 @@ describe('pago con monedas', () => {
 
     buyAnimal(state, player.id, cost2.instanceId);
 
-    // La moneda de 3 se descarta ENTERA (sigue siendo una Moneda de oro,
-    // con su valor de siempre): lo que sobra (3 - 2 = 1) se convierte en
-    // valor de compra genérico para el resto del turno.
+    // La moneda de 3 se gasta ENTERA (sigue siendo una Moneda de oro, con su
+    // valor de siempre): lo que sobra (3 - 2 = 1) se convierte en valor de
+    // compra genérico para el resto del turno. Se queda "en la mesa"
+    // (playedThisTurn) hasta terminar el turno, igual que una carta jugada:
+    // no pasa al descarte de verdad todavía (ver endTurn).
     expect(player.hand.filter((c) => c.type === 'coin')).toHaveLength(0);
-    expect(player.discard.some((c) => c.instanceId === coin3.instanceId)).toBe(true);
-    expect(player.discard.find((c) => c.instanceId === coin3.instanceId)?.value).toBe(3);
+    expect(player.discard.some((c) => c.instanceId === coin3.instanceId)).toBe(false);
+    expect(player.playedThisTurn.find((c) => c.instanceId === coin3.instanceId)?.value).toBe(3);
     expect(player.bonusPurchasingPowerThisTurn).toBe(1);
 
     const cost1 = trackCardWithCost(state, 1);
@@ -185,9 +187,13 @@ describe('compra de monedas (coin-2 a 3, coin-3 a 5, coin-5 a 7): suministro ili
 
     buyCoin(state, player.id, 'coin-3');
 
+    // La comprada va directa al descarte (como cualquier compra); la
+    // gastada para pagar se queda "en la mesa" hasta terminar el turno (ver
+    // payCoins), así que de momento no cuenta como descarte de verdad.
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(0);
-    expect(player.discard.filter((c) => c.id === 'coin-3')).toHaveLength(2); // la pagada + la comprada
+    expect(player.discard.filter((c) => c.id === 'coin-3')).toHaveLength(1); // solo la comprada
+    expect(player.playedThisTurn.some((c) => c.id === 'coin-3')).toBe(true); // la pagada
   });
 
   it('comprar una moneda de Platino (coin-5) cuesta 7 y va al descarte', () => {
@@ -198,7 +204,8 @@ describe('compra de monedas (coin-2 a 3, coin-3 a 5, coin-5 a 7): suministro ili
 
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(0);
-    expect(player.discard.filter((c) => c.id === 'coin-5')).toHaveLength(2); // la pagada + la comprada
+    expect(player.discard.filter((c) => c.id === 'coin-5')).toHaveLength(1); // solo la comprada
+    expect(player.playedThisTurn.some((c) => c.id === 'coin-5')).toBe(true); // la pagada
   });
 
   it('falla si no hay monedas suficientes', () => {

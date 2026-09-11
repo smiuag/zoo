@@ -1,7 +1,13 @@
 export * from './model/state';
 export * from './cards/schema';
 export { getAllCards, getCard } from './cards/registry';
-export { registerEffect, resolveEffect, registerScoreEffect, resolveScoreEffect } from './effects/registry';
+export {
+  registerEffect,
+  resolveEffect,
+  registerScoreEffect,
+  resolveScoreEffect,
+  pickDefaultDiscard,
+} from './effects/registry';
 export type { EffectHandler, ScoreEffectHandler } from './effects/registry';
 export * from './engine';
 export * from './scoring';

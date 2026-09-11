@@ -24,25 +24,32 @@ function redactZone(cards: CardInstance[]): CardInstance[] {
   return cards.map((_, i) => hiddenCard(i));
 }
 
-// Devuelve una copia de `state` donde la mano/mazo/descarte/jugado-este-turno
-// de cualquier asiento HUMANO que no sea `viewerSeatId` se sustituye por
-// placeholders (mismo recuento, sin identidad de carta real). Los bots nunca
-// se redactan (sus mazos ya son públicos hoy en el pase-y-juega local), ni
-// tampoco nada una vez `state.gameOver`: el resumen final siempre ha sido
-// público a propósito (ver canViewPlayer en App.tsx), así que a partir de
-// ahí se reenvía el estado real tal cual.
+// Devuelve una copia de `state` donde la mano/mazo de cualquier asiento
+// HUMANO que no sea `viewerSeatId` se sustituye por placeholders (mismo
+// recuento, sin identidad de carta real). El descarte y lo jugado este
+// turno, en cambio, solo se redactan si ese jugador NO tiene el turno
+// activo ahora mismo: mientras juega, su "tablero" (ver
+// ActivePlayerBoard.tsx) se hace público en vivo a propósito — es la misma
+// revelación que ya ocurre en pase-y-juega local, donde cualquiera sentado
+// a la mesa ve lo que juega y compra quien tiene el turno. Los bots nunca
+// se redactan (sus mazos ya son públicos hoy), ni tampoco nada una vez
+// `state.gameOver`: el resumen final siempre ha sido público a propósito
+// (ver canViewPlayer en GameBoard.tsx), así que a partir de ahí se reenvía
+// el estado real tal cual.
 export function redactStateForSeat(state: GameState, viewerSeatId: string, humanIds: string[]): GameState {
   if (state.gameOver) return state;
+  const activePlayerId = state.players[state.activePlayerIndex]?.id;
   return {
     ...state,
     players: state.players.map((player) => {
       if (player.id === viewerSeatId || !humanIds.includes(player.id)) return player;
+      const isActive = player.id === activePlayerId;
       return {
         ...player,
         hand: redactZone(player.hand),
         deck: redactZone(player.deck),
-        discard: redactZone(player.discard),
-        playedThisTurn: redactZone(player.playedThisTurn),
+        discard: isActive ? player.discard : redactZone(player.discard),
+        playedThisTurn: isActive ? player.playedThisTurn : redactZone(player.playedThisTurn),
       };
     }),
   };

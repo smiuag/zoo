@@ -53,6 +53,25 @@ export interface Player {
   destroyedCards: CardInstance[];
 }
 
+// Descarte forzoso en curso (Buitre/Mono/Hiena): quién debe cuántas cartas
+// todavía, y de cuáles puede elegir. Mientras esto no sea null, NADIE (ni
+// siquiera el jugador activo) tiene ninguna acción legal salvo
+// "resolveDiscard" para los jugadores que todavía deben algo — ver
+// getLegalActions en engine.ts. Se crea en el mismo playCard que dispara el
+// efecto (Buitre/Mono/Hiena tienen un único efecto onPlay cada una, así que
+// no hay que encadenar con nada más de esa misma carta) y se limpia solo en
+// resolveDiscard, cuando `owed` se queda sin entradas.
+export interface PendingDiscardDecision {
+  sourceCardName: string;
+  // Quién jugó la carta que disparó esto: a quien beneficia bonusDrawPerCoin.
+  sourcePlayerId: string;
+  bonusDrawPerCoin: boolean;
+  coinsDiscardedSoFar: number;
+  // Por jugador afectado: cuántas cartas le quedan por descartar y de qué
+  // instanceIds puede elegir (null = cualquier carta de su mano vale).
+  owed: Record<string, { amount: number; eligibleInstanceIds: string[] | null }>;
+}
+
 export interface GameState {
   players: Player[];
   activePlayerIndex: number;
@@ -95,6 +114,7 @@ export interface GameState {
   // acuática en vez de sacrificar solo un animal una única vez. Ver
   // scoring.ts.
   scoringFinalized: boolean;
+  pendingDecision: PendingDiscardDecision | null;
 }
 
 // Acuña una nueva instancia de carta con un instanceId único dentro de la
@@ -149,12 +169,3 @@ export function removeFromPlayedThisTurn(player: Player, instanceId: string): vo
   if (idx !== -1) player.playedThisTurn.splice(idx, 1);
 }
 
-// Quita y devuelve una carta cualquiera de la mano del jugador, elegida al
-// azar. Usado por efectos que afectan a las manos de otros jugadores sin
-// que el motor tenga que pedirles una elección interactiva (p. ej. el mono
-// o la araña).
-export function takeRandomFromHand(player: Player): CardInstance | undefined {
-  if (player.hand.length === 0) return undefined;
-  const index = Math.floor(Math.random() * player.hand.length);
-  return player.hand.splice(index, 1)[0];
-}

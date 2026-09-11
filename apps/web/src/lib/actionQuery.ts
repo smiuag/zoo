@@ -27,6 +27,16 @@ export function buyCoinActionFor(legalActions: Action[], coinId: string) {
   );
 }
 
+// Descarte forzoso pendiente (Buitre/Mono/Hiena/Murciélago): si esta carta
+// concreta de la mano es una de las que el visor puede elegir descartar
+// ahora mismo, ver PendingDiscardDecision en el motor.
+export function resolveDiscardActionFor(legalActions: Action[], cardInstanceId: string) {
+  return legalActions.find(
+    (a): a is Extract<Action, { type: 'resolveDiscard' }> =>
+      a.type === 'resolveDiscard' && a.instanceId === cardInstanceId
+  );
+}
+
 // Etiqueta corta para un objetivo (carta del mazo/mano/descarte/mercado),
 // usada en el panel contextual de elección (Elefante, Araña).
 export function targetLabel(state: GameState, player: Player, targetInstanceId: string): string {

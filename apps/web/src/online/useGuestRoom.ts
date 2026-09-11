@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getActivePlayer, getLegalActions, type Action, type GameState, type PlayerScore } from '@zoo/engine';
+import { getLegalActions, type Action, type GameState, type PlayerScore } from '@zoo/engine';
 import type { BotAlgorithm } from '../lib/gameConfig';
 import {
   actionsChannelName,
@@ -20,7 +20,6 @@ export interface UseGuestRoomResult {
   botAlgorithms: Record<string, BotAlgorithm>;
   scores: PlayerScore[];
   legalActions: Action[];
-  myTurn: boolean;
   sendAction: (action: Action) => void;
 }
 
@@ -82,8 +81,10 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string):
   }
 
   const state = payload?.state ?? null;
-  const myTurn = Boolean(state && !state.gameOver && getActivePlayer(state).id === seatId);
-  const legalActions = myTurn && state ? getLegalActions(state, seatId) : [];
+  // getLegalActions ya devuelve lo correcto sin más matices, tenga el turno
+  // este asiento o le toque resolver un descarte forzoso pendiente (ver
+  // PendingDiscardDecision en el motor) aunque no sea su turno.
+  const legalActions = state ? getLegalActions(state, seatId) : [];
 
   return {
     status,
@@ -92,7 +93,6 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string):
     botAlgorithms: payload?.botAlgorithms ?? {},
     scores: payload?.scores ?? [],
     legalActions,
-    myTurn,
     sendAction,
   };
 }

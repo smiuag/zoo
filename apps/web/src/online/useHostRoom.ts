@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getActivePlayer, getLegalActions, type Action, type GameState, type PlayerScore } from '@zoo/engine';
+import { getLegalActions, type Action, type GameState, type PlayerScore } from '@zoo/engine';
 import type { BotAlgorithm } from '../lib/gameConfig';
 import {
   actionsChannelName,
@@ -86,10 +86,11 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
 
       if (msg.type === 'action') {
         if (!active || !humanIds.includes(seat.seatId)) return;
-        // Solo se aplica si de verdad es el turno de ESE asiento ahora mismo,
-        // y la jugada sigue siendo legal: evita que un mensaje repetido o
-        // manipulado a mano actúe fuera de turno o con una acción inválida.
-        if (getActivePlayer(state).id !== seat.seatId) return;
+        // getLegalActions ya es la única fuente de verdad de "puede este
+        // asiento hacer esto ahora mismo": no solo cuando tiene el turno,
+        // también cuando le toca resolver un descarte forzoso pendiente
+        // (ver PendingDiscardDecision) aunque el turno sea de otro. Evita
+        // que un mensaje repetido o manipulado a mano aplique algo ilegal.
         const legal = getLegalActions(state, seat.seatId);
         const isLegal = legal.some((a) => JSON.stringify(a) === JSON.stringify(msg.action));
         if (!isLegal) return;

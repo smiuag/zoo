@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { getActivePlayer } from '@zoo/engine';
+import { getLegalActions } from '@zoo/engine';
 import { GameBoard } from './components/GameBoard';
 import { GameSetup } from './components/GameSetup';
 import { GuestApp } from './components/GuestApp';
@@ -30,8 +30,7 @@ function HostOrLocalApp() {
     phase,
     state,
     humanIds,
-    humanTurn,
-    legalActions,
+    actingHumanId,
     scores,
     canRestartTurn,
     botAlgorithms,
@@ -50,18 +49,25 @@ function HostOrLocalApp() {
   // pestaña es el host y debe retransmitir el estado a los invitados.
   const [onlineRoom, setOnlineRoom] = useState<(CreatedRoom & { config: GameConfig }) | null>(null);
 
-  const activePlayer = getActivePlayer(state);
-  // Mientras juegan los bots, se sigue mostrando el último humano activo
-  // (pase-y-juega local): nada interactivo depende de esto, solo evita que
-  // el panel "desaparezca" entre turno humano y turno de bots. En modo
-  // online el host es siempre human-0, así que esto nunca cambia el valor
-  // devuelto ahí.
+  // Mientras juegan los bots, se sigue mostrando el último humano con
+  // agencia (pase-y-juega local): nada interactivo depende de esto, solo
+  // evita que el panel "desaparezca" entre turno humano y turno de bots. Si
+  // un descarte pendiente le toca a OTRO humano que el activo, también se
+  // cambia aquí — así "se le pasa el turno" un momento para que elija. En
+  // modo online el host es siempre human-0, así que esto nunca cambia el
+  // valor devuelto ahí.
   const lastHumanIdRef = useRef<string>(humanIds[0]);
-  if (humanTurn) lastHumanIdRef.current = activePlayer.id;
+  if (actingHumanId) lastHumanIdRef.current = actingHumanId;
 
   const isOnlineHost = onlineRoom !== null;
   const viewerPlayerId = isOnlineHost ? 'human-0' : lastHumanIdRef.current;
-  const isMyTurn = isOnlineHost ? humanTurn && activePlayer.id === 'human-0' : humanTurn;
+  // Cada visor calcula sus propias acciones legales directamente (igual que
+  // ya hace el invitado online, ver useGuestRoom): es lo único que funciona
+  // sin ambigüedad tanto en pase-y-juega local como de host, ya que
+  // actingHumanId (el humano con agencia AHORA MISMO) no tiene por qué
+  // coincidir con este visor concreto (p. ej. en el host, mientras un
+  // invitado resuelve su propio descarte pendiente).
+  const legalActions = phase === 'playing' ? getLegalActions(state, viewerPlayerId) : [];
 
   const { connectedSeatIds } = useHostRoom({
     roomCode: onlineRoom?.roomCode ?? '',
@@ -120,7 +126,6 @@ function HostOrLocalApp() {
         state={state}
         humanIds={humanIds}
         viewerPlayerId={viewerPlayerId}
-        isMyTurn={isMyTurn}
         legalActions={legalActions}
         scores={scores}
         botAlgorithms={botAlgorithms}

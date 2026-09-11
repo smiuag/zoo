@@ -9,7 +9,7 @@ import {
   type GameState,
   type Player,
 } from './model/state';
-import { resolveEffect, setRefillHook } from './effects/registry';
+import { pickDefaultDiscard, resolveEffect, setRefillHook } from './effects/registry';
 
 const STARTING_HAND_SIZE = 5;
 const ANIMAL_SPECIES = [
@@ -88,7 +88,11 @@ export type Action =
   // Compra una moneda de mayor valor (coin-2, coin-3 o coin-5) pagando su coste.
   // Suministro ilimitado, no depende de un mercado con hueco.
   | { type: 'buyCoin'; coinId: (typeof PURCHASABLE_COINS)[number] }
-  | { type: 'endTurn' };
+  | { type: 'endTurn' }
+  // Resuelve UNA carta de un descarte forzoso pendiente (ver
+  // PendingDiscardDecision en model/state.ts): el jugador afectado elige qué
+  // descarta, una carta a la vez, hasta cubrir lo que debía.
+  | { type: 'resolveDiscard'; instanceId: string };
 
 // --- Pago con monedas ---------------------------------------------------
 // El dinero son cartas de tipo "coin" en la mano, cada una con un valor
@@ -190,7 +194,11 @@ function payCoins(player: Player, cost: number, isAquaticAnimal = false): void {
   for (const coin of toSpend) {
     const idx = player.hand.findIndex((c) => c.instanceId === coin.instanceId);
     player.hand.splice(idx, 1);
-    player.discard.push(coin);
+    // Igual que una carta jugada (ver playCard): se queda "en el limbo"
+    // (playedThisTurn) en vez de ir directa al descarte de verdad, así se
+    // sigue viendo sobre la mesa el resto del turno — endTurn ya la manda
+    // al descarte junto con todo lo demás sin jugar/gastar.
+    player.playedThisTurn.push(coin);
   }
 
   // El valor de compra se puede repartir como se quiera entre varias
@@ -316,6 +324,7 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
     finalRoundTriggerPlayerIndex: null,
     gameOver: false,
     scoringFinalized: false,
+    pendingDecision: null,
   };
 
   state.players = playerConfigs.map((cfg) => {
@@ -376,6 +385,10 @@ export function getActivePlayer(state: GameState): Player {
 
 function requireActivePlayer(state: GameState, playerId: string): Player {
   if (state.gameOver) throw new Error('La partida ha terminado');
+  // Ninguna acción normal (jugar, comprar, terminar turno) es legal mientras
+  // haya un descarte forzoso pendiente, ni siquiera para el jugador activo:
+  // ver PendingDiscardDecision y resolveDiscard.
+  if (state.pendingDecision) throw new Error('Hay un descarte pendiente: resuélvelo antes de seguir');
   const player = state.players.find((p) => p.id === playerId);
   if (!player) throw new Error(`Jugador desconocido: ${playerId}`);
   if (getActivePlayer(state).id !== playerId) throw new Error(`No es el turno de ${playerId}`);
@@ -479,6 +492,22 @@ function drawThenTopdeckActions(player: Player, card: CardInstance, effect: Effe
 
 export function getLegalActions(state: GameState, playerId: string): Action[] {
   if (state.gameOver) return [];
+
+  // Con un descarte forzoso pendiente, NADIE tiene ninguna acción normal
+  // (ni siquiera el jugador activo): solo pueden actuar quienes todavía
+  // deban descartar, y solo resolveDiscard, una carta a la vez, restringida
+  // a lo que les esté permitido elegir (ver PendingDiscardDecision).
+  if (state.pendingDecision) {
+    const owed = state.pendingDecision.owed[playerId];
+    if (!owed || owed.amount <= 0) return [];
+    const player = state.players.find((p) => p.id === playerId);
+    if (!player) return [];
+    const eligible = owed.eligibleInstanceIds
+      ? player.hand.filter((c) => owed.eligibleInstanceIds!.includes(c.instanceId))
+      : player.hand;
+    return eligible.map((c) => ({ type: 'resolveDiscard', instanceId: c.instanceId }));
+  }
+
   const player = state.players.find((p) => p.id === playerId);
   if (!player || getActivePlayer(state).id !== playerId) return [];
 
@@ -568,8 +597,14 @@ export function playCard(
   player.playedThisTurn.push(card);
 
   for (const effect of card.effects.filter((e) => e.trigger === 'onPlay')) {
-    resolveEffect(state, player, effect, { targetInstanceId, secondaryTargetInstanceId, targetPlayerId });
+    resolveEffect(state, player, effect, { targetInstanceId, secondaryTargetInstanceId, targetPlayerId, sourceCardName: card.name });
   }
+  // Si alguno de esos efectos ha dejado un descarte forzoso pendiente
+  // (Buitre/Mono/Hiena/Murciélago), resuelve solo, sin esperar a nadie, a
+  // cualquier afectado que en realidad no tenga elección que hacer (le
+  // caben exactamente tantas cartas elegibles como debe descartar) — solo
+  // debe bloquear la partida cuando de verdad haya que elegir.
+  autoResolveForcedDiscards(state);
   // Algunas de esas habilidades dan valor de compra extra (Serpiente, Loro,
   // León, Delfín...): puede que este sea el pico de la partida para este
   // jugador, ver recordRichestTurn.
@@ -676,6 +711,100 @@ export function endTurn(state: GameState, playerId: string): void {
   state.log.push(`Turno de ${next.name}`);
 }
 
+// Resuelve UNA carta de un descarte forzoso pendiente (Buitre/Mono/Hiena):
+// el jugador afectado elige, de entre lo que le está permitido
+// (owed[playerId].eligibleInstanceIds, o cualquier carta si es null), cuál
+// descarta. Cuando el último jugador que debía algo termina de resolver, se
+// cierra la decisión (y si la disparó el Mono, es aquí cuando quien la jugó
+// roba 1 carta por cada moneda que se haya descartado así en total).
+export function resolveDiscard(state: GameState, playerId: string, instanceId: string): void {
+  const decision = state.pendingDecision;
+  if (!decision) throw new Error('No hay ningún descarte pendiente');
+  const owed = decision.owed[playerId];
+  if (!owed || owed.amount <= 0) throw new Error(`${playerId} no debe descartar nada ahora mismo`);
+  if (owed.eligibleInstanceIds && !owed.eligibleInstanceIds.includes(instanceId)) {
+    throw new Error(`${instanceId} no es una carta elegible para este descarte`);
+  }
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) throw new Error(`Jugador desconocido: ${playerId}`);
+  const idx = player.hand.findIndex((c) => c.instanceId === instanceId);
+  if (idx === -1) throw new Error(`La carta ${instanceId} no está en la mano de ${playerId}`);
+
+  const [card] = player.hand.splice(idx, 1);
+  player.discard.push(card);
+  if (decision.bonusDrawPerCoin && card.type === 'coin') decision.coinsDiscardedSoFar += 1;
+
+  owed.amount -= 1;
+  if (owed.amount <= 0) delete decision.owed[playerId];
+
+  state.log.push(`${player.name} descartó ${card.name} (${decision.sourceCardName})`);
+
+  if (Object.keys(decision.owed).length === 0) {
+    if (decision.bonusDrawPerCoin && decision.coinsDiscardedSoFar > 0) {
+      const sourcePlayer = state.players.find((p) => p.id === decision.sourcePlayerId);
+      if (sourcePlayer) {
+        drawCards(sourcePlayer, decision.coinsDiscardedSoFar);
+        state.log.push(`${sourcePlayer.name} robó ${decision.coinsDiscardedSoFar} carta(s) por monedas descartadas así`);
+      }
+    }
+    state.pendingDecision = null;
+  }
+}
+
+// Se llama justo después de resolver los efectos onPlay de una carta
+// (ver playCard): si alguno dejó un descarte forzoso pendiente, resuelve
+// automáticamente a cualquier afectado que en realidad no tenga ninguna
+// elección que hacer — le caben exactamente tantas cartas elegibles
+// (owed.eligibleInstanceIds, o toda su mano si es null) como debe
+// descartar, así que el resultado es el mismo elija lo que elija. Deja
+// pendiente (bloqueando la partida) únicamente a quien de verdad tenga más
+// cartas elegibles que las que debe soltar.
+function autoResolveForcedDiscards(state: GameState): void {
+  if (!state.pendingDecision) return;
+  for (const playerId of Object.keys(state.pendingDecision.owed)) {
+    // Se recalcula en cada vuelta: resolveDiscard puede vaciar `owed` (y
+    // hasta poner pendingDecision a null) según va resolviendo.
+    while (state.pendingDecision?.owed[playerId]) {
+      const owed = state.pendingDecision.owed[playerId];
+      const player = state.players.find((p) => p.id === playerId);
+      const eligible = owed.eligibleInstanceIds ?? player?.hand.map((c) => c.instanceId) ?? [];
+      if (eligible.length > owed.amount) break; // hay elección real: se deja pendiente
+      const instanceId = eligible[0];
+      if (instanceId === undefined) break;
+      resolveDiscard(state, playerId, instanceId);
+    }
+  }
+}
+
+// Resuelve UN paso de la decisión pendiente actual (si hay alguna) con la
+// heurística por defecto (ver pickDefaultDiscard), en nombre de cualquiera
+// de los jugadores que todavía deban algo. Pensado para quien conduzca una
+// partida sin UI real detrás de cada asiento afectado (bots en
+// self-play/tests; la web, en cambio, deja elegir de verdad a los humanos y
+// solo usa esto para los asientos de bot, ver useGame.ts). Devuelve false
+// si no había ninguna decisión pendiente (nada que hacer).
+export function autoResolvePendingDiscard(state: GameState): boolean {
+  if (!state.pendingDecision) return false;
+  const owedId = Object.keys(state.pendingDecision.owed)[0];
+  if (!owedId) {
+    // No debería pasar (beginPendingDiscard no deja `owed` vacío al crear la
+    // decisión), pero por si acaso no se deja un estado inconsistente colgado.
+    state.pendingDecision = null;
+    return true;
+  }
+  const player = state.players.find((p) => p.id === owedId);
+  const owed = state.pendingDecision.owed[owedId];
+  const instanceId = player ? pickDefaultDiscard(player.hand, owed.eligibleInstanceIds) : null;
+  if (!instanceId) {
+    delete state.pendingDecision.owed[owedId];
+    if (Object.keys(state.pendingDecision.owed).length === 0) state.pendingDecision = null;
+    return true;
+  }
+  resolveDiscard(state, owedId, instanceId);
+  return true;
+}
+
 export function applyAction(state: GameState, playerId: string, action: Action): void {
   switch (action.type) {
     case 'playCard':
@@ -696,6 +825,9 @@ export function applyAction(state: GameState, playerId: string, action: Action):
       return;
     case 'endTurn':
       endTurn(state, playerId);
+      return;
+    case 'resolveDiscard':
+      resolveDiscard(state, playerId, action.instanceId);
       return;
   }
 }

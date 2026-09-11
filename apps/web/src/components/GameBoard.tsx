@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { getActivePlayer, getCard, scoreCardContributions, type Action, type CardInstance, type GameState, type Player, type PlayerScore } from '@zoo/engine';
+import { ActivePlayerBoard } from './ActivePlayerBoard';
 import { CardView } from './CardView';
-import { buyAnimalActionFor, buyCoinActionFor, playCardActionsFor } from '../lib/actionQuery';
+import { buyAnimalActionFor, buyCoinActionFor, playCardActionsFor, resolveDiscardActionFor } from '../lib/actionQuery';
 import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
 import { buildPlayCardTargetChoice, type PendingChoice } from '../lib/pendingChoice';
 import type { BotAlgorithm } from '../lib/gameConfig';
@@ -16,7 +17,6 @@ export interface GameBoardProps {
   // los bots — ver App.tsx); online (host o invitado) es siempre el mismo
   // asiento fijo durante toda la partida.
   viewerPlayerId: string;
-  isMyTurn: boolean;
   legalActions: Action[];
   scores: PlayerScore[];
   botAlgorithms: Record<string, BotAlgorithm>;
@@ -34,7 +34,6 @@ export function GameBoard({
   state,
   humanIds,
   viewerPlayerId,
-  isMyTurn,
   legalActions,
   scores,
   botAlgorithms,
@@ -48,6 +47,26 @@ export function GameBoard({
   const human = state.players.find((p) => p.id === viewerPlayerId) ?? state.players[0];
   const bots = state.players.filter((p) => !humanIds.includes(p.id));
   const scoreFor = (playerId: string) => scores.find((s) => s.playerId === playerId)?.score ?? 0;
+  // legalActions siempre son LAS DE ESTE VISOR concreto (ver App.tsx/
+  // GuestApp.tsx): si tiene alguna, puede actuar ahora mismo, sea porque es
+  // su turno o porque le toca resolver un descarte forzoso pendiente (ver
+  // PendingDiscardDecision) aunque no tenga el turno. Nunca hay una mezcla
+  // de ambos tipos de acción a la vez (ver el motor: un descarte pendiente
+  // deja sin ninguna acción normal al jugador activo).
+  const canAct = legalActions.length > 0;
+  const owedDiscard = state.pendingDecision?.owed[viewerPlayerId];
+  // A quién se está esperando para el banner de estado: si hay un descarte
+  // pendiente, el primero de la lista que todavía lo deba (puede haber
+  // varios a la vez, p. ej. el Buitre afecta a todos los rivales); si no,
+  // el propio jugador activo.
+  const waitingOnPlayer = state.pendingDecision
+    ? (state.players.find((p) => p.id === Object.keys(state.pendingDecision!.owed)[0]) ?? activePlayer)
+    : activePlayer;
+  // Mazo (boca abajo, sin revelar nada) y descarte (la última carta en
+  // llegar, boca arriba, con el recuento total) del jugador ACTIVO — igual
+  // que "Mesa de X" (ActivePlayerBoard), viven en la fila de controles de
+  // turno de abajo, no en el panel de "Tu mano".
+  const lastDiscarded = activePlayer.discard[activePlayer.discard.length - 1];
   // Mientras la partida sigue en curso, el mazo de OTRO jugador humano es
   // información privada: solo se puede "ver el mazo" de un bot en cualquier
   // momento, del propio jugador que mira esta pantalla, o de cualquiera una
@@ -97,7 +116,17 @@ export function GameBoard({
   }
 
   function handleHandCardClick(card: CardInstance) {
-    if (!isMyTurn || card.type === 'coin') return;
+    if (card.type === 'coin') return;
+
+    // Un descarte forzoso pendiente tiene prioridad: si esta carta es una
+    // de las elegibles, un clic la descarta directamente (nunca hay
+    // ambigüedad con jugarla: mientras haya una decisión pendiente,
+    // legalActions no contiene ninguna acción "playCard").
+    const discardAction = resolveDiscardActionFor(legalActions, card.instanceId);
+    if (discardAction) {
+      runAction(discardAction);
+      return;
+    }
 
     const acts = playCardActionsFor(legalActions, card.instanceId);
     if (acts.length === 0) return;
@@ -109,27 +138,23 @@ export function GameBoard({
   }
 
   function isHandCardClickable(card: CardInstance): boolean {
-    if (!isMyTurn || card.type === 'coin') return false;
-    return playCardActionsFor(legalActions, card.instanceId).length > 0;
+    if (card.type === 'coin') return false;
+    return Boolean(resolveDiscardActionFor(legalActions, card.instanceId)) || playCardActionsFor(legalActions, card.instanceId).length > 0;
   }
 
   function handleMarketCardClick(card: CardInstance) {
-    if (!isMyTurn) return;
     runAction(buyAnimalActionFor(legalActions, card.instanceId));
   }
 
   function isMarketCardClickable(card: CardInstance): boolean {
-    if (!isMyTurn) return false;
     return Boolean(buyAnimalActionFor(legalActions, card.instanceId));
   }
 
   function handleBuyCoinClick(coinId: string) {
-    if (!isMyTurn) return;
     runAction(buyCoinActionFor(legalActions, coinId));
   }
 
   function isCoinShopClickable(coinId: string): boolean {
-    if (!isMyTurn) return false;
     return Boolean(buyCoinActionFor(legalActions, coinId));
   }
 
@@ -262,10 +287,14 @@ export function GameBoard({
             <div className="status-row">
               {state.gameOver ? (
                 <span className="status-pill status-pill--over">Partida terminada</span>
+              ) : owedDiscard ? (
+                <span className="status-pill status-pill--discard">
+                  Descarta {owedDiscard.amount} carta{owedDiscard.amount === 1 ? '' : 's'} — {state.pendingDecision!.sourceCardName}
+                </span>
               ) : (
                 <span className="status-pill">
                   Ronda {state.round}/{state.maxRounds ?? '∞'} —{' '}
-                  {isMyTurn ? `turno de ${activePlayer.name}` : `esperando a ${activePlayer.name}`}
+                  {canAct ? `turno de ${activePlayer.name}` : `esperando a ${waitingOnPlayer.name}`}
                 </span>
               )}
               {onNewGame && (
@@ -294,6 +323,8 @@ export function GameBoard({
             </ul>
           </div>
 
+          <ActivePlayerBoard state={state} />
+
           <div className="panel">
             <div className="turn-controls">
               <span className="chip chip--resource">
@@ -305,18 +336,37 @@ export function GameBoard({
                   {human.aquaticBonusPurchasingPowerThisTurn === 1 ? '' : 's'}
                 </span>
               )}
-              <button
-                className="btn btn--primary"
-                disabled={!isMyTurn}
-                onClick={() => runAction(legalActions.find((a) => a.type === 'endTurn'))}
-              >
-                Terminar turno
-              </button>
-              {onRestartTurn && (
-                <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
-                  ↺ Reiniciar turno
-                </button>
-              )}
+              <div className="turn-controls__row">
+                <div className="pile pile--deck" title={`Mazo de ${activePlayer.name}`}>
+                  <div className="card card--compact card--facedown">
+                    <span className="card__icon">🂠</span>
+                    <span className="card__badge">{activePlayer.deck.length}</span>
+                  </div>
+                </div>
+
+                <div className="turn-controls__buttons">
+                  <button
+                    className="btn btn--primary"
+                    disabled={!legalActions.some((a) => a.type === 'endTurn')}
+                    onClick={() => runAction(legalActions.find((a) => a.type === 'endTurn'))}
+                  >
+                    Terminar turno
+                  </button>
+                  {onRestartTurn && (
+                    <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
+                      ↺ Reiniciar turno
+                    </button>
+                  )}
+                </div>
+
+                <div className="pile pile--discard" title={`Descarte de ${activePlayer.name}`}>
+                  {lastDiscarded ? (
+                    <CardView card={lastDiscarded} compact badgePrefix="" remainingLabel={String(activePlayer.discard.length)} />
+                  ) : (
+                    <div className="card card--compact card--empty" />
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -333,7 +383,7 @@ export function GameBoard({
                 <CardView
                   key={card.instanceId}
                   card={card}
-                  onClick={isMyTurn && card.type !== 'coin' ? () => handleHandCardClick(card) : undefined}
+                  onClick={card.type !== 'coin' ? () => handleHandCardClick(card) : undefined}
                   disabled={card.type !== 'coin' && !isHandCardClickable(card)}
                 />
               ))}
@@ -372,7 +422,7 @@ export function GameBoard({
                 <CardView
                   key={card.instanceId}
                   card={card}
-                  onClick={isMyTurn ? () => handleMarketCardClick(card) : undefined}
+                  onClick={() => handleMarketCardClick(card)}
                   disabled={!isMarketCardClickable(card)}
                   remainingLabel={String((state.sharedDecks[card.species ?? ''] ?? []).length + 1)}
                 />
@@ -383,7 +433,7 @@ export function GameBoard({
                   <CardView
                     key={coinId}
                     card={card}
-                    onClick={isMyTurn ? () => handleBuyCoinClick(coinId) : undefined}
+                    onClick={() => handleBuyCoinClick(coinId)}
                     disabled={!isCoinShopClickable(coinId)}
                     remainingLabel="∞"
                   />

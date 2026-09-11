@@ -7,9 +7,9 @@ import {
   createGame,
   expensiveFirstBot,
   getActivePlayer,
-  getLegalActions,
   heuristicBot,
   landRlBot,
+  pickDefaultDiscard,
   randomBot,
   rlBot,
   scoreGame,
@@ -41,11 +41,16 @@ const DEFAULT_BOT_ALGORITHM: BotAlgorithm = 'rl';
 // bucle que no da PV de más (p. ej. jugar una y otra vez el mismo animal ya
 // adquirido, que solo cicla entre mano/descarte/mazo vía su propio robo, sin
 // aumentar la colección real) y cuya política nunca elige terminar turno por
-// su cuenta. Sin este límite, el bucle sin dependencias de abajo seguiría
-// reintentando para siempre en cada render y congelaría la pestaña. Se
-// cuentan las acciones de ESTE turno (se reinicia en cuanto cambia
-// state.turn) y, superado el límite, se le fuerza a terminar turno.
+// su cuenta. Se cuentan las acciones de ESTE turno (se reinicia en cuanto
+// cambia state.turn) y, superado el límite, se le fuerza a terminar turno.
 const MAX_ACTIONS_PER_BOT_TURN = 300;
+
+// Ritmo al que se ve actuar a un bot: jugar una carta o terminar turno
+// (para poder ver lo último que hizo antes de que la pantalla pase al
+// siguiente jugador) esperan este tiempo antes de aplicarse; comprar o
+// resolver un descarte pendiente no se retrasan.
+const BOT_STEP_DELAY_MS = 1000;
+const BOT_PACED_ACTION_TYPES = new Set<Action['type']>(['playCard', 'endTurn']);
 
 function describeAction(action: Action): string {
   return JSON.stringify(action);
@@ -112,8 +117,15 @@ export interface UseGame {
   // contra bots, más si es "pase y juega" local). Sustituye al antiguo
   // HUMAN_ID fijo.
   humanIds: string[];
-  humanTurn: boolean;
-  legalActions: Action[];
+  // Qué humano tiene agencia AHORA MISMO: normalmente el humano con el
+  // turno activo, pero mientras haya un descarte forzoso pendiente (Buitre/
+  // Mono/Hiena/Murciélago) puede ser un humano DISTINTO al que tiene el
+  // turno (el afectado, no quien jugó la carta) — ver PendingDiscardDecision
+  // en el motor. undefined si ahora mismo no le toca actuar a ningún
+  // humano (turno de un bot, o partida terminada). App.tsx lo usa para
+  // saber a quién mostrar en pase-y-juega local, y para calcular las
+  // acciones legales de cada visor (getLegalActions(state, actingHumanId)).
+  actingHumanId: string | undefined;
   scores: PlayerScore[];
   canRestartTurn: boolean;
   botAlgorithms: Record<string, BotAlgorithm>;
@@ -157,28 +169,79 @@ export function useGame(): UseGame {
 
   const state = stateRef.current;
 
-  // El motor muta el GameState en el sitio; después de cada acción (propia
-  // o de un bot) forzamos un re-render. Este efecto, sin dependencias, se
-  // reevalúa tras cada render: mientras el turno activo sea de un bot,
-  // encadena sus acciones automáticamente hasta que vuelva a tocarle a algún
-  // humano o termine la partida. No hace nada mientras se está en el
-  // formulario de creación (phase 'setup'): el placeholder de arriba nunca
-  // debe jugarse solo.
+  // A quién le toca actuar AHORA MISMO entre los humanos: normalmente el
+  // humano con el turno activo, pero mientras haya un descarte forzoso
+  // pendiente (Buitre/Mono/Hiena/Murciélago) puede tocarle a un humano
+  // DISTINTO — el afectado, que puede no tener el turno — ver
+  // PendingDiscardDecision en el motor. undefined si nadie humano puede
+  // actuar ahora (turno de un bot, o partida terminada/sin empezar).
+  function findActingHuman(): string | undefined {
+    if (phase !== 'playing' || state.gameOver) return undefined;
+    if (state.pendingDecision) {
+      return Object.keys(state.pendingDecision.owed).find((id) => humanIds.includes(id));
+    }
+    const activeId = getActivePlayer(state).id;
+    return humanIds.includes(activeId) ? activeId : undefined;
+  }
+
+  // Solo true cuando el humano activo (el que tiene el turno de verdad, no
+  // un afectado por un descarte pendiente) puede actuar sin nada bloqueando
+  // — es la única situación en la que tiene sentido tomar la foto de
+  // "reiniciar turno" o permitir usarla (ver canRestartTurn más abajo).
+  const isActiveHumanTurn =
+    phase === 'playing' && !state.gameOver && !state.pendingDecision && humanIds.includes(getActivePlayer(state).id);
+
+  // El motor muta el GameState en el sitio; tras cada acción de un bot (o
+  // de un descarte pendiente que le toque a uno) forzamos un re-render.
+  // Este efecto se reevalúa cada vez que `tick` cambia — es decir, justo
+  // después de la acción anterior — y agenda UN único paso más con
+  // setTimeout: así se puede ver a los bots jugar carta a carta en vez de
+  // resolver el turno entero de golpe, y también se ve un instante lo
+  // último que hicieron antes de pasar al siguiente jugador (ver
+  // BOT_PACED_ACTION_TYPES: jugar una carta y terminar turno se retrasan;
+  // comprar o resolver un descarte pendiente no). Al no ser ya un bucle
+  // síncrono, tampoco puede congelar la
+  // pestaña aunque un bot se quede enganchado en un bucle (por eso ya no
+  // hace falta el antiguo tope global de "1000 acciones seguidas": cada
+  // paso cede el control al navegador entre medias). No hace nada mientras
+  // se está en el formulario de creación (phase 'setup'): el placeholder de
+  // arriba nunca debe jugarse solo.
   useEffect(() => {
     if (phase !== 'playing' || state.gameOver) return;
 
-    if (humanIds.includes(getActivePlayer(state).id)) {
+    if (isActiveHumanTurn) {
       // Justo al empezar el turno de un humano (todavía sin ninguna acción
       // suya aplicada) se guarda la foto para poder volver aquí.
       if (turnSnapshotRef.current?.turn !== state.turn) {
         turnSnapshotRef.current = { turn: state.turn, snapshot: structuredClone(state) };
       }
-      return;
     }
+    if (findActingHuman() !== undefined) return; // un humano tiene agencia: que actúe él
 
-    let guard = 0;
-    let acted = false;
-    while (!state.gameOver && !humanIds.includes(getActivePlayer(state).id) && guard < 1000) {
+    // Decide el siguiente paso de un bot (o de un descarte pendiente que le
+    // toque a uno) SIN aplicarlo todavía, para saber cuánto retraso darle.
+    let delayMs = 0;
+    let applyStep: () => void;
+
+    if (state.pendingDecision) {
+      // En este punto solo puede deberlo un bot (si lo debiera algún
+      // humano, findActingHuman() no habría devuelto undefined) — se
+      // resuelve con la misma heurística "se queda con la peor" que antes
+      // decidía el propio motor.
+      const owedBotId = Object.keys(state.pendingDecision.owed)[0];
+      const owed = state.pendingDecision.owed[owedBotId];
+      const botPlayer = state.players.find((p) => p.id === owedBotId);
+      const instanceId = botPlayer ? pickDefaultDiscard(botPlayer.hand, owed.eligibleInstanceIds) : null;
+      applyStep = () => {
+        if (instanceId && botPlayer) {
+          const action: Action = { type: 'resolveDiscard', instanceId };
+          const sourceCardName = state.pendingDecision?.sourceCardName ?? '';
+          applyAction(state, owedBotId, action);
+          postGameLog([`T${state.turn} | ${botPlayer.name} | ${describeAction(action)} (descarte: ${sourceCardName})`]);
+        }
+        rerender();
+      };
+    } else {
       const bot = getActivePlayer(state);
 
       if (botTurnActionCountRef.current.turn !== state.turn) {
@@ -188,7 +251,6 @@ export function useGame(): UseGame {
 
       const algorithm = botAlgorithms[bot.id] ?? DEFAULT_BOT_ALGORITHM;
       const turnBeforeAction = state.turn;
-      const logLenBefore = state.log.length;
       let action: Action;
       if (botTurnActionCountRef.current.count > MAX_ACTIONS_PER_BOT_TURN) {
         const warning = `[bot] ${bot.name} (${algorithm}) superó ${MAX_ACTIONS_PER_BOT_TURN} acciones en su turno: se le fuerza a terminarlo.`;
@@ -200,34 +262,47 @@ export function useGame(): UseGame {
         action = BOT_REGISTRY[algorithm].chooseAction(state, bot.id);
       }
 
-      // eslint-disable-next-line no-console
-      console.log(`[bot] ${bot.name} (${algorithm}):`, action);
-      applyAction(state, bot.id, action);
-      const engineLines = state.log.slice(logLenBefore);
-      postGameLog([
-        `T${turnBeforeAction} | ${bot.name} (${algorithm}) | ${describeAction(action)}`,
-        ...engineLines.map((l) => `    -> ${l}`),
-      ]);
-      guard++;
-      acted = true;
+      delayMs = BOT_PACED_ACTION_TYPES.has(action.type) ? BOT_STEP_DELAY_MS : 0;
+      applyStep = () => {
+        // eslint-disable-next-line no-console
+        console.log(`[bot] ${bot.name} (${algorithm}):`, action);
+        const logLenBefore = state.log.length;
+        applyAction(state, bot.id, action);
+        const engineLines = state.log.slice(logLenBefore);
+        postGameLog([
+          `T${turnBeforeAction} | ${bot.name} (${algorithm}) | ${describeAction(action)}`,
+          ...engineLines.map((l) => `    -> ${l}`),
+        ]);
+        rerender();
+      };
     }
-    if (guard >= 1000 && !state.gameOver && !humanIds.includes(getActivePlayer(state).id)) {
-      const warning = '[bot] Límite global de 1000 acciones encadenadas alcanzado: se corta el autoplay para revisar.';
-      // eslint-disable-next-line no-console
-      console.warn(warning);
-      postGameLog([warning]);
-    }
-    if (acted) rerender();
-  });
 
-  const humanTurn = phase === 'playing' && !state.gameOver && humanIds.includes(getActivePlayer(state).id);
-  const legalActions = humanTurn ? getLegalActions(state, getActivePlayer(state).id) : [];
+    const timeoutId = window.setTimeout(applyStep, delayMs);
+    return () => window.clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick, phase]);
+
+  const actingHumanId = findActingHuman();
   const scores = scoreGame(state);
-  const canRestartTurn = humanTurn && turnSnapshotRef.current?.turn === state.turn;
+  const canRestartTurn = isActiveHumanTurn && turnSnapshotRef.current?.turn === state.turn;
+
+  // El actor de una acción NO es siempre "el jugador activo": un
+  // resolveDiscard lo resuelve el jugador afectado, que puede ser distinto
+  // (ver PendingDiscardDecision) — se deduce de quién tiene de verdad esa
+  // carta en la mano ahora mismo, en vez de asumir getActivePlayer(state).
+  // El resto de acciones (playCard/buyAnimal/buyCoin/endTurn) solo puede
+  // hacerlas el jugador activo, como siempre.
+  function actorForAction(action: Action): string | undefined {
+    if (action.type === 'resolveDiscard') {
+      return state.players.find((p) => p.hand.some((c) => c.instanceId === action.instanceId))?.id;
+    }
+    return getActivePlayer(state).id;
+  }
 
   function doAction(action: Action) {
-    if (!humanTurn) return;
-    const player = getActivePlayer(state);
+    const actorId = actorForAction(action);
+    if (!actorId || !humanIds.includes(actorId)) return;
+    const player = state.players.find((p) => p.id === actorId)!;
     const turnBeforeAction = state.turn;
     const logLenBefore = state.log.length;
     applyAction(state, player.id, action);
@@ -284,8 +359,7 @@ export function useGame(): UseGame {
     phase,
     state,
     humanIds,
-    humanTurn,
-    legalActions,
+    actingHumanId,
     scores,
     canRestartTurn,
     botAlgorithms,

@@ -14,7 +14,7 @@ import { createRandomWeights, deserializeWeights, forward, serializeWeights, typ
 import type { Bot } from '../../src/bots/types';
 import { getCard } from '../../src/cards/registry';
 import type { Card } from '../../src/cards/schema';
-import { applyAction, createGame, getActivePlayer, getLegalActions, type Action } from '../../src/engine';
+import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer, getLegalActions, type Action } from '../../src/engine';
 import type { GameState } from '../../src/model/state';
 import { scoreGame, type PlayerScore } from '../../src/scoring';
 import { accumulateGrad, applyGrad, softmax, zeroGrad } from './train';
@@ -124,6 +124,15 @@ function playOneGame(weights: RlWeights, mode: Mode): { trajectories: Map<string
 
   let guard = 0;
   while (!state.gameOver && guard < MAX_ACTIONS_PER_GAME) {
+    // Con un descarte pendiente (Buitre/Mono/Hiena/Murciélago), nadie tiene
+    // ninguna acción legal hasta que se resuelva: sin esto, el bucle de
+    // abajo vería `actions.length === 0` y cortaría el episodio de
+    // entrenamiento en seco cada vez que se juegue una de esas cartas.
+    if (autoResolvePendingDiscard(state)) {
+      guard++;
+      continue;
+    }
+
     const player = getActivePlayer(state);
     const fixedBot = fixedOpponents.get(player.id);
 
@@ -199,6 +208,10 @@ function evaluate(weights: RlWeights, opponent: Bot, games: number): number {
 
     let guard = 0;
     while (!state.gameOver && guard < MAX_ACTIONS_PER_GAME) {
+      if (autoResolvePendingDiscard(state)) {
+        guard++;
+        continue;
+      }
       const player = getActivePlayer(state);
       const action =
         player.id === 'learner'

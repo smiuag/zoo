@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buyAnimal, canAffordMarket, createGame, getLegalActions, playCard } from '../src/engine';
+import { buyAnimal, canAffordMarket, createGame, getLegalActions, playCard, resolveDiscard } from '../src/engine';
 import { getCard } from '../src/cards/registry';
 import { buildStarterDeck } from './helpers';
 
@@ -33,53 +33,57 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.hand[0].instanceId).toBe('coin-1#draw1');
   });
 
-  it('mono: cada rival ELIGE qué descarta (no al azar); si solo tiene monedas, no le queda más remedio y robas 1 carta', () => {
+  it('mono: al jugarlo deja un descarte pendiente — el rival elige qué descarta, el motor no decide por él', () => {
     const { state, player, opponent } = setupClean();
-    opponent.hand = [freshInstance('coin-1', 'o1'), freshInstance('coin-2', 'o2')]; // sin ningún animal que proteger sus monedas
-    const monkey = freshInstance('monkey', 'test');
-    player.hand = [monkey];
-    player.deck = [freshInstance('coin-1', 'draw1')];
-
-    playCard(state, player.id, monkey.instanceId);
-
-    expect(opponent.hand).toHaveLength(1);
-    expect(opponent.discard).toHaveLength(1);
-    expect(opponent.discard[0].type).toBe('coin');
-    expect(player.hand).toHaveLength(1); // robó 1 carta del mazo
-  });
-
-  it('mono: si el rival tiene un animal Y una moneda, protege la moneda descartando el animal (aunque valga más)', () => {
-    const { state, player, opponent } = setupClean();
-    const hippo = freshInstance('hippopotamus', 'o1'); // 4PV: vale más "en bruto" que la moneda
-    const coin = freshInstance('coin-1', 'o2'); // vale 1: peor en valor bruto, pero es una moneda
+    const hippo = freshInstance('hippopotamus', 'o1');
+    const coin = freshInstance('coin-1', 'o2');
     opponent.hand = [hippo, coin];
     const monkey = freshInstance('monkey', 'test');
     player.hand = [monkey];
-    player.deck = [freshInstance('coin-1', 'draw1')];
 
     playCard(state, player.id, monkey.instanceId);
 
-    // Protege la moneda (evita darte un robo) y sacrifica el animal, aunque valga más PV.
-    expect(opponent.hand).toEqual([coin]);
-    expect(opponent.discard).toEqual([hippo]);
-    expect(player.hand).toHaveLength(0); // no le tocó soltar moneda: no robaste nada
+    // Nada se ha descartado todavía: el motor espera a que el rival elija.
+    expect(opponent.hand).toHaveLength(2);
+    expect(state.pendingDecision?.owed[opponent.id]).toEqual({ amount: 1, eligibleInstanceIds: null });
+    // Con un descarte pendiente, nadie más tiene ninguna acción normal.
+    expect(getLegalActions(state, player.id)).toEqual([]);
+    // El rival puede elegir CUALQUIERA de sus 2 cartas, no una impuesta.
+    expect(getLegalActions(state, opponent.id)).toHaveLength(2);
   });
 
-  it('mono: si al rival solo le queda un animal en mano, lo descarta y no robas nada', () => {
+  it('mono: si el rival elige descartar una moneda, tú robas 1 carta al resolverse', () => {
     const { state, player, opponent } = setupClean();
-    opponent.hand = [freshInstance('lion', 'o1')];
+    const coin = freshInstance('coin-1', 'o1');
+    opponent.hand = [freshInstance('hippopotamus', 'o2'), coin];
     const monkey = freshInstance('monkey', 'test');
     player.hand = [monkey];
     player.deck = [freshInstance('coin-1', 'draw1')];
 
     playCard(state, player.id, monkey.instanceId);
+    resolveDiscard(state, opponent.id, coin.instanceId);
 
-    expect(opponent.discard).toHaveLength(1);
-    expect(opponent.discard[0].type).toBe('animal');
+    expect(opponent.discard).toEqual([coin]);
+    expect(state.pendingDecision).toBeNull();
+    expect(player.hand).toHaveLength(1); // robó 1 carta del mazo
+  });
+
+  it('mono: si el rival elige descartar un animal (no una moneda), no robas nada', () => {
+    const { state, player, opponent } = setupClean();
+    const hippo = freshInstance('hippopotamus', 'o1');
+    opponent.hand = [hippo, freshInstance('coin-1', 'o2')];
+    const monkey = freshInstance('monkey', 'test');
+    player.hand = [monkey];
+    player.deck = [freshInstance('coin-1', 'draw1')];
+
+    playCard(state, player.id, monkey.instanceId);
+    resolveDiscard(state, opponent.id, hippo.instanceId);
+
+    expect(opponent.discard).toEqual([hippo]);
     expect(player.hand).toHaveLength(0); // no robó nada
   });
 
-  it('mono: con varios rivales, robas 1 carta por cada uno al que no le quedara más remedio que soltar una moneda', () => {
+  it('mono: con varios rivales, cada uno resuelve el suyo por separado; robas 1 carta por cada moneda descartada en total', () => {
     const state = createGame([
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
       { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
@@ -91,17 +95,25 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
       p.discard = [];
     }
     const [p1, p2, p3] = state.players;
-    p2.hand = [freshInstance('coin-1', 'b1')]; // solo tiene moneda: sin remedio
-    p3.hand = [freshInstance('lion', 'c1')]; // solo tiene animal
+    const p2Coin = freshInstance('coin-1', 'b1');
+    p2.hand = [p2Coin];
+    const p3Lion = freshInstance('lion', 'c1');
+    p3.hand = [p3Lion];
     const monkey = freshInstance('monkey', 'test');
     p1.hand = [monkey];
     p1.deck = [freshInstance('coin-1', 'draw1'), freshInstance('coin-1', 'draw2')];
 
+    // Ambos rivales tienen exactamente 1 carta: no hay elección real que
+    // hacer (les toca soltar esa sí o sí), así que se resuelve solo, sin
+    // dejar nada pendiente — ver autoResolveForcedDiscards en engine.ts.
     playCard(state, p1.id, monkey.instanceId);
 
-    expect(p2.discard).toHaveLength(1);
-    expect(p3.discard).toHaveLength(1);
-    expect(p1.hand).toHaveLength(1); // solo 1 de los 2 rivales tuvo que soltar moneda
+    expect(state.pendingDecision).toBeNull();
+    expect(p2.hand).toHaveLength(0);
+    expect(p2.discard).toEqual([p2Coin]);
+    expect(p3.hand).toHaveLength(0);
+    expect(p3.discard).toEqual([p3Lion]);
+    expect(p1.hand).toHaveLength(1); // solo 1 de los 2 rivales soltó moneda
   });
 
   it('león: gana 4 de dinero extra para comprar este turno, fijo (no depende de la mano)', () => {
@@ -612,22 +624,25 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.playedThisTurn.some((c) => c.id === 'spider')).toBe(true);
   });
 
-  it('hiena: cada rival muestra su mano y descarta el animal de MAYOR coste', () => {
+  it('hiena: sin empate no hay elección real que hacer, así que se resuelve solo sin bloquear la partida', () => {
     const { state, player, opponent } = setupClean();
     const cheap = freshInstance('dolphin', 'cheap'); // coste 3
-    const costly = freshInstance('hippopotamus', 'costly'); // coste 6
+    const costly = freshInstance('hippopotamus', 'costly'); // coste 5, más caro que el dolphin (3)
     opponent.hand = [cheap, costly];
     const hyena = freshInstance('hyena', 'test');
     player.hand = [hyena];
 
     playCard(state, player.id, hyena.instanceId);
 
-    expect(opponent.hand.some((c) => c.instanceId === costly.instanceId)).toBe(false);
-    expect(opponent.hand.some((c) => c.instanceId === cheap.instanceId)).toBe(true);
-    expect(opponent.discard.some((c) => c.instanceId === costly.instanceId)).toBe(true);
+    // Solo había 1 animal elegible (el más caro): nada que elegir de
+    // verdad, así que autoResolveForcedDiscards lo resuelve solo sin dejar
+    // pendingDecision ni pedir ningún clic.
+    expect(state.pendingDecision).toBeNull();
+    expect(opponent.hand).toEqual([cheap]);
+    expect(opponent.discard).toEqual([costly]);
   });
 
-  it('hiena: si hay empate de coste, el rival "elige" y sacrifica el de menor PV', () => {
+  it('hiena: si hay empate de coste, el rival puede elegir entre CUALQUIERA de los empatados', () => {
     const { state, player, opponent } = setupClean();
     const dolphin = freshInstance('dolphin', 'd1'); // coste 3, 2PV
     const flamingo = freshInstance('flamingo', 'f1'); // coste 3, 1PV
@@ -637,12 +652,18 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
     playCard(state, player.id, hyena.instanceId);
 
-    expect(opponent.hand.some((c) => c.instanceId === flamingo.instanceId)).toBe(false);
-    expect(opponent.hand.some((c) => c.instanceId === dolphin.instanceId)).toBe(true);
-    expect(opponent.discard.some((c) => c.instanceId === flamingo.instanceId)).toBe(true);
+    expect(state.pendingDecision?.owed[opponent.id]?.eligibleInstanceIds).toEqual(
+      expect.arrayContaining([dolphin.instanceId, flamingo.instanceId])
+    );
+
+    // Elige sacrificar el de MÁS PV (dolphin), algo que la vieja heurística
+    // nunca habría dejado hacer: ahora es una elección real del rival.
+    resolveDiscard(state, opponent.id, dolphin.instanceId);
+    expect(opponent.hand).toEqual([flamingo]);
+    expect(opponent.discard).toEqual([dolphin]);
   });
 
-  it('hiena: si un rival no tiene ningún animal en mano, no pierde nada', () => {
+  it('hiena: si un rival no tiene ningún animal en mano, no le debe nada y no bloquea la partida', () => {
     const { state, player, opponent } = setupClean();
     opponent.hand = [freshInstance('coin-1', 'o1')];
     const hyena = freshInstance('hyena', 'test');
@@ -652,18 +673,69 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
     expect(opponent.hand).toHaveLength(1);
     expect(opponent.discard).toHaveLength(0);
+    expect(state.pendingDecision).toBeNull(); // nadie debía nada: no llega a bloquear
+    expect(getLegalActions(state, player.id).length).toBeGreaterThan(0);
   });
 
-  it('buitre: cada rival elige y descarta 2 cartas de su mano', () => {
+  it('buitre: cada rival debe elegir y descartar 2 cartas de su mano libremente (no una heurística del motor)', () => {
     const { state, player, opponent } = setupClean();
-    opponent.hand = [freshInstance('coin-1', 'o1'), freshInstance('coin-2', 'o2'), freshInstance('coin-3', 'o3')];
+    const c1 = freshInstance('coin-1', 'o1');
+    const c2 = freshInstance('coin-2', 'o2');
+    const c3 = freshInstance('coin-3', 'o3'); // la más valiosa: la vieja heurística nunca la habría tocado
+    opponent.hand = [c1, c2, c3];
+    const vulture = freshInstance('vulture', 'test');
+    player.hand = [vulture];
+
+    playCard(state, player.id, vulture.instanceId);
+    expect(state.pendingDecision?.owed[opponent.id]).toEqual({ amount: 2, eligibleInstanceIds: null });
+    expect(getLegalActions(state, opponent.id)).toHaveLength(3);
+
+    // El rival elige descartar justo la más cara, algo imposible con la
+    // heurística anterior.
+    resolveDiscard(state, opponent.id, c3.instanceId);
+    expect(state.pendingDecision?.owed[opponent.id]).toEqual({ amount: 1, eligibleInstanceIds: null });
+    resolveDiscard(state, opponent.id, c1.instanceId);
+
+    expect(opponent.hand).toEqual([c2]);
+    expect(opponent.discard).toEqual(expect.arrayContaining([c3, c1]));
+    expect(state.pendingDecision).toBeNull();
+  });
+
+  it('buitre: si el rival tiene menos cartas de las pedidas, no hay elección real y se resuelve solo', () => {
+    const { state, player, opponent } = setupClean();
+    const onlyCard = freshInstance('coin-1', 'o1');
+    opponent.hand = [onlyCard]; // solo 1 carta, aunque el Buitre pida 2
     const vulture = freshInstance('vulture', 'test');
     player.hand = [vulture];
 
     playCard(state, player.id, vulture.instanceId);
 
-    expect(opponent.hand).toHaveLength(1);
-    expect(opponent.discard).toHaveLength(2);
+    expect(state.pendingDecision).toBeNull();
+    expect(opponent.hand).toHaveLength(0);
+    expect(opponent.discard).toEqual([onlyCard]);
+  });
+
+  it('con un descarte pendiente de verdad (elección real), jugar/comprar/terminar turno es ilegal hasta resolverlo', () => {
+    const { state, player, opponent } = setupClean();
+    // 3 cartas para que el Buitre (pide 2) deje una elección real: con
+    // justo 2 se resolvería solo (ver autoResolveForcedDiscards) y no
+    // habría nada pendiente que probar aquí.
+    opponent.hand = [freshInstance('coin-1', 'o1'), freshInstance('coin-2', 'o2'), freshInstance('coin-3', 'o3')];
+    const vulture = freshInstance('vulture', 'test');
+    const lion = freshInstance('lion', 'l1');
+    player.hand = [vulture, lion];
+
+    playCard(state, player.id, vulture.instanceId);
+    expect(state.pendingDecision).not.toBeNull();
+
+    expect(() => playCard(state, player.id, lion.instanceId)).toThrow();
+    // El Buitre pide 2: hacen falta 2 resoluciones (una por carta) para
+    // dejar la decisión del todo cerrada.
+    resolveDiscard(state, opponent.id, opponent.hand[0].instanceId);
+    expect(() => playCard(state, player.id, lion.instanceId)).toThrow();
+    resolveDiscard(state, opponent.id, opponent.hand[0].instanceId);
+    // Resuelto: el jugador activo vuelve a tener acciones normales.
+    expect(() => playCard(state, player.id, lion.instanceId)).not.toThrow();
   });
 
   it('pato: el jugador que elijas te da 1 moneda cualquiera de su mano, y el resto no pierde nada', () => {
@@ -958,18 +1030,22 @@ describe('murciélago: cada rival elige y descarta 1 carta de su mano', () => {
     expect(batActions).toEqual([{ type: 'playCard', instanceId: bat.instanceId }]);
   });
 
-  it('cada rival descarta 1 carta de su mano, eligiendo él cuál (se queda con la peor)', () => {
+  it('cada rival elige libremente cuál de sus cartas descarta (bloquea hasta que lo haga)', () => {
     const { state, player, opponent } = setupClean();
     const bat = freshInstance('bat', 'test');
-    const coin = freshInstance('coin-1', 'o1'); // vale poco: es la que se sacrifica
-    const lion = freshInstance('lion', 'o2'); // vale mucho más
+    const coin = freshInstance('coin-1', 'o1');
+    const lion = freshInstance('lion', 'o2'); // vale mucho más, pero el rival puede elegirla igualmente
     player.hand = [bat];
     opponent.hand = [coin, lion];
 
     playCard(state, player.id, bat.instanceId);
+    expect(state.pendingDecision?.owed[opponent.id]).toEqual({ amount: 1, eligibleInstanceIds: null });
 
-    expect(opponent.hand).toEqual([lion]);
-    expect(opponent.discard).toEqual([coin]);
+    resolveDiscard(state, opponent.id, lion.instanceId);
+
+    expect(opponent.hand).toEqual([coin]);
+    expect(opponent.discard).toEqual([lion]);
+    expect(state.pendingDecision).toBeNull();
   });
 
   it('si un rival no tiene ninguna carta en mano, no pierde nada', () => {

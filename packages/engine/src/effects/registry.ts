@@ -6,9 +6,9 @@ import {
   mintInstance,
   removeFromPlayedThisTurn,
   shuffle,
-  takeRandomFromHand,
   type CardInstance,
   type GameState,
+  type PendingDiscardDecision,
   type Player,
 } from '../model/state';
 
@@ -26,6 +26,11 @@ export interface EffectContext {
   // variante de la acción "playCard" por rival posible, ver
   // getLegalActions). El resto de efectos lo ignora.
   targetPlayerId?: string;
+  // Nombre de la carta que lleva este efecto (engine.ts lo rellena desde
+  // `card.name`): solo lo usan los efectos de descarte forzoso, para el
+  // banner de la decisión pendiente (ver PendingDiscardDecision). El resto
+  // de efectos lo ignora.
+  sourceCardName?: string;
 }
 
 export type EffectHandler = (state: GameState, player: Player, effect: Effect, context: EffectContext) => void;
@@ -48,10 +53,12 @@ function otherPlayers(state: GameState, player: Player): Player[] {
   return state.players.filter((p) => p.id !== player.id);
 }
 
-// Heurística usada por los efectos "el jugador afectado elige" cuando no
-// hay un canal de decisión interactiva real (todavía no hay UI): en vez de
-// al azar, se queda con la carta de menor valor (monedas por su valor,
-// el resto por sus PV), desempatando por orden de aparición.
+// Heurística usada SOLO por los bots (ver pickDefaultDiscard más abajo) para
+// resolver un descarte forzoso pendiente por su cuenta: se queda con la
+// carta de menor valor (monedas por su valor, el resto por sus PV),
+// desempatando por orden de aparición. Los jugadores humanos, en cambio,
+// eligen de verdad — ver PendingDiscardDecision/resolveDiscard en
+// engine.ts.
 function cardWorth(card: CardInstance): number {
   return card.type === 'coin' ? (card.value ?? 0) : card.victoryPoints;
 }
@@ -69,6 +76,39 @@ function worstCardIndex(hand: CardInstance[]): number {
   return worstIdx;
 }
 
+// Heurística de descarte por defecto, para que la usen los bots cuando un
+// descarte forzoso pendiente les toca a ellos (ver el bucle de autoplay en
+// apps/web/src/state/useGame.ts): entre las cartas elegibles, se queda con
+// la de menor valor (igual que worstCardIndex). `eligibleInstanceIds` null
+// significa "cualquier carta de la mano vale" (Buitre/Mono); si viene una
+// lista (Hiena: solo los animales empatados a coste máximo), se elige entre
+// esas. Devuelve null si no hay ninguna elegible (no debería pasar si el
+// bot de verdad debe algo, pero por si acaso).
+export function pickDefaultDiscard(hand: CardInstance[], eligibleInstanceIds: string[] | null): string | null {
+  const pool = eligibleInstanceIds ? hand.filter((c) => eligibleInstanceIds.includes(c.instanceId)) : hand;
+  const idx = worstCardIndex(pool);
+  return idx === -1 ? null : pool[idx].instanceId;
+}
+
+// Arranca (o no, si nadie debe nada) un descarte forzoso pendiente: mientras
+// esté activo, ver getLegalActions/resolveDiscard en engine.ts, nadie tiene
+// ninguna otra acción legal salvo los jugadores que aparecen en `owed`.
+function beginPendingDiscard(
+  state: GameState,
+  activePlayer: Player,
+  owed: PendingDiscardDecision['owed'],
+  opts: { sourceCardName: string; bonusDrawPerCoin?: boolean }
+): void {
+  if (Object.keys(owed).length === 0) return;
+  state.pendingDecision = {
+    sourceCardName: opts.sourceCardName,
+    sourcePlayerId: activePlayer.id,
+    bonusDrawPerCoin: opts.bonusDrawPerCoin ?? false,
+    coinsDiscardedSoFar: 0,
+    owed,
+  };
+}
+
 // Águila: roba 1 carta extra al jugarla.
 registerEffect('drawCards', (_state, player, effect) => {
   const amount = effect.params?.amount;
@@ -79,66 +119,42 @@ registerEffect('drawCards', (_state, player, effect) => {
 });
 
 // Genérico (sin ninguna carta que lo use ahora mismo, pero registrado por
-// si hace falta en el futuro): cada rival descarta 1 carta al azar de su
-// mano. El Mono usaba esto, pero ahora usa la variante de abajo, que
-// además te da un robo por cada moneda descartada así.
-registerEffect('discardFromEachOpponent', (state, player) => {
+// si hace falta en el futuro): cada rival descarta 1 carta de su mano,
+// eligiendo él cuál (igual que el Buitre).
+registerEffect('discardFromEachOpponent', (state, player, _effect, context) => {
+  const owed: PendingDiscardDecision['owed'] = {};
   for (const opponent of otherPlayers(state, player)) {
-    const card = takeRandomFromHand(opponent);
-    if (card) opponent.discard.push(card);
+    if (opponent.hand.length > 0) owed[opponent.id] = { amount: 1, eligibleInstanceIds: null };
   }
+  beginPendingDiscard(state, player, owed, { sourceCardName: context.sourceCardName ?? 'efecto' });
 });
 
-// Qué descarta un rival del Mono: NO al azar, elige él (misma heurística de
-// "el afectado elige" que el Buitre, ver worstCardIndex) — pero con un
-// matiz propio: como perder cualquier moneda además le da a el Mono un
-// robo, prioriza sacrificar su peor ANIMAL antes que una moneda cualquiera
-// (por poco que valga), y solo se ve obligado a soltar una moneda (la de
-// menor valor) si no tiene ningún animal en mano.
-function worstNonCoinIndex(hand: CardInstance[]): number {
-  let worstIdx = -1;
-  let worstPv = Infinity;
-  for (let i = 0; i < hand.length; i++) {
-    if (hand[i].type === 'coin') continue;
-    if (hand[i].victoryPoints < worstPv) {
-      worstPv = hand[i].victoryPoints;
-      worstIdx = i;
-    }
-  }
-  return worstIdx;
-}
-
-// Mono: cada rival descarta 1 carta de su mano, ELIGIENDO él cuál (ver
-// worstNonCoinIndex arriba), y TÚ robas 1 carta por cada rival al que le
-// haya tocado descartar una moneda (solo si no tenía más remedio: no le
-// quedaba ningún animal). Con varios rivales puedes robar más de 1 carta
-// en la misma jugada.
-registerEffect('discardFromEachOpponentAndDrawPerCoin', (state, player) => {
-  let coinsDiscarded = 0;
+// Mono: cada rival elige y descarta 1 carta de su mano, y TÚ robas 1 carta
+// por cada moneda que se haya descartado así en total (se cuenta cuando se
+// resuelva la decisión, ver resolveDiscard en engine.ts: el rival puede
+// elegir descartar una moneda o no, es cosa suya).
+registerEffect('discardFromEachOpponentAndDrawPerCoin', (state, player, _effect, context) => {
+  const owed: PendingDiscardDecision['owed'] = {};
   for (const opponent of otherPlayers(state, player)) {
-    const idx = worstNonCoinIndex(opponent.hand);
-    const chosenIdx = idx !== -1 ? idx : worstCardIndex(opponent.hand);
-    if (chosenIdx === -1) continue;
-    const [card] = opponent.hand.splice(chosenIdx, 1);
-    opponent.discard.push(card);
-    if (card.type === 'coin') coinsDiscarded += 1;
+    if (opponent.hand.length > 0) owed[opponent.id] = { amount: 1, eligibleInstanceIds: null };
   }
-  if (coinsDiscarded > 0) drawCards(player, coinsDiscarded);
+  beginPendingDiscard(state, player, owed, {
+    sourceCardName: context.sourceCardName ?? 'efecto',
+    bonusDrawPerCoin: true,
+  });
 });
 
 // Buitre: cada rival elige y descarta `amount` cartas (por defecto 1) de su
-// propia mano (no al azar, a diferencia del Mono): se queda siempre con las
-// peores, ver worstCardIndex.
-registerEffect('chooseDiscardFromEachOpponent', (state, player, effect) => {
+// propia mano, la que quiera.
+registerEffect('chooseDiscardFromEachOpponent', (state, player, effect, context) => {
   const amount = typeof effect.params?.amount === 'number' ? effect.params.amount : 1;
+  const owed: PendingDiscardDecision['owed'] = {};
   for (const opponent of otherPlayers(state, player)) {
-    for (let i = 0; i < amount; i++) {
-      const idx = worstCardIndex(opponent.hand);
-      if (idx === -1) break;
-      const [card] = opponent.hand.splice(idx, 1);
-      opponent.discard.push(card);
+    if (opponent.hand.length > 0) {
+      owed[opponent.id] = { amount: Math.min(amount, opponent.hand.length), eligibleInstanceIds: null };
     }
   }
+  beginPendingDiscard(state, player, owed, { sourceCardName: context.sourceCardName ?? 'efecto' });
 });
 
 // Genérico (sin ninguna carta que lo use por ahora, pero registrado por si
@@ -287,20 +303,21 @@ registerEffect('gainBonusPurchasingPowerPerDistinctSpeciesInHand', (_state, play
 
 // Hiena: cada rival muestra su mano y descarta el animal de MAYOR coste
 // (descarte normal, no destrucción: la carta sigue circulando con
-// normalidad). Si hay empate de coste, "puede elegirla": se queda el más
-// valioso y sacrifica el de menor PV entre los empatados (worstCardIndex).
-// Si un rival no tiene ningún animal en mano, no pierde nada.
-registerEffect('discardAnimalFromEachOpponent', (state, player) => {
+// normalidad). Si hay empate de coste, el propio rival elige cuál de los
+// empatados (el texto de la carta lo dice explícitamente); si solo hay uno,
+// no hay elección real que hacer pero igualmente pasa por el mismo mecanismo
+// de descarte pendiente. Si un rival no tiene ningún animal en mano, no
+// pierde nada.
+registerEffect('discardAnimalFromEachOpponent', (state, player, _effect, context) => {
+  const owed: PendingDiscardDecision['owed'] = {};
   for (const opponent of otherPlayers(state, player)) {
     const animals = opponent.hand.filter((c) => c.type === 'animal');
     if (animals.length === 0) continue;
     const maxCost = Math.max(...animals.map((c) => c.marketCost ?? 0));
     const costliest = animals.filter((c) => (c.marketCost ?? 0) === maxCost);
-    const target = costliest[worstCardIndex(costliest)];
-    const handIdx = opponent.hand.findIndex((c) => c.instanceId === target.instanceId);
-    const [card] = opponent.hand.splice(handIdx, 1);
-    opponent.discard.push(card);
+    owed[opponent.id] = { amount: 1, eligibleInstanceIds: costliest.map((c) => c.instanceId) };
   }
+  beginPendingDiscard(state, player, owed, { sourceCardName: context.sourceCardName ?? 'efecto' });
 });
 
 // Pato: el jugador que elijas (context.targetPlayerId, ver
@@ -409,7 +426,7 @@ registerEffect('returnAnimalForUpgrade', (state, player, effect, context) => {
 
   if (foundInHand) {
     for (const e of returned.effects.filter((e) => e.trigger === 'onPlay')) {
-      resolveEffect(state, player, e, {});
+      resolveEffect(state, player, e, { sourceCardName: returned.name });
     }
   }
 

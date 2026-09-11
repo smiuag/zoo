@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyAction, createGame, getActivePlayer, getLegalActions } from '../src/engine';
+import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer, getLegalActions } from '../src/engine';
 import { randomBot } from '../src/bots/randomBot';
 import { buildStarterDeck } from './helpers';
 
@@ -11,6 +11,7 @@ describe('randomBot', () => {
     ]);
 
     for (let i = 0; i < 200 && !state.gameOver; i++) {
+      if (autoResolvePendingDiscard(state)) continue;
       const player = getActivePlayer(state);
       const action = randomBot.chooseAction(state, player.id);
       applyAction(state, player.id, action);

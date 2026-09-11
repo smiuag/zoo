@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyAction, createGame, getActivePlayer } from '../src/engine';
+import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer } from '../src/engine';
 import { randomBot } from '../src/bots/randomBot';
 import { scoreGame } from '../src/scoring';
 import { buildStarterDeck } from './helpers';
@@ -20,6 +20,15 @@ describe('simulación 4 jugadores (bots aleatorios)', () => {
     const targetTurn = state.turn + ROUNDS_PER_PLAYER * players.length;
     let guard = 0;
     while (state.turn < targetTurn && !state.gameOver && guard < 20000) {
+      // Con un descarte pendiente (Buitre/Mono/Hiena/Murciélago), nadie más
+      // tiene ninguna acción legal hasta que TODOS los afectados resuelvan
+      // el suyo: aquí no hay UI, así que se resuelve solo con la misma
+      // heurística que usaría un bot (ver autoResolvePendingDiscard).
+      if (autoResolvePendingDiscard(state)) {
+        actionCounts.resolveDiscard = (actionCounts.resolveDiscard ?? 0) + 1;
+        guard += 1;
+        continue;
+      }
       const player = getActivePlayer(state);
       const action = randomBot.chooseAction(state, player.id);
       actionCounts[action.type] = (actionCounts[action.type] ?? 0) + 1;

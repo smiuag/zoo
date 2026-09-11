@@ -88,6 +88,15 @@ body {
   border-color: var(--danger);
 }
 
+/* Descarte forzoso pendiente (Buitre/Mono/Hiena/Murciélago): color propio,
+   ni "normal" ni "partida terminada", para que se note de un vistazo que
+   toca elegir qué descartar. */
+.status-pill--discard {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
 /* ---------- Panels ---------- */
 
 .panel {
@@ -157,6 +166,81 @@ body {
   }
 }
 
+/* ---------- Mesa del jugador activo (jugado este turno + descarte) ---------- */
+/* Ver ActivePlayerBoard.tsx. */
+
+.board-section {
+  margin-bottom: 0.7rem;
+}
+
+.board-section:last-child {
+  margin-bottom: 0;
+}
+
+.card-row--board {
+  margin-top: 0.35rem;
+  align-items: center;
+}
+
+/* Pila "en abanico": las copias repetidas de una misma carta jugada este
+   turno se superponen ligeramente desplazadas en vez de listarse aparte,
+   para que se note de un vistazo cuántas van cayendo. */
+.card-stack {
+  display: flex;
+  align-items: center;
+}
+
+.card-stack__item {
+  position: relative;
+}
+
+.card-stack__item:not(:first-child) {
+  margin-left: -32px;
+}
+
+.card-stack__item:nth-child(2) {
+  transform: translateY(4px) rotate(-3deg);
+}
+
+.card-stack__item:nth-child(3) {
+  transform: translateY(8px) rotate(3deg);
+}
+
+.card-stack__item:nth-child(4) {
+  transform: translateY(12px) rotate(-2deg);
+}
+
+.card-stack__count {
+  margin-left: 0.5rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* Aparición suave (fade + pequeño desplazamiento) de cualquier carta recién
+   añadida a la mano, la mesa o el descarte — vía la `key` de React (React
+   monta un nodo nuevo cuando la key es nueva, así que la animación se
+   dispara sola al aparecer, sin JS extra). Toque ligero a propósito: no es
+   una animación de "vuelo" de un punto a otro (eso necesitaría compartir
+   coordenadas entre contenedores distintos), solo una señal de que algo
+   acaba de llegar aquí.
+   */
+@keyframes card-appear {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.card-row--hand .card,
+.card-row--board .card,
+.card-stack__item .card {
+  animation: card-appear 0.18s ease-out;
+}
+
 /* ---------- Controles de turno (carrito, terminar/reiniciar turno) ---------- */
 
 .turn-controls {
@@ -171,6 +255,50 @@ body {
   font-weight: 700;
   font-size: 0.9rem;
   white-space: nowrap;
+}
+
+/* Fila con el mazo del jugador activo a la izquierda, los botones de
+   turno en el centro y su descarte a la derecha (ver GameBoard.tsx). */
+.turn-controls__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.turn-controls__buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 140px;
+}
+
+.pile {
+  flex: 0 0 auto;
+}
+
+/* Mazo: boca abajo a propósito (nunca se revela qué hay), solo un icono
+   genérico + el recuento total. */
+.card--facedown {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-linear-gradient(135deg, var(--panel-border), var(--panel-border) 6px, var(--panel-bg) 6px, var(--panel-bg) 12px);
+}
+
+.card--facedown .card__icon {
+  font-size: 1.6rem;
+  opacity: 0.6;
+}
+
+/* Descarte vacío (antes de la primera carta): hueco discreto del mismo
+   tamaño, sin pretender ser una carta real. */
+.card--empty {
+  border-style: dashed;
+  background: transparent;
 }
 
 /* ---------- Opponent strip ---------- */
