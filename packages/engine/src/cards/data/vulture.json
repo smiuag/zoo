@@ -3,7 +3,7 @@
   "name": "Buitre",
   "type": "animal",
   "species": "vulture",
-  "marketCost": 5,
+  "marketCost": 6,
   "victoryPoints": 3,
   "text": "Cada rival elige y descarta 2 cartas de su mano.",
   "effects": [

@@ -10,6 +10,7 @@
     "fetch-twemoji": "node scripts/fetch-twemoji.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
     "@zoo/engine": "*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",

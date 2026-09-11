@@ -6,6 +6,12 @@ dist/
 __pycache__/
 *.pyc
 
+# Credenciales del proyecto Supabase del usuario (ver apps/web/.env.example):
+# nunca deben versionarse.
+.env
+.env.local
+.env.*.local
+
 # Tirada de impresión a 1 cara: generada localmente por build_deck_pdf_1cara.py,
 # no versionada (a diferencia de mazo_impresion.pdf) por su peso.
 img/mazo_impresion_1cara.pdf

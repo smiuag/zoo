@@ -13,9 +13,15 @@ import {
   type GameConfig,
   type RoundLimit,
 } from '../lib/gameConfig';
+import { isOnlineAvailable } from '../online/supabaseClient';
 
 interface GameSetupProps {
   onStart: (config: GameConfig) => void;
+  // Ausente en contextos donde no aplica (no debería pasar en el flujo
+  // normal, pero por si acaso) — cuando está presente Y hay más de 1 humano
+  // configurado, se ofrece "Crear partida online" además de "Empezar
+  // partida" (pase-y-juega local, sin cambios).
+  onCreateOnlineRoom?: (config: GameConfig) => void;
 }
 
 // Alarga o recorta la lista de algoritmos al nuevo nº de bots, conservando
@@ -31,13 +37,16 @@ function resizeBotAlgorithms(current: BotAlgorithm[], count: number): BotAlgorit
   return [...current, ...extra];
 }
 
-export function GameSetup({ onStart }: GameSetupProps) {
+export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
   const [numHumans, setNumHumans] = useState(1);
   const [botAlgorithms, setBotAlgorithms] = useState<BotAlgorithm[]>(DEFAULT_BOT_ALGORITHMS_BY_SEAT.slice(0, 4));
   const [roundLimit, setRoundLimit] = useState<RoundLimit>(DEFAULT_ROUND_LIMIT);
 
   const totalPlayers = numHumans + botAlgorithms.length;
   const canStart = totalPlayers >= MIN_TOTAL_PLAYERS;
+  // Online hace falta al menos 1 hueco humano más aparte del propio host, si
+  // no no hay a quién invitar.
+  const canGoOnline = isOnlineAvailable && Boolean(onCreateOnlineRoom) && numHumans >= 2 && canStart;
 
   function handleNumHumansChange(value: number) {
     setNumHumans(value);
@@ -55,6 +64,11 @@ export function GameSetup({ onStart }: GameSetupProps) {
     e.preventDefault();
     if (!canStart) return;
     onStart({ numHumans, botAlgorithms, roundLimit });
+  }
+
+  function handleCreateOnlineRoom() {
+    if (!canGoOnline || !onCreateOnlineRoom) return;
+    onCreateOnlineRoom({ numHumans, botAlgorithms, roundLimit });
   }
 
   return (
@@ -144,6 +158,22 @@ export function GameSetup({ onStart }: GameSetupProps) {
         <button className="btn btn--primary" type="submit" disabled={!canStart}>
           Empezar partida
         </button>
+
+        {onCreateOnlineRoom && (
+          <>
+            <button className="btn btn--ghost" type="button" disabled={!canGoOnline} onClick={handleCreateOnlineRoom}>
+              🌐 Crear partida online
+            </button>
+            {!isOnlineAvailable && (
+              <p className="setup-hint">
+                No configurada en este despliegue (falta VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY).
+              </p>
+            )}
+            {isOnlineAvailable && numHumans < 2 && (
+              <p className="setup-hint">Sube "Jugadores humanos" a 2 o más para poder invitar a alguien.</p>
+            )}
+          </>
+        )}
       </form>
     </div>
   );

@@ -117,6 +117,13 @@ export interface UseGame {
   scores: PlayerScore[];
   canRestartTurn: boolean;
   botAlgorithms: Record<string, BotAlgorithm>;
+  // Sube cada vez que `state` cambia de verdad (tras cualquier acción, propia
+  // o de un bot). El propio `GameState` vive en un ref mutado en el sitio
+  // (ver stateRef más abajo), así que no sirve como dependencia de efecto por
+  // referencia; este contador sí. Lo usa la sala online (useHostRoom) para
+  // saber cuándo retransmitir el estado a los invitados sin acoplarse a cómo
+  // useGame decide re-renderizar.
+  tick: number;
   startGame: (config: GameConfig) => void;
   doAction: (action: Action) => void;
   // Vuelve a mostrar el formulario de creación de partida (no crea la
@@ -144,7 +151,7 @@ export function useGame(): UseGame {
   // Cuenta las acciones ya tomadas en el turno de bot actual, para la red de
   // seguridad de MAX_ACTIONS_PER_BOT_TURN (ver más abajo).
   const botTurnActionCountRef = useRef<{ turn: number; count: number }>({ turn: -1, count: 0 });
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
   const rerender = () => setTick((t) => t + 1);
   const [botAlgorithms, setBotAlgorithms] = useState<Record<string, BotAlgorithm>>({});
 
@@ -282,6 +289,7 @@ export function useGame(): UseGame {
     scores,
     canRestartTurn,
     botAlgorithms,
+    tick,
     startGame,
     doAction,
     restart,
