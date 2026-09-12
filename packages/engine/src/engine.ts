@@ -502,14 +502,24 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
   // deban descartar, y solo resolveDiscard, una carta a la vez, restringida
   // a lo que les esté permitido elegir (ver PendingDiscardDecision).
   if (state.pendingDecision) {
-    const owed = state.pendingDecision.owed[playerId];
+    const decision = state.pendingDecision;
+    const owed = decision.owed[playerId];
     if (!owed || owed.amount <= 0) return [];
     const player = state.players.find((p) => p.id === playerId);
     if (!player) return [];
     const eligible = owed.eligibleInstanceIds
       ? player.hand.filter((c) => owed.eligibleInstanceIds!.includes(c.instanceId))
       : player.hand;
-    return eligible.map((c) => ({ type: 'resolveDiscard', instanceId: c.instanceId }));
+    // Perezoso: siempre se puede descartar en su lugar (aunque no esté entre
+    // las elegibles "normales", como los animales más caros de la Hiena),
+    // cubriendo TODA la entrega de una vez — ver el trato especial en
+    // resolveDiscard. Solo aplica a entregas de tipo 'discard' (no al
+    // Tiburón, que no es un descarte).
+    const extra =
+      decision.kind === 'discard'
+        ? player.hand.filter((c) => c.id === 'sloth' && !eligible.includes(c))
+        : [];
+    return [...eligible, ...extra].map((c) => ({ type: 'resolveDiscard', instanceId: c.instanceId }));
   }
 
   const player = state.players.find((p) => p.id === playerId);
@@ -739,23 +749,30 @@ function returnCardToMarket(state: GameState, card: CardInstance): void {
 // permitido (owed[playerId].eligibleInstanceIds, o cualquier carta si es
 // null), cuál entrega. Según decision.kind, va al propio descarte
 // ('discard') o de vuelta al mercado compartido ('returnToMarket', ver
-// returnCardToMarket). Cuando el último jugador que debía algo termina de
+// returnCardToMarket). EXCEPCIÓN — Perezoso: en una entrega de tipo
+// 'discard', siempre se puede descartar el Perezoso aunque no esté entre las
+// elegibles "normales" (p. ej. la Hiena solo deja elegir animales caros), y
+// hacerlo cubre TODA la entrega pendiente de un jugador de una sola vez (por
+// eso Buitre pide 2 y basta con 1 Perezoso), en vez de contar como 1 carta
+// más de las debidas. Cuando el último jugador que debía algo termina de
 // resolver, se cierra la decisión (y si la disparó el Mono, es aquí cuando
 // quien la jugó roba 1 carta por cada moneda que se haya descartado así en
-// total).
+// total — nunca se activa si se cubrió con el Perezoso, que no es moneda).
 export function resolveDiscard(state: GameState, playerId: string, instanceId: string): void {
   const decision = state.pendingDecision;
   if (!decision) throw new Error('No hay ninguna entrega pendiente');
   const owed = decision.owed[playerId];
   if (!owed || owed.amount <= 0) throw new Error(`${playerId} no debe entregar nada ahora mismo`);
-  if (owed.eligibleInstanceIds && !owed.eligibleInstanceIds.includes(instanceId)) {
-    throw new Error(`${instanceId} no es una carta elegible para esta entrega`);
-  }
 
   const player = state.players.find((p) => p.id === playerId);
   if (!player) throw new Error(`Jugador desconocido: ${playerId}`);
   const idx = player.hand.findIndex((c) => c.instanceId === instanceId);
   if (idx === -1) throw new Error(`La carta ${instanceId} no está en la mano de ${playerId}`);
+
+  const isSlothSubstitute = decision.kind === 'discard' && player.hand[idx].id === 'sloth';
+  if (!isSlothSubstitute && owed.eligibleInstanceIds && !owed.eligibleInstanceIds.includes(instanceId)) {
+    throw new Error(`${instanceId} no es una carta elegible para esta entrega`);
+  }
 
   const [card] = player.hand.splice(idx, 1);
   if (decision.kind === 'returnToMarket') {
@@ -765,13 +782,19 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
     if (decision.bonusDrawPerCoin && card.type === 'coin') decision.coinsDiscardedSoFar += 1;
   }
 
-  owed.amount -= 1;
+  if (isSlothSubstitute) {
+    owed.amount = 0;
+  } else {
+    owed.amount -= 1;
+  }
   if (owed.amount <= 0) delete decision.owed[playerId];
 
   state.log.push(
-    decision.kind === 'returnToMarket'
-      ? `${player.name} devolvió ${card.name} al mercado (${decision.sourceCardName})`
-      : `${player.name} descartó ${card.name} (${decision.sourceCardName})`
+    isSlothSubstitute
+      ? `${player.name} descartó su Perezoso en lugar de entregar lo debido (${decision.sourceCardName})`
+      : decision.kind === 'returnToMarket'
+        ? `${player.name} devolvió ${card.name} al mercado (${decision.sourceCardName})`
+        : `${player.name} descartó ${card.name} (${decision.sourceCardName})`
   );
 
   if (Object.keys(decision.owed).length === 0) {
@@ -786,16 +809,20 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
   }
 }
 
-// Se llama justo después de resolver los efectos onPlay de una carta
-// (ver playCard): si alguno dejó un descarte forzoso pendiente, resuelve
-// automáticamente a cualquier afectado que en realidad no tenga ninguna
-// elección que hacer — le caben exactamente tantas cartas elegibles
-// (owed.eligibleInstanceIds, o toda su mano si es null) como debe
-// descartar, así que el resultado es el mismo elija lo que elija. Deja
-// pendiente (bloqueando la partida) únicamente a quien de verdad tenga más
-// cartas elegibles que las que debe soltar.
+// Se llama justo después de resolver los efectos onPlay de una carta (ver
+// playCard): si alguno dejó pendiente una devolución al mercado ('discard'
+// tipo returnToMarket, Tiburón) resuelve automáticamente a cualquier
+// afectado que en realidad no tenga ninguna elección que hacer — le caben
+// exactamente tantas elegibles (owed.eligibleInstanceIds, o toda su mano si
+// es null) como debe devolver, así que el resultado es el mismo elija lo que
+// elija. Las entregas de tipo 'discard' (Buitre/Mono/Hiena/Murciélago) NUNCA
+// se auto-resuelven, ni siquiera sin elección real entre las cartas
+// "normales": desde que el Perezoso puede sustituir cualquier descarte
+// entero por sí solo, SIEMPRE hay una elección real que hacer (¿sacrifico el
+// Perezoso o las cartas pedidas?), así que el jugador afectado siempre debe
+// decidir explícitamente.
 function autoResolveForcedDiscards(state: GameState): void {
-  if (!state.pendingDecision) return;
+  if (!state.pendingDecision || state.pendingDecision.kind === 'discard') return;
   for (const playerId of Object.keys(state.pendingDecision.owed)) {
     // Se recalcula en cada vuelta: resolveDiscard puede vaciar `owed` (y
     // hasta poner pendingDecision a null) según va resolviendo.
@@ -829,7 +856,9 @@ export function autoResolvePendingDiscard(state: GameState): boolean {
   }
   const player = state.players.find((p) => p.id === owedId);
   const owed = state.pendingDecision.owed[owedId];
-  const instanceId = player ? pickDefaultDiscard(player.hand, owed.eligibleInstanceIds) : null;
+  const instanceId = player
+    ? pickDefaultDiscard(player.hand, owed.eligibleInstanceIds, state.pendingDecision.kind === 'discard')
+    : null;
   if (!instanceId) {
     delete state.pendingDecision.owed[owedId];
     if (Object.keys(state.pendingDecision.owed).length === 0) state.pendingDecision = null;

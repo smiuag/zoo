@@ -103,10 +103,16 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     p1.hand = [monkey];
     p1.deck = [freshInstance('coin-1', 'draw1'), freshInstance('coin-1', 'draw2')];
 
-    // Ambos rivales tienen exactamente 1 carta: no hay elección real que
-    // hacer (les toca soltar esa sí o sí), así que se resuelve solo, sin
-    // dejar nada pendiente — ver autoResolveForcedDiscards en engine.ts.
     playCard(state, p1.id, monkey.instanceId);
+
+    // Ambos rivales tienen exactamente 1 carta (sin elección real entre las
+    // normales), pero las entregas de tipo 'discard' ya nunca se
+    // auto-resuelven (ver autoResolveForcedDiscards en engine.ts: desde el
+    // Perezoso, siempre hay que decidir explícitamente) — cada uno resuelve
+    // la suya.
+    expect(state.pendingDecision).not.toBeNull();
+    resolveDiscard(state, p2.id, p2Coin.instanceId);
+    resolveDiscard(state, p3.id, p3Lion.instanceId);
 
     expect(state.pendingDecision).toBeNull();
     expect(p2.hand).toHaveLength(0);
@@ -624,7 +630,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.playedThisTurn.some((c) => c.id === 'spider')).toBe(true);
   });
 
-  it('hiena: sin empate no hay elección real que hacer, así que se resuelve solo sin bloquear la partida', () => {
+  it('hiena: sin empate no hay elección real entre las normales, pero ya no se auto-resuelve (podría tener un Perezoso)', () => {
     const { state, player, opponent } = setupClean();
     const cheap = freshInstance('dolphin', 'cheap'); // coste 3
     const costly = freshInstance('hippopotamus', 'costly'); // coste 5, más caro que el dolphin (3)
@@ -634,9 +640,13 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
     playCard(state, player.id, hyena.instanceId);
 
-    // Solo había 1 animal elegible (el más caro): nada que elegir de
-    // verdad, así que autoResolveForcedDiscards lo resuelve solo sin dejar
-    // pendingDecision ni pedir ningún clic.
+    // Solo hay 1 animal "normal" elegible (el más caro), pero las entregas de
+    // tipo 'discard' ya nunca se auto-resuelven (ver autoResolveForcedDiscards
+    // en engine.ts): el rival sigue teniendo que resolverlo explícitamente.
+    expect(state.pendingDecision).not.toBeNull();
+    expect(getLegalActions(state, opponent.id)).toHaveLength(1);
+    resolveDiscard(state, opponent.id, costly.instanceId);
+
     expect(state.pendingDecision).toBeNull();
     expect(opponent.hand).toEqual([cheap]);
     expect(opponent.discard).toEqual([costly]);
@@ -701,7 +711,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(state.pendingDecision).toBeNull();
   });
 
-  it('buitre: si el rival tiene menos cartas de las pedidas, no hay elección real y se resuelve solo', () => {
+  it('buitre: si el rival tiene menos cartas de las pedidas, no hay elección real, pero ya no se auto-resuelve', () => {
     const { state, player, opponent } = setupClean();
     const onlyCard = freshInstance('coin-1', 'o1');
     opponent.hand = [onlyCard]; // solo 1 carta, aunque el Buitre pida 2
@@ -710,9 +720,90 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
     playCard(state, player.id, vulture.instanceId);
 
+    expect(state.pendingDecision).not.toBeNull();
+    resolveDiscard(state, opponent.id, onlyCard.instanceId);
+
     expect(state.pendingDecision).toBeNull();
     expect(opponent.hand).toHaveLength(0);
     expect(opponent.discard).toEqual([onlyCard]);
+  });
+
+  it('perezoso: puede sustituir CUALQUIER descarte forzoso entero, aunque no sea de las cartas "normales" elegibles', () => {
+    const { state, player, opponent } = setupClean();
+    const c1 = freshInstance('coin-1', 'o1');
+    const c2 = freshInstance('coin-2', 'o2');
+    const c3 = freshInstance('coin-3', 'o3');
+    const sloth = freshInstance('sloth', 'o4');
+    opponent.hand = [c1, c2, c3, sloth];
+    const vulture = freshInstance('vulture', 'test'); // pide 2 cartas
+    player.hand = [vulture];
+
+    playCard(state, player.id, vulture.instanceId);
+
+    // El Perezoso es elegible aunque eligibleInstanceIds ya fuera null
+    // (Buitre acepta cualquier carta): lo relevante es que sustituye a LAS 2
+    // de una sola vez, no cuenta como 1 de las 2.
+    expect(getLegalActions(state, opponent.id)).toHaveLength(4);
+    resolveDiscard(state, opponent.id, sloth.instanceId);
+
+    expect(state.pendingDecision).toBeNull(); // resuelto del todo con 1 sola carta
+    expect(opponent.hand).toEqual(expect.arrayContaining([c1, c2, c3]));
+    expect(opponent.discard).toEqual([sloth]);
+  });
+
+  it('perezoso: en la hiena, sustituye al animal más caro aunque normalmente no fuera elegible', () => {
+    const { state, player, opponent } = setupClean();
+    const costly = freshInstance('hippopotamus', 'costly'); // coste 5: el único "normal" elegible
+    const sloth = freshInstance('sloth', 'o1');
+    opponent.hand = [costly, sloth];
+    const hyena = freshInstance('hyena', 'test');
+    player.hand = [hyena];
+
+    playCard(state, player.id, hyena.instanceId);
+
+    // El Perezoso se ofrece de más, aunque no sea el animal más caro.
+    const legal = getLegalActions(state, opponent.id);
+    expect(legal).toHaveLength(2);
+    resolveDiscard(state, opponent.id, sloth.instanceId);
+
+    expect(state.pendingDecision).toBeNull();
+    expect(opponent.hand).toEqual([costly]); // se salva el hipopótamo
+    expect(opponent.discard).toEqual([sloth]);
+  });
+
+  it('perezoso: si se usa para cubrir al mono, NO se cuenta como moneda descartada (no da robo extra)', () => {
+    const { state, player, opponent } = setupClean();
+    const coin = freshInstance('coin-1', 'o1');
+    const sloth = freshInstance('sloth', 'o2');
+    opponent.hand = [coin, sloth];
+    const monkey = freshInstance('monkey', 'test');
+    player.hand = [monkey];
+    player.deck = [freshInstance('coin-1', 'draw1')];
+
+    playCard(state, player.id, monkey.instanceId);
+    resolveDiscard(state, opponent.id, sloth.instanceId);
+
+    expect(opponent.hand).toEqual([coin]); // se salva la moneda
+    expect(opponent.discard).toEqual([sloth]);
+    expect(player.hand).toHaveLength(0); // no robó nada: no se descartó ninguna moneda
+  });
+
+  it('perezoso: NO sustituye una devolución al mercado del Tiburón (solo aplica a descartes)', () => {
+    const { state, player, opponent } = setupClean();
+    const dolphin = freshInstance('dolphin', 'o1'); // único elegible real del Tiburón
+    const sloth = freshInstance('sloth', 'o2'); // terrestre, no cuenta para el Tiburón
+    opponent.hand = [dolphin, sloth];
+    const shark = freshInstance('shark', 'test');
+    player.hand = [shark];
+
+    playCard(state, player.id, shark.instanceId);
+
+    // Sin elección real entre las elegibles del Tiburón (solo dolphin) Y el
+    // Perezoso no aplica a 'returnToMarket': se resuelve solo, como antes.
+    expect(state.pendingDecision).toBeNull();
+    expect(opponent.hand).toEqual([sloth]);
+    expect(opponent.discard).toHaveLength(0);
+    expect(state.animalTrack.some((c) => c.instanceId === dolphin.instanceId)).toBe(true);
   });
 
   it('con un descarte pendiente de verdad (elección real), jugar/comprar/terminar turno es ilegal hasta resolverlo', () => {

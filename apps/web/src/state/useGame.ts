@@ -250,7 +250,9 @@ export function useGame(): UseGame {
       const owedBotId = Object.keys(state.pendingDecision.owed)[0];
       const owed = state.pendingDecision.owed[owedBotId];
       const botPlayer = state.players.find((p) => p.id === owedBotId);
-      const instanceId = botPlayer ? pickDefaultDiscard(botPlayer.hand, owed.eligibleInstanceIds) : null;
+      const instanceId = botPlayer
+        ? pickDefaultDiscard(botPlayer.hand, owed.eligibleInstanceIds, state.pendingDecision.kind === 'discard')
+        : null;
       applyStep = () => {
         if (instanceId && botPlayer) {
           const action: Action = { type: 'resolveDiscard', instanceId };

@@ -82,9 +82,21 @@ function worstCardIndex(hand: CardInstance[]): number {
 // la de menor valor (igual que worstCardIndex). `eligibleInstanceIds` null
 // significa "cualquier carta de la mano vale" (Buitre/Mono); si viene una
 // lista (Hiena: solo los animales empatados a coste máximo), se elige entre
-// esas. Devuelve null si no hay ninguna elegible (no debería pasar si el
-// bot de verdad debe algo, pero por si acaso).
-export function pickDefaultDiscard(hand: CardInstance[], eligibleInstanceIds: string[] | null): string | null {
+// esas. `allowSlothSubstitute` (entregas de tipo 'discard' únicamente): si
+// el bot tiene un Perezoso en la mano, lo sacrifica sin más — cubre toda la
+// entrega él solo (ver resolveDiscard en engine.ts) y no vale nada (0PV, sin
+// ningún otro efecto), así que siempre es al menos tan buena elección como
+// cualquier otra. Devuelve null si no hay ninguna elegible (no debería pasar
+// si el bot de verdad debe algo, pero por si acaso).
+export function pickDefaultDiscard(
+  hand: CardInstance[],
+  eligibleInstanceIds: string[] | null,
+  allowSlothSubstitute = false
+): string | null {
+  if (allowSlothSubstitute) {
+    const sloth = hand.find((c) => c.id === 'sloth');
+    if (sloth) return sloth.instanceId;
+  }
   const pool = eligibleInstanceIds ? hand.filter((c) => eligibleInstanceIds.includes(c.instanceId)) : hand;
   const idx = worstCardIndex(pool);
   return idx === -1 ? null : pool[idx].instanceId;

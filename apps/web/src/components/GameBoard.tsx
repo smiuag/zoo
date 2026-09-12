@@ -87,6 +87,11 @@ export function GameBoard({
   const eligibleDiscardCards = owedDiscard
     ? human.hand.filter((c) => resolveDiscardActionFor(legalActions, c.instanceId))
     : [];
+  // Perezoso: si aparece entre las elegibles, descartarlo cubre TODA la
+  // entrega él solo (ver resolveDiscard en el motor) — se avisa en el modal
+  // porque si no, no es evidente que sustituya a las demás en vez de contar
+  // como 1 carta más.
+  const hasSlothSubstitute = eligibleDiscardCards.some((c) => c.id === 'sloth');
   const discardSourcePlayerName = state.pendingDecision
     ? (state.players.find((p) => p.id === state.pendingDecision!.sourcePlayerId)?.name ?? '')
     : '';
@@ -593,6 +598,12 @@ export function GameBoard({
               que {isReturnToMarket ? 'devolver al mercado' : 'descartar'}{' '}
               {owedDiscard.amount === 1 ? 'una carta' : `${owedDiscard.amount} cartas`} de tu mano.
               Elige cuál{owedDiscard.amount === 1 ? '' : 'es'}.
+              {hasSlothSubstitute && (
+                <>
+                  {' '}
+                  <strong>Truco:</strong> descartar tu Perezoso cubre toda la entrega él solo.
+                </>
+              )}
             </p>
             <div className="card-row">
               {eligibleDiscardCards.map((card) => (

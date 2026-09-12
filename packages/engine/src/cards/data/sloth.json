@@ -5,7 +5,7 @@
   "species": "sloth",
   "marketCost": 0,
   "victoryPoints": 0,
-  "text": "No hace nada. Solo duerme.",
+  "text": "Siempre que una carta te obligue a descartar una o más cartas, puedes descartar el Perezoso en su lugar para cubrir tú solo toda la entrega.",
   "effects": [],
   "habitats": ["land"]
 }
