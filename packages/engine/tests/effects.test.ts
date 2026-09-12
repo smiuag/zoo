@@ -654,7 +654,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
   it('hiena: si hay empate de coste, el rival puede elegir entre CUALQUIERA de los empatados', () => {
     const { state, player, opponent } = setupClean();
-    const dolphin = freshInstance('dolphin', 'd1'); // coste 3, 2PV
+    const dolphin = freshInstance('dolphin', 'd1'); // coste 3, 3PV
     const flamingo = freshInstance('flamingo', 'f1'); // coste 3, 1PV
     opponent.hand = [dolphin, flamingo];
     const hyena = freshInstance('hyena', 'test');

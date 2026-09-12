@@ -4,7 +4,7 @@
   "type": "animal",
   "species": "lion",
   "marketCost": 5,
-  "victoryPoints": 5,
+  "victoryPoints": 4,
   "text": "Añade 4 a tu valor de compra.",
   "effects": [
     {

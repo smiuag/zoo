@@ -4,7 +4,7 @@
   "type": "animal",
   "species": "snake",
   "marketCost": 4,
-  "victoryPoints": 1,
+  "victoryPoints": 2,
   "text": "Añade 1 a tu valor de compra por cada animal terrestre que tengas en tu mano.",
   "effects": [
     {
@@ -16,6 +16,7 @@
     }
   ],
   "habitats": [
-    "land"
+    "land",
+    "aquatic"
   ]
 }

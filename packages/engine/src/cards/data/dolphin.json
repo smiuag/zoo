@@ -4,7 +4,7 @@
   "type": "animal",
   "species": "dolphin",
   "marketCost": 3,
-  "victoryPoints": 2,
+  "victoryPoints": 3,
   "text": "Añade 2 a tu valor de compra, pero solo puedes usarlos para comprar animales acuáticos.",
   "effects": [
     {

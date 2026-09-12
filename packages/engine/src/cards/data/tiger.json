@@ -4,7 +4,7 @@
   "type": "animal",
   "species": "tiger",
   "marketCost": 4,
-  "victoryPoints": 3,
+  "victoryPoints": 4,
   "text": "Robas 2 cartas. Luego dejas 1 de tu mano encima de tu mazo.",
   "effects": [
     {

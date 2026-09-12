@@ -4,7 +4,7 @@
   "type": "animal",
   "species": "penguin",
   "marketCost": 5,
-  "victoryPoints": 2,
+  "victoryPoints": 0,
   "text": "Añade 1 a tu valor de compra. Al final de la partida, +1PV por cada animal distinto que tengas en tu mazo.",
   "effects": [
     {
