@@ -1,19 +1,19 @@
 import type { BotAlgorithm } from './gameConfig';
 
-// Etiquetas en español para el desplegable de algoritmo por hueco de bot en
-// el panel "Otros jugadores". Los 4 bots RL usan códigos cortos de 2 letras
-// (en vez de "IA (RL) — solo terrestres" etc.) para que quepan junto al
-// nombre del bot en el chip "· {label}" de GameBoard.tsx, igual que los
-// nombres cortos de jugador/bot (B1/J1) — ver useGame.ts: ES = genérico (sin
-// restricción de hábitat), TT = solo terrestres, AI = solo voladores, FO =
-// solo acuáticos.
-export const BOT_ALGORITHM_OPTIONS: { value: BotAlgorithm; label: string }[] = [
-  { value: 'rl', label: 'ES' },
-  { value: 'rlLand', label: 'TT' },
-  { value: 'rlBird', label: 'AI' },
-  { value: 'rlAquatic', label: 'FO' },
-  { value: 'heuristic', label: 'Heurístico' },
-  { value: 'random', label: 'Aleatorio' },
-  { value: 'expensiveFirst', label: 'Compra lo más caro' },
-  { value: 'animalBuyer', label: 'Comprador de animales' },
+// `label`: texto completo del desplegable de algoritmo (formulario y panel
+// "Otros jugadores"). `shortLabel`: código de 2 letras usado en sitios donde
+// no cabe el texto completo (el marcador de arriba en GameBoard.tsx
+// sustituye el nombre corto del bot, B1/B2, por este código cuando se
+// muestra ahí) — ES = genérico (sin restricción de hábitat), TT = solo
+// terrestres, AI = solo voladores, FO = solo acuáticos; el resto son
+// iniciales del propio nombre del algoritmo.
+export const BOT_ALGORITHM_OPTIONS: { value: BotAlgorithm; label: string; shortLabel: string }[] = [
+  { value: 'rl', label: "Preferencia general 'ES'", shortLabel: 'ES' },
+  { value: 'rlLand', label: "Preferencia por terrestres 'TT'", shortLabel: 'TT' },
+  { value: 'rlBird', label: "Preferencia por voladores 'AI'", shortLabel: 'AI' },
+  { value: 'rlAquatic', label: "Preferencia por acuáticos 'FO'", shortLabel: 'FO' },
+  { value: 'heuristic', label: 'Heurístico', shortLabel: 'HE' },
+  { value: 'random', label: 'Aleatorio', shortLabel: 'AL' },
+  { value: 'expensiveFirst', label: 'Compra lo más caro', shortLabel: 'CC' },
+  { value: 'animalBuyer', label: 'Comprador de animales', shortLabel: 'CA' },
 ];

@@ -67,6 +67,15 @@ export function GameBoard({
   const human = state.players.find((p) => p.id === viewerPlayerId) ?? state.players[0];
   const bots = state.players.filter((p) => !humanIds.includes(p.id));
   const scoreFor = (playerId: string) => scores.find((s) => s.playerId === playerId)?.score ?? 0;
+  // En el marcador de arriba, un bot se identifica por el código corto de su
+  // algoritmo (ES/TT/AI/FO/...) en vez de su nombre corto interno (B1, B2...
+  // ver useGame.ts): así se ve de un vistazo qué juega cada uno sin tener
+  // que bajar al panel "Bots". Los humanos siguen mostrando su nombre/nick.
+  function scoreboardName(p: Player): string {
+    if (humanIds.includes(p.id)) return p.name;
+    const algorithm = botAlgorithms[p.id];
+    return BOT_ALGORITHM_OPTIONS.find((o) => o.value === algorithm)?.shortLabel ?? p.name;
+  }
 
   // legalActions siempre son LAS DE ESTE VISOR concreto (ver App.tsx/
   // GuestApp.tsx): si tiene alguna, puede actuar ahora mismo, sea porque es
@@ -177,15 +186,18 @@ export function GameBoard({
   const [confirmEndTurn, setConfirmEndTurn] = useState(false);
   const choiceRef = useRef<HTMLDivElement>(null);
   const viewedPlayer = state.players.find((p) => p.id === viewedPlayerId) ?? null;
-  // Terminar turno "a lo tonto" (con animales sin jugar o dinero sin
-  // gastar) normalmente es un despiste, no algo querido: si todavía hay
-  // alguna playCard/buyAnimal/buyCoin legal, se avisa antes de dejar pasar
-  // el turno de verdad. Si ya no queda ninguna (jugaste todo lo que tenías y
-  // gastaste todo lo que podías pagar), terminar turno no pierde nada, así
-  // que no hace falta preguntar.
-  const hasUnusedTurnActions = legalActions.some(
-    (a) => a.type === 'playCard' || a.type === 'buyAnimal' || a.type === 'buyCoin'
-  );
+  // Terminar turno "a lo tonto" (con animales sin jugar o monedas sin
+  // gastar en la mano) normalmente es un despiste, no algo querido: si la
+  // mano todavía tiene algo (cualquier animal siempre se puede jugar; una
+  // moneda, aunque ahora mismo no llegue para nada, sigue sin "gastarse"),
+  // se avisa antes de dejar pasar el turno de verdad. OJO: se mira
+  // human.hand directamente, NO legalActions — comprobar solo
+  // buyAnimal/buyCoin legales dejaba sin avisar cuando te sobraba dinero
+  // que ya no te llegaba para nada, que es justo el caso que hay que
+  // avisar (no hay "vuelta atrás" para gastarlo después). Solo cuando la
+  // mano esté vacía de verdad (jugaste todo y gastaste todo lo que
+  // pudiste) no hace falta preguntar.
+  const hasUnusedTurnActions = human.hand.length > 0;
 
   useEffect(() => {
     setPendingChoice(null);
@@ -428,9 +440,9 @@ export function GameBoard({
                       .filter(Boolean)
                       .join(' ')}
                     onClick={clickable ? () => setViewedPlayerId(p.id) : undefined}
-                    title={`${p.name}: ${scoreFor(p.id)} PV${clickable ? ' · ver mazo' : ' · mazo privado hasta que termine la partida'}`}
+                    title={`${p.name}${humanIds.includes(p.id) ? '' : ` (${BOT_ALGORITHM_OPTIONS.find((o) => o.value === botAlgorithms[p.id])?.label ?? ''})`}: ${scoreFor(p.id)} PV${clickable ? ' · ver mazo' : ' · mazo privado hasta que termine la partida'}`}
                   >
-                    <strong>{p.name}</strong>
+                    <strong>{scoreboardName(p)}</strong>
                     <span className="scoreboard__pv">
                       {scoreFor(p.id)}
                       <small>PV</small>

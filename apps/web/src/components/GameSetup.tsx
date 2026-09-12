@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
 import {
-  DEFAULT_BOT_ALGORITHMS_BY_SEAT,
+  DEFAULT_BOT_ALGORITHM,
   DEFAULT_ROUND_LIMIT,
   MAX_BOTS,
   MAX_NICK_LENGTH,
@@ -32,13 +32,12 @@ interface GameSetupProps {
 // Alarga o recorta la lista de algoritmos al nuevo nº de bots, conservando
 // lo ya elegido para los huecos que se mantienen (solo se pierde/genera lo
 // que cambia), en vez de resetear todo el formulario cada vez que se toca
-// el número de bots.
+// el número de bots. Los huecos nuevos siempre arrancan con el algoritmo
+// genérico (ver DEFAULT_BOT_ALGORITHM): el usuario decide luego si le da
+// preferencia de hábitat a alguno.
 function resizeBotAlgorithms(current: BotAlgorithm[], count: number): BotAlgorithm[] {
   if (count <= current.length) return current.slice(0, count);
-  const extra = Array.from(
-    { length: count - current.length },
-    (_, i) => DEFAULT_BOT_ALGORITHMS_BY_SEAT[(current.length + i) % DEFAULT_BOT_ALGORITHMS_BY_SEAT.length]
-  );
+  const extra = Array.from({ length: count - current.length }, () => DEFAULT_BOT_ALGORITHM);
   return [...current, ...extra];
 }
 
@@ -52,9 +51,9 @@ export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
   const [numHumans, setNumHumans] = useState(savedSetupPrefs?.numHumans ?? 1);
   const [nick, setNick] = useState(loadSavedNick);
   const [botAlgorithms, setBotAlgorithms] = useState<BotAlgorithm[]>(
-    savedSetupPrefs ? savedSetupPrefs.botAlgorithms : DEFAULT_BOT_ALGORITHMS_BY_SEAT.slice(0, 4)
+    savedSetupPrefs ? savedSetupPrefs.botAlgorithms : Array.from({ length: 4 }, () => DEFAULT_BOT_ALGORITHM)
   );
-  const [roundLimit, setRoundLimit] = useState<RoundLimit>(DEFAULT_ROUND_LIMIT);
+  const [roundLimit, setRoundLimit] = useState<RoundLimit>(savedSetupPrefs?.roundLimit ?? DEFAULT_ROUND_LIMIT);
   const [animationsEnabled, setAnimationsEnabled] = useState(savedSetupPrefs?.animationsEnabled ?? true);
 
   const totalPlayers = numHumans + botAlgorithms.length;
@@ -80,7 +79,7 @@ export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
     // Se recuerda para la próxima partida en este dispositivo en el momento
     // de empezar (no al teclear/tocar cada campo).
     saveNick(cleanNick);
-    saveSetupPrefs({ numHumans, botAlgorithms, animationsEnabled });
+    saveSetupPrefs({ numHumans, botAlgorithms, roundLimit, animationsEnabled });
     return { numHumans, nick: cleanNick, botAlgorithms, roundLimit, animationsEnabled };
   }
 
@@ -177,18 +176,20 @@ export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
         )}
 
         <div className="setup-row">
-          <label htmlFor="setup-rounds">Duración</label>
-          <select
-            id="setup-rounds"
-            value={roundLimit}
-            onChange={(e) => setRoundLimit(Number(e.target.value) as RoundLimit)}
-          >
+          <label>Duración</label>
+          <div className="setup-round-options">
             {ROUND_LIMIT_OPTIONS.map((rounds) => (
-              <option key={rounds} value={rounds}>
+              <button
+                key={rounds}
+                type="button"
+                className={`btn ${roundLimit === rounds ? 'btn--primary' : 'btn--ghost'}`}
+                aria-pressed={roundLimit === rounds}
+                onClick={() => setRoundLimit(rounds)}
+              >
                 {rounds} rondas
-              </option>
+              </button>
             ))}
-          </select>
+          </div>
         </div>
 
         <div className="setup-row">

@@ -28,15 +28,13 @@ export const MAX_BOTS = 7;
 // pueden enfrentar entre ellos sin ningún bot.
 export const MIN_TOTAL_PLAYERS = 2;
 
-export const DEFAULT_BOT_ALGORITHMS_BY_SEAT: BotAlgorithm[] = [
-  'rl',
-  'rlLand',
-  'rlBird',
-  'rlAquatic',
-  'heuristic',
-  'random',
-  'expensiveFirst',
-];
+// Todo bot nuevo (al crear la partida o al subir "Número de bots" en el
+// formulario) arranca con el algoritmo genérico sin restricción de hábitat
+// ('rl', "ES"): el usuario decide luego, hueco a hueco, si le da preferencia
+// de hábitat a alguno o prueba uno de los heurísticos. También el fallback
+// en useGame.ts si por lo que sea un asiento de bot no tiene algoritmo
+// asignado.
+export const DEFAULT_BOT_ALGORITHM: BotAlgorithm = 'rl';
 
 // Duraciones de partida seleccionables (en rondas: 1 turno de cada
 // jugador). No hay opción "sin límite" a propósito: con una duración
@@ -45,7 +43,7 @@ export const DEFAULT_BOT_ALGORITHMS_BY_SEAT: BotAlgorithm[] = [
 // esto le da al jugador control real sobre cuánto dura.
 export const ROUND_LIMIT_OPTIONS = [10, 15, 20] as const;
 export type RoundLimit = (typeof ROUND_LIMIT_OPTIONS)[number];
-export const DEFAULT_ROUND_LIMIT: RoundLimit = 20;
+export const DEFAULT_ROUND_LIMIT: RoundLimit = 15;
 
 // Nick del jugador local (human-0): lo escribe en el formulario y se guarda
 // en localStorage para las siguientes partidas en este dispositivo. Corto a
@@ -89,6 +87,7 @@ const ALL_BOT_ALGORITHMS: readonly BotAlgorithm[] = [
 export interface SetupPrefs {
   numHumans: number;
   botAlgorithms: BotAlgorithm[];
+  roundLimit: RoundLimit;
   animationsEnabled: boolean;
 }
 
@@ -118,7 +117,11 @@ export function loadSavedSetupPrefs(): SetupPrefs | null {
     );
     if (botAlgorithms.length !== parsed.botAlgorithms.length) return null;
 
-    return { numHumans, botAlgorithms, animationsEnabled: Boolean(parsed.animationsEnabled) };
+    const roundLimit = (ROUND_LIMIT_OPTIONS as readonly number[]).includes(Number(parsed.roundLimit))
+      ? (Number(parsed.roundLimit) as RoundLimit)
+      : DEFAULT_ROUND_LIMIT;
+
+    return { numHumans, botAlgorithms, roundLimit, animationsEnabled: Boolean(parsed.animationsEnabled) };
   } catch {
     return null;
   }
@@ -150,7 +153,7 @@ export function defaultGameConfig(): GameConfig {
   return {
     numHumans: 1,
     nick: '',
-    botAlgorithms: DEFAULT_BOT_ALGORITHMS_BY_SEAT.slice(0, 4),
+    botAlgorithms: Array.from({ length: 4 }, () => DEFAULT_BOT_ALGORITHM),
     roundLimit: DEFAULT_ROUND_LIMIT,
     animationsEnabled: true,
   };

@@ -1265,6 +1265,19 @@ body {
   max-width: 240px;
 }
 
+/* Duración: 3 botones lado a lado en vez de un <select>, para elegir de un
+   vistazo/toque sin desplegar nada — el seleccionado usa .btn--primary,
+   el resto .btn--ghost (ver GameSetup.tsx). */
+.setup-round-options {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.setup-round-options .btn {
+  flex: 1;
+  text-align: center;
+}
+
 .setup-error {
   color: var(--danger);
   font-size: 0.82rem;

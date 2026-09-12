@@ -20,10 +20,10 @@ import {
 } from '@zoo/engine';
 import { FLIGHT_TOTAL_MS } from '../components/FlyingCard';
 import { buildStarterDeck } from '../lib/starterDeck';
-import { MAX_NICK_LENGTH, defaultGameConfig, type BotAlgorithm, type GameConfig } from '../lib/gameConfig';
+import { DEFAULT_BOT_ALGORITHM, MAX_NICK_LENGTH, defaultGameConfig, type BotAlgorithm, type GameConfig } from '../lib/gameConfig';
 
 export type { BotAlgorithm, GameConfig, RoundLimit } from '../lib/gameConfig';
-export { DEFAULT_ROUND_LIMIT, MAX_BOTS, MAX_HUMANS, MIN_BOTS, MIN_HUMANS, MIN_TOTAL_PLAYERS, ROUND_LIMIT_OPTIONS } from '../lib/gameConfig';
+export { DEFAULT_BOT_ALGORITHM, DEFAULT_ROUND_LIMIT, MAX_BOTS, MAX_HUMANS, MIN_BOTS, MIN_HUMANS, MIN_TOTAL_PLAYERS, ROUND_LIMIT_OPTIONS } from '../lib/gameConfig';
 
 const BOT_REGISTRY: Record<BotAlgorithm, Bot> = {
   rl: rlBot,
@@ -35,8 +35,6 @@ const BOT_REGISTRY: Record<BotAlgorithm, Bot> = {
   expensiveFirst: expensiveFirstBot,
   animalBuyer: animalBuyerBot,
 };
-
-const DEFAULT_BOT_ALGORITHM: BotAlgorithm = 'rl';
 
 // Red de seguridad: un bot mal entrenado puede quedarse atrapado en un
 // bucle que no da PV de más (p. ej. jugar una y otra vez el mismo animal ya

@@ -16,7 +16,7 @@ FONT_REG = r"C:\Windows\Fonts\georgia.ttf"
 # píxeles: todo lo demás es idéntico), igual que la versión "madera" sin
 # aclarar de la que viene. Ver template_key_for_card() en compose_all.py
 # para cómo se elige cada una por carta.
-TEMPLATES_DIR = r"C:\proyectos\Claude\zoo\img\Nueva carpeta\madera\claras"
+TEMPLATES_DIR = r"C:\proyectos\Claude\zoo\img\templates\claras"
 TEMPLATE_FILES = {
     "land": "tierra.png",
     "aquatic": "agua.png",
@@ -38,7 +38,7 @@ _ALPHA_CACHE_DIR = r"C:\proyectos\Claude\zoo\img\_work\template_alpha_cache"
 # escalar (a diferencia de la versión "Definitivas", en 718x1024).
 ILLUSTRATION_BOX = (66, 64, 551, 483)
 COST_BADGE = (83, 103)             # center of the coin pouch
-PV_BADGE = (524, 86)               # center of the laurel shield
+PV_BADGE = (526, 97)               # center of the laurel wreath opening (medido a mano sobre la plantilla)
 BADGE_NUMBER_SIZE = 50             # 45 + 10%
 TITLE_BOX = (95, 513, 540, 561)    # wood ribbon banner: card name
 TYPE_LINE_POINT = (307, 648)       # "Terrestre" label, centered in the panel
