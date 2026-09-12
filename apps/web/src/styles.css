@@ -14,6 +14,10 @@
 
   --card-w: 128px;
   --card-h: 184px;
+  /* Carta compacta (mesa del jugador activo, ver .card--compact): la
+     altura vive aquí porque .card-row--board la necesita para reservar
+     el alto de una fila aunque esté vacía. */
+  --card-compact-h: 100px;
   --radius: 10px;
 }
 
@@ -245,9 +249,14 @@ body {
   margin-bottom: 0;
 }
 
+/* Alto mínimo = una fila de cartas compactas + el desplazamiento vertical
+   máximo de una pila (ver .card-stack__item:nth-child(4)): así la mesa no
+   "encoge" cuando aún no se ha jugado nada y crece solo si hacen falta más
+   filas, sin que el resto de la página baile a cada carta jugada. */
 .card-row--board {
   margin-top: 0.35rem;
   align-items: center;
+  min-height: calc(var(--card-compact-h) + 12px);
 }
 
 /* Pila "en abanico": las copias repetidas de una misma carta jugada este
@@ -539,7 +548,7 @@ body {
    como los que todavía puedes comprar. */
 .card--compact {
   --card-w: 72px;
-  --card-h: 100px;
+  --card-h: var(--card-compact-h);
   padding: 0.25rem;
 }
 .card--compact .card__icon {
