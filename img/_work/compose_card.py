@@ -8,21 +8,23 @@ INK = (42, 28, 18)
 FONT_BOLD = r"C:\Windows\Fonts\georgiab.ttf"
 FONT_REG = r"C:\Windows\Fonts\georgia.ttf"
 
-# Plantillas "definitivas" (una por combinación de hábitats, más una para las
-# monedas): mismo lienzo (718x1024) y composición en las 7 (ventana de
+# Plantillas "madera claras" (una por combinación de hábitats, más una para
+# las monedas): mismo lienzo (615x878) y composición en las 7 (ventana de
 # ilustración, bolsa de monedas arriba-izq., escudo de laureles arriba-dcha.,
-# cinta con el nombre, panel de pergamino con el texto), solo cambia la
-# decoración de cada tema. Ver template_key_for_card() en compose_all.py
+# cinta con el nombre, panel de pergamino con el texto) — solo cambia el
+# COLOR de la cinta del nombre entre unas y otras (comprobado por diff de
+# píxeles: todo lo demás es idéntico), igual que la versión "madera" sin
+# aclarar de la que viene. Ver template_key_for_card() en compose_all.py
 # para cómo se elige cada una por carta.
-TEMPLATES_DIR = r"C:\proyectos\Claude\zoo\img\Nueva carpeta\Definitivas"
+TEMPLATES_DIR = r"C:\proyectos\Claude\zoo\img\Nueva carpeta\madera\claras"
 TEMPLATE_FILES = {
-    "land": "Tierra.jpg",
-    "aquatic": "agua.jpg",
-    "bird": "aire.jpg",
-    "land_aquatic": "Tierra_agua.png",
-    "land_bird": "Tierra_aire.png",
+    "land": "tierra.png",
+    "aquatic": "agua.png",
+    "bird": "aire.png",
+    "land_aquatic": "tierra_agua.png",
+    "land_bird": "tierra_aire.png",
     "aquatic_bird": "agua_aire.png",
-    "coin": "monedas.jpg",
+    "coin": "monedas.png",
 }
 # Plantillas en RGBA con la ventana de ilustración ya recortada como
 # transparencia real (ver _build_template_alpha) — se detecta por flood fill
@@ -32,31 +34,16 @@ TEMPLATE_FILES = {
 # vuelva a detectar la ventana.
 _ALPHA_CACHE_DIR = r"C:\proyectos\Claude\zoo\img\_work\template_alpha_cache"
 
-# Las coordenadas de abajo vienen de escalar las del template3.png original
-# (615x878, 1 sola plantilla) al lienzo de las nuevas (718x1024): las 7
-# comparten la MISMA composición que el original, solo con arte distinto, y
-# el escalado se comprobó por solapamiento visual (la ventana detectada por
-# flood fill cae dentro de unos pocos px de ILLUSTRATION_BOX aquí abajo).
-_SCALE_X = 718 / 615
-_SCALE_Y = 1024 / 878
-
-
-def _sx(x):
-    return round(x * _SCALE_X)
-
-
-def _sy(y):
-    return round(y * _SCALE_Y)
-
-
-ILLUSTRATION_BOX = (_sx(66), _sy(64), _sx(551), _sy(483))
-COST_BADGE = (_sx(83), _sy(103))          # center of the coin pouch
-PV_BADGE = (_sx(524), _sy(86))            # center of the laurel shield
-BADGE_NUMBER_SIZE = 50                    # 45 + 10%
-TITLE_BOX = (_sx(95), _sy(513), _sx(540), _sy(561))     # stone/wood ribbon banner: card name
-TYPE_LINE_POINT = (_sx(307), _sy(648))                  # "Terrestre" label, centered in the panel
-TYPE_LINE_MAX_WIDTH = round(420 * _SCALE_X)             # shrink multi-habitat labels to fit
-PANEL_BODY_BOX = (_sx(95), _sy(672), _sx(540), _sy(858))  # starts right below the type label, top-aligned
+# Mismo lienzo (615x878) que el antiguo template3.png: coordenadas sin
+# escalar (a diferencia de la versión "Definitivas", en 718x1024).
+ILLUSTRATION_BOX = (66, 64, 551, 483)
+COST_BADGE = (83, 103)             # center of the coin pouch
+PV_BADGE = (524, 86)               # center of the laurel shield
+BADGE_NUMBER_SIZE = 50             # 45 + 10%
+TITLE_BOX = (95, 513, 540, 561)    # wood ribbon banner: card name
+TYPE_LINE_POINT = (307, 648)       # "Terrestre" label, centered in the panel
+TYPE_LINE_MAX_WIDTH = 420          # shrink multi-habitat labels to fit
+PANEL_BODY_BOX = (95, 672, 540, 858)  # starts right below the type label, top-aligned
 
 COST_COLOR = (0, 100, 0)    # verde bosque
 PV_COLOR = (94, 35, 123)    # morado (el mismo que la Hiena en la tanda 4)

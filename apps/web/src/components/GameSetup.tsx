@@ -6,7 +6,9 @@ import {
   MAX_BOTS,
   MAX_NICK_LENGTH,
   loadSavedNick,
+  loadSavedSetupPrefs,
   saveNick,
+  saveSetupPrefs,
   MAX_HUMANS,
   MIN_BOTS,
   MIN_HUMANS,
@@ -41,11 +43,19 @@ function resizeBotAlgorithms(current: BotAlgorithm[], count: number): BotAlgorit
 }
 
 export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
-  const [numHumans, setNumHumans] = useState(1);
+  // Se lee una sola vez (lazy initializer de useState, no en cada render):
+  // nº de humanos, bots elegidos y animaciones de la última partida creada
+  // en este dispositivo (ver saveSetupPrefs en buildConfig más abajo). null
+  // la primera vez (o si lo guardado ya no es válido) — se usan los valores
+  // por defecto de siempre en ese caso.
+  const [savedSetupPrefs] = useState(loadSavedSetupPrefs);
+  const [numHumans, setNumHumans] = useState(savedSetupPrefs?.numHumans ?? 1);
   const [nick, setNick] = useState(loadSavedNick);
-  const [botAlgorithms, setBotAlgorithms] = useState<BotAlgorithm[]>(DEFAULT_BOT_ALGORITHMS_BY_SEAT.slice(0, 4));
+  const [botAlgorithms, setBotAlgorithms] = useState<BotAlgorithm[]>(
+    savedSetupPrefs ? savedSetupPrefs.botAlgorithms : DEFAULT_BOT_ALGORITHMS_BY_SEAT.slice(0, 4)
+  );
   const [roundLimit, setRoundLimit] = useState<RoundLimit>(DEFAULT_ROUND_LIMIT);
-  const [animationsEnabled, setAnimationsEnabled] = useState(true);
+  const [animationsEnabled, setAnimationsEnabled] = useState(savedSetupPrefs?.animationsEnabled ?? true);
 
   const totalPlayers = numHumans + botAlgorithms.length;
   const canStart = totalPlayers >= MIN_TOTAL_PLAYERS;
@@ -68,8 +78,9 @@ export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
   function buildConfig(): GameConfig {
     const cleanNick = nick.trim().slice(0, MAX_NICK_LENGTH);
     // Se recuerda para la próxima partida en este dispositivo en el momento
-    // de empezar (no al teclear), así un nick a medias no se guarda.
+    // de empezar (no al teclear/tocar cada campo).
     saveNick(cleanNick);
+    saveSetupPrefs({ numHumans, botAlgorithms, animationsEnabled });
     return { numHumans, nick: cleanNick, botAlgorithms, roundLimit, animationsEnabled };
   }
 

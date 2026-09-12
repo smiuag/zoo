@@ -71,6 +71,67 @@ export function saveNick(nick: string): void {
   }
 }
 
+// Todos los valores posibles de BotAlgorithm, para validar lo leído de
+// localStorage (ver loadSavedSetupPrefs): un valor corrupto o de una
+// versión antigua del formulario no debe colar un algoritmo desconocido
+// que luego reviente BOT_REGISTRY[algorithm] en useGame.ts.
+const ALL_BOT_ALGORITHMS: readonly BotAlgorithm[] = [
+  'rl',
+  'rlLand',
+  'rlBird',
+  'rlAquatic',
+  'heuristic',
+  'random',
+  'expensiveFirst',
+  'animalBuyer',
+];
+
+export interface SetupPrefs {
+  numHumans: number;
+  botAlgorithms: BotAlgorithm[];
+  animationsEnabled: boolean;
+}
+
+const SETUP_PREFS_STORAGE_KEY = 'zoo.setupPrefs';
+
+// Configuración recordada del formulario de creación de partida (nº de
+// jugadores humanos, bots elegidos con su algoritmo, y si se quieren
+// animaciones): igual que el nick (ver loadSavedNick), se guarda en
+// localStorage en el momento de empezar la partida, no al tocar cada campo,
+// para que el formulario abra ya así la próxima vez en este dispositivo.
+// null si nunca se guardó nada o si lo guardado ya no es válido (versión
+// antigua, dato corrupto...) — en ese caso GameSetup usa sus valores por
+// defecto de siempre.
+export function loadSavedSetupPrefs(): SetupPrefs | null {
+  try {
+    const raw = window.localStorage.getItem(SETUP_PREFS_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<SetupPrefs> | null;
+    if (!parsed || typeof parsed !== 'object') return null;
+
+    const numHumans = Number(parsed.numHumans);
+    if (!Number.isInteger(numHumans) || numHumans < MIN_HUMANS || numHumans > MAX_HUMANS) return null;
+
+    if (!Array.isArray(parsed.botAlgorithms) || parsed.botAlgorithms.length > MAX_BOTS) return null;
+    const botAlgorithms = parsed.botAlgorithms.filter((a): a is BotAlgorithm =>
+      (ALL_BOT_ALGORITHMS as string[]).includes(a as string)
+    );
+    if (botAlgorithms.length !== parsed.botAlgorithms.length) return null;
+
+    return { numHumans, botAlgorithms, animationsEnabled: Boolean(parsed.animationsEnabled) };
+  } catch {
+    return null;
+  }
+}
+
+export function saveSetupPrefs(prefs: SetupPrefs): void {
+  try {
+    window.localStorage.setItem(SETUP_PREFS_STORAGE_KEY, JSON.stringify(prefs));
+  } catch {
+    // Sin almacenamiento (modo privado, etc.): simplemente no se recuerda.
+  }
+}
+
 export interface GameConfig {
   numHumans: number;
   nick: string;
