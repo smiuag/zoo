@@ -78,28 +78,38 @@ function worstCardIndex(hand: CardInstance[]): number {
 
 // Heurística de descarte por defecto, para que la usen los bots cuando un
 // descarte forzoso pendiente les toca a ellos (ver el bucle de autoplay en
-// apps/web/src/state/useGame.ts): entre las cartas elegibles, se queda con
-// la de menor valor (igual que worstCardIndex). `eligibleInstanceIds` null
-// significa "cualquier carta de la mano vale" (Buitre/Mono); si viene una
-// lista (Hiena: solo los animales empatados a coste máximo), se elige entre
-// esas. `allowSlothSubstitute` (entregas de tipo 'discard' únicamente): si
-// el bot tiene un Perezoso en la mano, lo sacrifica sin más — cubre toda la
-// entrega él solo (ver resolveDiscard en engine.ts) y no vale nada (0PV, sin
-// ningún otro efecto), así que siempre es al menos tan buena elección como
-// cualquier otra. Devuelve null si no hay ninguna elegible (no debería pasar
-// si el bot de verdad debe algo, pero por si acaso).
+// apps/web/src/state/useGame.ts, y el bucle de entrenamiento/evaluación en
+// scripts/rl/selfPlay.ts — así esta regla queda fija para SIEMPRE que se
+// entrene, no hace falta acordarse de aplicarla a mano en cada tanda): entre
+// las cartas elegibles, se queda con la de menor valor (igual que
+// worstCardIndex). `eligibleInstanceIds` null significa "cualquier carta de
+// la mano vale" (Buitre/Mono); si viene una lista (Hiena: solo los animales
+// empatados a coste máximo), se elige entre esas. `allowSlothSubstitute`
+// (entregas de tipo 'discard' únicamente): si el bot tiene un Perezoso en la
+// mano, lo sacrifica sin más — cubre toda la entrega él solo (ver
+// resolveDiscard en engine.ts) y no vale nada (0PV, sin ningún otro efecto),
+// así que siempre es al menos tan buena elección como cualquier otra.
+// `avoidCoins` (Mono, ver discardFromEachOpponentAndDrawPerCoin más abajo:
+// coincide con decision.bonusDrawPerCoin): descartar una moneda ahí no solo
+// pierde la moneda, también le da a quien jugó el Mono una carta gratis, así
+// que es la PEOR opción posible — se evita mientras quede cualquier otra
+// carta en la mano, aunque valga más, y solo se descarta una moneda (la de
+// menor valor) si no queda ninguna otra. Devuelve null si no hay ninguna
+// elegible (no debería pasar si el bot de verdad debe algo, pero por si acaso).
 export function pickDefaultDiscard(
   hand: CardInstance[],
   eligibleInstanceIds: string[] | null,
-  allowSlothSubstitute = false
+  allowSlothSubstitute = false,
+  avoidCoins = false
 ): string | null {
   if (allowSlothSubstitute) {
     const sloth = hand.find((c) => c.id === 'sloth');
     if (sloth) return sloth.instanceId;
   }
   const pool = eligibleInstanceIds ? hand.filter((c) => eligibleInstanceIds.includes(c.instanceId)) : hand;
-  const idx = worstCardIndex(pool);
-  return idx === -1 ? null : pool[idx].instanceId;
+  const searchPool = avoidCoins && pool.some((c) => c.type !== 'coin') ? pool.filter((c) => c.type !== 'coin') : pool;
+  const idx = worstCardIndex(searchPool);
+  return idx === -1 ? null : searchPool[idx].instanceId;
 }
 
 // Arranca (o no, si nadie debe nada) una entrega forzosa de cartas pendiente:

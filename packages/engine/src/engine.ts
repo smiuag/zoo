@@ -857,7 +857,12 @@ export function autoResolvePendingDiscard(state: GameState): boolean {
   const player = state.players.find((p) => p.id === owedId);
   const owed = state.pendingDecision.owed[owedId];
   const instanceId = player
-    ? pickDefaultDiscard(player.hand, owed.eligibleInstanceIds, state.pendingDecision.kind === 'discard')
+    ? pickDefaultDiscard(
+        player.hand,
+        owed.eligibleInstanceIds,
+        state.pendingDecision.kind === 'discard',
+        state.pendingDecision.bonusDrawPerCoin
+      )
     : null;
   if (!instanceId) {
     delete state.pendingDecision.owed[owedId];

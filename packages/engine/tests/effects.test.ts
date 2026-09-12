@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { buyAnimal, canAffordMarket, createGame, getLegalActions, playCard, resolveDiscard } from '../src/engine';
+import {
+  autoResolvePendingDiscard,
+  buyAnimal,
+  canAffordMarket,
+  createGame,
+  getLegalActions,
+  playCard,
+  resolveDiscard,
+} from '../src/engine';
 import { getCard } from '../src/cards/registry';
 import { buildStarterDeck } from './helpers';
 
@@ -80,6 +88,59 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     resolveDiscard(state, opponent.id, hippo.instanceId);
 
     expect(opponent.discard).toEqual([hippo]);
+    expect(player.hand).toHaveLength(0); // no robó nada
+  });
+
+  it('mono: la heurística del bot evita descartar una moneda mientras tenga cualquier otra carta, aunque valga menos', () => {
+    const { state, player, opponent } = setupClean();
+    const coin = freshInstance('coin-5', 'o1'); // Platino: la más valiosa de la mano, pero es MONEDA
+    const goldfish = freshInstance('goldfish', 'o2'); // 1PV: vale mucho menos que la moneda, pero no es moneda
+    opponent.hand = [coin, goldfish];
+    const monkey = freshInstance('monkey', 'test');
+    player.hand = [monkey];
+
+    playCard(state, player.id, monkey.instanceId);
+    // Nadie ha resuelto todavía "a mano": lo hace la heurística por defecto,
+    // la misma que usan los bots (ver useGame.ts) y el entrenamiento RL (ver
+    // selfPlay.ts) — descartar la moneda le daría a player un robo gratis
+    // además de perder la moneda, así que es la peor opción posible.
+    autoResolvePendingDiscard(state);
+
+    expect(opponent.hand).toEqual([coin]); // se queda la moneda
+    expect(opponent.discard).toEqual([goldfish]); // se descarta el animal, no la moneda
+    expect(player.hand).toHaveLength(0); // no robó nada: no se descartó ninguna moneda
+  });
+
+  it('mono: si en la mano solo quedan monedas, la heurística del bot sí descarta una (la de menor valor)', () => {
+    const { state, player, opponent } = setupClean();
+    const cheapCoin = freshInstance('coin-1', 'o1');
+    const expensiveCoin = freshInstance('coin-5', 'o2');
+    opponent.hand = [cheapCoin, expensiveCoin];
+    const monkey = freshInstance('monkey', 'test');
+    player.hand = [monkey];
+    player.deck = [freshInstance('coin-1', 'draw1')];
+
+    playCard(state, player.id, monkey.instanceId);
+    autoResolvePendingDiscard(state);
+
+    expect(opponent.hand).toEqual([expensiveCoin]); // se salva la más valiosa
+    expect(opponent.discard).toEqual([cheapCoin]); // sin otra opción, la moneda más barata
+    expect(player.hand).toHaveLength(1); // sí robó: se descartó una moneda
+  });
+
+  it('mono: con un Perezoso en la mano, la heurística lo prefiere incluso sobre no tocar las monedas', () => {
+    const { state, player, opponent } = setupClean();
+    const coin = freshInstance('coin-5', 'o1');
+    const sloth = freshInstance('sloth', 'o2');
+    opponent.hand = [coin, sloth];
+    const monkey = freshInstance('monkey', 'test');
+    player.hand = [monkey];
+
+    playCard(state, player.id, monkey.instanceId);
+    autoResolvePendingDiscard(state);
+
+    expect(opponent.hand).toEqual([coin]);
+    expect(opponent.discard).toEqual([sloth]);
     expect(player.hand).toHaveLength(0); // no robó nada
   });
 
