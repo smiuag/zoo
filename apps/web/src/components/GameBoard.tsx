@@ -174,12 +174,23 @@ export function GameBoard({
 
   const [pendingChoice, setPendingChoice] = useState<PendingChoice | null>(null);
   const [viewedPlayerId, setViewedPlayerId] = useState<string | null>(null);
+  const [confirmEndTurn, setConfirmEndTurn] = useState(false);
   const choiceRef = useRef<HTMLDivElement>(null);
   const viewedPlayer = state.players.find((p) => p.id === viewedPlayerId) ?? null;
+  // Terminar turno "a lo tonto" (con animales sin jugar o dinero sin
+  // gastar) normalmente es un despiste, no algo querido: si todavía hay
+  // alguna playCard/buyAnimal/buyCoin legal, se avisa antes de dejar pasar
+  // el turno de verdad. Si ya no queda ninguna (jugaste todo lo que tenías y
+  // gastaste todo lo que podías pagar), terminar turno no pierde nada, así
+  // que no hace falta preguntar.
+  const hasUnusedTurnActions = legalActions.some(
+    (a) => a.type === 'playCard' || a.type === 'buyAnimal' || a.type === 'buyCoin'
+  );
 
   useEffect(() => {
     setPendingChoice(null);
     setViewedPlayerId(null);
+    setConfirmEndTurn(false);
   }, [state.turn]);
 
   useEffect(() => {
@@ -475,7 +486,13 @@ export function GameBoard({
                 <button
                   className="btn btn--primary"
                   disabled={!legalActions.some((a) => a.type === 'endTurn')}
-                  onClick={() => runAction(legalActions.find((a) => a.type === 'endTurn'))}
+                  onClick={() => {
+                    if (hasUnusedTurnActions) {
+                      setConfirmEndTurn(true);
+                      return;
+                    }
+                    runAction(legalActions.find((a) => a.type === 'endTurn'));
+                  }}
                 >
                   Terminar turno
                 </button>
@@ -613,6 +630,33 @@ export function GameBoard({
                   onClick={() => runAction(resolveDiscardActionFor(legalActions, card.instanceId))}
                 />
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmEndTurn && (
+        <div className="modal-backdrop" onClick={() => setConfirmEndTurn(false)}>
+          <div className="modal modal--confirm" onClick={(e) => e.stopPropagation()}>
+            <div className="panel__header">
+              <h2>¿Terminar turno?</h2>
+            </div>
+            <p className="modal__message">
+              Todavía tienes animales por jugar o dinero por gastar. ¿Seguro que quieres terminar el turno?
+            </p>
+            <div className="modal__actions">
+              <button className="btn btn--ghost" onClick={() => setConfirmEndTurn(false)}>
+                Cancelar
+              </button>
+              <button
+                className="btn btn--primary"
+                onClick={() => {
+                  setConfirmEndTurn(false);
+                  runAction(legalActions.find((a) => a.type === 'endTurn'));
+                }}
+              >
+                Sí, terminar turno
+              </button>
             </div>
           </div>
         </div>

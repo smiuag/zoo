@@ -65,9 +65,31 @@ def load_cards():
     return cards
 
 
-def compose_generic(photo_path, name, type_label, cost, pv, text, out_path, is_coin=False,
+# Qué plantilla "definitiva" (ver cc.TEMPLATE_FILES) le toca a una carta,
+# según su combinación exacta de hábitats (o "coin" si es una moneda). Sin
+# plantilla para "todoterreno" (los 3 hábitats a la vez): ninguna especie
+# actual los tiene, así que lanza un error claro en vez de fallar en
+# silencio si algún día se añade una sin plantilla lista.
+def template_key_for_card(card):
+    if card["type"] == "coin":
+        return "coin"
+    habitats = frozenset(card.get("habitats", []))
+    key = {
+        frozenset(["land"]): "land",
+        frozenset(["aquatic"]): "aquatic",
+        frozenset(["bird"]): "bird",
+        frozenset(["land", "aquatic"]): "land_aquatic",
+        frozenset(["land", "bird"]): "land_bird",
+        frozenset(["aquatic", "bird"]): "aquatic_bird",
+    }.get(habitats)
+    if key is None:
+        raise ValueError(f"Sin plantilla para la combinación de hábitats {sorted(habitats)} (carta {card['id']})")
+    return key
+
+
+def compose_generic(photo_path, name, type_label, cost, pv, text, out_path, template_key, is_coin=False,
                      badge_color=None, cost_color=None, pv_color=None):
-    card = cc.build_card_base(photo_path)
+    card = cc.build_card_base(photo_path, template_key)
     draw = ImageDraw.Draw(card)
 
     f_cost = ImageFont.truetype(cc.FONT_BOLD, cc.BADGE_NUMBER_SIZE)
@@ -91,7 +113,7 @@ def compose_generic(photo_path, name, type_label, cost, pv, text, out_path, is_c
         cc.draw_title_with_big_number(draw, cc.TITLE_BOX, prefix, number, f_title, f_title_number)
     else:
         f_title = cc.fit_font(draw, name.upper(), title_box_w, max_size=37)
-        cc.draw_centered(draw, cc.TITLE_BOX, name.upper(), f_title, fill=(248, 226, 178))
+        cc.draw_centered(draw, cc.TITLE_BOX, name.upper(), f_title, fill=(0, 0, 0))
 
     f_type = cc.fit_font(draw, type_label, cc.TYPE_LINE_MAX_WIDTH, max_size=38, min_size=20)
     cc.draw_centered(draw, cc.TYPE_LINE_POINT, type_label, f_type)
@@ -131,7 +153,10 @@ def main():
             continue
 
         out_path = os.path.join(OUT_DIR, f"{cid}.png")
-        compose_generic(photo, name, type_label, cost, pv, text, out_path, is_coin=(ctype == "coin"))
+        compose_generic(
+            photo, name, type_label, cost, pv, text, out_path,
+            template_key_for_card(card), is_coin=(ctype == "coin"),
+        )
         generated.append(out_path)
         print("generated", cid)
 

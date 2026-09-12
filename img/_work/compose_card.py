@@ -1,61 +1,114 @@
+import os
 import re
-from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageFilter, ImageOps
 
 LAUREL_ICON_PATH = r"C:\proyectos\Claude\zoo\img\_work\laurel_icon.png"
 
-TEMPLATE = r"C:\proyectos\Claude\zoo\img\template3.png"
 INK = (42, 28, 18)
 FONT_BOLD = r"C:\Windows\Fonts\georgiab.ttf"
 FONT_REG = r"C:\Windows\Fonts\georgia.ttf"
 
-ILLUSTRATION_BOX = (66, 64, 551, 483)     # true bbox of the window, +2px margin on every side so the
-                                           # photo fully covers TEMPLATE_ALPHA's window (which is grown
-                                           # by the same 2px — see build_template_alpha())
-ILLUSTRATION_MASK = r"C:\proyectos\Claude\zoo\img\_work\illustration_mask.png"
-# RGBA version of the template with the illustration window cut out
-# (alpha=0) and everything else opaque — see build_card_base(). Regenerate
-# with: python -c "from compose_card import build_template_alpha; build_template_alpha()"
-TEMPLATE_ALPHA = r"C:\proyectos\Claude\zoo\img\_work\template3_alpha.png"
-COST_BADGE = (83, 103)                    # center of the coin pouch (3px right, 3px down)
-PV_BADGE = (524, 86)                      # center of the laurel shield (3px up)
+# Plantillas "definitivas" (una por combinación de hábitats, más una para las
+# monedas): mismo lienzo (718x1024) y composición en las 7 (ventana de
+# ilustración, bolsa de monedas arriba-izq., escudo de laureles arriba-dcha.,
+# cinta con el nombre, panel de pergamino con el texto), solo cambia la
+# decoración de cada tema. Ver template_key_for_card() en compose_all.py
+# para cómo se elige cada una por carta.
+TEMPLATES_DIR = r"C:\proyectos\Claude\zoo\img\Nueva carpeta\Definitivas"
+TEMPLATE_FILES = {
+    "land": "Tierra.jpg",
+    "aquatic": "agua.jpg",
+    "bird": "aire.jpg",
+    "land_aquatic": "Tierra_agua.png",
+    "land_bird": "Tierra_aire.png",
+    "aquatic_bird": "agua_aire.png",
+    "coin": "monedas.jpg",
+}
+# Plantillas en RGBA con la ventana de ilustración ya recortada como
+# transparencia real (ver _build_template_alpha) — se detecta por flood fill
+# la primera vez que hace falta cada una y se cachea aquí en disco, porque
+# detectarla es más caro que leer un PNG. Si cambia el arte de una plantilla
+# hay que borrar su cache (o el directorio entero) para forzar que se
+# vuelva a detectar la ventana.
+_ALPHA_CACHE_DIR = r"C:\proyectos\Claude\zoo\img\_work\template_alpha_cache"
+
+# Las coordenadas de abajo vienen de escalar las del template3.png original
+# (615x878, 1 sola plantilla) al lienzo de las nuevas (718x1024): las 7
+# comparten la MISMA composición que el original, solo con arte distinto, y
+# el escalado se comprobó por solapamiento visual (la ventana detectada por
+# flood fill cae dentro de unos pocos px de ILLUSTRATION_BOX aquí abajo).
+_SCALE_X = 718 / 615
+_SCALE_Y = 1024 / 878
+
+
+def _sx(x):
+    return round(x * _SCALE_X)
+
+
+def _sy(y):
+    return round(y * _SCALE_Y)
+
+
+ILLUSTRATION_BOX = (_sx(66), _sy(64), _sx(551), _sy(483))
+COST_BADGE = (_sx(83), _sy(103))          # center of the coin pouch
+PV_BADGE = (_sx(524), _sy(86))            # center of the laurel shield
 BADGE_NUMBER_SIZE = 50                    # 45 + 10%
-TITLE_BOX = (95, 513, 540, 561)           # wood ribbon banner: card name
-TYPE_LINE_POINT = (307, 648)              # "Terrestre" label, centered in the panel
-TYPE_LINE_MAX_WIDTH = 420                 # shrink multi-habitat labels ("Terrestre - Volador - Acuático") to fit
-PANEL_BODY_BOX = (95, 672, 540, 858)      # starts right below the type label, top-aligned
+TITLE_BOX = (_sx(95), _sy(513), _sx(540), _sy(561))     # stone/wood ribbon banner: card name
+TYPE_LINE_POINT = (_sx(307), _sy(648))                  # "Terrestre" label, centered in the panel
+TYPE_LINE_MAX_WIDTH = round(420 * _SCALE_X)             # shrink multi-habitat labels to fit
+PANEL_BODY_BOX = (_sx(95), _sy(672), _sx(540), _sy(858))  # starts right below the type label, top-aligned
 
 COST_COLOR = (0, 100, 0)    # verde bosque
 PV_COLOR = (94, 35, 123)    # morado (el mismo que la Hiena en la tanda 4)
 
 
-def build_template_alpha():
-    """Regenera TEMPLATE_ALPHA a partir de TEMPLATE + ILLUSTRATION_MASK: la
-    ventana de ilustración queda transparente (alpha=0) y el resto del
-    marco opaco. Solo hace falta volver a llamarla si cambia el template o
-    la máscara detectada."""
-    template = Image.open(TEMPLATE).convert("RGB")
-    mask = Image.open(ILLUSTRATION_MASK).convert("L")
-    # El template tiene un anillo de 1-2px antialiseado (blanco roto, ni
-    # frame ni ventana pura) justo en el borde/las curvas — el flood fill
-    # (umbral de blanco puro) lo clasifica como "marco", pero como sigue
-    # siendo casi blanco, pintado opaco encima de la foto se ve como una
-    # línea blanca dentada. Se agranda la ventana 2px (MaxFilter) para que
-    # ese anillo casi-blanco quede del lado transparente y lo tape la foto.
-    grown_window = mask.filter(ImageFilter.MaxFilter(5))
+def _build_template_alpha(template_key):
+    """Devuelve la plantilla `template_key` (ver TEMPLATE_FILES) en RGBA con
+    la ventana de ilustración recortada como transparencia real. La ventana
+    se detecta por flood fill desde un punto que cae dentro de ella en las 7
+    plantillas (mismo diseño base, solo cambia la decoración): se rellena la
+    región blanca contigua al punto semilla y se usa como máscara, en vez de
+    depender de un fichero de máscara pintado a mano por plantilla. Igual que
+    antes (ver el MaxFilter de más abajo), la ventana se agranda 2px para que
+    el anillo antialiseado casi-blanco del borde quede del lado transparente
+    y lo tape la foto en vez de dejar una línea blanca dentada. Se cachea en
+    disco (_ALPHA_CACHE_DIR): detectar la ventana es más caro que leer un PNG."""
+    os.makedirs(_ALPHA_CACHE_DIR, exist_ok=True)
+    cache_path = os.path.join(_ALPHA_CACHE_DIR, f"{template_key}.png")
+    if os.path.exists(cache_path):
+        return Image.open(cache_path).convert("RGBA")
+
+    filename = TEMPLATE_FILES[template_key]
+    template = Image.open(os.path.join(TEMPLATES_DIR, filename)).convert("RGB")
+    w, h = template.size
+    seed = (w // 2, h // 3)  # cae dentro de la ventana en las 7 plantillas
+    marker = (1, 2, 3)       # color imposible de confundir con arte real
+    filled = template.copy()
+    ImageDraw.floodfill(filled, seed, marker, thresh=30)
+
+    r, g, b = filled.split()
+    is_marker = ImageChops.multiply(
+        ImageChops.multiply(r.point(lambda p: 255 if p == marker[0] else 0),
+                             g.point(lambda p: 255 if p == marker[1] else 0)),
+        b.point(lambda p: 255 if p == marker[2] else 0),
+    )
+    grown_window = is_marker.filter(ImageFilter.MaxFilter(5))
     alpha = ImageOps.invert(grown_window)  # 255 = marco opaco, 0 = ventana transparente
+
     template_rgba = template.copy()
     template_rgba.putalpha(alpha)
-    template_rgba.save(TEMPLATE_ALPHA)
+    template_rgba.save(cache_path)
     return template_rgba
 
 
-def build_card_base(photo_path):
+def build_card_base(photo_path, template_key):
     """Compone la carta pegando la foto PRIMERO y el marco (con la ventana
-    ya recortada como transparencia real) ENCIMA — al revés que antes, que
-    pegaba la foto sobre el marco usando una máscara aparte. Así cualquier
-    imprecisión de un par de píxeles en el borde la absorbe el marco (que
-    tapa un pelín de más de la foto, invisible) en vez de dejar ver el
-    blanco del template por debajo (que sí se nota)."""
+    ya recortada como transparencia real) ENCIMA — así cualquier imprecisión
+    de un par de píxeles en el borde la absorbe el marco (que tapa un pelín
+    de más de la foto, invisible) en vez de dejar ver el blanco de la
+    plantilla por debajo (que sí se nota). `template_key` decide qué de las 7
+    plantillas usar (ver TEMPLATE_FILES / template_key_for_card en
+    compose_all.py)."""
     x0, y0, x1, y1 = ILLUSTRATION_BOX
     bw, bh = x1 - x0, y1 - y0
 
@@ -73,7 +126,7 @@ def build_card_base(photo_path):
     photo = photo.crop((left, top, left + crop_w, top + crop_h))
     photo = photo.resize((bw, bh), Image.LANCZOS)
 
-    template_rgba = Image.open(TEMPLATE_ALPHA).convert("RGBA")
+    template_rgba = _build_template_alpha(template_key)
     card = Image.new("RGB", template_rgba.size, (255, 255, 255))
     card.paste(photo, (x0, y0))
     card.paste(template_rgba, (0, 0), template_rgba)
@@ -102,8 +155,8 @@ def draw_title_with_big_number(draw, box, prefix, number, f_title, f_number, gap
     number_w = draw.textlength(number, font=f_number)
     total_w = prefix_w + gap + number_w
     start_x = (x0 + x1) / 2 - total_w / 2
-    draw.text((start_x, baseline), prefix + " ", font=f_title, fill=(248, 226, 178), anchor="ls")
-    draw.text((start_x + prefix_w + gap, baseline), number, font=f_number, fill=(248, 226, 178), anchor="ls")
+    draw.text((start_x, baseline), prefix + " ", font=f_title, fill=(0, 0, 0), anchor="ls")
+    draw.text((start_x + prefix_w + gap, baseline), number, font=f_number, fill=(0, 0, 0), anchor="ls")
 
 
 def fit_font(draw, text, max_width, max_size, min_size=20, font_path=FONT_BOLD):
@@ -187,8 +240,8 @@ def draw_wrapped(card, draw, box, text, font, fill=INK, line_spacing=10, valign=
         y += line_h
 
 
-def compose(species_photo, name, habitat_label, cost, pv, text, out_path):
-    card = build_card_base(species_photo)
+def compose(species_photo, name, habitat_label, cost, pv, text, out_path, template_key="land"):
+    card = build_card_base(species_photo, template_key)
     draw = ImageDraw.Draw(card)
 
     f_cost = ImageFont.truetype(FONT_BOLD, BADGE_NUMBER_SIZE)
@@ -199,7 +252,7 @@ def compose(species_photo, name, habitat_label, cost, pv, text, out_path):
 
     title_box_w = TITLE_BOX[2] - TITLE_BOX[0] - 16
     f_title = fit_font(draw, name.upper(), title_box_w, max_size=37)
-    draw_centered(draw, TITLE_BOX, name.upper(), f_title, fill=(248, 226, 178))
+    draw_centered(draw, TITLE_BOX, name.upper(), f_title, fill=(0, 0, 0))
 
     f_type = fit_font(draw, habitat_label, TYPE_LINE_MAX_WIDTH, max_size=38, min_size=20)
     draw_centered(draw, TYPE_LINE_POINT, habitat_label, f_type)

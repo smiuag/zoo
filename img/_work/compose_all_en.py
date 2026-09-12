@@ -34,7 +34,10 @@ def main():
             continue
 
         out_path = os.path.join(OUT_DIR, f"{cid}.png")
-        ca.compose_generic(photo, name, type_label, cost, pv, text, out_path, is_coin=(ctype == "coin"))
+        ca.compose_generic(
+            photo, name, type_label, cost, pv, text, out_path,
+            ca.template_key_for_card(card), is_coin=(ctype == "coin"),
+        )
         generated.append(out_path)
         print("generated", cid)
 

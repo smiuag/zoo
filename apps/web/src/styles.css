@@ -1106,6 +1106,19 @@ body {
   color: var(--muted);
 }
 
+/* Popup de "¿seguro que quieres terminar el turno?" (ver GameBoard.tsx):
+   igual de estrecho que el de descarte forzoso, pero SÍ se puede cancelar
+   (clic fuera o el botón), a diferencia de aquel. */
+.modal--confirm {
+  max-width: 480px;
+}
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 .collection-entry {
   position: relative;
 }
