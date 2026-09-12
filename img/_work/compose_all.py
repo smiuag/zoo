@@ -47,6 +47,7 @@ SPECIES_PHOTO = {
     "platypus": "ornitorrinco.jpg",
     "rabbit": "conejos.jpg",
     "eagle": "aguilas.jpg",
+    "shark": "tiburones.jpg",
 }
 COIN_PHOTO = {
     "coin-1": "moneda1.jpg",
@@ -108,8 +109,9 @@ def main():
         if ctype == "animal":
             photo = os.path.join(IMG_DIR, SPECIES_PHOTO[card["species"]])
             name = card["name"]
-            # Un animal con los 3 hábitats a la vez (Pingüino, Pato) se
-            # etiqueta "Todoterreno" en vez de listar los 3 por separado.
+            # Un animal con los 3 hábitats a la vez se etiqueta "Todoterreno"
+            # en vez de listar los 3 por separado (ninguna especie actual
+            # los tiene los tres a la vez).
             if len(card["habitats"]) == len(HABITAT_ORDER):
                 type_label = "Todoterreno"
             else:

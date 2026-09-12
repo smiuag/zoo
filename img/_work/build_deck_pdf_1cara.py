@@ -29,7 +29,7 @@ cell_h = (PAGE_H - 2 * MARGIN - (ROWS - 1) * GAP) // ROWS
 COUNTS = {
     "sloth": 20,
     "coin-1": 35,
-    "coin-2": 14,
+    "coin-2": 17,
     "coin-3": 10,
     "coin-5": 8,
 }

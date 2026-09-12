@@ -42,9 +42,10 @@ const ANIMAL_SPECIES = [
   'platypus',
   'rabbit',
   'eagle',
+  'shark',
 ] as const;
 // La partida entra en la ronda final en cuanto este número de mazos
-// compartidos (de las 29 especies, todas cuentan) se hayan agotado.
+// compartidos (de las 30 especies, todas cuentan) se hayan agotado.
 const FINAL_ROUND_EMPTY_DECK_THRESHOLD = 5;
 // Monedas que se pueden comprar directamente (a cambio de otras monedas),
 // además de conseguirse por efectos o el mazo inicial. Suministro
@@ -233,7 +234,7 @@ function checkFinalRoundTrigger(state: GameState): void {
 }
 
 // --- Mercado de animales --------------------------------------------------
-// Siempre intenta tener 1 hueco por especie (29 en total); al comprarse uno
+// Siempre intenta tener 1 hueco por especie (30 en total); al comprarse uno
 // se repone solo el hueco de esa especie, con una copia del mazo compartido
 // de esa especie.
 //
@@ -391,7 +392,7 @@ function requireActivePlayer(state: GameState, playerId: string): Player {
   // Ninguna acción normal (jugar, comprar, terminar turno) es legal mientras
   // haya un descarte forzoso pendiente, ni siquiera para el jugador activo:
   // ver PendingDiscardDecision y resolveDiscard.
-  if (state.pendingDecision) throw new Error('Hay un descarte pendiente: resuélvelo antes de seguir');
+  if (state.pendingDecision) throw new Error('Hay una entrega de cartas pendiente: resuélvela antes de seguir');
   const player = state.players.find((p) => p.id === playerId);
   if (!player) throw new Error(`Jugador desconocido: ${playerId}`);
   if (getActivePlayer(state).id !== playerId) throw new Error(`No es el turno de ${playerId}`);
@@ -714,19 +715,41 @@ export function endTurn(state: GameState, playerId: string): void {
   state.log.push(`Turno de ${next.name}`);
 }
 
-// Resuelve UNA carta de un descarte forzoso pendiente (Buitre/Mono/Hiena):
-// el jugador afectado elige, de entre lo que le está permitido
-// (owed[playerId].eligibleInstanceIds, o cualquier carta si es null), cuál
-// descarta. Cuando el último jugador que debía algo termina de resolver, se
-// cierra la decisión (y si la disparó el Mono, es aquí cuando quien la jugó
-// roba 1 carta por cada moneda que se haya descartado así en total).
+// Devuelve una carta capturada por el Tiburón a su mercado compartido de
+// especie: igual que la mitad "devolver" del Flamenco (ver
+// returnAnimalForUpgrade en registry.ts), pero sin resolver ningún efecto
+// onPlay (la carta nunca se jugó, solo se entregó) ni coger nada a cambio.
+// Si el hueco de mercado de su especie ya está ocupado, la devuelta lo
+// ocupa de inmediato y la que estaba ahí pasa al mazo compartido en su
+// lugar; si estaba vacío, se repone directamente con ella.
+function returnCardToMarket(state: GameState, card: CardInstance): void {
+  const deck = state.sharedDecks[card.species ?? ''];
+  const marketIdx = state.animalTrack.findIndex((c) => c.species === card.species);
+  if (marketIdx !== -1) {
+    const [displaced] = state.animalTrack.splice(marketIdx, 1, card);
+    if (deck) deck.push(displaced);
+  } else {
+    if (deck) deck.push(card);
+    refillAnimalMarket(state, card.species);
+  }
+}
+
+// Resuelve UNA carta de una entrega forzosa pendiente (Buitre/Mono/Hiena/
+// Murciélago/Tiburón): el jugador afectado elige, de entre lo que le está
+// permitido (owed[playerId].eligibleInstanceIds, o cualquier carta si es
+// null), cuál entrega. Según decision.kind, va al propio descarte
+// ('discard') o de vuelta al mercado compartido ('returnToMarket', ver
+// returnCardToMarket). Cuando el último jugador que debía algo termina de
+// resolver, se cierra la decisión (y si la disparó el Mono, es aquí cuando
+// quien la jugó roba 1 carta por cada moneda que se haya descartado así en
+// total).
 export function resolveDiscard(state: GameState, playerId: string, instanceId: string): void {
   const decision = state.pendingDecision;
-  if (!decision) throw new Error('No hay ningún descarte pendiente');
+  if (!decision) throw new Error('No hay ninguna entrega pendiente');
   const owed = decision.owed[playerId];
-  if (!owed || owed.amount <= 0) throw new Error(`${playerId} no debe descartar nada ahora mismo`);
+  if (!owed || owed.amount <= 0) throw new Error(`${playerId} no debe entregar nada ahora mismo`);
   if (owed.eligibleInstanceIds && !owed.eligibleInstanceIds.includes(instanceId)) {
-    throw new Error(`${instanceId} no es una carta elegible para este descarte`);
+    throw new Error(`${instanceId} no es una carta elegible para esta entrega`);
   }
 
   const player = state.players.find((p) => p.id === playerId);
@@ -735,13 +758,21 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
   if (idx === -1) throw new Error(`La carta ${instanceId} no está en la mano de ${playerId}`);
 
   const [card] = player.hand.splice(idx, 1);
-  player.discard.push(card);
-  if (decision.bonusDrawPerCoin && card.type === 'coin') decision.coinsDiscardedSoFar += 1;
+  if (decision.kind === 'returnToMarket') {
+    returnCardToMarket(state, card);
+  } else {
+    player.discard.push(card);
+    if (decision.bonusDrawPerCoin && card.type === 'coin') decision.coinsDiscardedSoFar += 1;
+  }
 
   owed.amount -= 1;
   if (owed.amount <= 0) delete decision.owed[playerId];
 
-  state.log.push(`${player.name} descartó ${card.name} (${decision.sourceCardName})`);
+  state.log.push(
+    decision.kind === 'returnToMarket'
+      ? `${player.name} devolvió ${card.name} al mercado (${decision.sourceCardName})`
+      : `${player.name} descartó ${card.name} (${decision.sourceCardName})`
+  );
 
   if (Object.keys(decision.owed).length === 0) {
     if (decision.bonusDrawPerCoin && decision.coinsDiscardedSoFar > 0) {

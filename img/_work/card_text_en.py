@@ -18,6 +18,7 @@ CARD_TEXT_EN = {
     "coin-1": ("Bronze", "Add 1 to your purchasing power."),
     "coin-2": ("Silver", "Add 2 to your purchasing power."),
     "coin-3": ("Gold", "Add 3 to your purchasing power."),
+    "coin-5": ("Platinum", "Add 5 to your purchasing power."),
     "crocodile": (
         "Crocodiles",
         "Add 1 to your purchasing power. At the end of the game, before scoring, remove one non-flying animal card from your collection.",
@@ -93,6 +94,10 @@ CARD_TEXT_EN = {
     "seal": (
         "Seals",
         "Add 1 to your purchasing power for each aquatic animal in your hand.",
+    ),
+    "shark": (
+        "Sharks",
+        "Each opponent chooses and returns to the market an AQUATIC animal from their hand costing 3 or less; if they have none, they reveal their hand.",
     ),
     "sloth": ("Sloths", "Does nothing. Just sleeps."),
     "snake": (

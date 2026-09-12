@@ -21,7 +21,6 @@
   ],
   "habitats": [
     "land",
-    "bird",
     "aquatic"
   ]
 }

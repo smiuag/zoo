@@ -12,5 +12,5 @@
       "type": "stealCoinFromChosenPlayer"
     }
   ],
-  "habitats": ["land", "bird", "aquatic"]
+  "habitats": ["aquatic", "bird"]
 }

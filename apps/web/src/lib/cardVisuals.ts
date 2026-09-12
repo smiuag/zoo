@@ -34,6 +34,7 @@ const SPECIES_ICONS: Record<string, string> = {
   bat: '🦇',
   turtle: '🐢',
   rabbit: '🐇',
+  shark: '🦈',
   // No hay emoji de ornitorrinco en Unicode: usa el 🐾 genérico (fallback
   // de cardIcon) en vez de uno inexacto.
 };
@@ -124,8 +125,9 @@ const HABITAT_LABELS: Array<{ key: 'land' | 'bird' | 'aquatic'; label: string }>
 
 export function habitatLabel(card: CardInstance): string {
   const matched = HABITAT_LABELS.filter(({ key }) => card.habitats?.includes(key));
-  // Un animal con los 3 hábitats a la vez (Pingüino, Pato) se etiqueta
-  // "Todoterreno" en vez de listar los 3 por separado.
+  // Un animal con los 3 hábitats a la vez se etiquetaría "Todoterreno" en
+  // vez de listarlos por separado (ninguna especie actual los tiene los
+  // tres a la vez, pero se deja listo por si se añade una en el futuro).
   if (matched.length === HABITAT_LABELS.length) return 'Todoterreno';
   return matched.map(({ label }) => label).join(' - ');
 }

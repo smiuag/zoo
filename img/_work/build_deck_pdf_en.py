@@ -22,10 +22,11 @@ cell_h = (PAGE_H - 2 * MARGIN - (ROWS - 1) * GAP) // ROWS
 # English print run: same copy counts as build_deck_pdf.py (double-sided,
 # multiple of 18) — only the card art (Spanish vs English text) differs.
 COUNTS = {
-    "sloth": 41,
+    "sloth": 21,
     "coin-1": 49,
-    "coin-2": 20,
-    "coin-3": 14,
+    "coin-2": 17,
+    "coin-3": 13,
+    "coin-5": 8,
 }
 DEFAULT_ANIMAL_COPIES = 10
 HIGH_COST_ANIMAL_COPIES = 6

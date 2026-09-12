@@ -20,7 +20,7 @@ import {
 } from '@zoo/engine';
 import { FLIGHT_TOTAL_MS } from '../components/FlyingCard';
 import { buildStarterDeck } from '../lib/starterDeck';
-import { defaultGameConfig, type BotAlgorithm, type GameConfig } from '../lib/gameConfig';
+import { MAX_NICK_LENGTH, defaultGameConfig, type BotAlgorithm, type GameConfig } from '../lib/gameConfig';
 
 export type { BotAlgorithm, GameConfig, RoundLimit } from '../lib/gameConfig';
 export { DEFAULT_ROUND_LIMIT, MAX_BOTS, MAX_HUMANS, MIN_BOTS, MIN_HUMANS, MIN_TOTAL_PLAYERS, ROUND_LIMIT_OPTIONS } from '../lib/gameConfig';
@@ -87,23 +87,26 @@ function postGameLog(lines: string[], clear = false): void {
   );
 }
 
-// Nombre por defecto de cada jugador humano: con 1 solo (el caso más común,
-// antes el único posible), "Tú"; con varios —turno rotatorio en el mismo
-// dispositivo, ver el "pase y juega" en App.tsx— numerados para
-// distinguirlos en el marcador.
-function humanName(index: number, total: number): string {
-  return total === 1 ? 'Tú' : `Jugador ${index + 1}`;
+// Nombre de cada jugador humano. El local (human-0) usa el nick que haya
+// escrito en el formulario (ver GameConfig.nick); sin nick, "Tú" si juega
+// solo o "J1" si hay varios. El resto de humanos —turno rotatorio en el
+// mismo dispositivo o invitados online— van numerados "J2", "J3"... Todo
+// deliberadamente corto (igual que "B1", "B2" para los bots) para que el
+// marcador quepa en una sola línea en el móvil con 5 jugadores.
+function humanName(index: number, total: number, nick: string): string {
+  if (index === 0 && nick) return nick;
+  return total === 1 ? 'Tú' : `J${index + 1}`;
 }
 
 function newGame(config: GameConfig): GameState {
   const humans = Array.from({ length: config.numHumans }, (_, i) => ({
     id: `human-${i}`,
-    name: humanName(i, config.numHumans),
+    name: humanName(i, config.numHumans, config.nick.trim().slice(0, MAX_NICK_LENGTH)),
     deck: buildStarterDeck(),
   }));
   const bots = config.botAlgorithms.map((_, i) => ({
     id: `bot-${i}`,
-    name: `Bot ${i + 1}`,
+    name: `B${i + 1}`,
     deck: buildStarterDeck(),
   }));
   return createGame([...humans, ...bots], { maxRounds: config.roundLimit });

@@ -53,21 +53,27 @@ export interface Player {
   destroyedCards: CardInstance[];
 }
 
-// Descarte forzoso en curso (Buitre/Mono/Hiena): quién debe cuántas cartas
+// Entrega forzosa de cartas en curso (Buitre/Mono/Hiena/Murciélago: al
+// descarte; Tiburón: de vuelta al mercado): quién debe cuántas cartas
 // todavía, y de cuáles puede elegir. Mientras esto no sea null, NADIE (ni
 // siquiera el jugador activo) tiene ninguna acción legal salvo
 // "resolveDiscard" para los jugadores que todavía deben algo — ver
 // getLegalActions en engine.ts. Se crea en el mismo playCard que dispara el
-// efecto (Buitre/Mono/Hiena tienen un único efecto onPlay cada una, así que
-// no hay que encadenar con nada más de esa misma carta) y se limpia solo en
+// efecto (cada una de esas cartas tiene un único efecto onPlay, así que no
+// hay que encadenar con nada más de esa misma carta) y se limpia solo en
 // resolveDiscard, cuando `owed` se queda sin entradas.
 export interface PendingDiscardDecision {
+  // 'discard': la carta elegida va al propio descarte de quien la entrega
+  // (Buitre/Mono/Hiena/Murciélago). 'returnToMarket': vuelve al mercado
+  // compartido de su especie, como una captura deshecha (Tiburón) — ver
+  // resolveDiscard en engine.ts.
+  kind: 'discard' | 'returnToMarket';
   sourceCardName: string;
   // Quién jugó la carta que disparó esto: a quien beneficia bonusDrawPerCoin.
   sourcePlayerId: string;
   bonusDrawPerCoin: boolean;
   coinsDiscardedSoFar: number;
-  // Por jugador afectado: cuántas cartas le quedan por descartar y de qué
+  // Por jugador afectado: cuántas cartas le quedan por entregar y de qué
   // instanceIds puede elegir (null = cualquier carta de su mano vale).
   owed: Record<string, { amount: number; eligibleInstanceIds: string[] | null }>;
 }

@@ -47,8 +47,33 @@ export const ROUND_LIMIT_OPTIONS = [10, 15, 20] as const;
 export type RoundLimit = (typeof ROUND_LIMIT_OPTIONS)[number];
 export const DEFAULT_ROUND_LIMIT: RoundLimit = 20;
 
+// Nick del jugador local (human-0): lo escribe en el formulario y se guarda
+// en localStorage para las siguientes partidas en este dispositivo. Corto a
+// propósito (MAX_NICK_LENGTH) para que el marcador quepa en una sola línea
+// en el móvil incluso con 5 jugadores. Vacío = nombre por defecto ("Tú").
+export const MAX_NICK_LENGTH = 4;
+const NICK_STORAGE_KEY = 'zoo.nick';
+
+export function loadSavedNick(): string {
+  try {
+    return (window.localStorage.getItem(NICK_STORAGE_KEY) ?? '').slice(0, MAX_NICK_LENGTH);
+  } catch {
+    return '';
+  }
+}
+
+export function saveNick(nick: string): void {
+  try {
+    if (nick) window.localStorage.setItem(NICK_STORAGE_KEY, nick);
+    else window.localStorage.removeItem(NICK_STORAGE_KEY);
+  } catch {
+    // Sin almacenamiento (modo privado, etc.): simplemente no se recuerda.
+  }
+}
+
 export interface GameConfig {
   numHumans: number;
+  nick: string;
   // Un algoritmo por hueco de bot (longitud = nº de bots elegido).
   botAlgorithms: BotAlgorithm[];
   roundLimit: RoundLimit;
@@ -63,6 +88,7 @@ export interface GameConfig {
 export function defaultGameConfig(): GameConfig {
   return {
     numHumans: 1,
+    nick: '',
     botAlgorithms: DEFAULT_BOT_ALGORITHMS_BY_SEAT.slice(0, 4),
     roundLimit: DEFAULT_ROUND_LIMIT,
     animationsEnabled: true,

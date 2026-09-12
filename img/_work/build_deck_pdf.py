@@ -23,9 +23,9 @@ cell_h = (PAGE_H - 2 * MARGIN - (ROWS - 1) * GAP) // ROWS
 COUNTS = {
     "sloth": 21,
     "coin-1": 49,
-    "coin-2": 20,
-    "coin-3": 15,
-    "coin-5": 9,
+    "coin-2": 17,
+    "coin-3": 13,
+    "coin-5": 8,
 }
 DEFAULT_ANIMAL_COPIES = 10  # especies de coste < 5: 10 copias cada una
 HIGH_COST_ANIMAL_COPIES = 6  # especies de coste 5 o más: solo 6 copias (escasez), igual que el motor

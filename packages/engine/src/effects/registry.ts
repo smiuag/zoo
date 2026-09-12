@@ -90,17 +90,20 @@ export function pickDefaultDiscard(hand: CardInstance[], eligibleInstanceIds: st
   return idx === -1 ? null : pool[idx].instanceId;
 }
 
-// Arranca (o no, si nadie debe nada) un descarte forzoso pendiente: mientras
-// esté activo, ver getLegalActions/resolveDiscard en engine.ts, nadie tiene
-// ninguna otra acción legal salvo los jugadores que aparecen en `owed`.
+// Arranca (o no, si nadie debe nada) una entrega forzosa de cartas pendiente:
+// mientras esté activa, ver getLegalActions/resolveDiscard en engine.ts,
+// nadie tiene ninguna otra acción legal salvo los jugadores que aparecen en
+// `owed`. `kind` decide qué pasa con la carta al resolverse: 'discard'
+// (por defecto, Buitre/Mono/Hiena/Murciélago) o 'returnToMarket' (Tiburón).
 function beginPendingDiscard(
   state: GameState,
   activePlayer: Player,
   owed: PendingDiscardDecision['owed'],
-  opts: { sourceCardName: string; bonusDrawPerCoin?: boolean }
+  opts: { sourceCardName: string; bonusDrawPerCoin?: boolean; kind?: PendingDiscardDecision['kind'] }
 ): void {
   if (Object.keys(owed).length === 0) return;
   state.pendingDecision = {
+    kind: opts.kind ?? 'discard',
     sourceCardName: opts.sourceCardName,
     sourcePlayerId: activePlayer.id,
     bonusDrawPerCoin: opts.bonusDrawPerCoin ?? false,
@@ -318,6 +321,30 @@ registerEffect('discardAnimalFromEachOpponent', (state, player, _effect, context
     owed[opponent.id] = { amount: 1, eligibleInstanceIds: costliest.map((c) => c.instanceId) };
   }
   beginPendingDiscard(state, player, owed, { sourceCardName: context.sourceCardName ?? 'efecto' });
+});
+
+// Tiburón: cada rival elige y devuelve al mercado (no al descarte) un
+// animal de su mano que tenga alguno de params.habitat (["aquatic"]) y
+// coste como mucho params.maxCost (3). Si un rival no tiene ninguno
+// elegible, no pierde nada (en la práctica, "muestra su mano"). La carta
+// vuelve a estar disponible en el mercado de inmediato (ver
+// returnToMarket en resolveDiscard, engine.ts) — como una compra
+// deshecha, no como un descarte.
+registerEffect('returnAnimalFromEachOpponent', (state, player, effect, context) => {
+  const maxCost = typeof effect.params?.maxCost === 'number' ? effect.params.maxCost : Infinity;
+  const habitats = matchHabitatList(effect.params?.habitat);
+  const owed: PendingDiscardDecision['owed'] = {};
+  for (const opponent of otherPlayers(state, player)) {
+    const eligible = opponent.hand.filter(
+      (c) =>
+        c.type === 'animal' &&
+        (c.marketCost ?? 0) <= maxCost &&
+        (habitats.length === 0 || habitats.some((h) => (c.habitats as string[])?.includes(h)))
+    );
+    if (eligible.length === 0) continue;
+    owed[opponent.id] = { amount: 1, eligibleInstanceIds: eligible.map((c) => c.instanceId) };
+  }
+  beginPendingDiscard(state, player, owed, { sourceCardName: context.sourceCardName ?? 'efecto', kind: 'returnToMarket' });
 });
 
 // Pato: el jugador que elijas (context.targetPlayerId, ver

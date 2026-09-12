@@ -17,6 +17,10 @@ import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
 import { buildPlayCardTargetChoice, type PendingChoice } from '../lib/pendingChoice';
 import type { BotAlgorithm } from '../lib/gameConfig';
 
+// Cuántas rondas del final se consideran "recta final" (contador de ronda
+// en rojo, ver .status-pill__round--final).
+const FINAL_ROUNDS_WARNING = 5;
+
 const PURCHASABLE_COIN_IDS = ['coin-2', 'coin-3', 'coin-5'];
 
 export interface GameBoardProps {
@@ -72,6 +76,10 @@ export function GameBoard({
   // deja sin ninguna acción normal al jugador activo).
   const canAct = legalActions.length > 0;
   const owedDiscard = state.pendingDecision?.owed[viewerPlayerId];
+  // Tiburón: la carta elegida vuelve al mercado en vez de ir al descarte —
+  // solo cambia el texto mostrado, la mecánica de elegir es idéntica.
+  const isReturnToMarket = state.pendingDecision?.kind === 'returnToMarket';
+  const discardVerb = isReturnToMarket ? 'Devuelve' : 'Descarta';
   // Cartas de tu propia mano que puedes elegir ahora mismo para el
   // descarte pendiente (se muestran en el popup de abajo): se derivan de
   // legalActions, nunca de owedDiscard.eligibleInstanceIds directamente,
@@ -367,17 +375,29 @@ export function GameBoard({
                 <span className="status-pill status-pill--over">Partida terminada</span>
               ) : owedDiscard ? (
                 <span className="status-pill status-pill--discard">
-                  Descarta {owedDiscard.amount} carta{owedDiscard.amount === 1 ? '' : 's'} — {state.pendingDecision!.sourceCardName}
+                  {discardVerb} {owedDiscard.amount} carta{owedDiscard.amount === 1 ? '' : 's'} — {state.pendingDecision!.sourceCardName}
                 </span>
               ) : (
                 <span className="status-pill">
-                  Ronda {state.round}/{state.maxRounds ?? '∞'} —{' '}
-                  {canAct ? `turno de ${activePlayer.name}` : `esperando a ${waitingOnPlayer.name}`}
+                  {/* Recta final: el contador de ronda pasa a rojo en las 5
+                      últimas rondas, para que se vea de un vistazo que la
+                      partida se acaba (y compense ya comprar PV en vez de
+                      economía). */}
+                  <span
+                    className={
+                      state.maxRounds != null && state.round > state.maxRounds - FINAL_ROUNDS_WARNING
+                        ? 'status-pill__round status-pill__round--final'
+                        : 'status-pill__round'
+                    }
+                  >
+                    Ronda {state.round}/{state.maxRounds ?? '∞'}
+                  </span>{' '}
+                  — {canAct ? `turno de ${activePlayer.name}` : `esperando a ${waitingOnPlayer.name}`}
                 </span>
               )}
               {onNewGame && (
-                <button className="btn btn--ghost" onClick={onNewGame}>
-                  ↺ Nueva partida
+                <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title="Nueva partida">
+                  ↺ <span className="btn__label">Nueva partida</span>
                 </button>
               )}
             </div>
@@ -392,9 +412,13 @@ export function GameBoard({
                       .filter(Boolean)
                       .join(' ')}
                     onClick={clickable ? () => setViewedPlayerId(p.id) : undefined}
-                    title={clickable ? 'Ver mazo' : 'Mazo privado hasta que termine la partida'}
+                    title={`${p.name}: ${scoreFor(p.id)} PV${clickable ? ' · ver mazo' : ' · mazo privado hasta que termine la partida'}`}
                   >
-                    <strong>{p.name}</strong>: {scoreFor(p.id)} PV
+                    <strong>{p.name}</strong>
+                    <span className="scoreboard__pv">
+                      {scoreFor(p.id)}
+                      <small>PV</small>
+                    </span>
                   </li>
                 );
               })}
@@ -561,12 +585,13 @@ export function GameBoard({
           <div className="modal modal--discard">
             <div className="panel__header">
               <h2>
-                Descarta {owedDiscard.amount} carta{owedDiscard.amount === 1 ? '' : 's'}
+                {discardVerb} {owedDiscard.amount} carta{owedDiscard.amount === 1 ? '' : 's'}
               </h2>
             </div>
             <p className="modal__message">
               {discardSourcePlayerName} ha jugado <strong>{state.pendingDecision?.sourceCardName}</strong>: tienes
-              que descartar {owedDiscard.amount === 1 ? 'una carta' : `${owedDiscard.amount} cartas`} de tu mano.
+              que {isReturnToMarket ? 'devolver al mercado' : 'descartar'}{' '}
+              {owedDiscard.amount === 1 ? 'una carta' : `${owedDiscard.amount} cartas`} de tu mano.
               Elige cuál{owedDiscard.amount === 1 ? '' : 'es'}.
             </p>
             <div className="card-row">

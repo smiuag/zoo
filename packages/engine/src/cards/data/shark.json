@@ -1,0 +1,20 @@
+{
+  "id": "shark",
+  "name": "Tiburón",
+  "type": "animal",
+  "species": "shark",
+  "marketCost": 6,
+  "victoryPoints": 4,
+  "text": "Cada rival devuelve de su mano al mercado un animal ACUÁTICO de coste 3 o menos que elija; si no tiene ninguno, muestra su mano.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "returnAnimalFromEachOpponent",
+      "params": {
+        "habitat": "aquatic",
+        "maxCost": 3
+      }
+    }
+  ],
+  "habitats": ["aquatic"]
+}

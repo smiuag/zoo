@@ -4,6 +4,9 @@ import {
   DEFAULT_BOT_ALGORITHMS_BY_SEAT,
   DEFAULT_ROUND_LIMIT,
   MAX_BOTS,
+  MAX_NICK_LENGTH,
+  loadSavedNick,
+  saveNick,
   MAX_HUMANS,
   MIN_BOTS,
   MIN_HUMANS,
@@ -39,6 +42,7 @@ function resizeBotAlgorithms(current: BotAlgorithm[], count: number): BotAlgorit
 
 export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
   const [numHumans, setNumHumans] = useState(1);
+  const [nick, setNick] = useState(loadSavedNick);
   const [botAlgorithms, setBotAlgorithms] = useState<BotAlgorithm[]>(DEFAULT_BOT_ALGORITHMS_BY_SEAT.slice(0, 4));
   const [roundLimit, setRoundLimit] = useState<RoundLimit>(DEFAULT_ROUND_LIMIT);
   const [animationsEnabled, setAnimationsEnabled] = useState(true);
@@ -61,15 +65,23 @@ export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
     setBotAlgorithms((prev) => prev.map((a, i) => (i === index ? algorithm : a)));
   }
 
+  function buildConfig(): GameConfig {
+    const cleanNick = nick.trim().slice(0, MAX_NICK_LENGTH);
+    // Se recuerda para la próxima partida en este dispositivo en el momento
+    // de empezar (no al teclear), así un nick a medias no se guarda.
+    saveNick(cleanNick);
+    return { numHumans, nick: cleanNick, botAlgorithms, roundLimit, animationsEnabled };
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!canStart) return;
-    onStart({ numHumans, botAlgorithms, roundLimit, animationsEnabled });
+    onStart(buildConfig());
   }
 
   function handleCreateOnlineRoom() {
     if (!canGoOnline || !onCreateOnlineRoom) return;
-    onCreateOnlineRoom({ numHumans, botAlgorithms, roundLimit, animationsEnabled });
+    onCreateOnlineRoom(buildConfig());
   }
 
   return (
@@ -77,6 +89,24 @@ export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
       <form className="panel setup-panel" onSubmit={handleSubmit}>
         <div className="panel__header">
           <h2>Nueva partida</h2>
+        </div>
+
+        <div className="setup-row">
+          <label htmlFor="setup-nick">Tu nick</label>
+          <input
+            id="setup-nick"
+            className="setup-nick"
+            type="text"
+            value={nick}
+            maxLength={MAX_NICK_LENGTH}
+            placeholder="Tú"
+            autoComplete="nickname"
+            spellCheck={false}
+            onChange={(e) => setNick(e.target.value)}
+          />
+          <span className="setup-hint">
+            Hasta {MAX_NICK_LENGTH} letras, para que el marcador quepa en el móvil. Se recuerda en este dispositivo.
+          </span>
         </div>
 
         <div className="setup-row">

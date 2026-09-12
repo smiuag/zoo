@@ -738,6 +738,61 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(() => playCard(state, player.id, lion.instanceId)).not.toThrow();
   });
 
+  it('tiburón: cada rival elige (si hay más de un elegible) y devuelve al mercado un animal acuático de coste 3 o menos', () => {
+    const { state, player, opponent } = setupClean();
+    const dolphin = freshInstance('dolphin', 'o1'); // acuático, coste 3: elegible
+    const goldfish = freshInstance('goldfish', 'o2'); // acuático, coste 1: elegible (deja elección real)
+    const lion = freshInstance('lion', 'o3'); // terrestre: no elegible (hábitat)
+    const orca = freshInstance('orca', 'o4'); // acuático, coste 7: no elegible (coste)
+    opponent.hand = [dolphin, goldfish, lion, orca];
+    const shark = freshInstance('shark', 'test');
+    player.hand = [shark];
+
+    playCard(state, player.id, shark.instanceId);
+
+    expect(state.pendingDecision?.kind).toBe('returnToMarket');
+    expect(state.pendingDecision?.owed[opponent.id]).toEqual({
+      amount: 1,
+      eligibleInstanceIds: expect.arrayContaining([dolphin.instanceId, goldfish.instanceId]),
+    });
+
+    // Elige libremente cuál de los 2 elegibles devuelve.
+    resolveDiscard(state, opponent.id, dolphin.instanceId);
+
+    expect(opponent.hand).toEqual(expect.arrayContaining([goldfish, lion, orca]));
+    expect(opponent.discard).toHaveLength(0); // no fue un descarte: no aparece ahí
+    expect(state.animalTrack.some((c) => c.instanceId === dolphin.instanceId)).toBe(true);
+    expect(state.pendingDecision).toBeNull();
+  });
+
+  it('tiburón: si solo tiene un animal elegible, no hay elección real y se resuelve solo', () => {
+    const { state, player, opponent } = setupClean();
+    const dolphin = freshInstance('dolphin', 'o1'); // único acuático de coste <=3: sin elección
+    opponent.hand = [dolphin];
+    const shark = freshInstance('shark', 'test');
+    player.hand = [shark];
+
+    playCard(state, player.id, shark.instanceId);
+
+    expect(state.pendingDecision).toBeNull();
+    expect(opponent.hand).toHaveLength(0);
+    expect(opponent.discard).toHaveLength(0);
+    expect(state.animalTrack.some((c) => c.instanceId === dolphin.instanceId)).toBe(true);
+  });
+
+  it('tiburón: si un rival no tiene ningún animal acuático de coste 3 o menos, no le debe nada y no bloquea la partida', () => {
+    const { state, player, opponent } = setupClean();
+    opponent.hand = [freshInstance('lion', 'o1')]; // terrestre: no elegible
+    const shark = freshInstance('shark', 'test');
+    player.hand = [shark];
+
+    playCard(state, player.id, shark.instanceId);
+
+    expect(opponent.hand).toHaveLength(1);
+    expect(state.pendingDecision).toBeNull(); // nadie debía nada: no llega a bloquear
+    expect(getLegalActions(state, player.id).length).toBeGreaterThan(0);
+  });
+
   it('pato: el jugador que elijas te da 1 moneda cualquiera de su mano, y el resto no pierde nada', () => {
     const state = createGame([
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },

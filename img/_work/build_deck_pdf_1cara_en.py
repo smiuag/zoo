@@ -24,8 +24,9 @@ cell_h = (PAGE_H - 2 * MARGIN - (ROWS - 1) * GAP) // ROWS
 COUNTS = {
     "sloth": 20,
     "coin-1": 35,
-    "coin-2": 20,
-    "coin-3": 13,
+    "coin-2": 17,
+    "coin-3": 10,
+    "coin-5": 8,
 }
 DEFAULT_ANIMAL_COPIES = 10
 HIGH_COST_ANIMAL_COPIES = 6
