@@ -227,7 +227,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     }
   });
 
-  it('tiburón/halcón/león: si se devuelven 2 o más animales en total, quien la jugó gana 2 de valor de compra', () => {
+  it('tiburón/halcón/león: ganas 1 de valor de compra por cada animal devuelto en total (2 rivales, 1 cada uno = 2)', () => {
     // Hacen falta 2 RIVALES distintos (cada uno solo debe 1 devolución como
     // mucho): setupClean() solo da 1, así que se crea la partida aquí.
     const state = createGame([
@@ -253,9 +253,21 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.bonusPurchasingPowerThisTurn).toBe(2);
   });
 
-  it('tiburón/halcón/león: si solo se devuelve 1 animal, no hay bonus de valor de compra', () => {
+  it('tiburón/halcón/león: con solo 1 animal devuelto, el bonus es 1 (no un umbral de 2)', () => {
     const { state, player, opponent } = setupClean();
     opponent.hand = [freshInstance('dolphin', 'o1')]; // único elegible de toda la partida
+    const shark = freshInstance('shark', 'test');
+    player.hand = [shark];
+
+    playCard(state, player.id, shark.instanceId);
+
+    expect(state.pendingDecision).toBeNull();
+    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
+  });
+
+  it('tiburón/halcón/león: si no se devuelve ningún animal, no hay bonus', () => {
+    const { state, player, opponent } = setupClean();
+    opponent.hand = [freshInstance('lion', 'o1')]; // terrestre: no elegible para el Tiburón (acuático)
     const shark = freshInstance('shark', 'test');
     player.hand = [shark];
 
@@ -1065,6 +1077,32 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(p3.hand).toHaveLength(0);
     expect(p1.hand.some((c) => c.instanceId === chosenCoin.instanceId)).toBe(true);
     expect(p2.hand).toHaveLength(1);
+  });
+
+  it('pato: si el jugador elegido tiene 2 o más monedas, ES ÉL quien elige cuál entrega (bloquea hasta resolverlo)', () => {
+    const { state, player, opponent } = setupClean();
+    const coin1 = freshInstance('coin-1', 'o1');
+    const coin5 = freshInstance('coin-5', 'o2'); // el rival podría quedarse esta y dar la barata
+    opponent.hand = [coin1, coin5];
+    const duck = freshInstance('duck', 'test');
+    player.hand = [duck];
+
+    playCard(state, player.id, duck.instanceId, undefined, undefined, opponent.id);
+
+    // Con 2 elegibles hay elección real: no se resuelve solo.
+    expect(state.pendingDecision).not.toBeNull();
+    expect(state.pendingDecision?.kind).toBe('giveToPlayer');
+    expect(state.pendingDecision?.owed[opponent.id]).toEqual({
+      amount: 1,
+      eligibleInstanceIds: expect.arrayContaining([coin1.instanceId, coin5.instanceId]),
+    });
+
+    // El rival elige libremente cuál de las 2 entrega (aquí, la barata).
+    resolveDiscard(state, opponent.id, coin1.instanceId);
+
+    expect(state.pendingDecision).toBeNull();
+    expect(player.hand.some((c) => c.instanceId === coin1.instanceId)).toBe(true);
+    expect(opponent.hand).toEqual([coin5]); // se queda con la de más valor
   });
 
   it('pato: si el jugador elegido no tiene ninguna moneda, no pierde nada', () => {

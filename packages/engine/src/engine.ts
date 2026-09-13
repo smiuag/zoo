@@ -799,9 +799,12 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
   }
 
   const [card] = player.hand.splice(idx, 1);
+  const sourcePlayer = state.players.find((p) => p.id === decision.sourcePlayerId);
   if (decision.kind === 'returnToMarket') {
     returnCardToMarket(state, card);
     decision.returnedSoFar += 1;
+  } else if (decision.kind === 'giveToPlayer') {
+    sourcePlayer?.hand.push(card);
   } else {
     player.discard.push(card);
     if (decision.bonusDrawPerCoin && card.type === 'coin') decision.coinsDiscardedSoFar += 1;
@@ -819,7 +822,9 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
       ? `${player.name} descartó su Perezoso en lugar de entregar lo debido (${decision.sourceCardName})`
       : decision.kind === 'returnToMarket'
         ? `${player.name} devolvió ${card.name} al mercado (${decision.sourceCardName})`
-        : `${player.name} descartó ${card.name} (${decision.sourceCardName})`
+        : decision.kind === 'giveToPlayer'
+          ? `${player.name} le dio ${card.name} a ${sourcePlayer?.name ?? '?'} (${decision.sourceCardName})`
+          : `${player.name} descartó ${card.name} (${decision.sourceCardName})`
   );
 
   if (Object.keys(decision.owed).length === 0) {
@@ -830,12 +835,13 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
         state.log.push(`${sourcePlayer.name} robó ${decision.coinsDiscardedSoFar} carta(s) por monedas descartadas así`);
       }
     }
-    if (decision.bonusPurchasingPowerIfAtLeast && decision.returnedSoFar >= decision.bonusPurchasingPowerIfAtLeast.count) {
+    if (decision.bonusPurchasingPowerPerAnimal && decision.returnedSoFar > 0) {
       const sourcePlayer = state.players.find((p) => p.id === decision.sourcePlayerId);
       if (sourcePlayer) {
-        sourcePlayer.bonusPurchasingPowerThisTurn += decision.bonusPurchasingPowerIfAtLeast.amount;
+        const amount = decision.bonusPurchasingPowerPerAnimal * decision.returnedSoFar;
+        sourcePlayer.bonusPurchasingPowerThisTurn += amount;
         state.log.push(
-          `${sourcePlayer.name} ganó ${decision.bonusPurchasingPowerIfAtLeast.amount} de valor de compra por capturar ${decision.returnedSoFar} animales con ${decision.sourceCardName}`
+          `${sourcePlayer.name} ganó ${amount} de valor de compra por capturar ${decision.returnedSoFar} animales con ${decision.sourceCardName}`
         );
       }
     }

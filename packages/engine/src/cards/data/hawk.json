@@ -5,7 +5,7 @@
   "species": "hawk",
   "marketCost": 6,
   "victoryPoints": 4,
-  "text": "Cada oponente devuelve de su mano al mercado un animal ÚNICAMENTE VOLADOR de coste 3 o menos que elija; si no tiene ninguno, muestra su mano. Si devuelven así 2 o más animales en total, ganas 2 de valor de compra.",
+  "text": "Cada oponente devuelve de su mano al mercado un animal ÚNICAMENTE VOLADOR de coste 3 o menos que elija; si no tiene ninguno, muestra su mano. Ganas 1 de valor de compra por cada animal devuelto así.",
   "effects": [
     {
       "trigger": "onPlay",
@@ -13,10 +13,7 @@
       "params": {
         "habitat": "bird",
         "maxCost": 3,
-        "bonusIfAtLeast": {
-          "count": 2,
-          "amount": 2
-        }
+        "bonusPerAnimal": 1
       }
     }
   ],

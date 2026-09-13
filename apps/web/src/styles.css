@@ -1009,6 +1009,17 @@ body {
   opacity: 0.75;
 }
 
+/* Cuando además es "tú" (misma ficha, las dos clases a la vez): un
+   selector compuesto, más específico que cualquiera de las dos reglas de
+   arriba por separado, para que el color de texto de .scoreboard__me
+   (pensado para verse sobre el fondo normal del panel, no sobre el
+   relleno sólido de acento) nunca gane el empate de cascada. */
+.scoreboard__me.scoreboard__active-turn {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 .market-empty {
   color: var(--muted);
   font-size: 0.8rem;

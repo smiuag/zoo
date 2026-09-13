@@ -130,7 +130,7 @@ function beginPendingDiscard(
     sourceCardName: string;
     bonusDrawPerCoin?: boolean;
     kind?: PendingDiscardDecision['kind'];
-    bonusPurchasingPowerIfAtLeast?: { count: number; amount: number };
+    bonusPurchasingPowerPerAnimal?: number;
   }
 ): void {
   if (Object.keys(owed).length === 0) return;
@@ -140,7 +140,7 @@ function beginPendingDiscard(
     sourcePlayerId: activePlayer.id,
     bonusDrawPerCoin: opts.bonusDrawPerCoin ?? false,
     coinsDiscardedSoFar: 0,
-    bonusPurchasingPowerIfAtLeast: opts.bonusPurchasingPowerIfAtLeast ?? null,
+    bonusPurchasingPowerPerAnimal: opts.bonusPurchasingPowerPerAnimal ?? null,
     returnedSoFar: 0,
     owed,
   };
@@ -397,15 +397,15 @@ registerEffect('discardAnimalFromEachOpponent', (state, player, _effect, context
 // rival no tiene ninguno elegible, no pierde nada (en la práctica,
 // "muestra su mano"). La carta vuelve a estar disponible en el mercado de
 // inmediato (ver returnToMarket en resolveDiscard, engine.ts) — como una
-// compra deshecha, no como un descarte. params.bonusIfAtLeast ({ count,
-// amount }, opcional): si entre TODOS los rivales se acaban devolviendo
-// así `count` o más animales en total, quien jugó la carta gana `amount`
-// de valor de compra este turno (ver bonusPurchasingPowerIfAtLeast,
-// resuelto en resolveDiscard cuando la entrega se cierra del todo).
+// compra deshecha, no como un descarte. params.bonusPerAnimal (opcional):
+// por cada animal que se acabe devolviendo así (entre TODOS los rivales),
+// quien jugó la carta gana esto de valor de compra este turno (ver
+// bonusPurchasingPowerPerAnimal, resuelto en resolveDiscard cuando la
+// entrega se cierra del todo).
 registerEffect('returnAnimalFromEachOpponent', (state, player, effect, context) => {
   const maxCost = typeof effect.params?.maxCost === 'number' ? effect.params.maxCost : Infinity;
   const habitats = matchHabitatList(effect.params?.habitat);
-  const bonusIfAtLeast = effect.params?.bonusIfAtLeast as { count: number; amount: number } | undefined;
+  const bonusPerAnimal = typeof effect.params?.bonusPerAnimal === 'number' ? effect.params.bonusPerAnimal : undefined;
   const owed: PendingDiscardDecision['owed'] = {};
   for (const opponent of otherPlayers(state, player)) {
     const eligible = opponent.hand.filter(
@@ -420,23 +420,31 @@ registerEffect('returnAnimalFromEachOpponent', (state, player, effect, context) 
   beginPendingDiscard(state, player, owed, {
     sourceCardName: context.sourceCardName ?? 'efecto',
     kind: 'returnToMarket',
-    bonusPurchasingPowerIfAtLeast: bonusIfAtLeast,
+    bonusPurchasingPowerPerAnimal: bonusPerAnimal,
   });
 });
 
 // Pato: el jugador que elijas (context.targetPlayerId, ver
 // getLegalActions en engine.ts: una variante de la acción por cada rival
-// posible) te da 1 moneda cualquiera de su mano (no tiene que ser de valor
-// 1). Si no tiene ninguna, no pierde nada (en la práctica, "muestra su
-// mano"). Con 1 solo jugador no hay a quién elegir, así que no hace nada.
+// posible) te da 1 moneda de su mano — el AFECTADO elige libremente cuál
+// (no tiene que ser de valor 1, y no la decide el motor), igual que
+// cualquier otra entrega forzosa (ver resolveDiscard en engine.ts, kind
+// 'giveToPlayer'). Si no tiene ninguna, no pierde nada (en la práctica,
+// "muestra su mano"): no llega a deber nada, no hay elección que hacer.
+// Con 1 solo jugador no hay a quién elegir, así que no hace nada.
 registerEffect('stealCoinFromChosenPlayer', (state, player, _effect, context) => {
   if (!context.targetPlayerId) return;
   const target = state.players.find((p) => p.id === context.targetPlayerId);
   if (!target || target.id === player.id) return;
-  const coinIdx = target.hand.findIndex((c) => c.type === 'coin');
-  if (coinIdx === -1) return;
-  const [coin] = target.hand.splice(coinIdx, 1);
-  player.hand.push(coin);
+  const eligible = target.hand.filter((c) => c.type === 'coin');
+  if (eligible.length === 0) return;
+  const owed: PendingDiscardDecision['owed'] = {
+    [target.id]: { amount: 1, eligibleInstanceIds: eligible.map((c) => c.instanceId) },
+  };
+  beginPendingDiscard(state, player, owed, {
+    sourceCardName: context.sourceCardName ?? 'efecto',
+    kind: 'giveToPlayer',
+  });
 });
 
 // Jirafa: recupera a tu mano un animal elegido (context.targetInstanceId,

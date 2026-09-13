@@ -16,13 +16,14 @@ BACK_PATH = os.path.join(CARDS_DIR, "_back.png")
 # multiple of 18) — only the card art (Spanish vs English text) differs.
 COUNTS = {
     "sloth": 21,
-    # 42 en vez de las 49 (7×7) "de libro": ver el mismo ajuste en
-    # build_deck_pdf.py (el Halcón, nueva especie, desajustaba el total de
-    # múltiplo de 18).
-    "coin-1": 42,
-    "coin-2": 20,
-    "coin-3": 15,
-    "coin-5": 9,
+    # Ver el mismo ajuste en build_deck_pdf.py: bronce se queda en 49 (7×7)
+    # "de libro"; plata/oro/platino ceden los 7 que hacían falta en su
+    # lugar (el Halcón, nueva especie, desajustaba el total de múltiplo de
+    # 18).
+    "coin-1": 49,
+    "coin-2": 17,
+    "coin-3": 12,
+    "coin-5": 8,
 }
 # Igual que el motor (ver createGame en engine.ts), escalado a una tirada
 # de 7 jugadores: nº jugadores + 2 para el resto, nº jugadores para las

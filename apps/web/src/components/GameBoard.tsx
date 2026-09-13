@@ -93,10 +93,12 @@ export function GameBoard({
   // deja sin ninguna acción normal al jugador activo).
   const canAct = legalActions.length > 0;
   const owedDiscard = state.pendingDecision?.owed[viewerPlayerId];
-  // Tiburón: la carta elegida vuelve al mercado en vez de ir al descarte —
-  // solo cambia el texto mostrado, la mecánica de elegir es idéntica.
+  // Tiburón/Halcón/León: la carta elegida vuelve al mercado; Pato: pasa a
+  // la mano de quien jugó la carta — en los 3 casos solo cambia el texto
+  // mostrado, la mecánica de elegir es idéntica al descarte forzoso normal.
   const isReturnToMarket = state.pendingDecision?.kind === 'returnToMarket';
-  const discardVerb = isReturnToMarket ? 'Devuelve' : 'Descarta';
+  const isGiveToPlayer = state.pendingDecision?.kind === 'giveToPlayer';
+  const discardVerb = isReturnToMarket ? 'Devuelve' : isGiveToPlayer ? 'Entrega' : 'Descarta';
   // Cartas de tu propia mano que puedes elegir ahora mismo para el
   // descarte pendiente (se muestran en el popup de abajo): se derivan de
   // legalActions, nunca de owedDiscard.eligibleInstanceIds directamente,
@@ -646,7 +648,7 @@ export function GameBoard({
             </div>
             <p className="modal__message">
               {discardSourcePlayerName} ha jugado <strong>{state.pendingDecision?.sourceCardName}</strong>: tienes
-              que {isReturnToMarket ? 'devolver al mercado' : 'descartar'}{' '}
+              que {isReturnToMarket ? 'devolver al mercado' : isGiveToPlayer ? `darle a ${discardSourcePlayerName}` : 'descartar'}{' '}
               {owedDiscard.amount === 1 ? 'una carta' : `${owedDiscard.amount} cartas`} de tu mano.
               Elige cuál{owedDiscard.amount === 1 ? '' : 'es'}.
               {hasSlothSubstitute && (

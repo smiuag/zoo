@@ -29,7 +29,7 @@ CARD_TEXT_EN = {
     ),
     "duck": (
         "Ducks",
-        "Choose a player: they give you 1 coin from their hand; if they have none, they reveal their hand.",
+        "Choose a player: they choose and give you 1 coin from their hand; if they have none, they reveal their hand.",
     ),
     "eagle": (
         "Eagles",
@@ -58,11 +58,11 @@ CARD_TEXT_EN = {
     ),
     "lion": (
         "Lions",
-        "Each opponent chooses and returns to the market a LAND-ONLY animal from their hand costing 3 or less; if they have none, they reveal their hand. If 2 or more animals are returned this way in total, gain 2 purchasing power.",
+        "Each opponent chooses and returns to the market a LAND-ONLY animal from their hand costing 3 or less; if they have none, they reveal their hand. Gain 1 purchasing power for each animal returned this way.",
     ),
     "hawk": (
         "Hawks",
-        "Each opponent chooses and returns to the market a FLYING-ONLY animal from their hand costing 3 or less; if they have none, they reveal their hand. If 2 or more animals are returned this way in total, gain 2 purchasing power.",
+        "Each opponent chooses and returns to the market a FLYING-ONLY animal from their hand costing 3 or less; if they have none, they reveal their hand. Gain 1 purchasing power for each animal returned this way.",
     ),
     "monkey": (
         "Monkeys",
@@ -104,7 +104,7 @@ CARD_TEXT_EN = {
     ),
     "shark": (
         "Sharks",
-        "Each opponent chooses and returns to the market an AQUATIC-ONLY animal from their hand costing 3 or less; if they have none, they reveal their hand. If 2 or more animals are returned this way in total, gain 2 purchasing power.",
+        "Each opponent chooses and returns to the market an AQUATIC-ONLY animal from their hand costing 3 or less; if they have none, they reveal their hand. Gain 1 purchasing power for each animal returned this way.",
     ),
     "sloth": ("Sloths", "Does nothing. Just sleeps."),
     "snake": (

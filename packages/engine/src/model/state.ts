@@ -65,22 +65,24 @@ export interface Player {
 export interface PendingDiscardDecision {
   // 'discard': la carta elegida va al propio descarte de quien la entrega
   // (Buitre/Mono/Hiena/Murciélago). 'returnToMarket': vuelve al mercado
-  // compartido de su especie, como una captura deshecha (Tiburón) — ver
-  // resolveDiscard en engine.ts.
-  kind: 'discard' | 'returnToMarket';
+  // compartido de su especie, como una captura deshecha (Tiburón/Halcón/
+  // León). 'giveToPlayer': pasa a la mano de sourcePlayerId (Pato: el
+  // rival elegido elige LIBREMENTE cuál de sus monedas entrega, en vez de
+  // dársela el motor automáticamente) — ver resolveDiscard en engine.ts.
+  kind: 'discard' | 'returnToMarket' | 'giveToPlayer';
   sourceCardName: string;
   // Quién jugó la carta que disparó esto: a quien beneficia bonusDrawPerCoin
-  // y bonusPurchasingPowerIfAtLeast.
+  // y bonusPurchasingPowerPerAnimal.
   sourcePlayerId: string;
   bonusDrawPerCoin: boolean;
   coinsDiscardedSoFar: number;
-  // Tiburón/Halcón/León: si al final se han devuelto al mercado al menos
-  // `count` animales en total (cuenta real de devoluciones resueltas, no
-  // de lo que se debía al principio — un rival sin ninguno elegible nunca
-  // llega a deber nada), quien jugó la carta gana `amount` de valor de
-  // compra este turno. null = sin este bonus (el resto de cartas que usan
-  // PendingDiscardDecision).
-  bonusPurchasingPowerIfAtLeast: { count: number; amount: number } | null;
+  // Tiburón/Halcón/León: por cada animal que se acabe devolviendo al
+  // mercado en total (cuenta real de devoluciones resueltas, no de lo que
+  // se debía al principio — un rival sin ninguno elegible nunca llega a
+  // deber nada), quien jugó la carta gana esto de valor de compra este
+  // turno — 1 animal devuelto = +1, 3 devueltos = +3, etc. null/0 = sin
+  // este bonus (el resto de cartas que usan PendingDiscardDecision).
+  bonusPurchasingPowerPerAnimal: number | null;
   returnedSoFar: number;
   // Por jugador afectado: cuántas cartas le quedan por entregar y de qué
   // instanceIds puede elegir (null = cualquier carta de su mano vale).
