@@ -31,17 +31,18 @@ interface CardViewProps {
   // player.destroyedCards): se marca con una X roja encima, para el resumen
   // final. Nunca es clicable (no tiene sentido interactuar con ella).
   destroyed?: boolean;
-  // Puntos que esta carta da AHORA MISMO en la colección de su dueño (ver
-  // scoreCardContributions en scoring.ts): para la mayoría de cartas
-  // coincide con card.victoryPoints (su PV impreso, fijo), pero en las de
-  // PV variable (Águila/Orca/Oso polar: +1 por hábitat en todo el mazo;
-  // Albatros: +1 por especie distinta; Tucán: +1 por animal caro) puede
-  // valer más. Solo tiene sentido pasarlo para cartas que el jugador YA
-  // POSEE (mano, jugado este turno, mazo/descarte) — las del mercado
-  // todavía no puntúan nada, así que se omite ahí. Cuando difiere del PV
-  // impreso, se muestra en paréntesis junto a él, SOLO al pasar el ratón
-  // (igual que el tooltip de texto) para no abarrotar la carta el resto
-  // del tiempo.
+  // Cuánto valdría YA MISMO comprar esta carta del mercado (simulación:
+  // se añade a una copia de tu colección actual, ver
+  // marketCardPreviewPoints en GameBoard.tsx) — SOLO tiene sentido para
+  // cartas del mercado, nunca para las que ya posees (mano/mesa: esas se
+  // ven "como la carta estándar", sin nada añadido, así que ese sitio no
+  // pasa este prop). Para la mayoría de especies coincide con
+  // card.victoryPoints (su PV impreso, fijo); en las 5 de PV variable
+  // (Águila/Orca/Oso polar: +1 por hábitat en todo el mazo; Albatros: +1
+  // por especie distinta; Tucán: +1 por animal caro) puede valer más.
+  // Cuando difiere del PV impreso se muestra SIEMPRE (no hace falta pasar
+  // el ratón), como "N*PV" en vez de solo "NPV" — el asterisco marca que
+  // es un valor calculado ahora mismo, no el PV fijo de la carta.
   livePoints?: number;
 }
 
@@ -92,7 +93,6 @@ export function CardView({
 }: CardViewProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const [isHovered, setIsHovered] = useState(false);
   const clickable = Boolean(onClick) && !disabled && !destroyed;
   const bits: string[] = [];
   if (card.type === 'animal') bits.push(habitatLabel(card));
@@ -104,15 +104,15 @@ export function CardView({
   if (clickable) classNames.push('card--clickable');
   if (compact) classNames.push('card--compact');
 
-  // Cartas de PV variable (Águila, Orca, Oso polar: PV impreso 0 o 2 — Ostentan
-  // el resto en el paréntesis; Albatros, Tucán: PV impreso 0): mientras no se
-  // pasa el ratón solo se ve el PV impreso, tal cual la carta física — el
-  // valor real de ahora mismo (que puede ser 0 al principio de la partida)
-  // se revela entre paréntesis solo al pasar el ratón, igual que el tooltip
-  // de texto, para no abarrotar la carta el resto del tiempo.
-  const showLiveBonus = isHovered && livePoints !== undefined && livePoints !== card.victoryPoints;
+  // "N*PV" siempre visible (nunca hace falta pasar el ratón) cuando
+  // livePoints trae un valor distinto del PV impreso — las cartas de PV
+  // variable (Águila, Orca, Oso polar, Albatros, Tucán) SOLO llevan esto
+  // en el mercado (ver livePoints arriba); en mano/mesa nadie pasa
+  // livePoints, así que ahí siempre se ve el PV impreso normal, sin nada
+  // añadido.
+  const showLiveBonus = livePoints !== undefined && livePoints !== card.victoryPoints;
   const showPvBadge = card.victoryPoints !== 0 || showLiveBonus;
-  const pvLabel = `${card.victoryPoints !== 0 ? card.victoryPoints : ''}${showLiveBonus ? ` (${livePoints})` : ''}`.trim();
+  const pvLabel = showLiveBonus ? `${livePoints}*` : card.victoryPoints !== 0 ? `${card.victoryPoints}` : '';
 
   return (
     <div
@@ -120,10 +120,8 @@ export function CardView({
       className={classNames.join(' ')}
       onClick={clickable ? onClick : undefined}
       onMouseEnter={() => {
-        setIsHovered(true);
         if (card.text && cardRef.current && tooltipRef.current) clampTooltipPosition(cardRef.current, tooltipRef.current);
       }}
-      onMouseLeave={() => setIsHovered(false)}
       role={onClick ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
     >

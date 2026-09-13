@@ -67,11 +67,15 @@ export function GameBoard({
   const activePlayer = getActivePlayer(state);
   const human = state.players.find((p) => p.id === viewerPlayerId) ?? state.players[0];
   const bots = state.players.filter((p) => !humanIds.includes(p.id));
-  // Cuántos PV da AHORA MISMO cada carta que ya tienes (Águila/Orca/Oso
-  // polar/Albatros/Tucán dan más o menos según el resto de tu colección):
-  // se le pasa a cada CardView de tu mano como livePoints, que solo lo
-  // enseña entre paréntesis al pasar el ratón (ver CardView.tsx).
-  const humanContributions = scoreCardContributions(human);
+  // Para una carta del MERCADO (todavía no es tuya): cuánto valdría YA
+  // MISMO si la compraras ahora — se simula añadiéndola a una copia de tu
+  // colección actual (scoreCardContributions no muta nada) y se lee su
+  // propia entrada. Así, si ya tienes 2 Águilas y hay una 3ª en el
+  // mercado, el paréntesis cuenta las 3 juntas, no la 3ª aislada.
+  function marketCardPreviewPoints(card: CardInstance): number {
+    const preview = { ...human, hand: [...human.hand, card] };
+    return scoreCardContributions(preview).get(card.instanceId) ?? card.victoryPoints;
+  }
   const scoreFor = (playerId: string) => scores.find((s) => s.playerId === playerId)?.score ?? 0;
   // En el marcador de arriba, un bot se identifica por el código corto de su
   // algoritmo (ES/TT/AI/FO/...) en vez de su nombre corto interno (B1, B2...
@@ -503,7 +507,6 @@ export function GameBoard({
                     // pendiente sí las haga elegibles.
                     onClick={isHandCardClickable(card) ? () => handleHandCardClick(card) : undefined}
                     disabled={canAct && card.type !== 'coin' && !isHandCardClickable(card)}
-                    livePoints={humanContributions.get(card.instanceId)}
                   />
                 ))}
               </div>
@@ -574,6 +577,7 @@ export function GameBoard({
                     onClick={() => handleMarketCardClick(card)}
                     disabled={!isMarketCardClickable(card)}
                     remainingLabel={String((state.sharedDecks[card.species ?? ''] ?? []).length + 1)}
+                    livePoints={marketCardPreviewPoints(card)}
                   />
                 </div>
               ))}
@@ -658,7 +662,6 @@ export function GameBoard({
                   key={card.instanceId}
                   card={card}
                   onClick={() => runAction(resolveDiscardActionFor(legalActions, card.instanceId))}
-                  livePoints={humanContributions.get(card.instanceId)}
                 />
               ))}
             </div>

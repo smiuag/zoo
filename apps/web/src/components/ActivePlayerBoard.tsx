@@ -1,5 +1,5 @@
 import { useRef, type RefObject } from 'react';
-import { currentPurchasingPower, getActivePlayer, scoreCardContributions, type CardInstance, type GameState } from '@zoo/engine';
+import { currentPurchasingPower, getActivePlayer, type CardInstance, type GameState } from '@zoo/engine';
 import { CardView } from './CardView';
 import { DeckPile, DiscardPile } from './PlayerPiles';
 import { displayName } from '../lib/botAlgorithms';
@@ -61,10 +61,6 @@ export function ActivePlayerBoard({ state, humanIds, botAlgorithms, discardPileR
 
   if (state.gameOver) return null;
   const played = groupByCard(activePlayer.playedThisTurn);
-  // Igual que en la mano (ver GameBoard.tsx): cuántos PV da AHORA MISMO
-  // cada carta ya jugada, para el paréntesis en hover de las de PV
-  // variable — funciona igual seas tú o esté mirando a un bot/rival.
-  const contributions = scoreCardContributions(activePlayer);
 
   return (
     <div className="panel">
@@ -90,7 +86,7 @@ export function ActivePlayerBoard({ state, humanIds, botAlgorithms, discardPileR
             <div key={card.instanceId} className="card-stack">
               {Array.from({ length: Math.min(count, 4) }, (_, i) => (
                 <div key={i} className="card-stack__item">
-                  <CardView card={card} compact livePoints={contributions.get(card.instanceId)} />
+                  <CardView card={card} compact />
                 </div>
               ))}
               {count > 1 && <span className="card-stack__count">×{count}</span>}
