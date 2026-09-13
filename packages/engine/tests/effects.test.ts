@@ -183,14 +183,14 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(p1.hand).toHaveLength(1); // solo 1 de los 2 rivales soltó moneda
   });
 
-  it('león: gana 4 de dinero extra para comprar este turno, fijo (no depende de la mano)', () => {
+  it('león: gana 3 de dinero extra para comprar este turno, fijo (no depende de la mano)', () => {
     const { state, player } = setupClean();
     const lion = freshInstance('lion', 'test');
     player.hand = [lion];
 
     playCard(state, player.id, lion.instanceId);
 
-    expect(player.bonusPurchasingPowerThisTurn).toBe(4);
+    expect(player.bonusPurchasingPowerThisTurn).toBe(3);
   });
 
   it('pingüino: añade una moneda de Plata de verdad a la mano (no bonus temporal)', () => {

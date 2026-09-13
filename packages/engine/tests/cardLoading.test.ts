@@ -11,7 +11,7 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   giraffe: { cost: 6, pv: 5 },
   hippopotamus: { cost: 5, pv: 4 },
   tiger: { cost: 4, pv: 4 },
-  lion: { cost: 5, pv: 4 },
+  lion: { cost: 5, pv: 5 },
   monkey: { cost: 4, pv: 3 },
   spider: { cost: 3, pv: 3 },
   crocodile: { cost: 5, pv: 7 },
@@ -100,7 +100,7 @@ describe('card registry', () => {
     expect(getCard('hippopotamus').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 2 } });
     expect(getCard('lion').effects[0]).toMatchObject({
       type: 'gainFlatBonusPurchasingPower',
-      params: { amount: 4 },
+      params: { amount: 3 },
     });
     expect(getCard('tiger').effects[0]).toMatchObject({ type: 'drawThenTopdeck' });
     expect(getCard('dolphin').effects[0]).toMatchObject({
