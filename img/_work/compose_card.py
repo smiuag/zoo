@@ -69,8 +69,11 @@ def _offset_point(point):
 # sangrado) — se desplazan por TEMPLATE_BLEED_MARGIN para caer en el sitio
 # correcto dentro del lienzo de plantilla, más grande, con sangrado.
 ILLUSTRATION_BOX = _offset_box((66, 64, 551, 483))
-COST_BADGE = _offset_point((83, 103))             # center of the coin pouch
-PV_BADGE = _offset_point((526, 97))               # center of the laurel wreath opening (medido a mano sobre la plantilla)
+# Ajuste 2026-09-13: el numero de la bolsa quedaba alto respecto al cuerpo de la bolsa y el del
+# escudo bajo respecto al hueco del laurel (revisado sobre las cartas impresas): bolsa 6 px mas
+# abajo, escudo 7 px mas arriba (en espacio de diseno 615x878).
+COST_BADGE = _offset_point((83, 109))             # center of the coin pouch body
+PV_BADGE = _offset_point((526, 90))               # center of the laurel wreath opening
 BADGE_NUMBER_SIZE = 50             # 45 + 10%
 TITLE_BOX = _offset_box((95, 513, 540, 561))    # wood ribbon banner: card name
 TYPE_LINE_POINT = _offset_point((307, 648))       # "Terrestre" label, centered in the panel

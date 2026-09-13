@@ -50,8 +50,12 @@ leaves = ndimage.binary_dilation(leaves, iterations=2)
 hole_soft = soft(hole, 0.6) * (1 - soft(leaves, 0.8))
 
 # bolsa y escudo: interior limpio de la plantilla (sin los numeros del marco de origen)
+# anclas de bolsa/escudo en las coordenadas de ESTE marco (cc las da en su lienzo con sangrado)
+off = (cc.CANVAS_W - W) // 2 if hasattr(cc, 'CANVAS_W') else 0
+COST_PT = (cc.COST_BADGE[0] - off, cc.COST_BADGE[1] - off)
+PV_PT = (cc.PV_BADGE[0] - off, cc.PV_BADGE[1] - off)
 frame = F.copy()
-for (cx, cy) in (cc.COST_BADGE, cc.PV_BADGE):
+for (cx, cy) in (COST_PT, PV_PT):
     yy, xx = np.mgrid[0:H, 0:W]
     disk = ((yy - cy) ** 2 + (xx - cx) ** 2) <= 34 ** 2
     m = soft(disk, 1.0)[..., None]
@@ -73,7 +77,7 @@ out = frame * (1 - hole_soft[..., None]) + canvas * hole_soft[..., None]
 card = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8))
 draw = ImageDraw.Draw(card)
 f = ImageFont.truetype(cc.FONT_BOLD, cc.BADGE_NUMBER_SIZE)
-if cost is not None: cc.draw_centered(draw, cc.COST_BADGE, str(cost), f, fill=cc.COST_COLOR)
-if pv is not None: cc.draw_centered(draw, cc.PV_BADGE, str(pv), f, fill=cc.PV_COLOR)
+if cost is not None: cc.draw_centered(draw, COST_PT, str(cost), f, fill=cc.COST_COLOR)
+if pv is not None: cc.draw_centered(draw, PV_PT, str(pv), f, fill=cc.PV_COLOR)
 os.makedirs(os.path.dirname(out_path) or '.', exist_ok=True)
 card.save(out_path); print('saved', out_path)
