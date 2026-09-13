@@ -96,6 +96,21 @@ function humanName(index: number, total: number, nick: string): string {
   return total === 1 ? 'Tú' : `J${index + 1}`;
 }
 
+// Fisher-Yates: quién sale primero (state.players[0], vía activePlayerIndex
+// inicial en 0) decide el orden de turnos de TODA la partida, así que sin
+// esto el humano-0 (o, en remoto, el host) empezaba siempre primero,
+// partida tras partida — solo reordena el ASIENTO, nunca toca id/nombre/
+// mazo de cada jugador, así que humanIds/botAlgorithms (indexados por id,
+// no por posición) siguen apuntando a quien corresponde.
+function shuffled<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 function newGame(config: GameConfig): GameState {
   const humans = Array.from({ length: config.numHumans }, (_, i) => ({
     id: `human-${i}`,
@@ -107,7 +122,7 @@ function newGame(config: GameConfig): GameState {
     name: `B${i + 1}`,
     deck: buildStarterDeck(),
   }));
-  return createGame([...humans, ...bots], { maxRounds: config.roundLimit });
+  return createGame(shuffled([...humans, ...bots]), { maxRounds: config.roundLimit });
 }
 
 export interface UseGame {

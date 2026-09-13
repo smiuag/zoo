@@ -1,3 +1,4 @@
+import type { Player } from '@zoo/engine';
 import type { BotAlgorithm } from './gameConfig';
 
 // `label`: texto completo del desplegable de algoritmo (formulario y panel
@@ -17,3 +18,19 @@ export const BOT_ALGORITHM_OPTIONS: { value: BotAlgorithm; label: string; shortL
   { value: 'expensiveFirst', label: 'Compra lo más caro', shortLabel: 'CC' },
   { value: 'animalBuyer', label: 'Comprador de animales', shortLabel: 'CA' },
 ];
+
+// Nombre a mostrar para un jugador: el suyo propio si es humano, o el
+// código corto de su algoritmo si es un bot (ver shortLabel arriba) —
+// mismo criterio en todos los sitios que muestran el nombre del jugador
+// activo (el marcador de GameBoard.tsx y el título "Mesa de X" de
+// ActivePlayerBoard.tsx), para no volver a mostrar "B1"/"B2" en un sitio
+// y el código corto en otro.
+export function displayName(
+  player: Player,
+  humanIds: string[],
+  botAlgorithms: Record<string, BotAlgorithm>
+): string {
+  if (humanIds.includes(player.id)) return player.name;
+  const algorithm = botAlgorithms[player.id];
+  return BOT_ALGORITHM_OPTIONS.find((o) => o.value === algorithm)?.shortLabel ?? player.name;
+}

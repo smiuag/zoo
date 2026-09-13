@@ -1,10 +1,17 @@
 import { useRef, type RefObject } from 'react';
-import { currentPurchasingPower, getActivePlayer, type CardInstance, type GameState } from '@zoo/engine';
+import { currentPurchasingPower, getActivePlayer, scoreCardContributions, type CardInstance, type GameState } from '@zoo/engine';
 import { CardView } from './CardView';
 import { DeckPile, DiscardPile } from './PlayerPiles';
+import { displayName } from '../lib/botAlgorithms';
+import type { BotAlgorithm } from '../lib/gameConfig';
 
 interface ActivePlayerBoardProps {
   state: GameState;
+  // Igual que en el marcador de GameBoard.tsx: para mostrar el mismo
+  // nombre ahí que aquí (código corto del algoritmo para un bot, nunca su
+  // "B1"/"B2" interno, ver displayName en lib/botAlgorithms.ts).
+  humanIds: string[];
+  botAlgorithms: Record<string, BotAlgorithm>;
   // Dónde debe "aterrizar" la animación de compra (ver FlyingCard.tsx).
   discardPileRef?: RefObject<HTMLDivElement>;
   // Cuántas de las últimas cartas del descarte del jugador activo no se
@@ -33,8 +40,9 @@ function groupByCard(cards: CardInstance[]): { card: CardInstance; count: number
 // online/redact.ts: el jugado de un humano solo viaja sin redactar
 // mientras tiene el turno). La mano y el mazo de robo siguen siendo
 // siempre privados, esto no los toca.
-export function ActivePlayerBoard({ state, discardPileRef, hiddenDiscardCount = 0 }: ActivePlayerBoardProps) {
+export function ActivePlayerBoard({ state, humanIds, botAlgorithms, discardPileRef, hiddenDiscardCount = 0 }: ActivePlayerBoardProps) {
   const activePlayer = getActivePlayer(state);
+  const activePlayerName = displayName(activePlayer, humanIds, botAlgorithms);
   // "Disponible/pico de este turno" — el pico es lo más alto que ha tenido
   // ESTE turno (sube cuando juega algo que le da más valor de compra, nunca
   // baja), no el pico de toda la partida (eso ya lo guarda richestTurn en
@@ -53,16 +61,20 @@ export function ActivePlayerBoard({ state, discardPileRef, hiddenDiscardCount = 
 
   if (state.gameOver) return null;
   const played = groupByCard(activePlayer.playedThisTurn);
+  // Igual que en la mano (ver GameBoard.tsx): cuántos PV da AHORA MISMO
+  // cada carta ya jugada, para el paréntesis en hover de las de PV
+  // variable — funciona igual seas tú o esté mirando a un bot/rival.
+  const contributions = scoreCardContributions(activePlayer);
 
   return (
     <div className="panel">
       <div className="panel__header panel__header--with-piles">
         <DeckPile player={activePlayer} />
         <div className="panel__header-center">
-          <h2>Mesa de {activePlayer.name}</h2>
+          <h2>Mesa de {activePlayerName}</h2>
           <p
             className="active-player-money"
-            title={`Valor de compra de ${activePlayer.name}: ${purchasingPower} disponibles de ${turnPeakRef.current.peak} que ha llegado a tener este turno`}
+            title={`Valor de compra de ${activePlayerName}: ${purchasingPower} disponibles de ${turnPeakRef.current.peak} que ha llegado a tener este turno`}
           >
             💰 Valor de compra: {purchasingPower}/{turnPeakRef.current.peak}
           </p>
@@ -78,7 +90,7 @@ export function ActivePlayerBoard({ state, discardPileRef, hiddenDiscardCount = 
             <div key={card.instanceId} className="card-stack">
               {Array.from({ length: Math.min(count, 4) }, (_, i) => (
                 <div key={i} className="card-stack__item">
-                  <CardView card={card} compact />
+                  <CardView card={card} compact livePoints={contributions.get(card.instanceId)} />
                 </div>
               ))}
               {count > 1 && <span className="card-stack__count">×{count}</span>}

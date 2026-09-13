@@ -715,11 +715,14 @@ body {
 
 .card__tooltip {
   position: absolute;
-  /* Debajo de la carta, no encima: en la primera fila del mercado no hay
-     hueco arriba y el tooltip se cortaba contra el borde de la pantalla. */
+  /* Debajo de la carta por defecto (--tooltip-shift-x/card__tooltip--above
+     la corrigen en JS, ver clampTooltipPosition en CardView.tsx, para que
+     nunca quede cortada contra ningún borde de la pantalla, sea cual sea
+     el dispositivo o dónde esté la carta). */
   top: calc(100% + 0.6rem);
   left: 50%;
-  transform: translateX(-50%) translateY(-4px);
+  --tooltip-shift-x: 0px;
+  transform: translateX(calc(-50% + var(--tooltip-shift-x))) translateY(-4px);
   width: max-content;
   max-width: 260px;
   background: var(--ink);
@@ -738,6 +741,14 @@ body {
   white-space: normal;
 }
 
+/* Cuando no hay hueco debajo (última fila visible, teclado en pantalla,
+   móvil en horizontal...) se muestra por encima de la carta en su lugar. */
+.card__tooltip--above {
+  top: auto;
+  bottom: calc(100% + 0.6rem);
+  transform: translateX(calc(-50% + var(--tooltip-shift-x))) translateY(4px);
+}
+
 .card__tooltip-name {
   font-weight: 700;
   font-size: 1rem;
@@ -753,7 +764,7 @@ body {
 .card:hover .card__tooltip {
   opacity: 1;
   visibility: visible;
-  transform: translateX(-50%) translateY(0);
+  transform: translateX(calc(-50% + var(--tooltip-shift-x))) translateY(0);
 }
 
 .card__check {

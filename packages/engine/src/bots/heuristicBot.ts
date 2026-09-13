@@ -121,6 +121,28 @@ function effectBonus(card: CardInstance): number {
   return bonus;
 }
 
+// Norma explícita de orden de juego: conviene jugar SIEMPRE las cartas que
+// roban antes que las que dan valor de compra "por cada X que tengas en la
+// mano" (Delfín/Mono) — jugar antes la de robo aumenta la mano y por tanto
+// lo que cuenta después la de dinero-por-conteo, así que jugarlas en ese
+// orden maximiza el dinero disponible ese turno. Pequeño a propósito (menor
+// que la distancia mínima entre categorías de effectBonus, 0.5): solo debe
+// decidir el ORDEN relativo ENTRE estas dos familias de efecto, nunca hacer
+// que una carta de robo valga más que una compra o que un efecto no
+// relacionado con esto.
+const DRAW_EFFECT_TYPES = new Set(['drawCards', 'drawThenTopdeck', 'drawTopUnlessExpensiveAnimal']);
+const HAND_COUNT_MONEY_EFFECT_TYPES = new Set([
+  'gainBonusPurchasingPowerPerHabitatInHand',
+  'gainBonusPurchasingPowerPerDistinctSpeciesInHand',
+]);
+
+function drawBeforeHandCountMoneyBonus(card: CardInstance): number {
+  const types = card.effects.map((e) => e.type);
+  if (types.some((t) => DRAW_EFFECT_TYPES.has(t))) return 0.1;
+  if (types.some((t) => HAND_COUNT_MONEY_EFFECT_TYPES.has(t))) return -0.1;
+  return 0;
+}
+
 // Desempate entre las variantes de una misma carta que solo difieren en a
 // qué rival apunta (Pato): sin esto, effectBonus puntúa igual a todos los
 // rivales y el empate se rompe al azar (ver TIE_EPSILON abajo),
@@ -191,6 +213,7 @@ function scoreAction(state: GameState, player: Player, action: Action): number {
       return (
         100 +
         effectBonus(card) +
+        drawBeforeHandCountMoneyBonus(card) +
         targetPlayerBonus(state, player, card, action.targetPlayerId) +
         drawThenTopdeckTargetBonus(card, player, action.targetInstanceId)
       );

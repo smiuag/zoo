@@ -20,16 +20,34 @@ function findInTrack(state: GameState, instanceId: string): CardInstance | undef
   return state.animalTrack.find((c) => c.instanceId === instanceId);
 }
 
-const MONEY_GENERATING_EFFECTS = new Set([
+// Robar ANTES que las de dinero "por cada X en tu mano" (ver DRAW_EFFECTS
+// abajo): jugar antes la carta de robo aumenta la mano y por tanto lo que
+// cuentan después estas — orden explícito pedido por el usuario, aplica
+// igual aquí que en heuristicBot aunque este bot ya tenga su propia
+// prioridad de compra distinta.
+const DRAW_EFFECTS = new Set(['drawCards', 'drawThenTopdeck', 'drawTopUnlessExpensiveAnimal']);
+
+const FLAT_MONEY_GENERATING_EFFECTS = new Set([
   'upgradeCoin', // Tortuga: mejora 1 moneda
   'gainFlatBonusPurchasingPower', // León
-  'gainBonusPurchasingPowerPerHabitatInHand', // Serpiente / Loro
-  'gainAquaticOnlyBonusPurchasingPower', // Delfín (restringido a comprar acuáticos)
+  'gainAquaticOnlyBonusPurchasingPower', // Foca (restringido a comprar acuáticos, pero cantidad fija)
   'gainCoin', // Pingüino: moneda de verdad, no solo bonus temporal
 ]);
 
-function isMoneyGenerator(card: CardInstance): boolean {
-  return card.effects.some((e) => MONEY_GENERATING_EFFECTS.has(e.type));
+// A diferencia de las de arriba, su valor depende de CUÁNTO tengas en la
+// mano en ese momento: conviene jugarlas después de cualquier carta de
+// robo disponible (ver DRAW_EFFECTS), nunca antes.
+const HAND_COUNT_MONEY_GENERATING_EFFECTS = new Set([
+  'gainBonusPurchasingPowerPerHabitatInHand', // Delfín / Mono
+  'gainBonusPurchasingPowerPerDistinctSpeciesInHand', // Ornitorrinco
+]);
+
+function playCardScore(card: CardInstance): number {
+  const types = card.effects.map((e) => e.type);
+  if (types.some((t) => DRAW_EFFECTS.has(t))) return 210;
+  if (types.some((t) => FLAT_MONEY_GENERATING_EFFECTS.has(t))) return 200;
+  if (types.some((t) => HAND_COUNT_MONEY_GENERATING_EFFECTS.has(t))) return 190;
+  return 100;
 }
 
 function scoreAction(state: GameState, player: Player, action: Action): number {
@@ -52,11 +70,12 @@ function scoreAction(state: GameState, player: Player, action: Action): number {
 
     case 'playCard': {
       // Prioridad 2: entre lo que se puede jugar de la mano, prioriza lo
-      // que genera dinero (para poder pagar antes una compra cara), luego
-      // cualquier otra cosa.
+      // que genera dinero (para poder pagar antes una compra cara) sobre
+      // cualquier otra cosa — y dentro del dinero, robar antes que las de
+      // "por cada X en tu mano" (ver playCardScore arriba).
       const card = findInHand(player, action.instanceId);
       if (!card) return -Infinity;
-      return isMoneyGenerator(card) ? 200 : 100;
+      return playCardScore(card);
     }
 
     case 'endTurn':

@@ -14,7 +14,7 @@ import { ActivePlayerBoard } from './ActivePlayerBoard';
 import { CardView } from './CardView';
 import { FlyingCard, type FlightSpec } from './FlyingCard';
 import { buyAnimalActionFor, buyCoinActionFor, playCardActionsFor, resolveDiscardActionFor } from '../lib/actionQuery';
-import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
+import { BOT_ALGORITHM_OPTIONS, displayName } from '../lib/botAlgorithms';
 import { buildPlayCardTargetChoice, type PendingChoice } from '../lib/pendingChoice';
 import type { BotAlgorithm } from '../lib/gameConfig';
 
@@ -67,15 +67,18 @@ export function GameBoard({
   const activePlayer = getActivePlayer(state);
   const human = state.players.find((p) => p.id === viewerPlayerId) ?? state.players[0];
   const bots = state.players.filter((p) => !humanIds.includes(p.id));
+  // Cuántos PV da AHORA MISMO cada carta que ya tienes (Águila/Orca/Oso
+  // polar/Albatros/Tucán dan más o menos según el resto de tu colección):
+  // se le pasa a cada CardView de tu mano como livePoints, que solo lo
+  // enseña entre paréntesis al pasar el ratón (ver CardView.tsx).
+  const humanContributions = scoreCardContributions(human);
   const scoreFor = (playerId: string) => scores.find((s) => s.playerId === playerId)?.score ?? 0;
   // En el marcador de arriba, un bot se identifica por el código corto de su
   // algoritmo (ES/TT/AI/FO/...) en vez de su nombre corto interno (B1, B2...
   // ver useGame.ts): así se ve de un vistazo qué juega cada uno sin tener
   // que bajar al panel "Bots". Los humanos siguen mostrando su nombre/nick.
   function scoreboardName(p: Player): string {
-    if (humanIds.includes(p.id)) return p.name;
-    const algorithm = botAlgorithms[p.id];
-    return BOT_ALGORITHM_OPTIONS.find((o) => o.value === algorithm)?.shortLabel ?? p.name;
+    return displayName(p, humanIds, botAlgorithms);
   }
 
   // legalActions siempre son LAS DE ESTE VISOR concreto (ver App.tsx/
@@ -468,6 +471,8 @@ export function GameBoard({
 
           <ActivePlayerBoard
             state={state}
+            humanIds={humanIds}
+            botAlgorithms={botAlgorithms}
             discardPileRef={discardPileRef}
             hiddenDiscardCount={flights.filter((f) => f.toPlayerId === activePlayer.id).length}
           />
@@ -498,6 +503,7 @@ export function GameBoard({
                     // pendiente sí las haga elegibles.
                     onClick={isHandCardClickable(card) ? () => handleHandCardClick(card) : undefined}
                     disabled={canAct && card.type !== 'coin' && !isHandCardClickable(card)}
+                    livePoints={humanContributions.get(card.instanceId)}
                   />
                 ))}
               </div>
@@ -652,6 +658,7 @@ export function GameBoard({
                   key={card.instanceId}
                   card={card}
                   onClick={() => runAction(resolveDiscardActionFor(legalActions, card.instanceId))}
+                  livePoints={humanContributions.get(card.instanceId)}
                 />
               ))}
             </div>
