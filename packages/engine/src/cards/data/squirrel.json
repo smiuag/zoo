@@ -1,0 +1,23 @@
+{
+  "id": "squirrel",
+  "name": "Ardilla",
+  "type": "animal",
+  "species": "squirrel",
+  "marketCost": 3,
+  "victoryPoints": 1,
+  "text": "Añade 1 a tu valor de compra. Al empezar cada uno de tus turnos, si tienes 1 o más Ardillas en tu descarte, una de ellas vuelve automáticamente a tu mano.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainFlatBonusPurchasingPower",
+      "params": {
+        "amount": 1
+      }
+    },
+    {
+      "trigger": "onTurnStart",
+      "type": "returnFromDiscardEachTurn"
+    }
+  ],
+  "habitats": ["land", "bird"]
+}

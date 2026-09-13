@@ -65,9 +65,28 @@ export function buildPlayCardTargetChoice(
     else bySource.set(key, [a]);
   }
 
-  const options: ChoiceOption[] = [...bySource.entries()]
-    .sort(([a], [b]) => costOf(state, player, a) - costOf(state, player, b))
-    .map(([sourceId, group]) => {
+  // Varias copias de la misma especie en mano (2 Leones, 2 Flamencos...)
+  // son intercambiables como origen a devolver: una sola opción por
+  // especie en el menú, no una por copia física. Única excepción: la
+  // PROPIA carta que se está jugando siempre es la representante de su
+  // especie si es una de las copias repetidas (2 Flamencos en mano, uno de
+  // ellos es este) — así "Flamenco" en el menú siempre significa
+  // "devuélvete a ti mismo", nunca a la otra copia. Jugar un segundo
+  // Flamenco después reconstruye este menú desde cero con la mano ya
+  // actualizada (lo que se devolvió/cogió con el primero), así que ofrece
+  // sin más las especies que queden en ese momento.
+  const representativeSourceBySpecies = new Map<string, string>();
+  for (const sourceId of bySource.keys()) {
+    const species = findAnywhere(state, player, sourceId)?.species ?? sourceId;
+    if (!representativeSourceBySpecies.has(species) || sourceId === card.instanceId) {
+      representativeSourceBySpecies.set(species, sourceId);
+    }
+  }
+
+  const options: ChoiceOption[] = [...representativeSourceBySpecies.values()]
+    .sort((a, b) => costOf(state, player, a) - costOf(state, player, b))
+    .map((sourceId) => {
+      const group = bySource.get(sourceId)!;
       const label = targetLabel(state, player, sourceId);
       const accentClassName = accentClassFor(state, player, sourceId);
       const hasSecondaryChoice = group.some((a) => a.secondaryTargetInstanceId);

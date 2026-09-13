@@ -7,6 +7,7 @@ export {
   registerScoreEffect,
   resolveScoreEffect,
   pickDefaultDiscard,
+  hasUpgradableCoin,
 } from './effects/registry';
 export type { EffectHandler, ScoreEffectHandler } from './effects/registry';
 export * from './engine';

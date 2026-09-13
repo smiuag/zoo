@@ -1,8 +1,6 @@
 import os
 import shutil
 
-from PIL import Image, ImageDraw, ImageFont
-
 import compose_card as cc
 import compose_all as ca
 from card_text_en import CARD_TEXT_EN, HABITAT_EN
@@ -26,10 +24,15 @@ def main():
             cost = card["marketCost"]
             pv = card["victoryPoints"]
         elif ctype == "coin":
-            photo = os.path.join(IMG_DIR, ca.COIN_PHOTO[cid])
-            type_label = "Coin"
-            cost = card["marketCost"] if card.get("marketCost") else "-"
-            pv = card["victoryPoints"]
+            # Sin texto que traducir (ver ca.COIN_IMAGE): misma imagen que la
+            # versión española, solo redimensionada al tamaño de impresión.
+            out_path = os.path.join(OUT_DIR, f"{cid}.png")
+            coin_card = cc.build_coin_card_base(ca.COIN_IMAGE[cid])
+            coin_card = cc.resize_to_print_size(coin_card)
+            coin_card.save(out_path)
+            generated.append(out_path)
+            print("generated", cid, "(coin image, mounted on the coin template)")
+            continue
         else:
             continue
 

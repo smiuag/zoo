@@ -8,10 +8,11 @@ declare module 'node:fs' {
   export function existsSync(path: string): boolean;
   export function readFileSync(path: string, encoding: 'utf-8'): string;
   export function writeFileSync(path: string, data: string): void;
+  export function renameSync(oldPath: string, newPath: string): void;
 }
 
 declare module 'node:url' {
   export function fileURLToPath(url: URL): string;
 }
 
-declare const process: { env: Record<string, string | undefined> };
+declare const process: { env: Record<string, string | undefined>; argv: string[]; pid: number };

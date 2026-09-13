@@ -5,7 +5,7 @@
   "species": "hyena",
   "marketCost": 4,
   "victoryPoints": 5,
-  "text": "Cada rival muestra su mano y descarta el animal de mayor coste; si hay empate, puede elegir cuál.",
+  "text": "Cada oponente muestra su mano y descarta el animal de mayor coste; si hay empate, puede elegir cuál.",
   "effects": [
     {
       "trigger": "onPlay",

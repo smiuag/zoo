@@ -43,6 +43,8 @@ const ANIMAL_SPECIES = [
   'rabbit',
   'eagle',
   'shark',
+  'toucan',
+  'squirrel',
 ] as const;
 // La partida entra en la ronda final en cuanto este número de mazos
 // compartidos (de las 30 especies, todas cuentan) se hayan agotado.
@@ -264,6 +266,25 @@ function refillAnimalMarket(state: GameState, onlySpecies?: string): void {
 
 setRefillHook((state, species) => refillAnimalMarket(state, species));
 
+// Efectos "onTurnStart" (de momento solo la Ardilla): se resuelven solos al
+// empezar el turno, sin jugar nada, mirando el DESCARTE del jugador (no la
+// mano ni el mazo). Se agrupan por (tipo de efecto, especie) para
+// resolverse UNA sola vez aunque haya varias copias de esa especie en el
+// descarte a la vez (si no, 3 Ardillas en el descarte devolverían 3 de
+// golpe en vez de 1) — cada handler se encarga de mover solo 1 copia.
+function resolveTurnStartEffects(state: GameState, player: Player): void {
+  const handled = new Set<string>();
+  for (const card of [...player.discard]) {
+    for (const effect of card.effects) {
+      if (effect.trigger !== 'onTurnStart') continue;
+      const key = `${effect.type}:${card.species}`;
+      if (handled.has(key)) continue;
+      handled.add(key);
+      resolveEffect(state, player, effect, { sourceCardName: card.name, sourceSpecies: card.species });
+    }
+  }
+}
+
 // Solo resetea los contadores propios de ESTE turno; ya NO roba (ver
 // endTurn: la mano se roba al final del turno anterior, no al principio del
 // siguiente, para que los rivales tengan mano de verdad entre turno y
@@ -273,6 +294,7 @@ function beginPlayerTurn(state: GameState, player: Player): void {
   player.aquaticBonusPurchasingPowerThisTurn = 0;
   player.boughtSpeciesThisTurn = [];
   player.playedThisTurn = [];
+  resolveTurnStartEffects(state, player);
   recordRichestTurn(state, player);
 }
 
@@ -349,13 +371,14 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
     };
   });
 
-  // Un mazo por especie, con copias fijas (independiente del nº de
-  // jugadores): 10 copias para la mayoría, mucho menos para las especies
-  // caras (coste 5 o más) — son las de más PV/mejores habilidades, y con
-  // solo 6 copias en juego se agotan antes, dándoles algo de escasez real.
+  // Un mazo por especie, con copias escaladas al nº de jugadores: nº de
+  // jugadores para las especies caras (coste 5 o más) — son las de más
+  // PV/mejores habilidades, y con menos copias en juego se agotan antes,
+  // dándoles algo de escasez real —, nº de jugadores + 2 para el resto.
+  const numPlayers = playerConfigs.length;
   for (const species of ANIMAL_SPECIES) {
     const speciesCard = getCard(species);
-    const copiesPerSpecies = (speciesCard.marketCost ?? 0) >= 5 ? 6 : 10;
+    const copiesPerSpecies = (speciesCard.marketCost ?? 0) >= 5 ? numPlayers : numPlayers + 2;
     state.sharedDecks[species] = shuffle(
       Array.from({ length: copiesPerSpecies }, () => mintInstance(state, speciesCard))
     );

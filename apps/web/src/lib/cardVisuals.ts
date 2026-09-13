@@ -35,6 +35,13 @@ const SPECIES_ICONS: Record<string, string> = {
   turtle: '🐢',
   rabbit: '🐇',
   shark: '🦈',
+  squirrel: '🐿️',
+  // Unicode no tiene un emoji de tucán: se usa el 🦤 (dodo) como
+  // aproximación distinguible (mismo criterio que vulture: 🦴 más arriba),
+  // en vez de caer en el 🐾 genérico y confundirse con el ornitorrinco
+  // (platypus), que sí usa ese fallback por no tener ningún ave/mamífero
+  // parecido disponible.
+  toucan: '🦤',
   // No hay emoji de ornitorrinco en Unicode: usa el 🐾 genérico (fallback
   // de cardIcon) en vez de uno inexacto.
 };

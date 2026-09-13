@@ -5,14 +5,11 @@
   "species": "snake",
   "marketCost": 4,
   "victoryPoints": 2,
-  "text": "Añade 1 a tu valor de compra por cada animal terrestre que tengas en tu mano.",
+  "text": "Cada oponente elige y descarta 1 carta de su mano. Robas 1 carta por cada moneda que descarten así.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "gainBonusPurchasingPowerPerHabitatInHand",
-      "params": {
-        "habitat": "land"
-      }
+      "type": "discardFromEachOpponentAndDrawPerCoin"
     }
   ],
   "habitats": [

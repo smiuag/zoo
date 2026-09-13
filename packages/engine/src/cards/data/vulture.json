@@ -5,7 +5,7 @@
   "species": "vulture",
   "marketCost": 6,
   "victoryPoints": 3,
-  "text": "Cada rival elige y descarta 2 cartas de su mano.",
+  "text": "Cada oponente elige y descarta 2 cartas de su mano.",
   "effects": [
     {
       "trigger": "onPlay",

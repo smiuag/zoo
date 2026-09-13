@@ -29,27 +29,27 @@ function setupClean() {
 }
 
 describe('habilidades de animales al jugarlos (onPlay)', () => {
-  it('águila: al jugarla, robas 1 carta', () => {
+  it('tucán: al jugarlo, robas 1 carta', () => {
     const { state, player } = setupClean();
-    const eagle = freshInstance('eagle', 'test');
-    player.hand = [eagle];
+    const toucan = freshInstance('toucan', 'test');
+    player.hand = [toucan];
     player.deck = [freshInstance('coin-1', 'draw1')];
 
-    playCard(state, player.id, eagle.instanceId);
+    playCard(state, player.id, toucan.instanceId);
 
     expect(player.hand).toHaveLength(1);
     expect(player.hand[0].instanceId).toBe('coin-1#draw1');
   });
 
-  it('mono: al jugarlo deja un descarte pendiente — el rival elige qué descarta, el motor no decide por él', () => {
+  it('serpiente: al jugarla deja un descarte pendiente — el rival elige qué descarta, el motor no decide por él', () => {
     const { state, player, opponent } = setupClean();
     const hippo = freshInstance('hippopotamus', 'o1');
     const coin = freshInstance('coin-1', 'o2');
     opponent.hand = [hippo, coin];
-    const monkey = freshInstance('monkey', 'test');
-    player.hand = [monkey];
+    const snake = freshInstance('snake', 'test');
+    player.hand = [snake];
 
-    playCard(state, player.id, monkey.instanceId);
+    playCard(state, player.id, snake.instanceId);
 
     // Nada se ha descartado todavía: el motor espera a que el rival elija.
     expect(opponent.hand).toHaveLength(2);
@@ -60,15 +60,15 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(getLegalActions(state, opponent.id)).toHaveLength(2);
   });
 
-  it('mono: si el rival elige descartar una moneda, tú robas 1 carta al resolverse', () => {
+  it('serpiente: si el rival elige descartar una moneda, tú robas 1 carta al resolverse', () => {
     const { state, player, opponent } = setupClean();
     const coin = freshInstance('coin-1', 'o1');
     opponent.hand = [freshInstance('hippopotamus', 'o2'), coin];
-    const monkey = freshInstance('monkey', 'test');
-    player.hand = [monkey];
+    const snake = freshInstance('snake', 'test');
+    player.hand = [snake];
     player.deck = [freshInstance('coin-1', 'draw1')];
 
-    playCard(state, player.id, monkey.instanceId);
+    playCard(state, player.id, snake.instanceId);
     resolveDiscard(state, opponent.id, coin.instanceId);
 
     expect(opponent.discard).toEqual([coin]);
@@ -76,30 +76,30 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.hand).toHaveLength(1); // robó 1 carta del mazo
   });
 
-  it('mono: si el rival elige descartar un animal (no una moneda), no robas nada', () => {
+  it('serpiente: si el rival elige descartar un animal (no una moneda), no robas nada', () => {
     const { state, player, opponent } = setupClean();
     const hippo = freshInstance('hippopotamus', 'o1');
     opponent.hand = [hippo, freshInstance('coin-1', 'o2')];
-    const monkey = freshInstance('monkey', 'test');
-    player.hand = [monkey];
+    const snake = freshInstance('snake', 'test');
+    player.hand = [snake];
     player.deck = [freshInstance('coin-1', 'draw1')];
 
-    playCard(state, player.id, monkey.instanceId);
+    playCard(state, player.id, snake.instanceId);
     resolveDiscard(state, opponent.id, hippo.instanceId);
 
     expect(opponent.discard).toEqual([hippo]);
     expect(player.hand).toHaveLength(0); // no robó nada
   });
 
-  it('mono: la heurística del bot evita descartar una moneda mientras tenga cualquier otra carta, aunque valga menos', () => {
+  it('serpiente: la heurística del bot evita descartar una moneda mientras tenga cualquier otra carta, aunque valga menos', () => {
     const { state, player, opponent } = setupClean();
     const coin = freshInstance('coin-5', 'o1'); // Platino: la más valiosa de la mano, pero es MONEDA
     const goldfish = freshInstance('goldfish', 'o2'); // 1PV: vale mucho menos que la moneda, pero no es moneda
     opponent.hand = [coin, goldfish];
-    const monkey = freshInstance('monkey', 'test');
-    player.hand = [monkey];
+    const snake = freshInstance('snake', 'test');
+    player.hand = [snake];
 
-    playCard(state, player.id, monkey.instanceId);
+    playCard(state, player.id, snake.instanceId);
     // Nadie ha resuelto todavía "a mano": lo hace la heurística por defecto,
     // la misma que usan los bots (ver useGame.ts) y el entrenamiento RL (ver
     // selfPlay.ts) — descartar la moneda le daría a player un robo gratis
@@ -111,16 +111,16 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.hand).toHaveLength(0); // no robó nada: no se descartó ninguna moneda
   });
 
-  it('mono: si en la mano solo quedan monedas, la heurística del bot sí descarta una (la de menor valor)', () => {
+  it('serpiente: si en la mano solo quedan monedas, la heurística del bot sí descarta una (la de menor valor)', () => {
     const { state, player, opponent } = setupClean();
     const cheapCoin = freshInstance('coin-1', 'o1');
     const expensiveCoin = freshInstance('coin-5', 'o2');
     opponent.hand = [cheapCoin, expensiveCoin];
-    const monkey = freshInstance('monkey', 'test');
-    player.hand = [monkey];
+    const snake = freshInstance('snake', 'test');
+    player.hand = [snake];
     player.deck = [freshInstance('coin-1', 'draw1')];
 
-    playCard(state, player.id, monkey.instanceId);
+    playCard(state, player.id, snake.instanceId);
     autoResolvePendingDiscard(state);
 
     expect(opponent.hand).toEqual([expensiveCoin]); // se salva la más valiosa
@@ -128,15 +128,15 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.hand).toHaveLength(1); // sí robó: se descartó una moneda
   });
 
-  it('mono: con un Perezoso en la mano, la heurística lo prefiere incluso sobre no tocar las monedas', () => {
+  it('serpiente: con un Perezoso en la mano, la heurística lo prefiere incluso sobre no tocar las monedas', () => {
     const { state, player, opponent } = setupClean();
     const coin = freshInstance('coin-5', 'o1');
     const sloth = freshInstance('sloth', 'o2');
     opponent.hand = [coin, sloth];
-    const monkey = freshInstance('monkey', 'test');
-    player.hand = [monkey];
+    const snake = freshInstance('snake', 'test');
+    player.hand = [snake];
 
-    playCard(state, player.id, monkey.instanceId);
+    playCard(state, player.id, snake.instanceId);
     autoResolvePendingDiscard(state);
 
     expect(opponent.hand).toEqual([coin]);
@@ -144,7 +144,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.hand).toHaveLength(0); // no robó nada
   });
 
-  it('mono: con varios rivales, cada uno resuelve el suyo por separado; robas 1 carta por cada moneda descartada en total', () => {
+  it('serpiente: con varios rivales, cada uno resuelve el suyo por separado; robas 1 carta por cada moneda descartada en total', () => {
     const state = createGame([
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
       { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
@@ -160,11 +160,11 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     p2.hand = [p2Coin];
     const p3Lion = freshInstance('lion', 'c1');
     p3.hand = [p3Lion];
-    const monkey = freshInstance('monkey', 'test');
-    p1.hand = [monkey];
+    const snake = freshInstance('snake', 'test');
+    p1.hand = [snake];
     p1.deck = [freshInstance('coin-1', 'draw1'), freshInstance('coin-1', 'draw2')];
 
-    playCard(state, p1.id, monkey.instanceId);
+    playCard(state, p1.id, snake.instanceId);
 
     // Ambos rivales tienen exactamente 1 carta (sin elección real entre las
     // normales), pero las entregas de tipo 'discard' ya nunca se
@@ -193,39 +193,62 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.bonusPurchasingPowerThisTurn).toBe(4);
   });
 
-  it('delfín: da 2 de valor de compra, pero restringido: solo cuenta comprando animales acuáticos', () => {
+  it('pingüino: añade una moneda de Plata de verdad a la mano (no bonus temporal)', () => {
     const { state, player } = setupClean();
-    const dolphin = freshInstance('dolphin', 'test');
-    player.hand = [dolphin];
+    const penguin = freshInstance('penguin', 'test');
+    player.hand = [penguin];
 
-    playCard(state, player.id, dolphin.instanceId);
+    playCard(state, player.id, penguin.instanceId);
 
     expect(player.bonusPurchasingPowerThisTurn).toBe(0);
-    expect(player.aquaticBonusPurchasingPowerThisTurn).toBe(2);
+    const coins = player.hand.filter((c) => c.type === 'coin');
+    expect(coins).toHaveLength(1);
+    expect(coins[0].id).toBe('coin-2');
+  });
+
+  it('ardilla: añade 1 de valor de compra al jugarla (además de su efecto automático de fin/inicio de turno)', () => {
+    const { state, player } = setupClean();
+    const squirrel = freshInstance('squirrel', 'test');
+    player.hand = [squirrel];
+
+    playCard(state, player.id, squirrel.instanceId);
+
+    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
+  });
+
+  it('foca: da 3 de valor de compra, pero restringido: solo cuenta comprando animales acuáticos', () => {
+    const { state, player } = setupClean();
+    const seal = freshInstance('seal', 'test');
+    player.hand = [seal];
+
+    playCard(state, player.id, seal.instanceId);
+
+    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
+    expect(player.aquaticBonusPurchasingPowerThisTurn).toBe(3);
     // No es dinero real: no se añaden cartas de moneda a la mano.
     expect(player.hand.filter((c) => c.type === 'coin')).toHaveLength(0);
   });
 
-  it('delfín: su valor de compra restringido SÍ paga un animal acuático sin monedas físicas', () => {
+  it('foca: su valor de compra restringido SÍ paga un animal acuático sin monedas físicas', () => {
     const { state, player } = setupClean();
-    const dolphin = freshInstance('dolphin', 'test');
-    player.hand = [dolphin];
-    playCard(state, player.id, dolphin.instanceId);
+    const seal = freshInstance('seal', 'test');
+    player.hand = [seal];
+    playCard(state, player.id, seal.instanceId);
 
-    const target = state.animalTrack.find((c) => (c.habitats as string[])?.includes('aquatic') && (c.marketCost ?? 0) <= 2)!;
+    const target = state.animalTrack.find((c) => (c.habitats as string[])?.includes('aquatic') && (c.marketCost ?? 0) <= 3)!;
 
     expect(canAffordMarket(player, target.marketCost ?? 0, true)).toBe(true);
     buyAnimal(state, player.id, target.instanceId);
 
     expect(player.discard.some((c) => c.instanceId === target.instanceId)).toBe(true);
-    expect(player.aquaticBonusPurchasingPowerThisTurn).toBe(2 - (target.marketCost ?? 0));
+    expect(player.aquaticBonusPurchasingPowerThisTurn).toBe(3 - (target.marketCost ?? 0));
   });
 
-  it('delfín: su valor de compra restringido NO sirve para un animal terrestre/volador ni para una moneda', () => {
+  it('foca: su valor de compra restringido NO sirve para un animal terrestre/volador ni para una moneda', () => {
     const { state, player } = setupClean();
-    const dolphin = freshInstance('dolphin', 'test');
-    player.hand = [dolphin];
-    playCard(state, player.id, dolphin.instanceId);
+    const seal = freshInstance('seal', 'test');
+    player.hand = [seal];
+    playCard(state, player.id, seal.instanceId);
 
     const landOrBird = state.animalTrack.find(
       (c) => !(c.habitats as string[])?.includes('aquatic') && (c.marketCost ?? 0) <= 2
@@ -284,28 +307,28 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(targets).toEqual([existing.instanceId, drawn1.instanceId, drawn2.instanceId].sort());
   });
 
-  it('foca: gana 1 moneda extra por cada animal acuático en su mano al jugarla (se cuenta a sí misma)', () => {
+  it('delfín: gana 1 moneda extra por cada animal acuático en su mano al jugarlo (se cuenta a sí mismo)', () => {
     const { state, player } = setupClean();
-    const seal = freshInstance('seal', 'test'); // acuática: se cuenta a sí misma
-    const dolphin = freshInstance('dolphin', 'd1'); // acuático
+    const dolphin = freshInstance('dolphin', 'test'); // acuático: se cuenta a sí mismo
+    const seal = freshInstance('seal', 's1'); // acuática
     const lion = freshInstance('lion', 'l1'); // terrestre, no cuenta
-    player.hand = [seal, dolphin, lion];
+    player.hand = [dolphin, seal, lion];
 
-    playCard(state, player.id, seal.instanceId);
+    playCard(state, player.id, dolphin.instanceId);
 
-    // Foca + Delfín (2 acuáticos), aunque la propia Foca ya esté en el descarte.
+    // Delfín + Foca (2 acuáticos), aunque el propio Delfín ya esté en el descarte.
     expect(player.bonusPurchasingPowerThisTurn).toBe(2);
   });
 
-  it('foca: el pez de colores en la mano cuenta como 2 animales acuáticos, no 1', () => {
+  it('delfín: el pez de colores en la mano cuenta como 2 animales acuáticos, no 1', () => {
     const { state, player } = setupClean();
-    const seal = freshInstance('seal', 'test'); // acuática: 1
+    const dolphin = freshInstance('dolphin', 'test'); // acuático: 1
     const goldfish = freshInstance('goldfish', 'g1'); // acuático: cuenta como 2
-    player.hand = [seal, goldfish];
+    player.hand = [dolphin, goldfish];
 
-    playCard(state, player.id, seal.instanceId);
+    playCard(state, player.id, dolphin.instanceId);
 
-    // Foca (1) + Pez de colores (2) = 3.
+    // Delfín (1) + Pez de colores (2) = 3.
     expect(player.bonusPurchasingPowerThisTurn).toBe(3);
   });
 
@@ -323,34 +346,34 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.discard.some((c) => c.id === 'goldfish')).toBe(false);
   });
 
-  it('serpiente: gana 1 moneda extra por cada animal terrestre en su mano al jugarla (se cuenta a sí misma)', () => {
+  it('mono: gana 1 moneda extra por cada animal terrestre en su mano al jugarlo (se cuenta a sí mismo)', () => {
     const { state, player } = setupClean();
-    const snake = freshInstance('snake', 'test'); // terrestre: se cuenta a sí misma
+    const monkey = freshInstance('monkey', 'test'); // terrestre: se cuenta a sí mismo
     const lion = freshInstance('lion', 'l1'); // terrestre
     const giraffe = freshInstance('giraffe', 'g1'); // terrestre
-    player.hand = [snake, lion, giraffe];
+    player.hand = [monkey, lion, giraffe];
 
-    playCard(state, player.id, snake.instanceId);
+    playCard(state, player.id, monkey.instanceId);
 
-    // Serpiente + León + Jirafa (3 terrestres), aunque la Serpiente ya esté en el descarte.
+    // Mono + León + Jirafa (3 terrestres), aunque el propio Mono ya esté en el descarte.
     expect(player.bonusPurchasingPowerThisTurn).toBe(3);
   });
 
-  it('serpiente: los animales terrestres ya jugados antes este turno también cuentan', () => {
+  it('mono: los animales terrestres ya jugados antes este turno también cuentan', () => {
     const { state, player } = setupClean();
-    const snake1 = freshInstance('snake', 's1');
-    const snake2 = freshInstance('snake', 's2');
+    const monkey1 = freshInstance('monkey', 's1');
+    const monkey2 = freshInstance('monkey', 's2');
     const lion = freshInstance('lion', 'l1'); // terrestre
 
-    player.hand = [snake1];
-    playCard(state, player.id, snake1.instanceId);
-    // Solo ella misma en mano (terrestre): +1.
+    player.hand = [monkey1];
+    playCard(state, player.id, monkey1.instanceId);
+    // Solo él mismo en mano (terrestre): +1.
     expect(player.bonusPurchasingPowerThisTurn).toBe(1);
 
     // Simula robar más cartas antes de seguir jugando este mismo turno.
-    player.hand = [snake2, lion];
-    playCard(state, player.id, snake2.instanceId);
-    // Ahora: snake2 (a sí misma) + león (sigue en mano) + snake1 (ya jugada
+    player.hand = [monkey2, lion];
+    playCard(state, player.id, monkey2.instanceId);
+    // Ahora: monkey2 (a sí mismo) + león (sigue en mano) + monkey1 (ya jugado
     // este turno, sigue contando aunque esté en el descarte) = 3 más.
     expect(player.bonusPurchasingPowerThisTurn).toBe(1 + 3);
   });
@@ -832,16 +855,16 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(opponent.discard).toEqual([sloth]);
   });
 
-  it('perezoso: si se usa para cubrir al mono, NO se cuenta como moneda descartada (no da robo extra)', () => {
+  it('perezoso: si se usa para cubrir a la serpiente, NO se cuenta como moneda descartada (no da robo extra)', () => {
     const { state, player, opponent } = setupClean();
     const coin = freshInstance('coin-1', 'o1');
     const sloth = freshInstance('sloth', 'o2');
     opponent.hand = [coin, sloth];
-    const monkey = freshInstance('monkey', 'test');
-    player.hand = [monkey];
+    const snake = freshInstance('snake', 'test');
+    player.hand = [snake];
     player.deck = [freshInstance('coin-1', 'draw1')];
 
-    playCard(state, player.id, monkey.instanceId);
+    playCard(state, player.id, snake.instanceId);
     resolveDiscard(state, opponent.id, sloth.instanceId);
 
     expect(opponent.hand).toEqual([coin]); // se salva la moneda

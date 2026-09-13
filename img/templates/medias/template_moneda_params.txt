@@ -1,0 +1,1 @@
+aclarado amount=0.40 chroma=2.20 lo=35 hi=130 -> madera lum 118 sat 124 (objetivo medias/tierra.png: 126 / 125)

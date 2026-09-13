@@ -8,7 +8,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "train:rl": "vite-node scripts/rl/selfPlay.ts"
+    "train:rl": "vite-node scripts/rl/selfPlay.ts",
+    "arena:rl": "vite-node scripts/rl/arena.ts"
   },
   "dependencies": {
     "zod": "^3.23.8"

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   getActivePlayer,
   getCard,
+  hasUpgradableCoin,
   scoreCardContributions,
   type Action,
   type CardInstance,
@@ -186,18 +187,30 @@ export function GameBoard({
   const [confirmEndTurn, setConfirmEndTurn] = useState(false);
   const choiceRef = useRef<HTMLDivElement>(null);
   const viewedPlayer = state.players.find((p) => p.id === viewedPlayerId) ?? null;
-  // Terminar turno "a lo tonto" (con animales sin jugar o monedas sin
-  // gastar en la mano) normalmente es un despiste, no algo querido: si la
-  // mano todavía tiene algo (cualquier animal siempre se puede jugar; una
-  // moneda, aunque ahora mismo no llegue para nada, sigue sin "gastarse"),
-  // se avisa antes de dejar pasar el turno de verdad. OJO: se mira
-  // human.hand directamente, NO legalActions — comprobar solo
-  // buyAnimal/buyCoin legales dejaba sin avisar cuando te sobraba dinero
-  // que ya no te llegaba para nada, que es justo el caso que hay que
-  // avisar (no hay "vuelta atrás" para gastarlo después). Solo cuando la
-  // mano esté vacía de verdad (jugaste todo y gastaste todo lo que
-  // pudiste) no hace falta preguntar.
-  const hasUnusedTurnActions = human.hand.length > 0;
+  // Terminar turno "a lo tonto" (con animales por jugar o monedas por
+  // gastar en la mano) normalmente es un despiste, no algo querido — pero
+  // solo cuando de verdad queda algo QUE HACER, no por cualquier carta que
+  // siga en la mano:
+  // - Un animal sin ningún efecto (Perezoso, Pez de colores, Periquito: solo
+  //   suman a la colección/PV, sin acción alguna al jugarlos) nunca cuenta
+  //   como "pendiente" — jugarlo o no antes de terminar el turno da igual.
+  // - La Tortuga (único efecto: subir de nivel una moneda) tampoco cuenta si
+  //   no hay ninguna moneda subible en la mano: jugarla no haría nada.
+  // - Las monedas en mano solo cuentan si con lo que hay ahora mismo se
+  //   podría comprar algo de verdad (mirando legalActions): si no llegan
+  //   para nada, avisar no sirve de nada — ese dinero se pierde igual al
+  //   pasar el turno, se avise o no.
+  function isUselessToPlay(card: CardInstance): boolean {
+    if (card.type !== 'animal') return false;
+    if (card.effects.length === 0) return true;
+    if (card.effects.length === 1 && card.effects[0].type === 'upgradeCoin') return !hasUpgradableCoin(human);
+    return false;
+  }
+  const hasUnplayedAnimals = human.hand.some((c) => c.type === 'animal' && !isUselessToPlay(c));
+  const hasSpendableCoins =
+    human.hand.some((c) => c.type === 'coin') &&
+    legalActions.some((a) => a.type === 'buyAnimal' || a.type === 'buyCoin');
+  const hasUnusedTurnActions = hasUnplayedAnimals || hasSpendableCoins;
 
   useEffect(() => {
     setPendingChoice(null);
@@ -464,8 +477,7 @@ export function GameBoard({
               <div className="panel__header">
                 <h2>Tu mano</h2>
                 <span className="panel__hint">
-                  {human.hand.length} cartas · 🂠 {human.deck.length} en el mazo · 🗑️ {human.discard.length} en el
-                  descarte
+                  🂠 {human.deck.length} en el mazo · 🗑️ {human.discard.length} en el descarte
                 </span>
               </div>
               <div className="card-row card-row--hand">

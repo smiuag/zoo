@@ -25,6 +25,7 @@ const MONEY_GENERATING_EFFECTS = new Set([
   'gainFlatBonusPurchasingPower', // León
   'gainBonusPurchasingPowerPerHabitatInHand', // Serpiente / Loro
   'gainAquaticOnlyBonusPurchasingPower', // Delfín (restringido a comprar acuáticos)
+  'gainCoin', // Pingüino: moneda de verdad, no solo bonus temporal
 ]);
 
 function isMoneyGenerator(card: CardInstance): boolean {

@@ -48,12 +48,24 @@ SPECIES_PHOTO = {
     "rabbit": "conejos.jpg",
     "eagle": "aguilas.jpg",
     "shark": "tiburones.jpg",
+    "toucan": "tucan.jpg",
+    "squirrel": "ardillas.jpg",
 }
 COIN_PHOTO = {
     "coin-1": "moneda1.jpg",
     "coin-2": "moneda2.jpg",
     "coin-3": "moneda3.jpg",
     "coin-5": "moneda5.jpg",
+}
+# Cartas de moneda ya compuestas del todo (marco + ilustracion + badges de
+# coste/PV ya pintados por compose_coin_full.py, sin ribbon de titulo ni
+# panel de texto) en img/coins/ — se usan tal cual, sin pasar por
+# compose_generic ni por ninguna plantilla de img/templates/.
+COIN_IMAGE = {
+    "coin-1": os.path.join(r"C:\proyectos\Claude\zoo\img\coins", "moneda1_marco_intento.png"),
+    "coin-2": os.path.join(r"C:\proyectos\Claude\zoo\img\coins", "moneda2_marco_intento.png"),
+    "coin-3": os.path.join(r"C:\proyectos\Claude\zoo\img\coins", "moneda3_marco_intento.png"),
+    "coin-5": os.path.join(r"C:\proyectos\Claude\zoo\img\coins", "moneda5_marco_intento.png"),
 }
 
 
@@ -65,11 +77,9 @@ def load_cards():
     return cards
 
 
-# Qué plantilla "definitiva" (ver cc.TEMPLATE_FILES) le toca a una carta,
-# según su combinación exacta de hábitats (o "coin" si es una moneda). Sin
-# plantilla para "todoterreno" (los 3 hábitats a la vez): ninguna especie
-# actual los tiene, así que lanza un error claro en vez de fallar en
-# silencio si algún día se añade una sin plantilla lista.
+# Qué plantilla le toca a una carta según su combinación exacta de hábitats
+# (o "coin" si es una moneda). Ver cc.TEMPLATE_FILES. La combinación de los
+# 3 hábitats ("todoterreno") usa la plantilla triple tierra_agua_aire.
 def template_key_for_card(card):
     if card["type"] == "coin":
         return "coin"
@@ -81,6 +91,7 @@ def template_key_for_card(card):
         frozenset(["land", "aquatic"]): "land_aquatic",
         frozenset(["land", "bird"]): "land_bird",
         frozenset(["aquatic", "bird"]): "aquatic_bird",
+        frozenset(["land", "aquatic", "bird"]): "land_aquatic_bird",
     }.get(habitats)
     if key is None:
         raise ValueError(f"Sin plantilla para la combinación de hábitats {sorted(habitats)} (carta {card['id']})")
@@ -119,6 +130,7 @@ def compose_generic(photo_path, name, type_label, cost, pv, text, out_path, temp
     cc.draw_centered(draw, cc.TYPE_LINE_POINT, type_label, f_type)
     cc.draw_wrapped(card, draw, cc.PANEL_BODY_BOX, text, f_body, valign="top")
 
+    card = cc.resize_to_print_size(card)
     card.save(out_path)
 
 
@@ -142,13 +154,13 @@ def main():
             pv = card["victoryPoints"]
             text = card["text"]
         elif ctype == "coin":
-            photo = os.path.join(IMG_DIR, COIN_PHOTO[cid])
-            name = card["name"]
-            type_label = "Moneda"
-            # coin-2/coin-3/coin-5 se pueden comprar (marketCost > 0); coin-1 no.
-            cost = card["marketCost"] if card.get("marketCost") else "-"
-            pv = card["victoryPoints"]
-            text = card["text"]
+            out_path = os.path.join(OUT_DIR, f"{cid}.png")
+            coin_card = cc.build_coin_card_base(COIN_IMAGE[cid])
+            coin_card = cc.resize_to_print_size(coin_card)
+            coin_card.save(out_path)
+            generated.append(out_path)
+            print("generated", cid, "(coin image, mounted on the coin template)")
+            continue
         else:
             continue
 

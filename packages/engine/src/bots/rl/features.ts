@@ -7,7 +7,7 @@ import type { CardInstance, GameState, Player } from '../../model/state';
 // dependa del estado concreto de una partida. Si se añade un grupo de
 // features nuevo hay que volver a entrenar (los pesos guardados asumen esta
 // disposición exacta de columnas).
-export const FEATURE_DIM = 64;
+export const FEATURE_DIM = 81;
 
 const HABITATS = ['land', 'bird', 'aquatic'] as const;
 const ACTION_TYPES = ['playCard', 'buyAnimal', 'buyCoin', 'endTurn'] as const;
@@ -15,7 +15,19 @@ const ACTION_TYPES = ['playCard', 'buyAnimal', 'buyCoin', 'endTurn'] as const;
 // Todos los "type" de efecto conocidos por el motor (ver
 // effects/registry.ts): un hueco multi-hot por cada uno, para que la red
 // pueda aprender su propio valor en vez de depender de la tabla de bonos a
-// mano de heuristicBot.
+// mano de heuristicBot. Los 8 primeros (hasta 'swapSelfWithTopOfDeck') ya
+// no los usa NINGUNA carta actual (renombrados/retirados en rebalances
+// pasados) — se dejan tal cual, sin reordenar, para no desplazar el resto
+// de columnas (invalidaría los pesos guardados sin necesidad). Los 9
+// últimos se añadieron el 2026-09-13 al descubrir, investigando por qué
+// la Araña salía tan mal puntuada, que NINGUNA carta con estos tipos de
+// efecto (añadidos/renombrados en los rebalances de esta misma sesión:
+// delfín/foca, mono/serpiente, pingüino, ardilla, tucán...) estaba
+// representada aquí — la red no podía distinguirlas de un animal sin
+// ningún efecto, solo por coste/PV/hábitat (confirmado con
+// scripts/rl/scoreSpider.ts: Foca y Ornitorrinco, con efectos distintos,
+// puntuaban EXACTAMENTE igual). Cualquier tipo de efecto nuevo que se
+// añada a partir de ahora debe añadirse aquí también, o vuelve a pasar.
 const EFFECT_TYPES = [
   'drawCards',
   'discardFromEachOpponent',
@@ -34,6 +46,15 @@ const EFFECT_TYPES = [
   'scoreBonusIfSpeciesCountAtLeast',
   'destroyWeakestNonFlyingOnScore',
   'swapSelfWithTopOfDeck',
+  'discardFromEachOpponentAndDrawPerCoin',
+  'drawTopUnlessExpensiveAnimal',
+  'gainAquaticOnlyBonusPurchasingPower',
+  'gainBonusPurchasingPowerPerDistinctSpeciesInHand',
+  'gainCoin',
+  'retrieveAnimalFromDiscard',
+  'returnAnimalFromEachOpponent',
+  'returnFromDiscardEachTurn',
+  'scorePerCostAtLeast',
 ] as const;
 
 const MAX_OPPONENTS = 3;
@@ -75,6 +96,17 @@ function encodePlayerContext(state: GameState, player: Player): number[] {
   // la partida. Basta una suma de PV en bruto, sin resolver efectos.
   const rawVictoryPoints = own.reduce((sum, c) => sum + c.victoryPoints, 0);
 
+  // Duración elegida de la partida (ver maxRounds en GameState): sin esto,
+  // el turno absoluto (arriba) no dice nada sobre "cuánta prisa tengo" — el
+  // turno 15 es "recién empezando" en una partida a 50 rondas y "se acaba
+  // ya" en una a 15. hasRoundLimit distingue "sin límite" (0, el turno
+  // absoluto vale lo que valía antes) de "con límite" (1); roundProgress
+  // (0 sin límite) es la fracción de la duración ya consumida, tope 1 por
+  // si `round` llegara a superar `maxRounds` un instante antes de que el
+  // motor cierre la partida.
+  const hasRoundLimit = state.maxRounds !== null ? 1 : 0;
+  const roundProgress = state.maxRounds !== null ? Math.min(1, state.round / state.maxRounds) : 0;
+
   const context = [
     state.turn / 50,
     player.hand.length / 10,
@@ -87,6 +119,8 @@ function encodePlayerContext(state: GameState, player: Player): number[] {
     distinctSpeciesCount(own) / 27,
     emptyDecks / 5,
     state.finalRoundTriggerPlayerIndex !== null ? 1 : 0,
+    hasRoundLimit,
+    roundProgress,
   ];
 
   const opponents = state.players.filter((p) => p.id !== player.id);
@@ -164,6 +198,18 @@ function targetCard(state: GameState, player: Player, action: Action): CardInsta
   );
 }
 
+// Solo la usa el Flamenco (returnAnimalForUpgrade): el animal del mercado
+// que se recibiría A CAMBIO del que se devuelve (targetCard, arriba). Sin
+// esto, el bot podía aprender "qué me conviene soltar" pero no distinguía,
+// puntuando cada variante, si a cambio se lleva algo bueno o malo — solo lo
+// intuía indirectamente por el contexto general de la partida, nunca por
+// las stats concretas de lo que recibe. Siempre está en el mercado (nunca
+// en mano/mazo/descarte): es lo que se coge, no algo que el jugador ya tenga.
+function secondaryTargetCard(state: GameState, action: Action): CardInstance | undefined {
+  if (action.type !== 'playCard' || !action.secondaryTargetInstanceId) return undefined;
+  return state.animalTrack.find((c) => c.instanceId === action.secondaryTargetInstanceId);
+}
+
 // Encima del propio mazo (boca abajo, pero el jugador SÍ conoce esa carta:
 // es él quien la puso ahí, ya sea al robar/barajar o con un efecto de
 // alguna carta). Se mantiene en el vector aunque ninguna carta actual mire
@@ -183,6 +229,7 @@ export function encodeAction(state: GameState, playerId: string, action: Action)
     ...actionTypeOneHot(action),
     ...encodeCardBlock(actingCard(state, player, action)),
     ...encodeTargetBlock(targetCard(state, player, action)),
+    ...encodeTargetBlock(secondaryTargetCard(state, action)),
     ...encodeTargetBlock(topOfOwnDeck(player)),
   ];
 

@@ -165,7 +165,7 @@ describe('reposición del mercado', () => {
 
     buyAnimal(state, player.id, target.instanceId);
 
-    expect(state.animalTrack).toHaveLength(30);
+    expect(state.animalTrack).toHaveLength(32);
     expect(state.animalTrack.some((c) => c.species === species)).toBe(true);
   });
 });
@@ -289,18 +289,27 @@ describe('estadísticas para el resumen final: purchasesCount y richestTurn', ()
   });
 
   it('richestTurn guarda la ronda y el valor de compra con el que empezó su turno más rico, y no baja si un turno posterior es más pobre', () => {
-    const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
+    // 2 jugadores (no 1): con solo 1, los mazos compartidos de las especies
+    // caras (copias = nº de jugadores, ver createGame) se agotan de golpe al
+    // repartir el mercado inicial y disparan la ronda final de inmediato,
+    // acabando la partida antes de que le vuelva a tocar a nadie.
+    const state = createGame([
+      { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
+      { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
+    ]);
     const player = getActivePlayer(state);
+    const other = state.players.find((p) => p.id !== player.id)!;
     // Se sustituye el estado inicial (mano/mazo barajados al azar) por uno
     // controlado, para poder predecir exactamente qué mano se roba después.
     player.hand = [freshInstance('coin-1', 'poor')]; // turno actual: 1 moneda
     player.discard = [];
     player.richestTurn = { round: state.round, amount: 1 };
 
-    // El próximo turno (tras endTurn) robará este mazo: 5 monedas de 3 = 15.
+    // El próximo turno propio (tras el de Bob) robará este mazo: 5 monedas de 3 = 15.
     player.deck = Array.from({ length: 5 }, (_, i) => freshInstance('coin-3', `rich${i}`));
     const roundBeforeRichTurn = state.round;
-    endTurn(state, player.id);
+    endTurn(state, player.id); // pasa a Bob (aquí es cuando player roba el mazo "rico")
+    endTurn(state, other.id); // vuelve a empezar el turno de player: se evalúa su pico
 
     expect(player.richestTurn).toEqual({ round: roundBeforeRichTurn + 1, amount: 15 });
 
@@ -311,7 +320,8 @@ describe('estadísticas para el resumen final: purchasesCount y richestTurn', ()
     // de 3 recién descartadas: si drawCards tuviera que tocarlo, la mano
     // nueva saldría contaminada con ellas).
     player.deck = Array.from({ length: 5 }, (_, i) => freshInstance('coin-1', `poorAgain${i}`));
-    endTurn(state, player.id);
+    endTurn(state, player.id); // pasa a Bob otra vez (player roba el mazo "pobre")
+    endTurn(state, other.id); // vuelve a empezar el turno de player: no debe bajar el pico
 
     expect(player.richestTurn).toEqual({ round: roundBeforeRichTurn + 1, amount: 15 });
   });

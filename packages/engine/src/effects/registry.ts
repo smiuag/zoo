@@ -31,6 +31,11 @@ export interface EffectContext {
   // banner de la decisión pendiente (ver PendingDiscardDecision). El resto
   // de efectos lo ignora.
   sourceCardName?: string;
+  // Especie de la carta que lleva este efecto (engine.ts lo rellena desde
+  // `card.species`): solo lo usan los efectos "onTurnStart" (Ardilla), para
+  // saber qué especie buscar en el descarte sin tener que codificarla en
+  // params. El resto de efectos lo ignora.
+  sourceSpecies?: string;
 }
 
 export type EffectHandler = (state: GameState, player: Player, effect: Effect, context: EffectContext) => void;
@@ -264,6 +269,13 @@ registerEffect('freeCaptureUpToCost', (state, player, effect, context) => {
 // EXCEPCIÓN: si en el futuro se añadiera una moneda cuyo id no coincida con
 // su valor, este mapa seguiría funcionando y un `coin-${nextValue}` no).
 const COIN_UPGRADE_TARGET: Record<number, string> = { 1: 'coin-2', 2: 'coin-3', 3: 'coin-5' };
+
+// Expuesta para la web: si esto es false, jugar una Tortuga no hace nada
+// (ver GameBoard.tsx, aviso de "terminar turno con animales sin jugar").
+export function hasUpgradableCoin(player: Player): boolean {
+  return player.hand.some((c) => c.type === 'coin' && typeof c.value === 'number' && COIN_UPGRADE_TARGET[c.value] !== undefined);
+}
+
 registerEffect('upgradeCoin', (state, player) => {
   const upgradable = player.hand.filter(
     (c) => c.type === 'coin' && typeof c.value === 'number' && COIN_UPGRADE_TARGET[c.value] !== undefined
@@ -282,6 +294,30 @@ registerEffect('upgradeCoin', (state, player) => {
 registerEffect('gainFlatBonusPurchasingPower', (_state, player, effect) => {
   const amount = typeof effect.params?.amount === 'number' ? effect.params.amount : 2;
   player.bonusPurchasingPowerThisTurn += amount;
+});
+
+// Pingüino: consigues de la nada una copia de la moneda params.coinId (una
+// carta de verdad, a diferencia de gainFlatBonusPurchasingPower: se queda en
+// la mano, cuenta para su PV si no se gasta, y se puede robar/perder como
+// cualquier otra).
+registerEffect('gainCoin', (state, player, effect) => {
+  const coinId = typeof effect.params?.coinId === 'string' ? effect.params.coinId : undefined;
+  if (!coinId) return;
+  player.hand.push(mintInstance(state, getCard(coinId)));
+});
+
+// Ardilla: automático al empezar CADA turno propio (ver resolveTurnStart
+// EffectsForPlayer en engine.ts), sin jugar nada — si hay 1 o más copias de
+// esta misma especie en el descarte, UNA de ellas vuelve a la mano. Con
+// varias copias en el descarte a la vez, solo vuelve 1 por turno (el propio
+// engine.ts se encarga de resolver esto una sola vez por especie aunque haya
+// varias copias, no una vez por copia).
+registerEffect('returnFromDiscardEachTurn', (_state, player, _effect, context) => {
+  if (!context.sourceSpecies) return;
+  const idx = player.discard.findIndex((c) => c.species === context.sourceSpecies);
+  if (idx === -1) return;
+  const [card] = player.discard.splice(idx, 1);
+  player.hand.push(card);
 });
 
 // Cuánto "cuenta" una carta para un hábitat dado, en los efectos que

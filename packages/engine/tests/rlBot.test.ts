@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyAction, createGame, getActivePlayer, getLegalActions } from '../src/engine';
+import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer, getLegalActions } from '../src/engine';
 import { createRlBot, rlBot } from '../src/bots/rlBot';
 import { createRandomWeights } from '../src/bots/rl/network';
 import { FEATURE_DIM } from '../src/bots/rl/features';
@@ -31,6 +31,11 @@ describe('rlBot', () => {
     ]);
 
     for (let i = 0; i < 200 && !state.gameOver; i++) {
+      // Un descarte forzoso pendiente (Buitre/Mono/Hiena/Murciélago) deja a
+      // TODOS sin acciones normales hasta resolverlo: sin esto, un rlBot con
+      // pesos aleatorios (más errático que los entrenados) puede disparar
+      // uno y el siguiente applyAction revienta con "entrega pendiente".
+      if (autoResolvePendingDiscard(state)) continue;
       const player = getActivePlayer(state);
       const action = rlBot.chooseAction(state, player.id);
       applyAction(state, player.id, action);

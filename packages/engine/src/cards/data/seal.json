@@ -5,13 +5,13 @@
   "species": "seal",
   "marketCost": 3,
   "victoryPoints": 2,
-  "text": "Añade 1 a tu valor de compra por cada animal acuático que tengas en tu mano.",
+  "text": "Añade 3 a tu valor de compra, pero solo puedes usarlos para comprar animales acuáticos.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "gainBonusPurchasingPowerPerHabitatInHand",
+      "type": "gainAquaticOnlyBonusPurchasingPower",
       "params": {
-        "habitat": "aquatic"
+        "amount": 3
       }
     }
   ],

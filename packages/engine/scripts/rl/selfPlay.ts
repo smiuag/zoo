@@ -3,12 +3,13 @@
 // Vite) vía `npm run train:rl -w packages/engine`. Nunca se importa desde
 // src/index.ts ni desde apps/web: es una herramienta de desarrollo, no algo
 // que la app o el motor necesiten en tiempo de ejecución normal.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { animalBuyerBot } from '../../src/bots/animalBuyerBot';
 import { expensiveFirstBot } from '../../src/bots/expensiveFirstBot';
 import { heuristicBot } from '../../src/bots/heuristicBot';
 import { randomBot } from '../../src/bots/randomBot';
+import { aquaticRlBot, birdRlBot, landRlBot, rlBot } from '../../src/bots/rlBot';
 import { encodeAction, FEATURE_DIM } from '../../src/bots/rl/features';
 import { createRandomWeights, deserializeWeights, forward, serializeWeights, type RlWeights } from '../../src/bots/rl/network';
 import type { Bot } from '../../src/bots/types';
@@ -44,7 +45,40 @@ if (HABITAT_FILTER && !['land', 'bird', 'aquatic'].includes(HABITAT_FILTER)) {
 const WEIGHTS_FILE = HABITAT_FILTER ? `weights-${HABITAT_FILTER}.json` : 'weights.json';
 const WEIGHTS_PATH = fileURLToPath(new URL(`../../src/bots/rl/${WEIGHTS_FILE}`, import.meta.url));
 
-const CURRICULUM_OPPONENTS: Bot[] = [randomBot, heuristicBot, expensiveFirstBot, animalBuyerBot];
+// Duraciones reales que se pueden elegir en la app (ver ROUND_LIMIT_OPTIONS
+// en apps/web/src/lib/gameConfig.ts — mantener sincronizado si cambia ahí):
+// entrenar siempre sin límite (como antes) no representa ninguna partida
+// real, así que cada episodio sortea una de estas 3 duraciones. Junto con
+// hasRoundLimit/roundProgress en features.ts, esto le permite a la red
+// aprender a jugar distinto según cuánta prisa tenga en vez de asumir
+// siempre "partida larga".
+const REALISTIC_ROUND_LIMITS = [10, 15, 20] as const;
+function randomMaxRounds(): number {
+  return REALISTIC_ROUND_LIMITS[Math.floor(Math.random() * REALISTIC_ROUND_LIMITS.length)];
+}
+
+// Las otras 3 variantes de rlBot (pesos ya guardados en disco al arrancar
+// este proceso, congelados durante todo este entrenamiento — no es
+// co-evolución en vivo, es "entrenar contra la última generación
+// completa"), como oponentes de currículum además de los bots fijos de
+// siempre: sin esto, ningún especialista ve nunca el estilo de juego de
+// otro rlBot (solo clones de sí mismo o heurísticas simples), aunque en una
+// partida real de la app es habitual mezclar algoritmos distintos por bot.
+// Se excluye la variante que se está entrenando ahora mismo (no tiene
+// sentido enfrentarla contra una copia congelada de sí misma con este
+// mecanismo; para eso ya está el self-play).
+const RL_VARIANT_BOTS: Record<'general' | 'land' | 'bird' | 'aquatic', Bot> = {
+  general: rlBot,
+  land: landRlBot,
+  bird: birdRlBot,
+  aquatic: aquaticRlBot,
+};
+const CURRENT_VARIANT = (HABITAT_FILTER as 'land' | 'bird' | 'aquatic' | undefined) ?? 'general';
+const RL_CURRICULUM_OPPONENTS = Object.entries(RL_VARIANT_BOTS)
+  .filter(([variant]) => variant !== CURRENT_VARIANT)
+  .map(([, bot]) => bot);
+
+const CURRICULUM_OPPONENTS: Bot[] = [randomBot, heuristicBot, expensiveFirstBot, animalBuyerBot, ...RL_CURRICULUM_OPPONENTS];
 
 function filterActionsForHabitat(state: GameState, actions: Action[]): Action[] {
   if (!HABITAT_FILTER) return actions;
@@ -107,7 +141,7 @@ function pickMode(episodeIndex: number): Mode {
 // asignado en modo curriculum), su lista de decision points.
 function playOneGame(weights: RlWeights, mode: Mode): { trajectories: Map<string, Step[]>; finalScores: PlayerScore[] } {
   const playerConfigs = Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, deck: buildStarterDeck() }));
-  const state = createGame(playerConfigs);
+  const state = createGame(playerConfigs, { maxRounds: randomMaxRounds() });
 
   const fixedOpponents = new Map<string, Bot>();
   if (mode === 'curriculum') {
@@ -204,7 +238,7 @@ function evaluate(weights: RlWeights, opponent: Bot, games: number): number {
     ];
     if (i % 2 !== 0) configs.reverse();
 
-    const state = createGame(configs);
+    const state = createGame(configs, { maxRounds: randomMaxRounds() });
 
     let guard = 0;
     while (!state.gameOver && guard < MAX_ACTIONS_PER_GAME) {
@@ -234,7 +268,24 @@ function evaluate(weights: RlWeights, opponent: Bot, games: number): number {
 function loadOrInitWeights(): RlWeights {
   if (existsSync(WEIGHTS_PATH)) {
     try {
-      return deserializeWeights(readFileSync(WEIGHTS_PATH, 'utf-8'));
+      const weights = deserializeWeights(readFileSync(WEIGHTS_PATH, 'utf-8'));
+      // deserializeWeights solo valida que el JSON sea internamente
+      // consistente (sus propias filas coinciden con SU featureDim
+      // guardado), no que coincida con el FEATURE_DIM de este módulo. Sin
+      // esto, un weights.json de una FEATURE_DIM antigua (p. ej. de antes de
+      // añadir una feature nueva) se aceptaría "tal cual" y forward()
+      // truncaría en silencio el vector de entrada a las columnas viejas,
+      // desalineando el gradiente en vez de fallar con un error claro —
+      // exactamente lo que pasó al subir FEATURE_DIM de 64 a 72 sin este
+      // chequeo: el entrenamiento arrancaba pareciendo "seguir" pero en
+      // realidad estaba corrompido desde el primer batch.
+      if (weights.featureDim !== FEATURE_DIM) {
+        console.warn(
+          `weights.json tiene featureDim ${weights.featureDim}, no coincide con el FEATURE_DIM actual (${FEATURE_DIM}): se reinicia desde pesos aleatorios.`
+        );
+      } else {
+        return weights;
+      }
     } catch {
       console.warn('weights.json existente es inválido, se reinicia desde pesos aleatorios.');
     }
@@ -242,7 +293,45 @@ function loadOrInitWeights(): RlWeights {
   return createRandomWeights(FEATURE_DIM, HIDDEN_SIZE);
 }
 
-function main(): void {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Desde que los 4 entrenamientos (general/land/bird/aquatic) también LEEN
+// los pesos de las otras 3 variantes al arrancar (ver RL_VARIANT_BOTS, para
+// el cruce entre bots), corren con mucha más E/S simultánea en este mismo
+// directorio que antes — cada uno guarda SU PROPIO checkpoint cada
+// EVAL_EVERY batches, así que con los 4 en paralelo hay escrituras
+// entrelazadas constantes. En Windows eso puede toparse con un bloqueo de
+// archivo transitorio (antivirus/indexador tocando el directorio justo en
+// ese instante, "UNKNOWN: unknown error" de writeFileSync) — visto en la
+// práctica reventando un entrenamiento entero (una vez en el batch 1250 de
+// 2000, otra en el 1600, con los 5 reintentos anteriores agotados),
+// tirando horas de progreso ya bueno por la borda por un solo guardado que
+// no consiguió abrir el archivo. Ahora escribe a un archivo TEMPORAL propio
+// (nombre único por proceso, nunca lo abre nadie más) y solo AL FINAL hace
+// un rename atómico sobre el destino — un rename no necesita abrir el
+// destino para escribir contenido, así que es mucho menos sensible a que
+// otro proceso lo tenga abierto para lectura en ese instante que un
+// writeFileSync directo. Aun así reintenta el conjunto (escritura+rename)
+// varias veces con espera creciente antes de rendirse de verdad.
+async function saveWeightsWithRetry(weights: RlWeights, attempts = 10): Promise<void> {
+  const serialized = serializeWeights(weights);
+  const tmpPath = `${WEIGHTS_PATH}.tmp-${process.pid}`;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      writeFileSync(tmpPath, serialized);
+      renameSync(tmpPath, WEIGHTS_PATH);
+      return;
+    } catch (err) {
+      if (i === attempts - 1) throw err;
+      console.warn(`No se pudo guardar ${WEIGHTS_PATH} (intento ${i + 1}/${attempts}), reintentando...`, err);
+      await sleep(Math.min(200 * (i + 1), 2000));
+    }
+  }
+}
+
+async function main(): Promise<void> {
   const weights = loadOrInitWeights();
   const baseline = { value: 0 };
 
@@ -261,11 +350,11 @@ function main(): void {
         `batch=${batch} baseline=${baseline.value.toFixed(3)} ` +
           `winrate_vs_heuristic=${winrateVsHeuristic.toFixed(2)} winrate_vs_random=${winrateVsRandom.toFixed(2)}`
       );
-      writeFileSync(WEIGHTS_PATH, serializeWeights(weights));
+      await saveWeightsWithRetry(weights);
     }
   }
 
-  writeFileSync(WEIGHTS_PATH, serializeWeights(weights));
+  await saveWeightsWithRetry(weights);
   console.log('Entrenamiento terminado. Pesos guardados en', WEIGHTS_PATH);
 }
 

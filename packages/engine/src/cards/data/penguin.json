@@ -3,20 +3,16 @@
   "name": "Pingüino",
   "type": "animal",
   "species": "penguin",
-  "marketCost": 5,
-  "victoryPoints": 0,
-  "text": "Añade 1 a tu valor de compra. Al final de la partida, +1PV por cada animal distinto que tengas en tu mazo.",
+  "marketCost": 4,
+  "victoryPoints": 3,
+  "text": "Añade 1 moneda de Plata a tu mano.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "gainFlatBonusPurchasingPower",
+      "type": "gainCoin",
       "params": {
-        "amount": 1
+        "coinId": "coin-2"
       }
-    },
-    {
-      "trigger": "onScore",
-      "type": "scorePerDistinctSpecies"
     }
   ],
   "habitats": [

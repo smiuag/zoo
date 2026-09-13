@@ -12,6 +12,12 @@ __pycache__/
 .env.local
 .env.*.local
 
-# Tirada de impresión a 1 cara: generada localmente por build_deck_pdf_1cara.py,
-# no versionada (a diferencia de mazo_impresion.pdf) por su peso.
+# Mazos de impresión de doble cara (378 cartas a tamaño completo, ~110MB
+# cada uno): superan el límite de 100MB de GitHub, así que ya no se
+# versionan (git rechazaba el push, 2026-09-13) — se generan localmente
+# con build_deck_pdf.py/_en.py (ver img/_work). Las hojas de referencia
+# (cartas_zoo.pdf/_en.pdf, 1 copia de cada carta) sí se siguen versionando,
+# pesan bastante menos.
+img/mazo_impresion.pdf
+img/mazo_impresion_en.pdf
 img/mazo_impresion_1cara.pdf

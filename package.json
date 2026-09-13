@@ -8,6 +8,7 @@
   "scripts": {
     "test": "npm run test -w packages/engine",
     "dev:web": "npm run dev -w apps/web",
-    "train:rl": "npm run train:rl -w packages/engine"
+    "train:rl": "npm run train:rl -w packages/engine",
+    "arena:rl": "npm run arena:rl -w packages/engine"
   }
 }

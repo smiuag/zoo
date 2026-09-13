@@ -8,15 +8,15 @@ INK = (42, 28, 18)
 FONT_BOLD = r"C:\Windows\Fonts\georgiab.ttf"
 FONT_REG = r"C:\Windows\Fonts\georgia.ttf"
 
-# Plantillas "madera claras" (una por combinación de hábitats, más una para
-# las monedas): mismo lienzo (615x878) y composición en las 7 (ventana de
-# ilustración, bolsa de monedas arriba-izq., escudo de laureles arriba-dcha.,
-# cinta con el nombre, panel de pergamino con el texto) — solo cambia el
-# COLOR de la cinta del nombre entre unas y otras (comprobado por diff de
-# píxeles: todo lo demás es idéntico), igual que la versión "madera" sin
-# aclarar de la que viene. Ver template_key_for_card() en compose_all.py
-# para cómo se elige cada una por carta.
-TEMPLATES_DIR = r"C:\proyectos\Claude\zoo\img\templates\claras"
+# Plantillas "madera claras CON SANGRADO" (una por combinación de hábitats,
+# más una para las monedas): el mismo diseño de siempre (615x878,
+# comprobado pixel a pixel idéntico con diff) pero centrado dentro de un
+# lienzo más grande (811x1074), con 98px de fondo de sobra en cada lado
+# (TEMPLATE_BLEED_MARGIN) — igual filosofía que el reverso (ver
+# compose_back.py): así el corte real de la carta impresa puede quedar
+# 0.1cm por dentro del borde del papel sin que se vea nunca blanco/vacío,
+# tanto en el frente como en el reverso, cuadrando ambos exactamente igual.
+TEMPLATES_DIR = r"C:\proyectos\Claude\zoo\img\templates\sangrado\medias"
 TEMPLATE_FILES = {
     "land": "tierra.png",
     "aquatic": "agua.png",
@@ -24,6 +24,7 @@ TEMPLATE_FILES = {
     "land_aquatic": "tierra_agua.png",
     "land_bird": "tierra_aire.png",
     "aquatic_bird": "agua_aire.png",
+    "land_aquatic_bird": "tierra_agua_aire.png",
     "coin": "monedas.png",
 }
 # Plantillas en RGBA con la ventana de ilustración ya recortada como
@@ -34,19 +35,131 @@ TEMPLATE_FILES = {
 # vuelva a detectar la ventana.
 _ALPHA_CACHE_DIR = r"C:\proyectos\Claude\zoo\img\_work\template_alpha_cache"
 
-# Mismo lienzo (615x878) que el antiguo template3.png: coordenadas sin
-# escalar (a diferencia de la versión "Definitivas", en 718x1024).
-ILLUSTRATION_BOX = (66, 64, 551, 483)
-COST_BADGE = (83, 103)             # center of the coin pouch
-PV_BADGE = (526, 97)               # center of the laurel wreath opening (medido a mano sobre la plantilla)
+# Tamaño del DISEÑO real de la carta (sin sangrado de plantilla): el mismo
+# lienzo de siempre (615x878, como el antiguo template3.png). Los ARCHIVOS
+# de plantilla en TEMPLATES_DIR son más grandes porque llevan ese diseño
+# EXACTO centrado con RAW_TEMPLATE_BLEED_MARGIN de fondo alrededor — pero
+# usamos menos que eso (TEMPLATE_BLEED_MARGIN, ver _load_raw_template):
+# con el margen COMPLETO del archivo, escalado a tamaño de impresión, cada
+# carta mide ~989x1310px y solo caben 4 por hoja A4 (2x2) sin recortar ni
+# solapar ninguna — el usuario pidió recortar el sangrado de la plantilla
+# lo justo para que sigan cabiendo 9 (3x3), sin volver a inventar ni
+# recortar el DISEÑO en sí (solo el margen de sobra, simétrico, alrededor).
+TEMPLATE_DESIGN_W, TEMPLATE_DESIGN_H = 615, 878
+RAW_TEMPLATE_BLEED_MARGIN = 98    # margen real que traen los archivos de TEMPLATES_DIR
+TEMPLATE_BLEED_MARGIN = 30        # margen que de verdad usamos (recortado del anterior, ver arriba)
+
+
+def _offset_box(box):
+    x0, y0, x1, y1 = box
+    return (
+        x0 + TEMPLATE_BLEED_MARGIN,
+        y0 + TEMPLATE_BLEED_MARGIN,
+        x1 + TEMPLATE_BLEED_MARGIN,
+        y1 + TEMPLATE_BLEED_MARGIN,
+    )
+
+
+def _offset_point(point):
+    x, y = point
+    return (x + TEMPLATE_BLEED_MARGIN, y + TEMPLATE_BLEED_MARGIN)
+
+
+# Coordenadas de siempre, medidas sobre el diseño puro de 615x878 (sin
+# sangrado) — se desplazan por TEMPLATE_BLEED_MARGIN para caer en el sitio
+# correcto dentro del lienzo de plantilla, más grande, con sangrado.
+ILLUSTRATION_BOX = _offset_box((66, 64, 551, 483))
+COST_BADGE = _offset_point((83, 103))             # center of the coin pouch
+PV_BADGE = _offset_point((526, 97))               # center of the laurel wreath opening (medido a mano sobre la plantilla)
 BADGE_NUMBER_SIZE = 50             # 45 + 10%
-TITLE_BOX = (95, 513, 540, 561)    # wood ribbon banner: card name
-TYPE_LINE_POINT = (307, 648)       # "Terrestre" label, centered in the panel
+TITLE_BOX = _offset_box((95, 513, 540, 561))    # wood ribbon banner: card name
+TYPE_LINE_POINT = _offset_point((307, 648))       # "Terrestre" label, centered in the panel
 TYPE_LINE_MAX_WIDTH = 420          # shrink multi-habitat labels to fit
-PANEL_BODY_BOX = (95, 672, 540, 858)  # starts right below the type label, top-aligned
+PANEL_BODY_BOX = _offset_box((95, 672, 540, 858))  # starts right below the type label, top-aligned
 
 COST_COLOR = (0, 100, 0)    # verde bosque
 PV_COLOR = (94, 35, 123)    # morado (el mismo que la Hiena en la tanda 4)
+
+# Tamaño físico real "carta de MTG" (2.5x3.5in) a 300dpi: 750x1050px exacto
+# (2.5*300=750, 3.5*300=1050 sin redondeos). El DISEÑO (TEMPLATE_DESIGN_W x
+# H, 615x878) se escala para medir esto exactamente al imprimir — ver
+# resize_to_print_size.
+CARD_PRINT_W = 750
+CARD_PRINT_H = 1050
+# Lienzo "canónico" con sangrado: el mismo tamaño que ya traen las
+# plantillas de TEMPLATES_DIR (811x1074 = 615x878 + 98px de margen por
+# lado, ver TEMPLATE_BLEED_MARGIN). resize_to_print_size normaliza
+# CUALQUIER carta a este tamaño exacto ANTES de escalar — si ya lo trae
+# (las plantillas de animal, tal cual las preparó el usuario), no se toca
+# ni un pixel; si no (las monedas, planas a 615x878 sin margen propio), se
+# amplía repitiendo el borde para llegar al mismo tamaño, nunca menos.
+CANVAS_W = TEMPLATE_DESIGN_W + 2 * TEMPLATE_BLEED_MARGIN
+CANVAS_H = TEMPLATE_DESIGN_H + 2 * TEMPLATE_BLEED_MARGIN
+
+
+def _load_raw_template(filename):
+    """Abre un archivo de TEMPLATES_DIR (RAW_TEMPLATE_BLEED_MARGIN de
+    sangrado por lado, tal como lo preparó el usuario) y lo recorta,
+    centrado, al margen que de verdad usamos (TEMPLATE_BLEED_MARGIN) — un
+    recorte simétrico del sangrado de SOBRA, nunca del diseño (615x878, que
+    siempre se queda intacto en el centro). Es el único sitio donde se toca
+    el archivo de plantilla; todo lo demás (build_card_base,
+    build_coin_card_base) trabaja ya sobre el resultado, más pequeño."""
+    raw = Image.open(os.path.join(TEMPLATES_DIR, filename)).convert("RGB")
+    trim = RAW_TEMPLATE_BLEED_MARGIN - TEMPLATE_BLEED_MARGIN
+    if trim <= 0:
+        return raw
+    return raw.crop((trim, trim, raw.width - trim, raw.height - trim))
+
+
+def build_coin_card_base(coin_photo_path):
+    """Las monedas (img/coins/*.png) llegan como un diseño de carta YA
+    TERMINADO (marco + ilustración + badges, pintado aparte, sin pasar por
+    build_card_base) pero exactamente al tamaño del DISEÑO puro
+    (TEMPLATE_DESIGN_W x H, sin sangrado propio — a diferencia de las
+    plantillas de animal, que ya traen su sangrado incorporado). Para darle
+    el mismo sangrado real (nunca inventado: ni un color liso de relleno ni
+    replicar su propio borde) se pega tal cual, sin recortar ni escalar,
+    centrado sobre la plantilla "coin" (monedas.png) — que ya trae de
+    fábrica exactamente ese hueco y ese sangrado de sobra alrededor, igual
+    que las demás plantillas."""
+    template = _load_raw_template(TEMPLATE_FILES["coin"])
+    coin = Image.open(coin_photo_path).convert("RGB")
+    if coin.size != (TEMPLATE_DESIGN_W, TEMPLATE_DESIGN_H):
+        coin = coin.resize((TEMPLATE_DESIGN_W, TEMPLATE_DESIGN_H), Image.LANCZOS)
+    card = template.copy()
+    card.paste(coin, (TEMPLATE_BLEED_MARGIN, TEMPLATE_BLEED_MARGIN))
+    return card
+
+
+def resize_to_print_size(card, target_w=CARD_PRINT_W, target_h=CARD_PRINT_H):
+    """`card` es el lienzo YA COMPUESTO (foto+plantilla+texto, o
+    build_coin_card_base para monedas) — SIEMPRE exactamente CANVAS_W x
+    CANVAS_H (el diseño más el sangrado real de la plantilla, nunca
+    inventado). Se escala ENTERO —sin recortar nada— para que el DISEÑO
+    real (TEMPLATE_DESIGN_W x H) mida EXACTAMENTE target_w x target_h (el
+    tamaño real de una carta de MTG, 750x1050 a 300dpi) — la parte que de
+    verdad se recorta al imprimir. Como la proporción del diseño (615:878)
+    no es idéntica a la de destino (750:1050), esto usa un factor de
+    escala DISTINTO por eje (scale_x, scale_y) en vez de uno solo: un solo
+    factor (el máximo de los dos, "cover") solo puede dejar UN eje exacto
+    y el otro se pasa (con 615x878/750x1050 salía ~1071 de alto en vez de
+    1050, un 2% de más) — el estiramiento resultante de usar dos escalas
+    es del mismo orden (~2%) y no se aprecia, pero así el recorte real
+    siempre da el tamaño de carta pedido en las dos direcciones. El
+    sangrado que sobra (el margen de la plantilla, con su color y textura
+    reales, intacto) se queda tal cual en el resultado: quien construye la
+    página (print_layout.py) pega cada carta ENTERA, pegada a la de al
+    lado sin hueco NI solape — nunca se decide aquí cuánto bleed
+    "exponer", se usa TODO el que haya (el ya recortado a
+    TEMPLATE_BLEED_MARGIN, ver _load_raw_template)."""
+    assert card.size == (CANVAS_W, CANVAS_H), (
+        f"resize_to_print_size espera un lienzo ya compuesto a {CANVAS_W}x{CANVAS_H} "
+        f"(con el sangrado real de la plantilla incluido), llegó {card.size}"
+    )
+    scale_x = target_w / TEMPLATE_DESIGN_W
+    scale_y = target_h / TEMPLATE_DESIGN_H
+    return card.resize((round(card.width * scale_x), round(card.height * scale_y)), Image.LANCZOS)
 
 
 def _build_template_alpha(template_key):
@@ -65,8 +178,7 @@ def _build_template_alpha(template_key):
     if os.path.exists(cache_path):
         return Image.open(cache_path).convert("RGBA")
 
-    filename = TEMPLATE_FILES[template_key]
-    template = Image.open(os.path.join(TEMPLATES_DIR, filename)).convert("RGB")
+    template = _load_raw_template(TEMPLATE_FILES[template_key])
     w, h = template.size
     seed = (w // 2, h // 3)  # cae dentro de la ventana en las 7 plantillas
     marker = (1, 2, 3)       # color imposible de confundir con arte real

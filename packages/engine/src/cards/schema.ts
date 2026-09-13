@@ -3,9 +3,12 @@ import { z } from 'zod';
 // "onPlay" se resuelve al jugar la carta desde la mano (justo después de
 // mandarla al descarte). "onScore" se resuelve solo al calcular la
 // puntuación final, sobre TODA la colección del jugador (mazo + mano +
-// descarte).
+// descarte). "onTurnStart" se resuelve automáticamente al empezar CADA turno
+// propio del jugador (ver beginPlayerTurn en engine.ts), sin que haga falta
+// jugar ni tener la carta en la mano — solo que haya al menos una copia en
+// el descarte (p. ej. la Ardilla).
 export const EffectSchema = z.object({
-  trigger: z.enum(['onPlay', 'onScore']),
+  trigger: z.enum(['onPlay', 'onScore', 'onTurnStart']),
   type: z.string(),
   params: z.record(z.string(), z.unknown()).optional(),
 });

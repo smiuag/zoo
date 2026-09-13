@@ -44,6 +44,16 @@ function effectBonus(card: CardInstance): number {
       case 'gainFlatBonusPurchasingPower':
         bonus += typeof effect.params?.amount === 'number' ? effect.params.amount : 2; // tempo, valor fijo garantizado
         break;
+      case 'gainCoin': {
+        // Pingüino: a diferencia de gainFlatBonusPurchasingPower, esto deja
+        // una carta de verdad en la mano (cuenta su propio PV si no se
+        // gasta este turno), así que vale algo más que el mismo valor en
+        // bonus plano.
+        const coinId = typeof effect.params?.coinId === 'string' ? effect.params.coinId : undefined;
+        const coin = coinId ? getCard(coinId) : undefined;
+        bonus += (coin?.value ?? 2) + (coin?.victoryPoints ?? 0);
+        break;
+      }
       case 'gainAquaticOnlyBonusPurchasingPower': {
         // Igual que gainFlatBonusPurchasingPower pero solo sirve para
         // acuáticos: vale menos porque a veces no hay nada acuático que
@@ -96,6 +106,13 @@ function effectBonus(card: CardInstance): number {
         // El valor real depende de cuántos animales de ese hábitat/especies
         // distintas/coste mínimo lleguen a poseerse: aproximación fija.
         bonus += 2;
+        break;
+      case 'returnFromDiscardEachTurn':
+        // Ardilla: no hace nada la primera vez que se juega (todavía no hay
+        // ninguna copia en el descarte), pero luego se recicla ella sola
+        // cada turno sin gastar ninguna acción — valor compuesto a largo
+        // plazo, aproximación fija.
+        bonus += 1.5;
         break;
       default:
         break;
