@@ -69,10 +69,19 @@ export interface PendingDiscardDecision {
   // resolveDiscard en engine.ts.
   kind: 'discard' | 'returnToMarket';
   sourceCardName: string;
-  // Quién jugó la carta que disparó esto: a quien beneficia bonusDrawPerCoin.
+  // Quién jugó la carta que disparó esto: a quien beneficia bonusDrawPerCoin
+  // y bonusPurchasingPowerIfAtLeast.
   sourcePlayerId: string;
   bonusDrawPerCoin: boolean;
   coinsDiscardedSoFar: number;
+  // Tiburón/Halcón/León: si al final se han devuelto al mercado al menos
+  // `count` animales en total (cuenta real de devoluciones resueltas, no
+  // de lo que se debía al principio — un rival sin ninguno elegible nunca
+  // llega a deber nada), quien jugó la carta gana `amount` de valor de
+  // compra este turno. null = sin este bonus (el resto de cartas que usan
+  // PendingDiscardDecision).
+  bonusPurchasingPowerIfAtLeast: { count: number; amount: number } | null;
+  returnedSoFar: number;
   // Por jugador afectado: cuántas cartas le quedan por entregar y de qué
   // instanceIds puede elegir (null = cualquier carta de su mano vale).
   owed: Record<string, { amount: number; eligibleInstanceIds: string[] | null }>;

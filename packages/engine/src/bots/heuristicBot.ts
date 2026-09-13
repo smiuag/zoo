@@ -114,6 +114,15 @@ function effectBonus(card: CardInstance): number {
         // plazo, aproximación fija.
         bonus += 1.5;
         break;
+      case 'returnAnimalFromEachOpponent': {
+        // Tiburón/Halcón/León: tempo (deniega una compra rival y la devuelve
+        // al mercado compartido, donde cualquiera puede recomprarla) más la
+        // posibilidad (no garantizada: depende de si 2+ rivales tienen algo
+        // elegible) del bonus de valor de compra si se capturan 2 o más.
+        const bonusIfAtLeast = effect.params?.bonusIfAtLeast as { count: number; amount: number } | undefined;
+        bonus += 2 + (bonusIfAtLeast ? bonusIfAtLeast.amount * 0.4 : 0);
+        break;
+      }
       default:
         break;
     }

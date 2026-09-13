@@ -112,13 +112,6 @@ export function GameBoard({
   const discardSourcePlayerName = state.pendingDecision
     ? (state.players.find((p) => p.id === state.pendingDecision!.sourcePlayerId)?.name ?? '')
     : '';
-  // A quién se está esperando para el banner de estado: si hay un descarte
-  // pendiente, el primero de la lista que todavía lo deba (puede haber
-  // varios a la vez, p. ej. el Buitre afecta a todos los rivales); si no,
-  // el propio jugador activo.
-  const waitingOnPlayer = state.pendingDecision
-    ? (state.players.find((p) => p.id === Object.keys(state.pendingDecision!.owed)[0]) ?? activePlayer)
-    : activePlayer;
   // Si el visor tiene el turno ahora mismo: decide dónde se ven el
   // mazo/descarte del jugador activo (que en ese caso es el propio visor) y
   // si tiene sentido mostrar los controles de turno (Terminar/Reiniciar) —
@@ -178,12 +171,15 @@ export function GameBoard({
     setFlights((f) => f.filter((fl) => fl.key !== key));
   }
 
-  // Mientras la partida sigue en curso, el mazo de OTRO jugador humano es
-  // información privada: solo se puede "ver el mazo" de un bot en cualquier
-  // momento, del propio jugador que mira esta pantalla, o de cualquiera una
-  // vez terminada la partida (el resumen final es público a propósito).
+  // Mientras la partida sigue en curso, el mazo de CUALQUIER otro jugador
+  // —humano o bot— es información privada: solo se puede "ver el mazo"
+  // del propio jugador que mira esta pantalla, o de cualquiera una vez
+  // terminada la partida (el resumen final es público a propósito). Antes
+  // los bots eran "libro abierto" en todo momento; se quitó esa excepción
+  // a petición del usuario ("no se debe poder ver nunca ningún mazo salvo
+  // el tuyo, salvo al final de la partida").
   function canViewPlayer(p: Player): boolean {
-    return state.gameOver || !humanIds.includes(p.id) || p.id === viewerPlayerId;
+    return state.gameOver || p.id === viewerPlayerId;
   }
   const sortedAnimalTrack = [...state.animalTrack].sort(
     (a, b) => (a.marketCost ?? 0) - (b.marketCost ?? 0) || a.name.localeCompare(b.name)
@@ -440,7 +436,7 @@ export function GameBoard({
                   >
                     Ronda {state.round}/{state.maxRounds ?? '∞'}
                   </span>{' '}
-                  — {canAct ? `turno de ${activePlayer.name}` : `esperando a ${waitingOnPlayer.name}`}
+                  {canAct && ` — turno de ${displayName(activePlayer, humanIds, botAlgorithms)}`}
                 </span>
               )}
               {onNewGame && (
@@ -456,7 +452,11 @@ export function GameBoard({
                 return (
                   <li
                     key={p.id}
-                    className={[p.id === viewerPlayerId && 'scoreboard__me', clickable && 'scoreboard__clickable']
+                    className={[
+                      p.id === viewerPlayerId && 'scoreboard__me',
+                      p.id === activePlayer.id && 'scoreboard__active-turn',
+                      clickable && 'scoreboard__clickable',
+                    ]
                       .filter(Boolean)
                       .join(' ')}
                     onClick={clickable ? () => setViewedPlayerId(p.id) : undefined}

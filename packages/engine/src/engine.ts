@@ -45,6 +45,7 @@ const ANIMAL_SPECIES = [
   'shark',
   'toucan',
   'squirrel',
+  'hawk',
 ] as const;
 // La partida entra en la ronda final en cuanto este número de mazos
 // compartidos (de las 30 especies, todas cuentan) se hayan agotado.
@@ -800,6 +801,7 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
   const [card] = player.hand.splice(idx, 1);
   if (decision.kind === 'returnToMarket') {
     returnCardToMarket(state, card);
+    decision.returnedSoFar += 1;
   } else {
     player.discard.push(card);
     if (decision.bonusDrawPerCoin && card.type === 'coin') decision.coinsDiscardedSoFar += 1;
@@ -826,6 +828,15 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
       if (sourcePlayer) {
         drawCards(sourcePlayer, decision.coinsDiscardedSoFar);
         state.log.push(`${sourcePlayer.name} robó ${decision.coinsDiscardedSoFar} carta(s) por monedas descartadas así`);
+      }
+    }
+    if (decision.bonusPurchasingPowerIfAtLeast && decision.returnedSoFar >= decision.bonusPurchasingPowerIfAtLeast.count) {
+      const sourcePlayer = state.players.find((p) => p.id === decision.sourcePlayerId);
+      if (sourcePlayer) {
+        sourcePlayer.bonusPurchasingPowerThisTurn += decision.bonusPurchasingPowerIfAtLeast.amount;
+        state.log.push(
+          `${sourcePlayer.name} ganó ${decision.bonusPurchasingPowerIfAtLeast.amount} de valor de compra por capturar ${decision.returnedSoFar} animales con ${decision.sourceCardName}`
+        );
       }
     }
     state.pendingDecision = null;

@@ -16,7 +16,10 @@ BACK_PATH = os.path.join(CARDS_DIR, "_back.png")
 # multiple of 18) — only the card art (Spanish vs English text) differs.
 COUNTS = {
     "sloth": 21,
-    "coin-1": 49,
+    # 42 en vez de las 49 (7×7) "de libro": ver el mismo ajuste en
+    # build_deck_pdf.py (el Halcón, nueva especie, desajustaba el total de
+    # múltiplo de 18).
+    "coin-1": 42,
     "coin-2": 20,
     "coin-3": 15,
     "coin-5": 9,

@@ -183,14 +183,86 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(p1.hand).toHaveLength(1); // solo 1 de los 2 rivales soltó moneda
   });
 
-  it('león: gana 3 de dinero extra para comprar este turno, fijo (no depende de la mano)', () => {
-    const { state, player } = setupClean();
+  it('león: cada rival elige y devuelve al mercado un animal ÚNICAMENTE terrestre de coste 3 o menos', () => {
+    const { state, player, opponent } = setupClean();
+    const rabbit = freshInstance('rabbit', 'o1'); // terrestre puro, coste 2: elegible
+    const bat = freshInstance('bat', 'o2'); // terrestre Y volador: NO elegible (no es únicamente terrestre)
+    opponent.hand = [rabbit, bat];
     const lion = freshInstance('lion', 'test');
     player.hand = [lion];
 
     playCard(state, player.id, lion.instanceId);
 
-    expect(player.bonusPurchasingPowerThisTurn).toBe(3);
+    expect(state.pendingDecision).toBeNull(); // rabbit era el único elegible: sin elección real
+    expect(opponent.hand).toEqual([bat]);
+    expect(state.animalTrack.some((c) => c.instanceId === rabbit.instanceId)).toBe(true);
+  });
+
+  it('halcón: cada rival elige y devuelve al mercado un animal ÚNICAMENTE volador de coste 3 o menos', () => {
+    const { state, player, opponent } = setupClean();
+    const parakeet = freshInstance('parakeet', 'o1'); // volador puro, coste 2: elegible
+    const duck = freshInstance('duck', 'o2'); // volador Y acuático: NO elegible (no es únicamente volador)
+    opponent.hand = [parakeet, duck];
+    const hawk = freshInstance('hawk', 'test');
+    player.hand = [hawk];
+
+    playCard(state, player.id, hawk.instanceId);
+
+    expect(state.pendingDecision).toBeNull(); // parakeet era el único elegible: sin elección real
+    expect(opponent.hand).toEqual([duck]);
+    expect(state.animalTrack.some((c) => c.instanceId === parakeet.instanceId)).toBe(true);
+  });
+
+  it('tiburón/halcón/león solo pueden capturar animales de UN SOLO hábitat (el suyo): un Flamenco (volador+acuático) nunca es elegible para ninguno', () => {
+    const { state, player, opponent } = setupClean();
+    const flamingo = freshInstance('flamingo', 'o1'); // volador+acuático, coste 3: no es puro de ninguno
+    opponent.hand = [flamingo];
+
+    for (const species of ['shark', 'hawk', 'lion']) {
+      const card = freshInstance(species, `test-${species}`);
+      player.hand = [card];
+      playCard(state, player.id, card.instanceId);
+      expect(state.pendingDecision).toBeNull(); // nadie debía nada: el Flamenco no cuenta para ninguno
+      expect(opponent.hand).toEqual([flamingo]);
+    }
+  });
+
+  it('tiburón/halcón/león: si se devuelven 2 o más animales en total, quien la jugó gana 2 de valor de compra', () => {
+    // Hacen falta 2 RIVALES distintos (cada uno solo debe 1 devolución como
+    // mucho): setupClean() solo da 1, así que se crea la partida aquí.
+    const state = createGame([
+      { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
+      { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
+      { id: 'p3', name: 'Carol', deck: buildStarterDeck() },
+    ]);
+    const [player, p2, p3] = state.players;
+    for (const p of state.players) {
+      p.deck = [];
+      p.hand = [];
+      p.discard = [];
+    }
+    p2.hand = [freshInstance('dolphin', 'p2a')]; // acuático puro, coste 3: elegible
+    p3.hand = [freshInstance('goldfish', 'p3a')]; // acuático puro, coste 1: elegible
+    const shark = freshInstance('shark', 'test');
+    player.hand = [shark];
+
+    playCard(state, player.id, shark.instanceId);
+    // Ninguno de los 2 tiene elección real (1 solo elegible cada uno): se
+    // resuelven solos y la decisión se cierra sin que el jugador intervenga.
+    expect(state.pendingDecision).toBeNull();
+    expect(player.bonusPurchasingPowerThisTurn).toBe(2);
+  });
+
+  it('tiburón/halcón/león: si solo se devuelve 1 animal, no hay bonus de valor de compra', () => {
+    const { state, player, opponent } = setupClean();
+    opponent.hand = [freshInstance('dolphin', 'o1')]; // único elegible de toda la partida
+    const shark = freshInstance('shark', 'test');
+    player.hand = [shark];
+
+    playCard(state, player.id, shark.instanceId);
+
+    expect(state.pendingDecision).toBeNull();
+    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
   });
 
   it('pingüino: añade una moneda de Plata de verdad a la mano (no bonus temporal)', () => {
@@ -630,7 +702,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   it('conejos: si es un animal de coste SUPERIOR a 3, se queda encima del mazo (no se roba)', () => {
     const { state, player } = setupClean();
     const rabbitCard = freshInstance('rabbit', 'test');
-    const lion = freshInstance('lion', 'top'); // coste 5
+    const lion = freshInstance('lion', 'top'); // coste 6
     player.hand = [rabbitCard];
     player.deck = [lion];
 
@@ -1230,7 +1302,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   it('flamenco: ofrece una variante por cada combinación de (animal a devolver) x (animal del mercado a coger)', () => {
     const { state, player } = setupClean();
     const flamingo = freshInstance('flamingo', 'test');
-    const giraffe = freshInstance('giraffe', 'g1'); // coste 6
+    const giraffe = freshInstance('giraffe', 'g1'); // coste 5
     player.hand = [flamingo, giraffe];
 
     const maxCost = (giraffe.marketCost ?? 0) + 2;

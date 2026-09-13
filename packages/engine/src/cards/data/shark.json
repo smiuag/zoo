@@ -5,14 +5,18 @@
   "species": "shark",
   "marketCost": 6,
   "victoryPoints": 4,
-  "text": "Cada oponente devuelve de su mano al mercado un animal ACUÁTICO de coste 3 o menos que elija; si no tiene ninguno, muestra su mano.",
+  "text": "Cada oponente devuelve de su mano al mercado un animal ÚNICAMENTE ACUÁTICO de coste 3 o menos que elija; si no tiene ninguno, muestra su mano. Si devuelven así 2 o más animales en total, ganas 2 de valor de compra.",
   "effects": [
     {
       "trigger": "onPlay",
       "type": "returnAnimalFromEachOpponent",
       "params": {
         "habitat": "aquatic",
-        "maxCost": 3
+        "maxCost": 3,
+        "bonusIfAtLeast": {
+          "count": 2,
+          "amount": 2
+        }
       }
     }
   ],

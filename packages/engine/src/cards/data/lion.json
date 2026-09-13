@@ -3,15 +3,20 @@
   "name": "León",
   "type": "animal",
   "species": "lion",
-  "marketCost": 5,
-  "victoryPoints": 5,
-  "text": "Añade 3 a tu valor de compra.",
+  "marketCost": 6,
+  "victoryPoints": 4,
+  "text": "Cada oponente devuelve de su mano al mercado un animal ÚNICAMENTE TERRESTRE de coste 3 o menos que elija; si no tiene ninguno, muestra su mano. Si devuelven así 2 o más animales en total, ganas 2 de valor de compra.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "gainFlatBonusPurchasingPower",
+      "type": "returnAnimalFromEachOpponent",
       "params": {
-        "amount": 3
+        "habitat": "land",
+        "maxCost": 3,
+        "bonusIfAtLeast": {
+          "count": 2,
+          "amount": 2
+        }
       }
     }
   ],

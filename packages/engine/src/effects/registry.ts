@@ -126,7 +126,12 @@ function beginPendingDiscard(
   state: GameState,
   activePlayer: Player,
   owed: PendingDiscardDecision['owed'],
-  opts: { sourceCardName: string; bonusDrawPerCoin?: boolean; kind?: PendingDiscardDecision['kind'] }
+  opts: {
+    sourceCardName: string;
+    bonusDrawPerCoin?: boolean;
+    kind?: PendingDiscardDecision['kind'];
+    bonusPurchasingPowerIfAtLeast?: { count: number; amount: number };
+  }
 ): void {
   if (Object.keys(owed).length === 0) return;
   state.pendingDecision = {
@@ -135,6 +140,8 @@ function beginPendingDiscard(
     sourcePlayerId: activePlayer.id,
     bonusDrawPerCoin: opts.bonusDrawPerCoin ?? false,
     coinsDiscardedSoFar: 0,
+    bonusPurchasingPowerIfAtLeast: opts.bonusPurchasingPowerIfAtLeast ?? null,
+    returnedSoFar: 0,
     owed,
   };
 }
@@ -381,28 +388,40 @@ registerEffect('discardAnimalFromEachOpponent', (state, player, _effect, context
   beginPendingDiscard(state, player, owed, { sourceCardName: context.sourceCardName ?? 'efecto' });
 });
 
-// Tiburón: cada rival elige y devuelve al mercado (no al descarte) un
-// animal de su mano que tenga alguno de params.habitat (["aquatic"]) y
-// coste como mucho params.maxCost (3). Si un rival no tiene ninguno
-// elegible, no pierde nada (en la práctica, "muestra su mano"). La carta
-// vuelve a estar disponible en el mercado de inmediato (ver
-// returnToMarket en resolveDiscard, engine.ts) — como una compra
-// deshecha, no como un descarte.
+// Tiburón/Halcón/León: cada rival elige y devuelve al mercado (no al
+// descarte) un animal de su mano que sea ÚNICAMENTE de params.habitat
+// (["aquatic"]/["bird"]/["land"]: TODOS sus hábitats deben estar en esa
+// lista, no basta con que tenga alguno — un Flamenco, volador Y acuático,
+// no es "solo acuático" así que el Tiburón no puede capturarlo, pero un
+// Delfín, solo acuático, sí) y coste como mucho params.maxCost (3). Si un
+// rival no tiene ninguno elegible, no pierde nada (en la práctica,
+// "muestra su mano"). La carta vuelve a estar disponible en el mercado de
+// inmediato (ver returnToMarket en resolveDiscard, engine.ts) — como una
+// compra deshecha, no como un descarte. params.bonusIfAtLeast ({ count,
+// amount }, opcional): si entre TODOS los rivales se acaban devolviendo
+// así `count` o más animales en total, quien jugó la carta gana `amount`
+// de valor de compra este turno (ver bonusPurchasingPowerIfAtLeast,
+// resuelto en resolveDiscard cuando la entrega se cierra del todo).
 registerEffect('returnAnimalFromEachOpponent', (state, player, effect, context) => {
   const maxCost = typeof effect.params?.maxCost === 'number' ? effect.params.maxCost : Infinity;
   const habitats = matchHabitatList(effect.params?.habitat);
+  const bonusIfAtLeast = effect.params?.bonusIfAtLeast as { count: number; amount: number } | undefined;
   const owed: PendingDiscardDecision['owed'] = {};
   for (const opponent of otherPlayers(state, player)) {
     const eligible = opponent.hand.filter(
       (c) =>
         c.type === 'animal' &&
         (c.marketCost ?? 0) <= maxCost &&
-        (habitats.length === 0 || habitats.some((h) => (c.habitats as string[])?.includes(h)))
+        (habitats.length === 0 || ((c.habitats as string[]) ?? []).every((h) => habitats.includes(h)))
     );
     if (eligible.length === 0) continue;
     owed[opponent.id] = { amount: 1, eligibleInstanceIds: eligible.map((c) => c.instanceId) };
   }
-  beginPendingDiscard(state, player, owed, { sourceCardName: context.sourceCardName ?? 'efecto', kind: 'returnToMarket' });
+  beginPendingDiscard(state, player, owed, {
+    sourceCardName: context.sourceCardName ?? 'efecto',
+    kind: 'returnToMarket',
+    bonusPurchasingPowerIfAtLeast: bonusIfAtLeast,
+  });
 });
 
 // Pato: el jugador que elijas (context.targetPlayerId, ver

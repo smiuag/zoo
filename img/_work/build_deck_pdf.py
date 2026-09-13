@@ -15,15 +15,20 @@ BACK_PATH = os.path.join(CARDS_DIR, "_back.png")
 # Copias pedidas para esta tirada de impresión.
 COUNTS = {
     "sloth": 21,
-    "coin-1": 49,
+    # 42 en vez de las 49 (7×7) "de libro": el Halcón (nueva especie,
+    # coste 6) sumó +7 cartas al total y lo desajustaba de múltiplo de 18
+    # (385) — se le resta aquí, a la moneda de bronce, para no tocar el
+    # recuento de ninguna especie (ver [[print_deck_multiple_of_18]]).
+    "coin-1": 42,
     "coin-2": 20,
     "coin-3": 15,
     "coin-5": 9,
 }
 # Igual que el motor (ver createGame en engine.ts), escalado a una tirada
 # de 7 jugadores: nº jugadores + 2 para el resto, nº jugadores para las
-# caras (coste 5+, escasez real). De ahí también las 49 monedas de 1 (7×7)
-# y los 21 Perezosos (7×3) del mazo inicial repartidos en COUNTS más abajo.
+# caras (coste 5+, escasez real). De ahí también los 21 Perezosos (7×3)
+# del mazo inicial repartidos en COUNTS más abajo (coin-1 ya no seguía esa
+# proporción exacta, ver el comentario junto a él).
 PRINT_PLAYERS = 7
 DEFAULT_ANIMAL_COPIES = PRINT_PLAYERS + 2  # especies de coste < 5
 HIGH_COST_ANIMAL_COPIES = PRINT_PLAYERS  # especies de coste 5 o más

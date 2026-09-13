@@ -40,7 +40,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: 'Baloo 2', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
 .app {
@@ -223,6 +223,11 @@ body {
 .card-row--market {
   display: grid;
   grid-template-columns: repeat(auto-fill, var(--card-w));
+  /* Sin esto, el hueco que sobra cuando el ancho disponible no es múltiplo
+     exacto de (--card-w + gap) se acumulaba entero a la derecha (grid lo
+     empaqueta a la izquierda por defecto): centra las columnas para que
+     ese sobrante se reparta igual a los dos lados. */
+  justify-content: center;
   --card-h: 165px;
 }
 
@@ -986,6 +991,22 @@ body {
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 700;
+}
+
+/* A quién le toca jugar ahora mismo: relleno sólido (en vez del simple
+   borde/color de .scoreboard__me) para que destaque incluso cuando
+   coincide con "tú" — las dos clases pueden ir a la vez en la misma ficha
+   y el resultado sigue siendo legible. */
+.scoreboard__active-turn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.scoreboard__active-turn .scoreboard__pv small {
+  color: inherit;
+  opacity: 0.75;
 }
 
 .market-empty {

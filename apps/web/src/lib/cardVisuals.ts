@@ -44,6 +44,10 @@ const SPECIES_ICONS: Record<string, string> = {
   toucan: '🦤',
   // No hay emoji de ornitorrinco en Unicode: usa el 🐾 genérico (fallback
   // de cardIcon) en vez de uno inexacto.
+  // Tampoco hay un emoji de halcón distinto del águila (🦅, ya usado por
+  // eagle): 🪶 (pluma) como aproximación distinguible, mismo criterio que
+  // vulture/toucan arriba.
+  hawk: '🪶',
 };
 
 export function cardIcon(card: CardInstance): string {

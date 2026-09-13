@@ -3,8 +3,8 @@
   "name": "Jirafa",
   "type": "animal",
   "species": "giraffe",
-  "marketCost": 6,
-  "victoryPoints": 5,
+  "marketCost": 5,
+  "victoryPoints": 3,
   "text": "Recupera un animal de tu descarte a tu mano.",
   "effects": [
     {

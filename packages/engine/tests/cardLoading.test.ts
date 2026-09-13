@@ -8,10 +8,11 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   penguin: { cost: 4, pv: 3 },
   peacock: { cost: 2, pv: 1 },
   dolphin: { cost: 3, pv: 3 },
-  giraffe: { cost: 6, pv: 5 },
+  giraffe: { cost: 5, pv: 3 },
   hippopotamus: { cost: 5, pv: 4 },
   tiger: { cost: 4, pv: 4 },
-  lion: { cost: 5, pv: 5 },
+  lion: { cost: 6, pv: 4 },
+  hawk: { cost: 6, pv: 4 },
   monkey: { cost: 4, pv: 3 },
   spider: { cost: 3, pv: 3 },
   crocodile: { cost: 5, pv: 7 },
@@ -39,8 +40,8 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
 describe('card registry', () => {
   it('carga y valida todos los ficheros de datos de cartas', () => {
     const cards = getAllCards();
-    // 32 especies de mercado + 1 Perezoso (solo de mazo inicial) + 4 monedas = 37.
-    expect(cards.length).toBe(37);
+    // 33 especies de mercado + 1 Perezoso (solo de mazo inicial) + 4 monedas = 38.
+    expect(cards.length).toBe(38);
   });
 
   it('el Perezoso es terrestre, no cuesta ni da nada, y no está en el mercado de animales', () => {
@@ -70,9 +71,9 @@ describe('card registry', () => {
     expect(getCard('coin-5').marketCost).toBe(7);
   });
 
-  it('expone las 32 especies de animal (1 carta cada una, sin sexo) con su coste/PV según tabla', () => {
+  it('expone las 33 especies de animal (1 carta cada una, sin sexo) con su coste/PV según tabla', () => {
     const species = Object.keys(SPECIES_TIERS);
-    expect(species).toHaveLength(32);
+    expect(species).toHaveLength(33);
     for (const id of species) {
       const card = getCard(id);
       expect(card.type).toBe('animal');
@@ -99,8 +100,12 @@ describe('card registry', () => {
     expect(getCard('peacock').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 1 } });
     expect(getCard('hippopotamus').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 2 } });
     expect(getCard('lion').effects[0]).toMatchObject({
-      type: 'gainFlatBonusPurchasingPower',
-      params: { amount: 3 },
+      type: 'returnAnimalFromEachOpponent',
+      params: { habitat: 'land', maxCost: 3 },
+    });
+    expect(getCard('hawk').effects[0]).toMatchObject({
+      type: 'returnAnimalFromEachOpponent',
+      params: { habitat: 'bird', maxCost: 3 },
     });
     expect(getCard('tiger').effects[0]).toMatchObject({ type: 'drawThenTopdeck' });
     expect(getCard('dolphin').effects[0]).toMatchObject({

@@ -45,7 +45,7 @@ CARD_TEXT_EN = {
     ),
     "giraffe": (
         "Giraffes",
-        "Choose a player: they put a Sloth from the reserve on top of their deck. Also, add 1 to your purchasing power.",
+        "Retrieve an animal from your discard pile to your hand.",
     ),
     "goldfish": (
         "Goldfish",
@@ -56,7 +56,14 @@ CARD_TEXT_EN = {
         "Hyenas",
         "Each opponent reveals their hand and discards their highest-cost animal; ties let them choose.",
     ),
-    "lion": ("Lions", "Add 3 to your purchasing power."),
+    "lion": (
+        "Lions",
+        "Each opponent chooses and returns to the market a LAND-ONLY animal from their hand costing 3 or less; if they have none, they reveal their hand. If 2 or more animals are returned this way in total, gain 2 purchasing power.",
+    ),
+    "hawk": (
+        "Hawks",
+        "Each opponent chooses and returns to the market a FLYING-ONLY animal from their hand costing 3 or less; if they have none, they reveal their hand. If 2 or more animals are returned this way in total, gain 2 purchasing power.",
+    ),
     "monkey": (
         "Monkeys",
         "Add 1 to your purchasing power for each land animal in your hand.",
@@ -97,7 +104,7 @@ CARD_TEXT_EN = {
     ),
     "shark": (
         "Sharks",
-        "Each opponent chooses and returns to the market an AQUATIC animal from their hand costing 3 or less; if they have none, they reveal their hand.",
+        "Each opponent chooses and returns to the market an AQUATIC-ONLY animal from their hand costing 3 or less; if they have none, they reveal their hand. If 2 or more animals are returned this way in total, gain 2 purchasing power.",
     ),
     "sloth": ("Sloths", "Does nothing. Just sleeps."),
     "snake": (

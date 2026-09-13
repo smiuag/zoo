@@ -165,7 +165,7 @@ describe('reposición del mercado', () => {
 
     buyAnimal(state, player.id, target.instanceId);
 
-    expect(state.animalTrack).toHaveLength(32);
+    expect(state.animalTrack).toHaveLength(33);
     expect(state.animalTrack.some((c) => c.species === species)).toBe(true);
   });
 });
@@ -328,16 +328,19 @@ describe('estadísticas para el resumen final: purchasesCount y richestTurn', ()
 
   it('richestTurn captura el pico DESPUÉS de jugar una carta que da valor de compra extra, no solo la mano inicial', () => {
     const { state, player } = setupClean();
-    player.hand = [freshInstance('coin-1', 'a'), freshInstance('coin-1', 'b'), freshInstance('lion', 'test')];
+    // El León ahora es de habilidad "capturar" (como el Tiburón), ya no da
+    // dinero fijo al jugarse: se usa el Águila (gainFlatBonusPurchasingPower
+    // 2, sin ningún otro efecto onPlay) para este test.
+    player.hand = [freshInstance('coin-1', 'a'), freshInstance('coin-1', 'b'), freshInstance('eagle', 'test')];
     player.richestTurn = { round: state.round, amount: 0 };
 
     // Mano inicial: solo 2 monedas de 1 = 2 de valor de compra.
     expect(currentAmount(player)).toBe(2);
 
-    playCard(state, player.id, player.hand.find((c) => c.id === 'lion')!.instanceId); // +3 de valor de compra fijo (León)
+    playCard(state, player.id, player.hand.find((c) => c.id === 'eagle')!.instanceId); // +2 de valor de compra fijo (Águila)
 
-    // Tras jugar el León: 2 monedas + 3 de bonus = 5, no solo las 2 monedas iniciales.
-    expect(player.richestTurn).toEqual({ round: state.round, amount: 5 });
+    // Tras jugar el Águila: 2 monedas + 2 de bonus = 4, no solo las 2 monedas iniciales.
+    expect(player.richestTurn).toEqual({ round: state.round, amount: 4 });
   });
 });
 
