@@ -11,8 +11,8 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   giraffe: { cost: 5, pv: 3 },
   hippopotamus: { cost: 5, pv: 4 },
   tiger: { cost: 4, pv: 4 },
-  lion: { cost: 6, pv: 4 },
-  hawk: { cost: 6, pv: 4 },
+  lion: { cost: 6, pv: 5 },
+  hawk: { cost: 6, pv: 5 },
   monkey: { cost: 4, pv: 3 },
   spider: { cost: 3, pv: 3 },
   crocodile: { cost: 5, pv: 7 },
@@ -32,7 +32,7 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   platypus: { cost: 3, pv: 2 },
   rabbit: { cost: 2, pv: 2 },
   eagle: { cost: 7, pv: 2 },
-  shark: { cost: 6, pv: 4 },
+  shark: { cost: 6, pv: 5 },
   toucan: { cost: 5, pv: 0 },
   squirrel: { cost: 3, pv: 1 },
 };
@@ -103,10 +103,12 @@ describe('card registry', () => {
       type: 'returnAnimalFromEachOpponent',
       params: { habitat: 'land', maxCost: 3 },
     });
+    expect(getCard('lion').effects[1]).toMatchObject({ trigger: 'onScore', type: 'scorePerDestroyedCard' });
     expect(getCard('hawk').effects[0]).toMatchObject({
       type: 'returnAnimalFromEachOpponent',
       params: { habitat: 'bird', maxCost: 3 },
     });
+    expect(getCard('hawk').effects[1]).toMatchObject({ trigger: 'onScore', type: 'scorePerDestroyedCard' });
     expect(getCard('tiger').effects[0]).toMatchObject({ type: 'drawThenTopdeck' });
     expect(getCard('dolphin').effects[0]).toMatchObject({
       type: 'gainBonusPurchasingPowerPerHabitatInHand',
@@ -127,6 +129,7 @@ describe('card registry', () => {
       type: 'returnAnimalFromEachOpponent',
       params: { habitat: 'aquatic', maxCost: 3 },
     });
+    expect(getCard('shark').effects[1]).toMatchObject({ trigger: 'onScore', type: 'scorePerDestroyedCard' });
     expect(getCard('crocodile').effects[0]).toMatchObject({
       trigger: 'onPlay',
       type: 'drawCards',

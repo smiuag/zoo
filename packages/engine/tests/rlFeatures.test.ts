@@ -1,9 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { createGame, getActivePlayer, getLegalActions } from '../src/engine';
-import { encodeAction, FEATURE_DIM } from '../src/bots/rl/features';
+import { CRITIC_FEATURE_DIM, encodeAction, encodePlayerContext, FEATURE_DIM } from '../src/bots/rl/features';
 import { buildStarterDeck } from './helpers';
 
 describe('rl/features', () => {
+  it('encodePlayerContext (estado del crítico) siempre mide CRITIC_FEATURE_DIM, sin NaN/Infinity', () => {
+    const state = createGame([
+      { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
+      { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
+    ]);
+    const player = getActivePlayer(state);
+
+    const features = encodePlayerContext(state, player);
+    expect(features).toHaveLength(CRITIC_FEATURE_DIM);
+    for (const f of features) expect(Number.isFinite(f)).toBe(true);
+  });
+
   it('encodeAction siempre devuelve un vector de longitud FEATURE_DIM sin NaN/Infinity', () => {
     const state = createGame([
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },

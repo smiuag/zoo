@@ -595,10 +595,12 @@ body {
   filter: grayscale(0.4);
 }
 
-/* Eliminada por el Cocodrilo (ver player.destroyedCards): sigue leyéndose
-   con claridad (a diferencia de card--disabled) porque el resumen final es
+/* Eliminada de la partida para siempre (ver player.destroyedCards: por el
+   Cocodrilo, o capturada por Tiburón/Halcón/León): sigue leyéndose con
+   claridad (a diferencia de card--disabled) porque el resumen final es
    precisamente para poder verla, pero la X roja encima deja clarísimo que
-   ya no cuenta para nada. */
+   ya no forma parte de la colección (aunque sí puede seguir dando PV a
+   través de León/Tiburón/Halcón, ver scorePerDestroyedCard). */
 .card--destroyed {
   filter: grayscale(0.5);
 }

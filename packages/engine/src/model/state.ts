@@ -54,34 +54,38 @@ export interface Player {
 }
 
 // Entrega forzosa de cartas en curso (Buitre/Mono/Hiena/Murciélago: al
-// descarte; Tiburón: de vuelta al mercado): quién debe cuántas cartas
-// todavía, y de cuáles puede elegir. Mientras esto no sea null, NADIE (ni
-// siquiera el jugador activo) tiene ninguna acción legal salvo
-// "resolveDiscard" para los jugadores que todavía deben algo — ver
-// getLegalActions en engine.ts. Se crea en el mismo playCard que dispara el
-// efecto (cada una de esas cartas tiene un único efecto onPlay, así que no
-// hay que encadenar con nada más de esa misma carta) y se limpia solo en
-// resolveDiscard, cuando `owed` se queda sin entradas.
+// descarte; Tiburón/Halcón/León: eliminadas para siempre, a la pila de
+// eliminados de quien capturó): quién debe cuántas cartas todavía, y de
+// cuáles puede elegir. Mientras esto no sea null, NADIE (ni siquiera el
+// jugador activo) tiene ninguna acción legal salvo "resolveDiscard" para
+// los jugadores que todavía deben algo — ver getLegalActions en engine.ts.
+// Se crea en el mismo playCard que dispara el efecto (cada una de esas
+// cartas tiene un único efecto onPlay, así que no hay que encadenar con
+// nada más de esa misma carta) y se limpia solo en resolveDiscard, cuando
+// `owed` se queda sin entradas.
 export interface PendingDiscardDecision {
   // 'discard': la carta elegida va al propio descarte de quien la entrega
-  // (Buitre/Mono/Hiena/Murciélago). 'returnToMarket': vuelve al mercado
-  // compartido de su especie, como una captura deshecha (Tiburón/Halcón/
-  // León). 'giveToPlayer': pasa a la mano de sourcePlayerId (Pato: el
-  // rival elegido elige LIBREMENTE cuál de sus monedas entrega, en vez de
-  // dársela el motor automáticamente) — ver resolveDiscard en engine.ts.
-  kind: 'discard' | 'returnToMarket' | 'giveToPlayer';
+  // (Buitre/Mono/Hiena/Murciélago). 'destroy': se elimina de la partida
+  // para siempre, a player.destroyedCards DE QUIEN CAPTURÓ (sourcePlayerId,
+  // no de quien la entrega) — Tiburón/Halcón/León; nunca vuelve al mercado,
+  // nadie puede volver a comprarla. 'giveToPlayer': pasa a la mano de
+  // sourcePlayerId (Pato: el rival elegido elige LIBREMENTE cuál de sus
+  // monedas entrega, en vez de dársela el motor automáticamente) — ver
+  // resolveDiscard en engine.ts.
+  kind: 'discard' | 'destroy' | 'giveToPlayer';
   sourceCardName: string;
   // Quién jugó la carta que disparó esto: a quien beneficia bonusDrawPerCoin
-  // y bonusPurchasingPowerPerAnimal.
+  // y bonusPurchasingPowerPerAnimal (y, para 'destroy', quien recibe la
+  // carta eliminada en su propia player.destroyedCards).
   sourcePlayerId: string;
   bonusDrawPerCoin: boolean;
   coinsDiscardedSoFar: number;
-  // Tiburón/Halcón/León: por cada animal que se acabe devolviendo al
-  // mercado en total (cuenta real de devoluciones resueltas, no de lo que
-  // se debía al principio — un rival sin ninguno elegible nunca llega a
-  // deber nada), quien jugó la carta gana esto de valor de compra este
-  // turno — 1 animal devuelto = +1, 3 devueltos = +3, etc. null/0 = sin
-  // este bonus (el resto de cartas que usan PendingDiscardDecision).
+  // Tiburón/Halcón/León: por cada animal que se acabe eliminando en total
+  // (cuenta real de eliminaciones resueltas, no de lo que se debía al
+  // principio — un rival sin ninguno elegible nunca llega a deber nada),
+  // quien jugó la carta gana esto de valor de compra este turno — 1 animal
+  // eliminado = +1, 3 eliminados = +3, etc. null/0 = sin este bonus (el
+  // resto de cartas que usan PendingDiscardDecision).
   bonusPurchasingPowerPerAnimal: number | null;
   returnedSoFar: number;
   // Por jugador afectado: cuántas cartas le quedan por entregar y de qué

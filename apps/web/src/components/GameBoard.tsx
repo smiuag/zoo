@@ -93,12 +93,13 @@ export function GameBoard({
   // deja sin ninguna acción normal al jugador activo).
   const canAct = legalActions.length > 0;
   const owedDiscard = state.pendingDecision?.owed[viewerPlayerId];
-  // Tiburón/Halcón/León: la carta elegida vuelve al mercado; Pato: pasa a
-  // la mano de quien jugó la carta — en los 3 casos solo cambia el texto
-  // mostrado, la mecánica de elegir es idéntica al descarte forzoso normal.
-  const isReturnToMarket = state.pendingDecision?.kind === 'returnToMarket';
+  // Tiburón/Halcón/León: la carta elegida se elimina de la partida para
+  // siempre; Pato: pasa a la mano de quien jugó la carta — en los 3 casos
+  // solo cambia el texto mostrado, la mecánica de elegir es idéntica al
+  // descarte forzoso normal.
+  const isDestroy = state.pendingDecision?.kind === 'destroy';
   const isGiveToPlayer = state.pendingDecision?.kind === 'giveToPlayer';
-  const discardVerb = isReturnToMarket ? 'Devuelve' : isGiveToPlayer ? 'Entrega' : 'Descarta';
+  const discardVerb = isDestroy ? 'Elimina' : isGiveToPlayer ? 'Entrega' : 'Descarta';
   // Cartas de tu propia mano que puedes elegir ahora mismo para el
   // descarte pendiente (se muestran en el popup de abajo): se derivan de
   // legalActions, nunca de owedDiscard.eligibleInstanceIds directamente,
@@ -361,14 +362,15 @@ export function GameBoard({
               const best = Math.max(...scores.map((s) => s.score));
               const winners = state.players.filter((p) => scoreFor(p.id) === best);
               return winners.length > 1
-                ? `Empate entre ${winners.map((w) => w.name).join(' y ')} con ${best} PV.`
-                : `${winners[0]?.name} gana con ${best} PV.`;
+                ? `Empate entre ${winners.map((w) => scoreboardName(w)).join(' y ')} con ${best} PV.`
+                : `${scoreboardName(winners[0])} gana con ${best} PV.`;
             })()}
           </p>
           <div className="summary-table-wrap">
             <table className="summary-table">
               <thead>
                 <tr>
+                  <th></th>
                   <th>Jugador</th>
                   <th>PV</th>
                   <th>Valor baraja</th>
@@ -381,32 +383,42 @@ export function GameBoard({
                 </tr>
               </thead>
               <tbody>
-                {state.players.map((p) => {
-                  const habitats = habitatCounts(p);
-                  return (
-                    <tr key={p.id}>
-                      <td>
-                        <strong>{p.name}</strong>
-                      </td>
-                      <td>{scoreFor(p.id)}</td>
-                      <td>{deckValue(p)}</td>
-                      <td>{p.purchasesCount}</td>
-                      <td>{habitats.land}</td>
-                      <td>{habitats.bird}</td>
-                      <td>{habitats.aquatic}</td>
-                      <td>
-                        {p.richestTurn
-                          ? `Ronda ${p.richestTurn.round} · ${p.richestTurn.amount} moneda${p.richestTurn.amount === 1 ? '' : 's'}`
-                          : '—'}
-                      </td>
-                      <td>
-                        <button className="btn btn--ghost" onClick={() => setViewedPlayerId(p.id)}>
-                          Ver mazo →
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {[...state.players]
+                  .sort((a, b) => scoreFor(b.id) - scoreFor(a.id))
+                  .map((p, index, ranked) => {
+                    const habitats = habitatCounts(p);
+                    // Solo cosmético, sin ninguna lógica de negocio detrás:
+                    // el último de la tabla se lleva la broma EN VEZ de una
+                    // medalla (así en partidas de 2-3 jugadores el "último"
+                    // no se queda sin nada ni compite con un 2º/3º puesto
+                    // que sí medalla de verdad).
+                    const isLast = index === ranked.length - 1 && ranked.length > 1;
+                    const badge = isLast ? '💩' : index === 0 ? '🏆' : index === 1 ? '🥈' : index === 2 ? '🥉' : '';
+                    return (
+                      <tr key={p.id}>
+                        <td aria-hidden="true">{badge}</td>
+                        <td>
+                          <strong>{scoreboardName(p)}</strong>
+                        </td>
+                        <td>{scoreFor(p.id)}</td>
+                        <td>{deckValue(p)}</td>
+                        <td>{p.purchasesCount}</td>
+                        <td>{habitats.land}</td>
+                        <td>{habitats.bird}</td>
+                        <td>{habitats.aquatic}</td>
+                        <td>
+                          {p.richestTurn
+                            ? `Ronda ${p.richestTurn.round} · ${p.richestTurn.amount} moneda${p.richestTurn.amount === 1 ? '' : 's'}`
+                            : '—'}
+                        </td>
+                        <td>
+                          <button className="btn btn--ghost" onClick={() => setViewedPlayerId(p.id)}>
+                            Ver mazo →
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
@@ -648,7 +660,7 @@ export function GameBoard({
             </div>
             <p className="modal__message">
               {discardSourcePlayerName} ha jugado <strong>{state.pendingDecision?.sourceCardName}</strong>: tienes
-              que {isReturnToMarket ? 'devolver al mercado' : isGiveToPlayer ? `darle a ${discardSourcePlayerName}` : 'descartar'}{' '}
+              que {isDestroy ? 'eliminar de la partida' : isGiveToPlayer ? `darle a ${discardSourcePlayerName}` : 'descartar'}{' '}
               {owedDiscard.amount === 1 ? 'una carta' : `${owedDiscard.amount} cartas`} de tu mano.
               Elige cuál{owedDiscard.amount === 1 ? '' : 'es'}.
               {hasSlothSubstitute && (
@@ -703,7 +715,7 @@ export function GameBoard({
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="panel__header">
               <h2>
-                Mazo de {viewedPlayer.name} · {groupedCollection(viewedPlayer).reduce((n, e) => n + e.count, 0)}{' '}
+                Mazo de {scoreboardName(viewedPlayer)} · {groupedCollection(viewedPlayer).reduce((n, e) => n + e.count, 0)}{' '}
                 cartas · {scoreFor(viewedPlayer.id)} PV
               </h2>
               <button className="btn btn--ghost" onClick={() => setViewedPlayerId(null)}>
@@ -731,7 +743,8 @@ export function GameBoard({
             {viewedPlayer.destroyedCards.length > 0 && (
               <div className="collection-destroyed">
                 <p className="collection-destroyed__title">
-                  🐊 Eliminadas por el Cocodrilo ({viewedPlayer.destroyedCards.length}, ya no puntúan)
+                  🗑️ Eliminadas ({viewedPlayer.destroyedCards.length}, fuera de la colección — pero cuentan para el
+                  bonus de fin de partida de León/Tiburón/Halcón si tiene alguno)
                 </p>
                 <div className="card-row">
                   {groupedDestroyed(viewedPlayer).map(({ card, count }) => (

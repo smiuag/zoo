@@ -58,11 +58,11 @@ CARD_TEXT_EN = {
     ),
     "lion": (
         "Lions",
-        "Each opponent chooses and returns to the market a LAND-ONLY animal from their hand costing 3 or less; if they have none, they reveal their hand. Gain 1 purchasing power for each animal returned this way.",
+        "Each opponent chooses and eliminates a LAND-ONLY animal from their hand costing 3 or less (it goes to your own eliminated pile, out of the game); if they have none, they reveal their hand. Gain 1 purchasing power for each animal eliminated this way. At the end of the game, +1 VP for each animal in your eliminated pile (of any kind).",
     ),
     "hawk": (
         "Hawks",
-        "Each opponent chooses and returns to the market a FLYING-ONLY animal from their hand costing 3 or less; if they have none, they reveal their hand. Gain 1 purchasing power for each animal returned this way.",
+        "Each opponent chooses and eliminates a FLYING-ONLY animal from their hand costing 3 or less (it goes to your own eliminated pile, out of the game); if they have none, they reveal their hand. Gain 1 purchasing power for each animal eliminated this way. At the end of the game, +1 VP for each animal in your eliminated pile (of any kind).",
     ),
     "monkey": (
         "Monkeys",
@@ -104,7 +104,7 @@ CARD_TEXT_EN = {
     ),
     "shark": (
         "Sharks",
-        "Each opponent chooses and returns to the market an AQUATIC-ONLY animal from their hand costing 3 or less; if they have none, they reveal their hand. Gain 1 purchasing power for each animal returned this way.",
+        "Each opponent chooses and eliminates an AQUATIC-ONLY animal from their hand costing 3 or less (it goes to your own eliminated pile, out of the game); if they have none, they reveal their hand. Gain 1 purchasing power for each animal eliminated this way. At the end of the game, +1 VP for each animal in your eliminated pile (of any kind).",
     ),
     "sloth": ("Sloths", "Does nothing. Just sleeps."),
     "snake": (

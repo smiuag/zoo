@@ -103,8 +103,10 @@ function effectBonus(card: CardInstance): number {
       case 'scorePerHabitatCount':
       case 'scorePerDistinctSpecies':
       case 'scorePerCostAtLeast':
+      case 'scorePerDestroyedCard':
         // El valor real depende de cuántos animales de ese hábitat/especies
-        // distintas/coste mínimo lleguen a poseerse: aproximación fija.
+        // distintas/coste mínimo/eliminados lleguen a poseerse: aproximación
+        // fija.
         bonus += 2;
         break;
       case 'returnFromDiscardEachTurn':
@@ -115,13 +117,16 @@ function effectBonus(card: CardInstance): number {
         bonus += 1.5;
         break;
       case 'returnAnimalFromEachOpponent': {
-        // Tiburón/Halcón/León: tempo (deniega una compra rival y la devuelve
-        // al mercado compartido, donde cualquiera puede recomprarla) más la
-        // media esperada del bonus de valor de compra por animal capturado
-        // (aproximación: no todos los rivales tendrán algo elegible, así que
-        // se cuenta como si capturara 1 de media, no el máximo posible).
+        // Tiburón/Halcón/León: tempo (deniega una compra rival PARA SIEMPRE
+        // — la carta capturada no vuelve al mercado, nadie puede recomprarla,
+        // así que vale más que un simple descarte) más la media esperada del
+        // bonus de valor de compra por animal capturado (aproximación: no
+        // todos los rivales tendrán algo elegible, así que se cuenta como si
+        // capturara 1 de media, no el máximo posible). El PV que da
+        // scorePerDestroyedCard por cada captura ya se cuenta aparte (esa
+        // misma carta también tiene ese efecto, ver el case de arriba).
         const bonusPerAnimal = typeof effect.params?.bonusPerAnimal === 'number' ? effect.params.bonusPerAnimal : 0;
-        bonus += 2 + bonusPerAnimal;
+        bonus += 3 + bonusPerAnimal;
         break;
       }
       default:

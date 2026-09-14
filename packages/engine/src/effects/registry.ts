@@ -121,7 +121,9 @@ export function pickDefaultDiscard(
 // mientras esté activa, ver getLegalActions/resolveDiscard en engine.ts,
 // nadie tiene ninguna otra acción legal salvo los jugadores que aparecen en
 // `owed`. `kind` decide qué pasa con la carta al resolverse: 'discard'
-// (por defecto, Buitre/Mono/Hiena/Murciélago) o 'returnToMarket' (Tiburón).
+// (por defecto, Buitre/Mono/Hiena/Murciélago) o 'destroy' (Tiburón/Halcón/
+// León: eliminada de la partida para siempre, a la pila de eliminados de
+// quien capturó).
 function beginPendingDiscard(
   state: GameState,
   activePlayer: Player,
@@ -388,20 +390,23 @@ registerEffect('discardAnimalFromEachOpponent', (state, player, _effect, context
   beginPendingDiscard(state, player, owed, { sourceCardName: context.sourceCardName ?? 'efecto' });
 });
 
-// Tiburón/Halcón/León: cada rival elige y devuelve al mercado (no al
-// descarte) un animal de su mano que sea ÚNICAMENTE de params.habitat
-// (["aquatic"]/["bird"]/["land"]: TODOS sus hábitats deben estar en esa
-// lista, no basta con que tenga alguno — un Flamenco, volador Y acuático,
-// no es "solo acuático" así que el Tiburón no puede capturarlo, pero un
-// Delfín, solo acuático, sí) y coste como mucho params.maxCost (3). Si un
-// rival no tiene ninguno elegible, no pierde nada (en la práctica,
-// "muestra su mano"). La carta vuelve a estar disponible en el mercado de
-// inmediato (ver returnToMarket en resolveDiscard, engine.ts) — como una
-// compra deshecha, no como un descarte. params.bonusPerAnimal (opcional):
-// por cada animal que se acabe devolviendo así (entre TODOS los rivales),
-// quien jugó la carta gana esto de valor de compra este turno (ver
-// bonusPurchasingPowerPerAnimal, resuelto en resolveDiscard cuando la
-// entrega se cierra del todo).
+// Tiburón/Halcón/León: cada rival elige y ENTREGA (no al descarte, ni de
+// vuelta al mercado) un animal de su mano que sea ÚNICAMENTE de
+// params.habitat (["aquatic"]/["bird"]/["land"]: TODOS sus hábitats deben
+// estar en esa lista, no basta con que tenga alguno — un Flamenco, volador
+// Y acuático, no es "solo acuático" así que el Tiburón no puede capturarlo,
+// pero un Delfín, solo acuático, sí) y coste como mucho params.maxCost (3).
+// Si un rival no tiene ninguno elegible, no pierde nada (en la práctica,
+// "muestra su mano"). La carta capturada se ELIMINA DE LA PARTIDA PARA
+// SIEMPRE, a la player.destroyedCards de quien la capturó (ver 'destroy' en
+// resolveDiscard, engine.ts) — nunca vuelve al mercado, nadie puede
+// recomprarla. params.bonusPerAnimal (opcional): por cada animal que se
+// acabe capturando así (entre TODOS los rivales), quien jugó la carta gana
+// esto de valor de compra este turno (ver bonusPurchasingPowerPerAnimal,
+// resuelto en resolveDiscard cuando la entrega se cierra del todo) — y
+// además, al final de la partida, cada animal en su player.destroyedCards
+// (los capturados así, más cualquier otro que llegue ahí por otra vía,
+// p. ej. el Cocodrilo) le da PV, ver scorePerDestroyedCard más abajo.
 registerEffect('returnAnimalFromEachOpponent', (state, player, effect, context) => {
   const maxCost = typeof effect.params?.maxCost === 'number' ? effect.params.maxCost : Infinity;
   const habitats = matchHabitatList(effect.params?.habitat);
@@ -419,7 +424,7 @@ registerEffect('returnAnimalFromEachOpponent', (state, player, effect, context) 
   }
   beginPendingDiscard(state, player, owed, {
     sourceCardName: context.sourceCardName ?? 'efecto',
-    kind: 'returnToMarket',
+    kind: 'destroy',
     bonusPurchasingPowerPerAnimal: bonusPerAnimal,
   });
 });
@@ -622,6 +627,19 @@ registerScoreEffect('scorePerCostAtLeast', (_player, effect, allCards) => {
 registerScoreEffect('scorePerDistinctSpecies', (_player, _effect, allCards) => {
   const species = new Set(allCards.filter((c) => c.type === 'animal').map((c) => c.species));
   return species.size;
+});
+
+// Tiburón/Halcón/León: al final de la partida, +1PV (× `multiplier`, por
+// defecto 1) por cada animal en player.destroyedCards, DE CUALQUIER TIPO —
+// no solo los capturados por estos 3 (también cuenta, p. ej., el que se
+// haya sacrificado el propio Cocodrilo). No lee `allCards` (deck+mano+
+// descarte): destroyedCards es una zona aparte a propósito, así que hay que
+// mirarla directamente en el jugador. Si el jugador tiene varias copias de
+// Tiburón/Halcón/León, cada una recalcula y suma el mismo total otra vez —
+// igual que el bonus de hábitat de la Orca o el de coste del Tucán.
+registerScoreEffect('scorePerDestroyedCard', (player, effect) => {
+  const multiplier = typeof effect.params?.multiplier === 'number' ? effect.params.multiplier : 1;
+  return player.destroyedCards.length * multiplier;
 });
 
 // Efectos onScore que ELIMINAN cartas de la colección (solo el Cocodrilo,

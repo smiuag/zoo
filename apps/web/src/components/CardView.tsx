@@ -27,9 +27,10 @@ interface CardViewProps {
   // el descarte de la mesa (ver GameBoard.tsx) lo quiere sin nada delante —
   // ahí el número es un recuento total, no un "quedan ×N".
   badgePrefix?: string;
-  // Eliminada por el Cocodrilo al final de la partida (ver
-  // player.destroyedCards): se marca con una X roja encima, para el resumen
-  // final. Nunca es clicable (no tiene sentido interactuar con ella).
+  // Eliminada de la partida para siempre (ver player.destroyedCards: por el
+  // Cocodrilo al final de la partida, o capturada en vida por Tiburón/
+  // Halcón/León): se marca con una X roja encima, para el resumen final.
+  // Nunca es clicable (no tiene sentido interactuar con ella).
   destroyed?: boolean;
   // Cuánto valdría YA MISMO comprar esta carta del mercado (simulación:
   // se añade a una copia de tu colección actual, ver

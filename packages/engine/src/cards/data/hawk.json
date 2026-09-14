@@ -4,8 +4,8 @@
   "type": "animal",
   "species": "hawk",
   "marketCost": 6,
-  "victoryPoints": 4,
-  "text": "Cada oponente devuelve de su mano al mercado un animal ÚNICAMENTE VOLADOR de coste 3 o menos que elija; si no tiene ninguno, muestra su mano. Ganas 1 de valor de compra por cada animal devuelto así.",
+  "victoryPoints": 5,
+  "text": "Cada oponente elimina de su mano un animal ÚNICAMENTE VOLADOR de coste 3 o menos que elija (pasa a tu pila de eliminados, fuera de la partida); si no tiene ninguno, muestra su mano. Ganas 1 de valor de compra por cada animal eliminado así. Al final de la partida, +1PV por cada animal en tu pila de eliminados (de cualquier tipo).",
   "effects": [
     {
       "trigger": "onPlay",
@@ -14,6 +14,13 @@
         "habitat": "bird",
         "maxCost": 3,
         "bonusPerAnimal": 1
+      }
+    },
+    {
+      "trigger": "onScore",
+      "type": "scorePerDestroyedCard",
+      "params": {
+        "multiplier": 1
       }
     }
   ],

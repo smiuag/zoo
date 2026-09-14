@@ -7,7 +7,23 @@ import type { CardInstance, GameState, Player } from '../../model/state';
 // dependa del estado concreto de una partida. Si se añade un grupo de
 // features nuevo hay que volver a entrenar (los pesos guardados asumen esta
 // disposición exacta de columnas).
-export const FEATURE_DIM = 81;
+// 2026-09-14: subido de 81 a 84 al añadir costTierCounts (3 columnas) a
+// encodePlayerContext, y de 84 a 85 al añadir 'scorePerDestroyedCard' a
+// EFFECT_TYPES (Tiburón/Halcón/León) — invalida cualquier weights*.json
+// guardado con la disposición anterior (loadOrInitWeights/
+// loadWeightsFromJson lo detectan por featureDim y reinician desde pesos
+// aleatorios en vez de romper).
+export const FEATURE_DIM = 85;
+
+// Longitud de encodePlayerContext (más abajo) SOLA, sin nada de acción:
+// la usa el "crítico" del entrenamiento (ver scripts/rl/selfPlay.ts) para
+// estimar el retorno esperado desde un estado, no desde una acción
+// concreta — dos redes separadas, dos dimensiones separadas (esta es
+// mucho más pequeña que FEATURE_DIM porque no lleva ningún bloque de
+// carta). Verificado por un test que compara con la longitud real
+// devuelta por encodePlayerContext (ver rlFeatures.test.ts) — si cambia
+// esa función hay que actualizar esto también.
+export const CRITIC_FEATURE_DIM = 30;
 
 const HABITATS = ['land', 'bird', 'aquatic'] as const;
 const ACTION_TYPES = ['playCard', 'buyAnimal', 'buyCoin', 'endTurn'] as const;
@@ -55,6 +71,7 @@ const EFFECT_TYPES = [
   'returnAnimalFromEachOpponent',
   'returnFromDiscardEachTurn',
   'scorePerCostAtLeast',
+  'scorePerDestroyedCard',
 ] as const;
 
 const MAX_OPPONENTS = 3;
@@ -74,10 +91,29 @@ function distinctSpeciesCount(cards: CardInstance[]): number {
   return new Set(cards.filter((c) => c.type === 'animal').map((c) => c.species)).size;
 }
 
+// Recuento de animales propios por franja de coste (misma frontera que ya
+// usa scripts/rl/cardPreference.ts para informar: barato <=2, medio 3-4,
+// caro 5+). Añadido el 2026-09-14 al confirmar que cartas con un efecto
+// onScore que depende de ESTE recuento (p. ej. Tucán: +1 PV por cada
+// animal de coste 5+ en todo el mazo, ver scorePerCostAtLeast en
+// effects/registry.ts) no tenían NINGÚN input del que depender su valor
+// real — encodeCardBlock ya le decía a la red "esta carta tiene un efecto
+// scorePerCostAtLeast" (one-hot de tipo), pero no "cuántos animales de
+// coste 5+ tengo YA", que es lo que de verdad determina cuánto vale. Sin
+// esto, ningún volumen de entrenamiento podía enseñarle la correlación
+// porque la variable de la que depende era invisible para la red.
+function costTierCounts(cards: CardInstance[]): number[] {
+  const animals = cards.filter((c) => c.type === 'animal');
+  const cheap = animals.filter((c) => c.marketCost <= 2).length;
+  const mid = animals.filter((c) => c.marketCost >= 3 && c.marketCost <= 4).length;
+  const expensive = animals.filter((c) => c.marketCost >= 5).length;
+  return [cheap, mid, expensive];
+}
+
 // Contexto propio del jugador que decide, más lo único que se puede saber
 // legítimamente de cada rival: el tamaño de su mano (nunca su contenido) y
 // su descarte entero (boca arriba, es información pública).
-function encodePlayerContext(state: GameState, player: Player): number[] {
+export function encodePlayerContext(state: GameState, player: Player): number[] {
   const own = fullCollection(player);
   const coinSum = player.hand.filter((c) => c.type === 'coin').reduce((sum, c) => sum + (c.value ?? 0), 0);
   // "sloth" es la reserva de la Jirafa (ver createGame en engine.ts), no
@@ -117,6 +153,7 @@ function encodePlayerContext(state: GameState, player: Player): number[] {
     rawVictoryPoints / 40,
     ...habitatCounts(own).map((n) => n / 15),
     distinctSpeciesCount(own) / 27,
+    ...costTierCounts(own).map((n) => n / 15),
     emptyDecks / 5,
     state.finalRoundTriggerPlayerIndex !== null ? 1 : 0,
     hasRoundLimit,

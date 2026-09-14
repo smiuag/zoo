@@ -749,31 +749,13 @@ export function endTurn(state: GameState, playerId: string): void {
   state.log.push(`Turno de ${next.name}`);
 }
 
-// Devuelve una carta capturada por el Tiburón a su mercado compartido de
-// especie: igual que la mitad "devolver" del Flamenco (ver
-// returnAnimalForUpgrade en registry.ts), pero sin resolver ningún efecto
-// onPlay (la carta nunca se jugó, solo se entregó) ni coger nada a cambio.
-// Si el hueco de mercado de su especie ya está ocupado, la devuelta lo
-// ocupa de inmediato y la que estaba ahí pasa al mazo compartido en su
-// lugar; si estaba vacío, se repone directamente con ella.
-function returnCardToMarket(state: GameState, card: CardInstance): void {
-  const deck = state.sharedDecks[card.species ?? ''];
-  const marketIdx = state.animalTrack.findIndex((c) => c.species === card.species);
-  if (marketIdx !== -1) {
-    const [displaced] = state.animalTrack.splice(marketIdx, 1, card);
-    if (deck) deck.push(displaced);
-  } else {
-    if (deck) deck.push(card);
-    refillAnimalMarket(state, card.species);
-  }
-}
-
 // Resuelve UNA carta de una entrega forzosa pendiente (Buitre/Mono/Hiena/
-// Murciélago/Tiburón): el jugador afectado elige, de entre lo que le está
-// permitido (owed[playerId].eligibleInstanceIds, o cualquier carta si es
-// null), cuál entrega. Según decision.kind, va al propio descarte
-// ('discard') o de vuelta al mercado compartido ('returnToMarket', ver
-// returnCardToMarket). EXCEPCIÓN — Perezoso: en una entrega de tipo
+// Murciélago/Tiburón/Halcón/León): el jugador afectado elige, de entre lo
+// que le está permitido (owed[playerId].eligibleInstanceIds, o cualquier
+// carta si es null), cuál entrega. Según decision.kind, va al propio
+// descarte ('discard') o se elimina de la partida para siempre en la
+// player.destroyedCards de quien capturó ('destroy'). EXCEPCIÓN — Perezoso:
+// en una entrega de tipo
 // 'discard', siempre se puede descartar el Perezoso aunque no esté entre las
 // elegibles "normales" (p. ej. la Hiena solo deja elegir animales caros), y
 // hacerlo cubre TODA la entrega pendiente de un jugador de una sola vez (por
@@ -800,8 +782,11 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
 
   const [card] = player.hand.splice(idx, 1);
   const sourcePlayer = state.players.find((p) => p.id === decision.sourcePlayerId);
-  if (decision.kind === 'returnToMarket') {
-    returnCardToMarket(state, card);
+  if (decision.kind === 'destroy') {
+    // A la pila de eliminados de quien CAPTURÓ (sourcePlayer), no del rival
+    // que la entrega: es él quien luego puntúa por ella con
+    // scorePerDestroyedCard, no el rival que se la quedó sin comprarla.
+    sourcePlayer?.destroyedCards.push(card);
     decision.returnedSoFar += 1;
   } else if (decision.kind === 'giveToPlayer') {
     sourcePlayer?.hand.push(card);
@@ -820,8 +805,8 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
   state.log.push(
     isSlothSubstitute
       ? `${player.name} descartó su Perezoso en lugar de entregar lo debido (${decision.sourceCardName})`
-      : decision.kind === 'returnToMarket'
-        ? `${player.name} devolvió ${card.name} al mercado (${decision.sourceCardName})`
+      : decision.kind === 'destroy'
+        ? `${player.name} perdió ${card.name} para siempre, capturado por ${sourcePlayer?.name ?? '?'} (${decision.sourceCardName})`
         : decision.kind === 'giveToPlayer'
           ? `${player.name} le dio ${card.name} a ${sourcePlayer?.name ?? '?'} (${decision.sourceCardName})`
           : `${player.name} descartó ${card.name} (${decision.sourceCardName})`

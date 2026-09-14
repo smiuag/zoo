@@ -10,14 +10,14 @@ import { expensiveFirstBot } from '../../src/bots/expensiveFirstBot';
 import { heuristicBot } from '../../src/bots/heuristicBot';
 import { randomBot } from '../../src/bots/randomBot';
 import { aquaticRlBot, birdRlBot, landRlBot, rlBot } from '../../src/bots/rlBot';
-import { encodeAction, FEATURE_DIM } from '../../src/bots/rl/features';
+import { CRITIC_FEATURE_DIM, encodeAction, encodePlayerContext, FEATURE_DIM } from '../../src/bots/rl/features';
 import { createRandomWeights, deserializeWeights, forward, serializeWeights, type RlWeights } from '../../src/bots/rl/network';
 import type { Bot } from '../../src/bots/types';
 import { getCard } from '../../src/cards/registry';
 import type { Card } from '../../src/cards/schema';
 import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer, getLegalActions, type Action } from '../../src/engine';
 import type { GameState } from '../../src/model/state';
-import { scoreGame, type PlayerScore } from '../../src/scoring';
+import { scoreGame, scorePlayer, type PlayerScore } from '../../src/scoring';
 import { accumulateGrad, applyGrad, softmax, zeroGrad } from './train';
 import { computeReturn } from './reward';
 
@@ -26,7 +26,51 @@ const LEARNING_RATE = Number(process.env.RL_LR ?? 0.01);
 const TRAIN_TEMPERATURE = 1;
 const EPISODES_PER_BATCH = Number(process.env.RL_EPISODES ?? 32);
 const TOTAL_BATCHES = Number(process.env.RL_BATCHES ?? 2000);
-const BASELINE_BETA = 0.02;
+// "Crítico": pequeña red separada (mismo tipo de MLP, ver network.ts, pero
+// features de SOLO ESTADO — ver CRITIC_FEATURE_DIM/encodePlayerContext en
+// features.ts — en vez de estado+acción) que se entrena por regresión a
+// predecir el retorno esperado desde CUALQUIER estado de la partida.
+// Sustituye a la baseline anterior (un único número global, media móvil de
+// todos los retornos vistos): esa baseline no distinguía turno 2 de turno
+// 18 ni "tengo mucho dinero/cartas por jugar" de "no tengo nada", así que
+// una carta cuyo valor real depende del ESTADO en que se juega (más turnos
+// por delante = más veces puedes rejugar un Hipopótamo; el Tucán vale
+// aprox. lo mismo esté donde esté) recibía la MISMA ventaja
+// independientemente del momento — la red no tenía forma de aprender esa
+// diferencia. Con una baseline condicionada al estado, la ventaja
+// (retorno real − predicción del crítico PARA ESE ESTADO CONCRETO) sí
+// puede distinguir ambos casos.
+const CRITIC_HIDDEN_SIZE = 16;
+const CRITIC_LR = Number(process.env.RL_CRITIC_LR ?? 0.02);
+// Cota de seguridad para la ventaja (retorno − predicción del crítico): sin
+// esto, un crítico recién inicializado (pesos aleatorios) que arranca
+// prediciendo mal produce una ventaja grande, que a su vez empuja un
+// gradiente grande sobre el propio crítico (accumulateGrad suma esa ventaja
+// sin normalizar por el número de pasos del batch, solo por episodesUsed),
+// lo que lo deja prediciendo AÚN peor en el siguiente batch — un
+// retroalimentación positiva que en la práctica diverge a Infinity/NaN en
+// unas pocas decenas de batches (visto en producción: avg_abs_advantage
+// pasó de ~1.4 en el batch 0 a ~1e119 en el batch 100, corrompiendo también
+// los pesos de política, que comparten la misma `advantage` como escala de
+// su propio delta). Recortar la ventaja a un rango razonable (los retornos
+// de computeReturn ya viven en un rango de pocas unidades) rompe ese bucle
+// sin cambiar el comportamiento normal, donde la ventaja real casi nunca se
+// acerca a esta cota.
+const ADVANTAGE_CLIP = 5;
+// Reward shaping: al comprar un animal, además de la ventaja normal
+// (crítico), se añade a ese paso concreto el delta de PV EN VIVO que
+// produce esa compra ahora mismo (scorePlayer del estado justo antes menos
+// justo después, no destructivo mientras la partida sigue en marcha — ver
+// scorePlayer en scoring.ts). Sin esto, una carta cuyo valor depende de una
+// condición sobre TODA la colección (p. ej. Tucán: +1 PV por cada animal de
+// coste 5+ que tengas) solo recibe crédito a través del retorno final,
+// muchos turnos después de comprarla — una señal muy dispersa para que
+// REINFORCE aprenda a atribuírselo a esa decisión en concreto. Escalado con
+// el mismo /20 que usa computeReturn para que quede en un rango comparable
+// al de la ventaja normal. Ver el análisis de por qué el Tucán seguía
+// infravalorado incluso con el crítico y por qué empujarlo a mano no
+// funcionaba (memoria de proyecto rl_manual_card_boost_no_improvement.md).
+const SHAPING_WEIGHT = Number(process.env.RL_SHAPING_WEIGHT ?? 1);
 const EVAL_EVERY = Number(process.env.RL_EVAL_EVERY ?? 50);
 const EVAL_GAMES = Number(process.env.RL_EVAL_GAMES ?? 40);
 const MAX_ACTIONS_PER_GAME = 400;
@@ -44,6 +88,13 @@ if (HABITAT_FILTER && !['land', 'bird', 'aquatic'].includes(HABITAT_FILTER)) {
 
 const WEIGHTS_FILE = HABITAT_FILTER ? `weights-${HABITAT_FILTER}.json` : 'weights.json';
 const WEIGHTS_PATH = fileURLToPath(new URL(`../../src/bots/rl/${WEIGHTS_FILE}`, import.meta.url));
+// El crítico vive AQUÍ (scripts/rl/), no en src/bots/rl/ junto a los pesos
+// de política: nunca lo usa el bot de verdad (solo sirve durante el
+// entrenamiento, para calcular la ventaja), así que no tiene sentido que
+// esté en la carpeta que sí importa apps/web — así queda claro que es un
+// artefacto de entrenamiento, nunca "enviable".
+const CRITIC_FILE = HABITAT_FILTER ? `critic-${HABITAT_FILTER}.json` : 'critic.json';
+const CRITIC_PATH = fileURLToPath(new URL(`./${CRITIC_FILE}`, import.meta.url));
 
 // Duraciones reales que se pueden elegir en la app (ver ROUND_LIMIT_OPTIONS
 // en apps/web/src/lib/gameConfig.ts — mantener sincronizado si cambia ahí):
@@ -125,6 +176,17 @@ interface Step {
   allHidden: number[][];
   allScores: number[];
   chosenIndex: number;
+  // Features de SOLO ESTADO en el momento de esta decisión (antes de
+  // elegir la acción) — ver CRITIC_FEATURE_DIM/encodePlayerContext en
+  // features.ts. El crítico las usa para estimar cuánto "vale" ya este
+  // estado, independientemente de qué se acabe eligiendo.
+  stateFeatures: number[];
+  // Reward shaping (ver SHAPING_WEIGHT arriba): delta de PV en vivo que
+  // produjo la acción elegida, ya escalado (/20). 0 para cualquier acción
+  // que no sea comprar un animal (playCard/buyCoin/endTurn casi nunca
+  // cambian el PV en vivo, y calcular scorePlayer() en cada paso sería
+  // demasiado caro para lo poco que aportaría ahí).
+  shapingBonus: number;
 }
 
 type Mode = 'selfplay' | 'curriculum';
@@ -184,23 +246,41 @@ function playOneGame(weights: RlWeights, mode: Mode): { trajectories: Map<string
     const allScores = allForward.map((f) => f.score);
     const chosenIndex = sampleIndex(allScores, TRAIN_TEMPERATURE);
 
+    const chosenAction = actions[chosenIndex];
+    const stateFeatures = encodePlayerContext(state, player);
+    const scoreBefore = chosenAction.type === 'buyAnimal' ? scorePlayer(state, player) : 0;
+
+    applyAction(state, player.id, chosenAction);
+
+    const shapingBonus =
+      chosenAction.type === 'buyAnimal' ? (scorePlayer(state, player) - scoreBefore) / 20 : 0;
+
     trajectories.get(player.id)?.push({
       allFeatures,
       allHidden: allForward.map((f) => f.hidden),
       allScores,
       chosenIndex,
+      stateFeatures,
+      shapingBonus,
     });
 
-    applyAction(state, player.id, actions[chosenIndex]);
     guard++;
   }
 
   return { trajectories, finalScores: scoreGame(state) };
 }
 
-function trainBatch(weights: RlWeights, baseline: { value: number }): void {
+// Devuelve estadísticas del batch para el log (ver main): la media de
+// |ventaja| (cuánto se equivocaba el crítico de media, en valor absoluto —
+// baja con el entrenamiento si el crítico aprende bien) y la media de
+// retorno crudo (a título informativo, sin más).
+function trainBatch(weights: RlWeights, criticWeights: RlWeights): { avgAbsAdvantage: number; avgReturn: number } {
   const grad = zeroGrad(weights.featureDim, weights.hiddenSize);
+  const criticGrad = zeroGrad(criticWeights.featureDim, criticWeights.hiddenSize);
   let episodesUsed = 0;
+  let sumAbsAdvantage = 0;
+  let sumReturn = 0;
+  let stepCount = 0;
 
   for (let e = 0; e < EPISODES_PER_BATCH; e++) {
     const { trajectories, finalScores } = playOneGame(weights, pickMode(e));
@@ -209,21 +289,57 @@ function trainBatch(weights: RlWeights, baseline: { value: number }): void {
       if (steps.length === 0) continue;
 
       const returnValue = computeReturn(finalScores, playerId);
-      baseline.value += BASELINE_BETA * (returnValue - baseline.value);
-      const advantage = returnValue - baseline.value;
+      sumReturn += returnValue;
 
       for (const step of steps) {
+        // Ventaja CONDICIONADA AL ESTADO de este paso concreto, no un único
+        // número compartido por toda la partida: el crítico predice cuánto
+        // "debería" valer el retorno esperado ya desde este estado (turno,
+        // colección, valor de compra...), y la ventaja es cuánto se quedó
+        // corto o se pasó esa predicción respecto al retorno real. Así una
+        // carta cuyo valor depende de CUÁNDO se juega (más turnos por
+        // delante = más veces se puede rejugar un efecto reutilizable)
+        // puede aprender esa diferencia; antes, con una baseline global,
+        // recibía la misma ventaja sin importar el turno.
+        const critic = forward(criticWeights, step.stateFeatures);
+        const rawAdvantage = returnValue - critic.score;
+        const advantage = Math.max(-ADVANTAGE_CLIP, Math.min(ADVANTAGE_CLIP, rawAdvantage));
+        sumAbsAdvantage += Math.abs(rawAdvantage);
+        stepCount++;
+
+        // El shaping SOLO se añade a la ventaja que mueve la POLÍTICA (qué
+        // acción reforzar en este paso), nunca a la que regresiona el
+        // crítico: el crítico predice el retorno real de fin de partida, no
+        // un retorno "con bonus" — mezclar el shaping ahí lo desviaría de
+        // lo que de verdad tiene que aprender a predecir.
+        const policyAdvantage = advantage + SHAPING_WEIGHT * step.shapingBonus;
+
         const probs = softmax(step.allScores);
         for (let k = 0; k < probs.length; k++) {
-          const delta = ((k === step.chosenIndex ? 1 : 0) - probs[k]) * advantage;
+          const delta = ((k === step.chosenIndex ? 1 : 0) - probs[k]) * policyAdvantage;
           accumulateGrad(grad, step.allFeatures[k], step.allHidden[k], weights.w2, delta);
         }
+        // Regresión del crítico hacia el retorno real: el "delta" de ascenso
+        // que empuja su predicción en la dirección correcta es exactamente
+        // (objetivo − predicción), que ya es `advantage` tal cual.
+        accumulateGrad(criticGrad, step.stateFeatures, critic.hidden, criticWeights.w2, advantage);
       }
       episodesUsed++;
     }
   }
 
   applyGrad(weights, grad, LEARNING_RATE / Math.max(1, episodesUsed));
+  // Normalizado por stepCount (número de decisiones, no de episodios): es
+  // una regresión de error cuadrático sobre cada paso, no un gradiente de
+  // política por episodio, así que promediar por episodio infla el tamaño
+  // real del paso en un factor igual a "pasos por episodio" (~20-40x) —
+  // justo lo que causaba la divergencia descrita arriba en ADVANTAGE_CLIP.
+  applyGrad(criticWeights, criticGrad, CRITIC_LR / Math.max(1, stepCount));
+
+  return {
+    avgAbsAdvantage: stepCount > 0 ? sumAbsAdvantage / stepCount : 0,
+    avgReturn: episodesUsed > 0 ? sumReturn / episodesUsed : 0,
+  };
 }
 
 // Partidas 1 contra 1 a temperatura 0 (juego determinista/greedy) para medir
@@ -265,10 +381,14 @@ function evaluate(weights: RlWeights, opponent: Bot, games: number): number {
   return wins / games;
 }
 
-function loadOrInitWeights(): RlWeights {
-  if (existsSync(WEIGHTS_PATH)) {
+// Generalizada para servir tanto a los pesos de política (WEIGHTS_PATH,
+// FEATURE_DIM, HIDDEN_SIZE) como a los del crítico (CRITIC_PATH,
+// CRITIC_FEATURE_DIM, CRITIC_HIDDEN_SIZE) — misma lógica de
+// validar-o-reiniciar, dos archivos y dos dimensiones distintas.
+function loadOrInitWeights(path: string, expectedFeatureDim: number, hiddenSize: number): RlWeights {
+  if (existsSync(path)) {
     try {
-      const weights = deserializeWeights(readFileSync(WEIGHTS_PATH, 'utf-8'));
+      const weights = deserializeWeights(readFileSync(path, 'utf-8'));
       // deserializeWeights solo valida que el JSON sea internamente
       // consistente (sus propias filas coinciden con SU featureDim
       // guardado), no que coincida con el FEATURE_DIM de este módulo. Sin
@@ -279,18 +399,18 @@ function loadOrInitWeights(): RlWeights {
       // exactamente lo que pasó al subir FEATURE_DIM de 64 a 72 sin este
       // chequeo: el entrenamiento arrancaba pareciendo "seguir" pero en
       // realidad estaba corrompido desde el primer batch.
-      if (weights.featureDim !== FEATURE_DIM) {
+      if (weights.featureDim !== expectedFeatureDim) {
         console.warn(
-          `weights.json tiene featureDim ${weights.featureDim}, no coincide con el FEATURE_DIM actual (${FEATURE_DIM}): se reinicia desde pesos aleatorios.`
+          `${path} tiene featureDim ${weights.featureDim}, no coincide con el esperado (${expectedFeatureDim}): se reinicia desde pesos aleatorios.`
         );
       } else {
         return weights;
       }
     } catch {
-      console.warn('weights.json existente es inválido, se reinicia desde pesos aleatorios.');
+      console.warn(`${path} existente es inválido, se reinicia desde pesos aleatorios.`);
     }
   }
-  return createRandomWeights(FEATURE_DIM, HIDDEN_SIZE);
+  return createRandomWeights(expectedFeatureDim, hiddenSize);
 }
 
 function sleep(ms: number): Promise<void> {
@@ -315,47 +435,49 @@ function sleep(ms: number): Promise<void> {
 // otro proceso lo tenga abierto para lectura en ese instante que un
 // writeFileSync directo. Aun así reintenta el conjunto (escritura+rename)
 // varias veces con espera creciente antes de rendirse de verdad.
-async function saveWeightsWithRetry(weights: RlWeights, attempts = 10): Promise<void> {
+async function saveWeightsWithRetry(weights: RlWeights, path: string, attempts = 10): Promise<void> {
   const serialized = serializeWeights(weights);
-  const tmpPath = `${WEIGHTS_PATH}.tmp-${process.pid}`;
+  const tmpPath = `${path}.tmp-${process.pid}`;
   for (let i = 0; i < attempts; i++) {
     try {
       writeFileSync(tmpPath, serialized);
-      renameSync(tmpPath, WEIGHTS_PATH);
+      renameSync(tmpPath, path);
       return;
     } catch (err) {
       if (i === attempts - 1) throw err;
-      console.warn(`No se pudo guardar ${WEIGHTS_PATH} (intento ${i + 1}/${attempts}), reintentando...`, err);
+      console.warn(`No se pudo guardar ${path} (intento ${i + 1}/${attempts}), reintentando...`, err);
       await sleep(Math.min(200 * (i + 1), 2000));
     }
   }
 }
 
 async function main(): Promise<void> {
-  const weights = loadOrInitWeights();
-  const baseline = { value: 0 };
+  const weights = loadOrInitWeights(WEIGHTS_PATH, FEATURE_DIM, HIDDEN_SIZE);
+  const criticWeights = loadOrInitWeights(CRITIC_PATH, CRITIC_FEATURE_DIM, CRITIC_HIDDEN_SIZE);
 
   const habitatLabel = HABITAT_FILTER ? ` (especialista: solo compra ${HABITAT_FILTER})` : '';
   console.log(
-    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, lr=${LEARNING_RATE}`
+    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}`
   );
 
   for (let batch = 0; batch < TOTAL_BATCHES; batch++) {
-    trainBatch(weights, baseline);
+    const { avgAbsAdvantage, avgReturn } = trainBatch(weights, criticWeights);
 
     if (batch % EVAL_EVERY === 0 || batch === TOTAL_BATCHES - 1) {
       const winrateVsHeuristic = evaluate(weights, heuristicBot, EVAL_GAMES);
       const winrateVsRandom = evaluate(weights, randomBot, EVAL_GAMES);
       console.log(
-        `batch=${batch} baseline=${baseline.value.toFixed(3)} ` +
+        `batch=${batch} avg_return=${avgReturn.toFixed(3)} critic_avg_abs_advantage=${avgAbsAdvantage.toFixed(3)} ` +
           `winrate_vs_heuristic=${winrateVsHeuristic.toFixed(2)} winrate_vs_random=${winrateVsRandom.toFixed(2)}`
       );
-      await saveWeightsWithRetry(weights);
+      await saveWeightsWithRetry(weights, WEIGHTS_PATH);
+      await saveWeightsWithRetry(criticWeights, CRITIC_PATH);
     }
   }
 
-  await saveWeightsWithRetry(weights);
-  console.log('Entrenamiento terminado. Pesos guardados en', WEIGHTS_PATH);
+  await saveWeightsWithRetry(weights, WEIGHTS_PATH);
+  await saveWeightsWithRetry(criticWeights, CRITIC_PATH);
+  console.log('Entrenamiento terminado. Pesos guardados en', WEIGHTS_PATH, 'y', CRITIC_PATH);
 }
 
 main();

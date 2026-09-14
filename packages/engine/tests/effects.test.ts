@@ -183,7 +183,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(p1.hand).toHaveLength(1); // solo 1 de los 2 rivales soltó moneda
   });
 
-  it('león: cada rival elige y devuelve al mercado un animal ÚNICAMENTE terrestre de coste 3 o menos', () => {
+  it('león: cada rival elige y elimina para siempre un animal ÚNICAMENTE terrestre de coste 3 o menos', () => {
     const { state, player, opponent } = setupClean();
     const rabbit = freshInstance('rabbit', 'o1'); // terrestre puro, coste 2: elegible
     const bat = freshInstance('bat', 'o2'); // terrestre Y volador: NO elegible (no es únicamente terrestre)
@@ -195,10 +195,12 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
     expect(state.pendingDecision).toBeNull(); // rabbit era el único elegible: sin elección real
     expect(opponent.hand).toEqual([bat]);
-    expect(state.animalTrack.some((c) => c.instanceId === rabbit.instanceId)).toBe(true);
+    // Eliminado para siempre a la pila de QUIEN CAPTURÓ, nunca de vuelta al mercado.
+    expect(player.destroyedCards).toEqual([rabbit]);
+    expect(state.animalTrack.some((c) => c.instanceId === rabbit.instanceId)).toBe(false);
   });
 
-  it('halcón: cada rival elige y devuelve al mercado un animal ÚNICAMENTE volador de coste 3 o menos', () => {
+  it('halcón: cada rival elige y elimina para siempre un animal ÚNICAMENTE volador de coste 3 o menos', () => {
     const { state, player, opponent } = setupClean();
     const parakeet = freshInstance('parakeet', 'o1'); // volador puro, coste 2: elegible
     const duck = freshInstance('duck', 'o2'); // volador Y acuático: NO elegible (no es únicamente volador)
@@ -210,7 +212,8 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
     expect(state.pendingDecision).toBeNull(); // parakeet era el único elegible: sin elección real
     expect(opponent.hand).toEqual([duck]);
-    expect(state.animalTrack.some((c) => c.instanceId === parakeet.instanceId)).toBe(true);
+    expect(player.destroyedCards).toEqual([parakeet]);
+    expect(state.animalTrack.some((c) => c.instanceId === parakeet.instanceId)).toBe(false);
   });
 
   it('tiburón/halcón/león solo pueden capturar animales de UN SOLO hábitat (el suyo): un Flamenco (volador+acuático) nunca es elegible para ninguno', () => {
@@ -956,7 +959,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.hand).toHaveLength(0); // no robó nada: no se descartó ninguna moneda
   });
 
-  it('perezoso: NO sustituye una devolución al mercado del Tiburón (solo aplica a descartes)', () => {
+  it('perezoso: NO sustituye una eliminación del Tiburón (solo aplica a descartes)', () => {
     const { state, player, opponent } = setupClean();
     const dolphin = freshInstance('dolphin', 'o1'); // único elegible real del Tiburón
     const sloth = freshInstance('sloth', 'o2'); // terrestre, no cuenta para el Tiburón
@@ -967,11 +970,12 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     playCard(state, player.id, shark.instanceId);
 
     // Sin elección real entre las elegibles del Tiburón (solo dolphin) Y el
-    // Perezoso no aplica a 'returnToMarket': se resuelve solo, como antes.
+    // Perezoso no aplica a 'destroy': se resuelve solo, como antes.
     expect(state.pendingDecision).toBeNull();
     expect(opponent.hand).toEqual([sloth]);
     expect(opponent.discard).toHaveLength(0);
-    expect(state.animalTrack.some((c) => c.instanceId === dolphin.instanceId)).toBe(true);
+    expect(player.destroyedCards).toEqual([dolphin]);
+    expect(state.animalTrack.some((c) => c.instanceId === dolphin.instanceId)).toBe(false);
   });
 
   it('con un descarte pendiente de verdad (elección real), jugar/comprar/terminar turno es ilegal hasta resolverlo', () => {
@@ -997,7 +1001,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(() => playCard(state, player.id, lion.instanceId)).not.toThrow();
   });
 
-  it('tiburón: cada rival elige (si hay más de un elegible) y devuelve al mercado un animal acuático de coste 3 o menos', () => {
+  it('tiburón: cada rival elige (si hay más de un elegible) y elimina para siempre un animal acuático de coste 3 o menos', () => {
     const { state, player, opponent } = setupClean();
     const dolphin = freshInstance('dolphin', 'o1'); // acuático, coste 3: elegible
     const goldfish = freshInstance('goldfish', 'o2'); // acuático, coste 1: elegible (deja elección real)
@@ -1009,18 +1013,20 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
     playCard(state, player.id, shark.instanceId);
 
-    expect(state.pendingDecision?.kind).toBe('returnToMarket');
+    expect(state.pendingDecision?.kind).toBe('destroy');
     expect(state.pendingDecision?.owed[opponent.id]).toEqual({
       amount: 1,
       eligibleInstanceIds: expect.arrayContaining([dolphin.instanceId, goldfish.instanceId]),
     });
 
-    // Elige libremente cuál de los 2 elegibles devuelve.
+    // Elige libremente cuál de los 2 elegibles entrega.
     resolveDiscard(state, opponent.id, dolphin.instanceId);
 
     expect(opponent.hand).toEqual(expect.arrayContaining([goldfish, lion, orca]));
     expect(opponent.discard).toHaveLength(0); // no fue un descarte: no aparece ahí
-    expect(state.animalTrack.some((c) => c.instanceId === dolphin.instanceId)).toBe(true);
+    // Eliminado para siempre a la pila de QUIEN CAPTURÓ (player), no al mercado.
+    expect(player.destroyedCards).toEqual([dolphin]);
+    expect(state.animalTrack.some((c) => c.instanceId === dolphin.instanceId)).toBe(false);
     expect(state.pendingDecision).toBeNull();
   });
 
@@ -1036,7 +1042,8 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(state.pendingDecision).toBeNull();
     expect(opponent.hand).toHaveLength(0);
     expect(opponent.discard).toHaveLength(0);
-    expect(state.animalTrack.some((c) => c.instanceId === dolphin.instanceId)).toBe(true);
+    expect(player.destroyedCards).toEqual([dolphin]);
+    expect(state.animalTrack.some((c) => c.instanceId === dolphin.instanceId)).toBe(false);
   });
 
   it('tiburón: si un rival no tiene ningún animal acuático de coste 3 o menos, no le debe nada y no bloquea la partida', () => {
