@@ -5,7 +5,7 @@
   "species": "squirrel",
   "marketCost": 3,
   "victoryPoints": 1,
-  "text": "+1 bellota.\nAl empezar tu turno, si tienes 1 o más ardillas en tu descarte, pon una de ellas en tu mano.",
+  "text": "Añade 1 a tu valor de captura.\nAl empezar tu turno, si tienes 1 o más ardillas en tu descarte, pon una de ellas en tu mano.",
   "effects": [
     {
       "trigger": "onPlay",

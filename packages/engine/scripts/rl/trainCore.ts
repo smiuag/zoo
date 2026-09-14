@@ -121,15 +121,23 @@ export interface Step {
 // tiene exactamente 1 asiento del aprendiz (el que se está actualizando) y
 // los otros 3 son las OTRAS 3 variantes de rlBot (RL_CURRICULUM_OPPONENTS,
 // pesos congelados leídos del disco al arrancar este proceso), una de cada
-// — nunca self-play puro ni bots fijos no-RL (esos quedan solo para
-// evaluate() en selfPlay.ts).
+// — nunca bots fijos no-RL (esos quedan solo para evaluate() en
+// selfPlay.ts). EXCEPCIÓN pedida después ese mismo día: el bot "general"
+// (sin restricción de hábitat, CURRENT_VARIANT === 'general') no tiene 3
+// variantes hermanas de las que aprender por contraste como sí tienen los
+// especialistas (land/bird/aquatic aprenden jugando contra "general" y
+// entre ellos) — así que vuelve a self-play puro, las 4 sillas son el
+// propio aprendiz con los mismos pesos, y las 4 aportan trayectoria de
+// gradiente (antes solo 1 de 4 aquí también).
 export function playOneGame(weights: RlWeights): { trajectories: Map<string, Step[]>; finalScores: PlayerScore[] } {
   const playerConfigs = Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, deck: buildStarterDeck() }));
   const state = createGame(playerConfigs, { maxRounds: randomMaxRounds() });
 
   const fixedOpponents = new Map<string, Bot>();
-  for (let i = 1; i < playerConfigs.length; i++) {
-    fixedOpponents.set(playerConfigs[i].id, RL_CURRICULUM_OPPONENTS[i - 1]);
+  if (CURRENT_VARIANT !== 'general') {
+    for (let i = 1; i < playerConfigs.length; i++) {
+      fixedOpponents.set(playerConfigs[i].id, RL_CURRICULUM_OPPONENTS[i - 1]);
+    }
   }
 
   const trajectories = new Map<string, Step[]>();

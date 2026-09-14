@@ -4,6 +4,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 
 import compose_card as cc
+from card_text_es_print import CARD_TEXT_ES_PRINT
 
 DATA_DIR = r"C:\proyectos\Claude\zoo\packages\engine\src\cards\data"
 IMG_DIR = r"C:\proyectos\Claude\zoo\img"
@@ -159,7 +160,7 @@ def main():
                 type_label = " - ".join(HABITAT_ES[h] for h in HABITAT_ORDER if h in card["habitats"])
             cost = card["marketCost"]
             pv = card["victoryPoints"]
-            text = card["text"]
+            text = CARD_TEXT_ES_PRINT.get(cid, card["text"])
         elif ctype == "coin":
             out_path = os.path.join(OUT_DIR, f"{cid}.png")
             coin_card = cc.build_coin_card_base(COIN_IMAGE[cid])

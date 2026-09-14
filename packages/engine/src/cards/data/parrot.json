@@ -5,7 +5,7 @@
   "species": "parrot",
   "marketCost": 3,
   "victoryPoints": 2,
-  "text": "+1 bellota por cada animal volador que tengas en tu mano.",
+  "text": "Añade 1 a tu valor de captura por cada animal volador que tengas en tu mano.",
   "effects": [
     {
       "trigger": "onPlay",

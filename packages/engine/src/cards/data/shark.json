@@ -5,7 +5,7 @@
   "species": "shark",
   "marketCost": 6,
   "victoryPoints": 5,
-  "text": "Elimina un animal acuático de coste 3 o menos de la mano de cada oponente.\n+1 bellota por cada uno.\n+1PV por cada animal eliminado.",
+  "text": "Elimina un animal acuático de coste 3 o menos de la mano de cada oponente. Añade 1 de valor de captura por cada uno.\n+1PV por cada animal eliminado.",
   "effects": [
     {
       "trigger": "onPlay",

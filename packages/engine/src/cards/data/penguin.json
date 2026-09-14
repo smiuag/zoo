@@ -5,7 +5,7 @@
   "species": "penguin",
   "marketCost": 3,
   "victoryPoints": 2,
-  "text": "Añade una carta de bellota plateada a tu mano.",
+  "text": "Añade 1 moneda de Plata a tu mano.",
   "effects": [
     {
       "trigger": "onPlay",
