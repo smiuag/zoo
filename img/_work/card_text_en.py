@@ -9,7 +9,7 @@ HABITAT_EN = {"land": "Land", "aquatic": "Aquatic", "bird": "Flying"}
 CARD_TEXT_EN = {
     "albatross": (
         "Albatross",
-        "Add 1 to your purchasing power. At the end of the game, +1 VP for each distinct animal in your deck.",
+        "Add 1 to your purchasing power.\n+1 VP for each distinct animal in your deck.",
     ),
     "bat": (
         "Bats",
@@ -21,7 +21,7 @@ CARD_TEXT_EN = {
     "coin-5": ("Platinum", "Add 5 to your purchasing power."),
     "crocodile": (
         "Crocodiles",
-        "Add 1 to your purchasing power. At the end of the game, before scoring, remove one non-flying animal card from your collection.",
+        "Draw 1 card.\nAt the end of the game, before scoring, remove one non-flying animal card from your collection.",
     ),
     "dolphin": (
         "Dolphins",
@@ -29,11 +29,11 @@ CARD_TEXT_EN = {
     ),
     "duck": (
         "Ducks",
-        "Choose a player: they choose and give you 1 coin from their hand; if they have none, they reveal their hand.",
+        "Choose a player: they give you a coin card. If they have none, they reveal their hand.",
     ),
     "eagle": (
         "Eagles",
-        "Add 2 to your purchasing power. At the end of the game, +1 VP for each flying animal in your whole deck.",
+        "Add 2 to your purchasing power.\n+1 VP for each flying animal in your whole deck.",
     ),
     "elephant": (
         "Elephants",
@@ -41,7 +41,7 @@ CARD_TEXT_EN = {
     ),
     "flamingo": (
         "Flamingos",
-        "You may exchange an animal from your hand (after using its ability) for a different available one costing up to 2 coins more.",
+        "Exchange an animal from your hand for a different one costing up to 2 coins more.",
     ),
     "giraffe": (
         "Giraffes",
@@ -49,20 +49,20 @@ CARD_TEXT_EN = {
     ),
     "goldfish": (
         "Goldfish",
-        "Counts as 2 aquatic animals (for anything that counts animals of that habitat).",
+        "Counts as 2 aquatic animals.",
     ),
     "hippopotamus": ("Hippos", "Draw 2 cards."),
     "hyena": (
         "Hyenas",
-        "Each opponent reveals their hand and discards their highest-cost animal; ties let them choose.",
+        "Each opponent reveals their hand and discards their highest-cost animal.",
     ),
     "lion": (
         "Lions",
-        "Eliminate a LAND-ONLY animal costing 3 or less from each opponent's hand. Gain 1 purchasing power for each one. At the end of the game, +1 VP for each eliminated animal.",
+        "Eliminate a land animal costing 3 or less from each opponent's hand. Add 1 purchasing power for each one.\n+1 VP for each eliminated animal.",
     ),
     "hawk": (
         "Hawks",
-        "Eliminate a FLYING-ONLY animal costing 3 or less from each opponent's hand. Gain 1 purchasing power for each one. At the end of the game, +1 VP for each eliminated animal.",
+        "Eliminate a flying animal costing 3 or less from each opponent's hand. Add 1 purchasing power for each one.\n+1 VP for each eliminated animal.",
     ),
     "monkey": (
         "Monkeys",
@@ -70,12 +70,12 @@ CARD_TEXT_EN = {
     ),
     "orca": (
         "Orcas",
-        "Add 2 to your purchasing power. At the end of the game, +1 VP for each aquatic animal in your whole deck.",
+        "Add 2 to your purchasing power.\n+1 VP for each aquatic animal in your whole deck.",
     ),
-    "owl": ("Owls", "Draw 1 card and add 1 to your purchasing power."),
+    "owl": ("Owls", "Add 1 to your purchasing power.\nDraw 1 card."),
     "parakeet": (
         "Parakeets",
-        "Add 1 to your purchasing power. At the end of the game, gain 10 VP if you have 4 or more Parakeets in your deck.",
+        "Counts as 2 flying animals.",
     ),
     "parrot": (
         "Parrots",
@@ -88,7 +88,7 @@ CARD_TEXT_EN = {
     ),
     "raven": (
         "Ravens",
-        "Gain 1 purchasing power for each coin in your hand.",
+        "Add 1 purchasing power for each coin in your hand.",
     ),
     "platypus": (
         "Platypuses",
@@ -96,7 +96,7 @@ CARD_TEXT_EN = {
     ),
     "polar-bear": (
         "Polar Bears",
-        "Add 2 to your purchasing power. At the end of the game, +1 VP for each land animal in your whole deck.",
+        "Add 2 to your purchasing power.\n+1 VP for each land animal in your whole deck.",
     ),
     "rabbit": (
         "Rabbits",
@@ -108,12 +108,12 @@ CARD_TEXT_EN = {
     ),
     "shark": (
         "Sharks",
-        "Eliminate an AQUATIC-ONLY animal costing 3 or less from each opponent's hand. Gain 1 purchasing power for each one. At the end of the game, +1 VP for each eliminated animal.",
+        "Eliminate an aquatic animal costing 3 or less from each opponent's hand. Add 1 purchasing power for each one.\n+1 VP for each eliminated animal.",
     ),
     "sloth": ("Sloths", "Does nothing. Just sleeps."),
     "snake": (
         "Snakes",
-        "Each opponent chooses and discards 1 card from their hand. Draw 1 card for each coin discarded this way.",
+        "Each opponent chooses and discards 1 card from their hand.\nDraw 1 card for each coin discarded this way.",
     ),
     "spider": (
         "Spiders",
@@ -121,15 +121,15 @@ CARD_TEXT_EN = {
     ),
     "squirrel": (
         "Squirrels",
-        "Add 1 to your purchasing power. At the start of each of your turns, if you have 1 or more Squirrels in your discard pile, one of them automatically returns to your hand.",
+        "Add 1 to your purchasing power.\nAt the start of your turn, if you have 1 or more Squirrels in your discard pile, put one in your hand.",
     ),
     "tiger": (
         "Tigers",
-        "Draw 2 cards. Then put 1 card from your hand on top of your deck.",
+        "Draw 2 cards.\nThen put 1 card from your hand on top of your deck.",
     ),
     "toucan": (
         "Toucans",
-        "When played, draw 1 card. At the end of the game, +1 VP for each animal costing 5 or more in your whole deck.",
+        "Draw 1 card.\n+1 VP for each animal costing 5 or more in your whole deck.",
     ),
     "turtle": (
         "Turtles",
