@@ -400,12 +400,13 @@ registerEffect('discardAnimalFromEachOpponent', (state, player, _effect, context
 });
 
 // Tiburón/Halcón/León: cada rival elige y ENTREGA (no al descarte, ni de
-// vuelta al mercado) un animal de su mano que sea ÚNICAMENTE de
-// params.habitat (["aquatic"]/["bird"]/["land"]: TODOS sus hábitats deben
-// estar en esa lista, no basta con que tenga alguno — un Flamenco, volador
-// Y acuático, no es "solo acuático" así que el Tiburón no puede capturarlo,
-// pero un Delfín, solo acuático, sí) y coste como mucho params.maxCost (3).
-// Si un rival no tiene ninguno elegible, no pierde nada (en la práctica,
+// vuelta al mercado) un animal de su mano que tenga params.habitat entre
+// sus hábitats (["aquatic"]/["bird"]/["land"]: BASTA con que tenga AL MENOS
+// UNO de esa lista, no hace falta que sea puro — cambio de regla explícito
+// del usuario 2026-09-14, antes exigía que TODOS sus hábitats estuvieran en
+// la lista; ahora un Flamenco, volador Y acuático, sí es capturable por el
+// Tiburón aunque también sea volador) y coste como mucho params.maxCost
+// (3). Si un rival no tiene ninguno elegible, no pierde nada (en la práctica,
 // "muestra su mano"). La carta capturada se ELIMINA DE LA PARTIDA PARA
 // SIEMPRE, a la player.destroyedCards de quien la capturó (ver 'destroy' en
 // resolveDiscard, engine.ts) — nunca vuelve al mercado, nadie puede
@@ -426,7 +427,7 @@ registerEffect('returnAnimalFromEachOpponent', (state, player, effect, context) 
       (c) =>
         c.type === 'animal' &&
         (c.marketCost ?? 0) <= maxCost &&
-        (habitats.length === 0 || ((c.habitats as string[]) ?? []).every((h) => habitats.includes(h)))
+        (habitats.length === 0 || ((c.habitats as string[]) ?? []).some((h) => habitats.includes(h)))
     );
     if (eligible.length === 0) continue;
     owed[opponent.id] = { amount: 1, eligibleInstanceIds: eligible.map((c) => c.instanceId) };

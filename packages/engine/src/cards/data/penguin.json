@@ -4,9 +4,17 @@
   "type": "animal",
   "species": "penguin",
   "marketCost": 3,
-  "victoryPoints": 3,
-  "text": "Descártalo de tu mano para evitar que un León, Halcón o Tiburón elimine una carta de tu mano.",
-  "effects": [],
+  "victoryPoints": 2,
+  "text": "Añade 1 moneda de Plata a tu mano.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainCoin",
+      "params": {
+        "coinId": "coin-2"
+      }
+    }
+  ],
   "habitats": [
     "land",
     "aquatic"

@@ -5,12 +5,7 @@
   "species": "bat",
   "marketCost": 3,
   "victoryPoints": 3,
-  "text": "Ganas 1 de valor de compra por cada moneda en tu mano.",
-  "effects": [
-    {
-      "trigger": "onPlay",
-      "type": "gainBonusPurchasingPowerPerCoinInHand"
-    }
-  ],
+  "text": "Descártalo para evitar que un León, Halcón o Tiburón elimine una carta de tu mano.",
+  "effects": [],
   "habitats": ["land", "bird"]
 }

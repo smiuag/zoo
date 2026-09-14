@@ -37,10 +37,20 @@ hole = Image.new('L', (W, H), 0)
 ImageDraw.Draw(hole).rounded_rectangle((wx0, wy1 - 40, wx1 - 1, py1 - 1), radius=10, fill=255)
 hole = (np.asarray(hole) > 0) | window
 
-# hojas del marco que asoman sobre la imagen: se quedan por encima de la foto nueva
+# hojas del marco que asoman sobre la imagen: se quedan por encima de la foto nueva.
+# OJO: el archivo del marco lleva dentro su propia ilustracion (la de la moneda con la que se
+# monto), asi que el verde se busca SOLO en una franja pegada al borde del hueco, donde estan
+# las lianas del marco; el follaje de esa ilustracion, mas adentro, no cuenta. Sin esto se
+# pegaban trozos de la ilustracion vieja encima de la nueva.
 hsv = np.asarray(Image.fromarray(F.astype(np.uint8)).convert('HSV')).astype(float)
 green = (hsv[..., 0] > 40) & (hsv[..., 0] < 125) & (hsv[..., 1] > 60)
-lab, n = ndimage.label(green & hole)
+RIM = 36                                                                   # px hacia dentro del hueco
+rim = hole & ~ndimage.binary_erosion(hole, iterations=RIM)
+# en el canto inferior no hay lianas del marco (solo en las esquinas): se excluye la franja
+# central de abajo para no arrastrar follaje de la ilustracion vieja
+hy1 = np.where(hole.any(1))[0].max()
+rim[hy1 - 44:hy1 + 1, 110:W - 110] = False
+lab, n = ndimage.label(green & rim)
 sizes = ndimage.sum(np.ones_like(lab), lab, index=np.arange(1, n + 1))
 touch = np.zeros(n + 1, bool)
 edge = green & hole & ~ndimage.binary_erosion(hole, iterations=3)          # componentes que tocan el borde del hueco

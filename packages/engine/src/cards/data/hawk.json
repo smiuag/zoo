@@ -5,7 +5,7 @@
   "species": "hawk",
   "marketCost": 6,
   "victoryPoints": 5,
-  "text": "Elimina un animal ÚNICAMENTE volador de coste 3 o menos de la mano de cada oponente. Ganas 1 de valor de compra por cada uno. Al final de la partida, +1PV por cada animal entre tus víctimas.",
+  "text": "Elimina un animal volador de coste 3 o menos de la mano de cada oponente. Añade 1 de valor de captura por cada uno.\n+1PV por cada animal eliminado.",
   "effects": [
     {
       "trigger": "onPlay",

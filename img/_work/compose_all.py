@@ -131,10 +131,10 @@ def compose_generic(photo_path, name, type_label, cost, pv, text, out_path, temp
         cc.draw_title_with_big_number(draw, cc.TITLE_BOX, prefix, number, f_title, f_title_number)
     else:
         f_title = cc.fit_font(draw, name.upper(), title_box_w, max_size=37)
-        cc.draw_centered(draw, cc.TITLE_BOX, name.upper(), f_title, fill=(0, 0, 0))
+        cc.draw_curved_text(card, cc.TITLE_BOX, name.upper(), f_title, fill=cc.HEADING_INK)
 
     f_type = cc.fit_font(draw, type_label, cc.TYPE_LINE_MAX_WIDTH, max_size=38, min_size=20)
-    cc.draw_centered(draw, cc.TYPE_LINE_POINT, type_label, f_type)
+    cc.draw_centered(draw, cc.TYPE_LINE_POINT, type_label, f_type, fill=cc.HEADING_INK)
     cc.draw_wrapped(card, draw, cc.PANEL_BODY_BOX, text, f_body, valign="top")
 
     card = cc.resize_to_print_size(card)

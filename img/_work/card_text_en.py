@@ -13,7 +13,7 @@ CARD_TEXT_EN = {
     ),
     "bat": (
         "Bats",
-        "Gain 1 purchasing power for each coin in your hand.",
+        "Discard to prevent a Lion, Hawk or Shark from eliminating a card from your hand.",
     ),
     "coin-1": ("Bronze", "Add 1 to your purchasing power."),
     "coin-2": ("Silver", "Add 2 to your purchasing power."),
@@ -58,11 +58,11 @@ CARD_TEXT_EN = {
     ),
     "lion": (
         "Lions",
-        "Eliminate a LAND-ONLY animal costing 3 or less from each opponent's hand. Gain 1 purchasing power for each one. At the end of the game, +1 VP for each animal among your victims.",
+        "Eliminate a LAND-ONLY animal costing 3 or less from each opponent's hand. Gain 1 purchasing power for each one. At the end of the game, +1 VP for each eliminated animal.",
     ),
     "hawk": (
         "Hawks",
-        "Eliminate a FLYING-ONLY animal costing 3 or less from each opponent's hand. Gain 1 purchasing power for each one. At the end of the game, +1 VP for each animal among your victims.",
+        "Eliminate a FLYING-ONLY animal costing 3 or less from each opponent's hand. Gain 1 purchasing power for each one. At the end of the game, +1 VP for each eliminated animal.",
     ),
     "monkey": (
         "Monkeys",
@@ -84,11 +84,11 @@ CARD_TEXT_EN = {
     "peacock": ("Peacocks", "Draw 1 card."),
     "penguin": (
         "Penguins",
-        "Discard from your hand to prevent a Lion, Hawk or Shark from eliminating a card from your hand.",
+        "Add a Silver coin to your hand.",
     ),
     "raven": (
         "Ravens",
-        "Add a Silver coin to your hand.",
+        "Gain 1 purchasing power for each coin in your hand.",
     ),
     "platypus": (
         "Platypuses",
@@ -108,7 +108,7 @@ CARD_TEXT_EN = {
     ),
     "shark": (
         "Sharks",
-        "Eliminate an AQUATIC-ONLY animal costing 3 or less from each opponent's hand. Gain 1 purchasing power for each one. At the end of the game, +1 VP for each animal among your victims.",
+        "Eliminate an AQUATIC-ONLY animal costing 3 or less from each opponent's hand. Gain 1 purchasing power for each one. At the end of the game, +1 VP for each eliminated animal.",
     ),
     "sloth": ("Sloths", "Does nothing. Just sleeps."),
     "snake": (

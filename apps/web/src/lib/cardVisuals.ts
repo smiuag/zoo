@@ -48,6 +48,13 @@ const SPECIES_ICONS: Record<string, string> = {
   // eagle): 🪶 (pluma) como aproximación distinguible, mismo criterio que
   // vulture/toucan arriba.
   hawk: '🪶',
+  // Emoji real de cuervo, pero muy reciente (Unicode 15.0, 2022): a
+  // propósito NO está en scripts/fetch-twemoji.mjs (esa versión de
+  // Twemoji, congelada en 14.0.2, no lo tiene) — solo se ve si el sistema
+  // del jugador lo soporta nativamente (supportsEmojiNatively), sin
+  // respaldo Twemoji. Decisión explícita del usuario (2026-09-14) frente
+  // a una aproximación temática con respaldo disponible.
+  raven: '🐦‍⬛',
 };
 
 export function cardIcon(card: CardInstance): string {

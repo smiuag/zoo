@@ -5,7 +5,7 @@
   "species": "snake",
   "marketCost": 4,
   "victoryPoints": 2,
-  "text": "Cada oponente elige y descarta 1 carta de su mano. Robas 1 carta por cada moneda que descarten así.",
+  "text": "Cada oponente elige y descarta 1 carta de su mano.\nRobas 1 carta por cada moneda que descarten así.",
   "effects": [
     {
       "trigger": "onPlay",

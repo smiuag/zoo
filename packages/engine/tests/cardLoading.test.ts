@@ -5,8 +5,8 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   goldfish: { cost: 1, pv: 1 },
   snake: { cost: 4, pv: 2 },
   parrot: { cost: 3, pv: 2 },
-  penguin: { cost: 3, pv: 3 },
-  raven: { cost: 3, pv: 2 },
+  penguin: { cost: 3, pv: 2 },
+  raven: { cost: 3, pv: 3 },
   peacock: { cost: 2, pv: 1 },
   dolphin: { cost: 3, pv: 3 },
   giraffe: { cost: 5, pv: 3 },
@@ -93,12 +93,12 @@ describe('card registry', () => {
       type: 'chooseDiscardFromEachOpponent',
       params: { amount: 2 },
     });
-    expect(getCard('penguin').effects).toHaveLength(0);
-    expect(getCard('raven').effects[0]).toMatchObject({
+    expect(getCard('penguin').effects[0]).toMatchObject({
       trigger: 'onPlay',
       type: 'gainCoin',
       params: { coinId: 'coin-2' },
     });
+    expect(getCard('raven').effects[0]).toMatchObject({ type: 'gainBonusPurchasingPowerPerCoinInHand' });
     expect(getCard('peacock').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 1 } });
     expect(getCard('hippopotamus').effects[0]).toMatchObject({ type: 'drawCards', params: { amount: 2 } });
     expect(getCard('lion').effects[0]).toMatchObject({
@@ -202,7 +202,7 @@ describe('card registry', () => {
       type: 'gainFlatBonusPurchasingPower',
       params: { amount: 1 },
     });
-    expect(getCard('bat').effects[0]).toMatchObject({ type: 'gainBonusPurchasingPowerPerCoinInHand' });
+    expect(getCard('bat').effects).toHaveLength(0);
     expect(getCard('squirrel').effects[0]).toMatchObject({
       trigger: 'onPlay',
       type: 'gainFlatBonusPurchasingPower',

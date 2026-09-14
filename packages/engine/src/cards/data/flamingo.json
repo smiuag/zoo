@@ -5,7 +5,7 @@
   "species": "flamingo",
   "marketCost": 3,
   "victoryPoints": 1,
-  "text": "Puedes intercambiar un animal de tu mano (después de usar su habilidad), por uno distinto de los disponibles que elijas y que cueste hasta 2 monedas más.",
+  "text": "Intercambia un animal de tu mano, por uno distinto que cueste hasta 2 monedas más.",
   "effects": [
     {
       "trigger": "onPlay",

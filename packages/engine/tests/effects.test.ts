@@ -183,51 +183,64 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(p1.hand).toHaveLength(1); // solo 1 de los 2 rivales soltó moneda
   });
 
-  it('león: cada rival elige y elimina para siempre un animal ÚNICAMENTE terrestre de coste 3 o menos', () => {
+  it('león: cada rival elige y elimina para siempre un animal terrestre (basta con que tenga ese hábitat, no hace falta que sea puro) de coste 3 o menos', () => {
     const { state, player, opponent } = setupClean();
     const rabbit = freshInstance('rabbit', 'o1'); // terrestre puro, coste 2: elegible
-    const bat = freshInstance('bat', 'o2'); // terrestre Y volador: NO elegible (no es únicamente terrestre)
-    opponent.hand = [rabbit, bat];
+    const dolphin = freshInstance('dolphin', 'o2'); // solo acuático, sin ningún hábitat terrestre: NO elegible
+    opponent.hand = [rabbit, dolphin];
     const lion = freshInstance('lion', 'test');
     player.hand = [lion];
 
     playCard(state, player.id, lion.instanceId);
 
     expect(state.pendingDecision).toBeNull(); // rabbit era el único elegible: sin elección real
-    expect(opponent.hand).toEqual([bat]);
+    expect(opponent.hand).toEqual([dolphin]);
     // Eliminado para siempre a la pila de QUIEN CAPTURÓ, nunca de vuelta al mercado.
     expect(player.destroyedCards).toEqual([rabbit]);
     expect(state.animalTrack.some((c) => c.instanceId === rabbit.instanceId)).toBe(false);
   });
 
-  it('halcón: cada rival elige y elimina para siempre un animal ÚNICAMENTE volador de coste 3 o menos', () => {
+  it('halcón: cada rival elige y elimina para siempre un animal volador (basta con que tenga ese hábitat, no hace falta que sea puro) de coste 3 o menos', () => {
     const { state, player, opponent } = setupClean();
     const parakeet = freshInstance('parakeet', 'o1'); // volador puro, coste 2: elegible
-    const duck = freshInstance('duck', 'o2'); // volador Y acuático: NO elegible (no es únicamente volador)
-    opponent.hand = [parakeet, duck];
+    const rabbit = freshInstance('rabbit', 'o2'); // solo terrestre, sin ningún hábitat volador: NO elegible
+    opponent.hand = [parakeet, rabbit];
     const hawk = freshInstance('hawk', 'test');
     player.hand = [hawk];
 
     playCard(state, player.id, hawk.instanceId);
 
     expect(state.pendingDecision).toBeNull(); // parakeet era el único elegible: sin elección real
-    expect(opponent.hand).toEqual([duck]);
+    expect(opponent.hand).toEqual([rabbit]);
     expect(player.destroyedCards).toEqual([parakeet]);
     expect(state.animalTrack.some((c) => c.instanceId === parakeet.instanceId)).toBe(false);
   });
 
-  it('tiburón/halcón/león solo pueden capturar animales de UN SOLO hábitat (el suyo): un Flamenco (volador+acuático) nunca es elegible para ninguno', () => {
+  it('tiburón/halcón/león: BASTA con que el animal tenga su hábitat entre los suyos, no hace falta que sea puro (cambio de regla 2026-09-14) — un Flamenco (volador+acuático) es elegible para Tiburón y Halcón, pero no para León', () => {
     const { state, player, opponent } = setupClean();
-    const flamingo = freshInstance('flamingo', 'o1'); // volador+acuático, coste 3: no es puro de ninguno
-    opponent.hand = [flamingo];
+    const flamingo = freshInstance('flamingo', 'o1'); // volador+acuático, coste 3
 
-    for (const species of ['shark', 'hawk', 'lion']) {
+    for (const species of ['shark', 'hawk']) {
+      opponent.hand = [flamingo];
       const card = freshInstance(species, `test-${species}`);
       player.hand = [card];
       playCard(state, player.id, card.instanceId);
-      expect(state.pendingDecision).toBeNull(); // nadie debía nada: el Flamenco no cuenta para ninguno
-      expect(opponent.hand).toEqual([flamingo]);
+      // Único elegible: se resuelve solo, sin elección real.
+      expect(state.pendingDecision).toBeNull();
+      expect(opponent.hand).toEqual([]);
+      expect(player.destroyedCards).toEqual([flamingo]);
+      // Se restaura para la siguiente vuelta del bucle.
+      player.destroyedCards = [];
     }
+
+    // León (terrestre): el Flamenco no tiene NINGÚN hábitat terrestre, así
+    // que sigue sin ser elegible para él (a diferencia de Tiburón/Halcón).
+    opponent.hand = [flamingo];
+    const lion = freshInstance('lion', 'test-lion');
+    player.hand = [lion];
+    playCard(state, player.id, lion.instanceId);
+    expect(state.pendingDecision).toBeNull(); // nadie debía nada: el Flamenco no tiene hábitat terrestre
+    expect(opponent.hand).toEqual([flamingo]);
   });
 
   it('tiburón/halcón/león: ganas 1 de valor de compra por cada animal devuelto en total (2 rivales, 1 cada uno = 2)', () => {
@@ -280,20 +293,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.bonusPurchasingPowerThisTurn).toBe(0);
   });
 
-  it('cuervo: añade una moneda de Plata de verdad a la mano (no bonus temporal)', () => {
-    const { state, player } = setupClean();
-    const raven = freshInstance('raven', 'test');
-    player.hand = [raven];
-
-    playCard(state, player.id, raven.instanceId);
-
-    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
-    const coins = player.hand.filter((c) => c.type === 'coin');
-    expect(coins).toHaveLength(1);
-    expect(coins[0].id).toBe('coin-2');
-  });
-
-  it('pingüino: jugarlo normal no hace nada (no tiene efecto onPlay, su utilidad es protegerse de una captura)', () => {
+  it('pingüino: añade una moneda de Plata de verdad a la mano (no bonus temporal)', () => {
     const { state, player } = setupClean();
     const penguin = freshInstance('penguin', 'test');
     player.hand = [penguin];
@@ -301,53 +301,70 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     playCard(state, player.id, penguin.instanceId);
 
     expect(player.bonusPurchasingPowerThisTurn).toBe(0);
-    // playCard manda la carta a playedThisTurn (el "limbo" de este turno),
-    // no directamente al descarte — eso pasa recién en endTurn.
-    expect(player.playedThisTurn).toEqual([penguin]);
+    const coins = player.hand.filter((c) => c.type === 'coin');
+    expect(coins).toHaveLength(1);
+    expect(coins[0].id).toBe('coin-2');
   });
 
-  it('pingüino: se puede descartar en lugar de perder un animal capturado por León/Tiburón/Halcón (protección, cubre TODA la entrega)', () => {
+  it('murciélago: jugarlo normal no hace nada (no tiene efecto onPlay, su utilidad es protegerse de una captura)', () => {
+    const { state, player } = setupClean();
+    const bat = freshInstance('bat', 'test');
+    player.hand = [bat];
+
+    playCard(state, player.id, bat.instanceId);
+
+    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
+    // playCard manda la carta a playedThisTurn (el "limbo" de este turno),
+    // no directamente al descarte — eso pasa recién en endTurn.
+    expect(player.playedThisTurn).toEqual([bat]);
+  });
+
+  it('murciélago: se puede descartar en lugar de perder un animal capturado por León/Tiburón/Halcón (protección, cubre TODA la entrega)', () => {
     const { state, player, opponent } = setupClean();
     const rabbit = freshInstance('rabbit', 'o1'); // terrestre puro, coste 2: elegible
-    const bat = freshInstance('bat', 'o2'); // terrestre Y volador: NO elegible
-    const penguin = freshInstance('penguin', 'o3'); // no es terrestre puro: tampoco "elegible" normal
-    opponent.hand = [rabbit, bat, penguin];
+    const dolphin = freshInstance('dolphin', 'o2'); // solo acuático, sin hábitat terrestre: NO elegible
+    // El propio Murciélago (land+bird) también solapa con "terrestre" y por
+    // tanto es naturalmente elegible con la regla nueva — la prueba real es
+    // que protegerse CON ÉL toma la vía especial (a descarte, no a
+    // destroyedCards) en vez de tratarse como una captura más.
+    const bat = freshInstance('bat', 'o3');
+    opponent.hand = [rabbit, dolphin, bat];
     const lion = freshInstance('lion', 'test');
     player.hand = [lion];
 
     playCard(state, player.id, lion.instanceId);
 
-    // Hay elección real (rabbit es elegible normal): la decisión queda pendiente.
+    // Hay elección real (rabbit y el propio murciélago son elegibles): la decisión queda pendiente.
     expect(state.pendingDecision?.kind).toBe('destroy');
     expect(state.pendingDecision?.owed[opponent.id]).toEqual({
       amount: 1,
-      eligibleInstanceIds: [rabbit.instanceId],
+      eligibleInstanceIds: [rabbit.instanceId, bat.instanceId],
     });
 
-    // El rival elige proteger con el Pingüino en vez de entregar el conejo.
-    resolveDiscard(state, opponent.id, penguin.instanceId);
+    // El rival elige proteger con el Murciélago en vez de entregar el conejo.
+    resolveDiscard(state, opponent.id, bat.instanceId);
 
     expect(state.pendingDecision).toBeNull();
-    // El Pingüino se descarta normal (protegido), NO acaba en destroyedCards.
-    expect(opponent.discard).toEqual([penguin]);
-    expect(opponent.hand).toEqual(expect.arrayContaining([rabbit, bat]));
-    // Nada fue capturado de verdad: ni destroyedCards ni el bonus de valor de compra.
+    // El Murciélago se descarta normal (protegido), NO acaba en destroyedCards.
+    expect(opponent.discard).toEqual([bat]);
+    expect(opponent.hand).toEqual(expect.arrayContaining([rabbit, dolphin]));
+    // Nada fue capturado de verdad: ni destroyedCards ni el bonus de valor de captura.
     expect(player.destroyedCards).toHaveLength(0);
     expect(player.bonusPurchasingPowerThisTurn).toBe(0);
   });
 
-  it('pingüino: si el afectado lo tiene en mano, NO se auto-resuelve aunque solo haya 1 elegible normal (siempre hay elección real)', () => {
+  it('murciélago: si el afectado lo tiene en mano, NO se auto-resuelve aunque solo haya 1 elegible normal (siempre hay elección real)', () => {
     const { state, player, opponent } = setupClean();
-    const rabbit = freshInstance('rabbit', 'o1'); // único elegible normal
-    const penguin = freshInstance('penguin', 'o2');
-    opponent.hand = [rabbit, penguin];
-    const lion = freshInstance('lion', 'test');
-    player.hand = [lion];
+    const dolphin = freshInstance('dolphin', 'o1'); // único elegible normal (acuático puro)
+    const bat = freshInstance('bat', 'o2'); // terrestre+volador: sin solape acuático, no es "elegible normal" aquí
+    opponent.hand = [dolphin, bat];
+    const shark = freshInstance('shark', 'test');
+    player.hand = [shark];
 
-    playCard(state, player.id, lion.instanceId);
+    playCard(state, player.id, shark.instanceId);
 
-    // Antes (sin Pingüino) esto se habría auto-resuelto solo; con Pingüino en
-    // mano, queda pendiente para que el rival elija de verdad.
+    // Antes (sin Murciélago) esto se habría auto-resuelto solo; con
+    // Murciélago en mano, queda pendiente para que el rival elija de verdad.
     expect(state.pendingDecision).not.toBeNull();
     expect(state.pendingDecision?.owed[opponent.id]?.amount).toBe(1);
   });
@@ -1424,26 +1441,26 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   });
 });
 
-describe('murciélago: gana 1 de valor de compra por cada moneda en su mano', () => {
+describe('cuervo: gana 1 de valor de compra por cada moneda en su mano', () => {
   it('cuenta las monedas en mano en el momento de jugarlo (se cuenta a sí mismo si es un animal, aquí no aplica)', () => {
     const { state, player } = setupClean();
-    const bat = freshInstance('bat', 'test');
+    const raven = freshInstance('raven', 'test');
     const coin1 = freshInstance('coin-1', 'c1');
     const coin3 = freshInstance('coin-3', 'c2');
     const lion = freshInstance('lion', 'l1'); // animal, no moneda: no cuenta
-    player.hand = [bat, coin1, coin3, lion];
+    player.hand = [raven, coin1, coin3, lion];
 
-    playCard(state, player.id, bat.instanceId);
+    playCard(state, player.id, raven.instanceId);
 
     expect(player.bonusPurchasingPowerThisTurn).toBe(2);
   });
 
   it('sin ninguna moneda en mano, no da ningún bonus', () => {
     const { state, player } = setupClean();
-    const bat = freshInstance('bat', 'test');
-    player.hand = [bat];
+    const raven = freshInstance('raven', 'test');
+    player.hand = [raven];
 
-    playCard(state, player.id, bat.instanceId);
+    playCard(state, player.id, raven.instanceId);
 
     expect(player.bonusPurchasingPowerThisTurn).toBe(0);
   });

@@ -5,7 +5,7 @@
   "species": "spider",
   "marketCost": 3,
   "victoryPoints": 3,
-  "text": "Capturas gratis el animal VOLADOR o ACUÁTICO del mercado que elijas, de coste 3 o menos.",
+  "text": "Captura gratis un animal VOLADOR o ACUÁTICO de coste 3 o menos.",
   "effects": [
     {
       "trigger": "onPlay",

@@ -47,6 +47,14 @@ const EMOJIS = [
   '🐿️',
   '🦤',
   '🪶',
+  // 🐦‍⬛ (cuervo/raven) queda FUERA de esta lista a propósito: es un emoji
+  // demasiado reciente (Unicode 15.0, 2022) y Twemoji (el respaldo fijado
+  // arriba, congelado en la v14.0.2) no lo tiene descargable — se decidió
+  // (2026-09-14) usarlo solo como glifo nativo, sin respaldo, aceptando
+  // que en un sistema muy antiguo sin soporte se vería como texto/"tofu"
+  // en vez de un icono. Si esto cambia de opinión más adelante, no hay
+  // nada que añadir aquí: seguiría sin tener SVG en esta versión de
+  // Twemoji.
   '🐾',
   '🪙',
   '❓',

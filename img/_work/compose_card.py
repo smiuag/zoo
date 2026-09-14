@@ -5,8 +5,28 @@ from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageFilter, ImageOps
 LAUREL_ICON_PATH = r"C:\proyectos\Claude\zoo\img\_work\laurel_icon.png"
 
 INK = (42, 28, 18)
-FONT_BOLD = r"C:\Windows\Fonts\georgiab.ttf"
-FONT_REG = r"C:\Windows\Fonts\georgia.ttf"
+# Nombre y hábitat de la carta usaban negro puro (0,0,0) o el propio INK
+# (que a tamaño grande y con Baloo 2 ExtraBold se percibe casi tan "duro"
+# como el negro): pedido explícito (2026-09-14) de que se vean muy oscuros
+# pero SIN llegar a negro — un marrón oscuro más suave que INK, reservado
+# para el nombre/tipo; el cuerpo del texto sigue en INK, que no se quejó.
+HEADING_INK = (74, 56, 42)
+# Baloo 2 (SIL OFL, https://fonts.google.com/specimen/Baloo+2): fuente
+# redondeada/"alegre", la misma familia que ya usa apps/web (ver
+# body{font-family:'Baloo 2',...} en styles.css) — pedido explícitamente
+# 2026-09-14 para que las cartas impresas dejen de usar Georgia (serif
+# formal, no "alegre"). Es una fuente VARIABLE (un único archivo con eje de
+# peso 400-800): estos 2 .ttf son instancias ESTÁTICAS ya extraídas con
+# fontTools (`from fontTools.varLib import instancer;
+# instancer.instantiateVariableFont(ttLib.TTFont(...), {'wght': 400 | 800})`)
+# desde ofl/baloo2/Baloo2[wght].ttf del repo google/fonts, para poder seguir
+# usando ImageFont.truetype(path, size) tal cual en todo el resto de este
+# módulo sin tocar ninguna otra línea — Pillow SÍ soporta instanciar pesos
+# de una fuente variable en tiempo de ejecución
+# (font.set_variation_by_name), pero habría obligado a tocar cada llamada
+# a ImageFont.truetype de este archivo para pasar también el peso.
+FONT_BOLD = r"C:\proyectos\Claude\zoo\img\_work\fonts\Baloo2-ExtraBold.ttf"
+FONT_REG = r"C:\proyectos\Claude\zoo\img\_work\fonts\Baloo2-Regular.ttf"
 
 # Plantillas "madera claras CON SANGRADO" (una por combinación de hábitats,
 # más una para las monedas): el mismo diseño de siempre (615x878,
@@ -75,7 +95,7 @@ ILLUSTRATION_BOX = _offset_box((66, 64, 551, 483))
 COST_BADGE = _offset_point((83, 109))             # center of the coin pouch body
 PV_BADGE = _offset_point((526, 90))               # center of the laurel wreath opening
 BADGE_NUMBER_SIZE = 50             # 45 + 10%
-TITLE_BOX = _offset_box((95, 513, 540, 561))    # wood ribbon banner: card name
+TITLE_BOX = _offset_box((95, 516, 540, 564))    # wood ribbon banner: card name (bajado 3px, 2026-09-14)
 TYPE_LINE_POINT = _offset_point((307, 648))       # "Terrestre" label, centered in the panel
 TYPE_LINE_MAX_WIDTH = 420          # shrink multi-habitat labels to fit
 PANEL_BODY_BOX = _offset_box((95, 672, 540, 858))  # starts right below the type label, top-aligned
@@ -244,7 +264,49 @@ def draw_centered(draw, box_or_point, text, font, fill=INK):
     draw.text(point, text, font=font, fill=fill, anchor="mm")
 
 
-def draw_title_with_big_number(draw, box, prefix, number, f_title, f_number, gap=12):
+# Pedido explícito (2026-09-14): el nombre del animal debe seguir la curva
+# del tablón de madera de la plantilla (más alto en el centro, cayendo
+# hacia los extremos — ver TITLE_BOX/el tablón en TEMPLATES_DIR), no ir en
+# línea recta. ImageDraw.text no soporta texto en un arco directamente, así
+# que cada carácter se dibuja en su propia imagen RGBA, se ROTA según la
+# pendiente local del arco en ese punto, y se pega sobre `card` (no sobre
+# `draw`: hace falta el Image de verdad para pegar con máscara alfa, un
+# ImageDraw no expone eso). `curve_height` es cuánto sube el centro
+# respecto a los extremos (arco tipo "sonrisa" ⌢, parabólico); el ángulo de
+# cada carácter sigue la derivada de esa misma parábola, así que el propio
+# glifo se inclina siguiendo la tangente del arco en su posición.
+def draw_curved_text(card, box, text, font, fill=HEADING_INK, curve_height=12, max_angle=16):
+    x0, y0, x1, y1 = box
+    box_w = x1 - x0
+    cx = (x0 + x1) / 2
+    cy = (y0 + y1) / 2
+
+    measurer = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    widths = [measurer.textlength(ch, font=font) for ch in text]
+    total_w = sum(widths)
+    ascent, descent = font.getmetrics()
+    char_h = ascent + descent
+
+    x = cx - total_w / 2
+    for ch, w in zip(text, widths):
+        char_center_x = x + w / 2
+        t = (char_center_x - cx) / (box_w / 2)
+        t = max(-1.0, min(1.0, t))
+        y_offset = -curve_height * (1 - t * t)
+        angle_deg = -t * max_angle
+
+        glyph = Image.new("RGBA", (int(w) + 8, char_h + 8), (0, 0, 0, 0))
+        ImageDraw.Draw(glyph).text((4, 4), ch, font=font, fill=fill)
+        rotated = glyph.rotate(angle_deg, resample=Image.BICUBIC, expand=True)
+
+        paste_x = int(char_center_x - rotated.width / 2)
+        paste_y = int(cy + y_offset - rotated.height / 2)
+        card.paste(rotated, (paste_x, paste_y), rotated)
+
+        x += w
+
+
+def draw_title_with_big_number(draw, box, prefix, number, f_title, f_number, gap=12, fill=HEADING_INK):
     x0, y0, x1, y1 = box
     cy = (y0 + y1) // 2
     # Same font as the prefix, just a bigger size — anchor both runs on the
@@ -257,8 +319,8 @@ def draw_title_with_big_number(draw, box, prefix, number, f_title, f_number, gap
     number_w = draw.textlength(number, font=f_number)
     total_w = prefix_w + gap + number_w
     start_x = (x0 + x1) / 2 - total_w / 2
-    draw.text((start_x, baseline), prefix + " ", font=f_title, fill=(0, 0, 0), anchor="ls")
-    draw.text((start_x + prefix_w + gap, baseline), number, font=f_number, fill=(0, 0, 0), anchor="ls")
+    draw.text((start_x, baseline), prefix + " ", font=f_title, fill=fill, anchor="ls")
+    draw.text((start_x + prefix_w + gap, baseline), number, font=f_number, fill=fill, anchor="ls")
 
 
 def fit_font(draw, text, max_width, max_size, min_size=20, font_path=FONT_BOLD):
@@ -277,18 +339,26 @@ def _wrap_lines(draw, text, font, max_width):
     def token_width(tok):
         return draw.textlength(tok, font=font)
 
-    words = text.split()
-    lines, current, current_w = [], [], 0
-    for word in words:
-        w = token_width(word)
-        add_w = w if not current else space_w + w
-        if current and current_w + add_w > max_width:
-            lines.append(current)
-            current, current_w = [word], w
-        else:
-            current.append(word)
-            current_w += add_w
-    if current:
+    # `\n` en el texto de la carta (ver packages/engine/src/cards/data/*.json,
+    # p. ej. para separar visualmente "gana valor de compra" de "al final de
+    # la partida, +1PV..." en las cartas con 2 efectos) fuerza un salto de
+    # línea de verdad, ANTES del auto-wrap normal por ancho: sin partir el
+    # texto por "\n" primero, text.split() (usado antes) trataba el salto
+    # como un espacio más y lo tragaba en silencio, así que nunca se veía
+    # ningún salto por mucho "\n" que llevara el JSON.
+    lines = []
+    for segment in text.split("\n"):
+        words = segment.split()
+        current, current_w = [], 0
+        for word in words:
+            w = token_width(word)
+            add_w = w if not current else space_w + w
+            if current and current_w + add_w > max_width:
+                lines.append(current)
+                current, current_w = [word], w
+            else:
+                current.append(word)
+                current_w += add_w
         lines.append(current)
     return lines
 
@@ -354,10 +424,10 @@ def compose(species_photo, name, habitat_label, cost, pv, text, out_path, templa
 
     title_box_w = TITLE_BOX[2] - TITLE_BOX[0] - 16
     f_title = fit_font(draw, name.upper(), title_box_w, max_size=37)
-    draw_centered(draw, TITLE_BOX, name.upper(), f_title, fill=(0, 0, 0))
+    draw_curved_text(card, TITLE_BOX, name.upper(), f_title, fill=HEADING_INK)
 
     f_type = fit_font(draw, habitat_label, TYPE_LINE_MAX_WIDTH, max_size=38, min_size=20)
-    draw_centered(draw, TYPE_LINE_POINT, habitat_label, f_type)
+    draw_centered(draw, TYPE_LINE_POINT, habitat_label, f_type, fill=HEADING_INK)
 
     draw_wrapped(card, draw, PANEL_BODY_BOX, text, f_body, valign="top")
 

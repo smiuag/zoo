@@ -989,7 +989,13 @@ body {
   }
 }
 
-.scoreboard__me {
+/* Las tres reglas de resaltado van con ".scoreboard li." delante a propósito:
+   la regla base ".scoreboard li" (clase + elemento, más específica que una
+   clase sola) está declarada más abajo y, sin esto, le ganaba el fondo y el
+   borde a .scoreboard__active-turn pero NO el color — resultado: la ficha
+   del jugador en turno (o del humano al terminar la partida) salía con
+   texto blanco sobre fondo blanco, es decir, vacía. */
+.scoreboard li.scoreboard__me {
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 700;
@@ -999,7 +1005,7 @@ body {
    borde/color de .scoreboard__me) para que destaque incluso cuando
    coincide con "tú" — las dos clases pueden ir a la vez en la misma ficha
    y el resultado sigue siendo legible. */
-.scoreboard__active-turn {
+.scoreboard li.scoreboard__active-turn {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-ink);
@@ -1016,7 +1022,7 @@ body {
    arriba por separado, para que el color de texto de .scoreboard__me
    (pensado para verse sobre el fondo normal del panel, no sobre el
    relleno sólido de acento) nunca gane el empate de cascada. */
-.scoreboard__me.scoreboard__active-turn {
+.scoreboard li.scoreboard__me.scoreboard__active-turn {
   color: var(--accent-ink);
   background: var(--accent);
   border-color: var(--accent);
