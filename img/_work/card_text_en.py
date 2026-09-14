@@ -13,7 +13,7 @@ CARD_TEXT_EN = {
     ),
     "bat": (
         "Bats",
-        "Add 1 to your purchasing power. Each opponent chooses and discards 1 card from their hand.",
+        "Gain 1 purchasing power for each coin in your hand.",
     ),
     "coin-1": ("Bronze", "Add 1 to your purchasing power."),
     "coin-2": ("Silver", "Add 2 to your purchasing power."),
@@ -58,11 +58,11 @@ CARD_TEXT_EN = {
     ),
     "lion": (
         "Lions",
-        "Each opponent chooses and eliminates a LAND-ONLY animal from their hand costing 3 or less (it goes to your own eliminated pile, out of the game); if they have none, they reveal their hand. Gain 1 purchasing power for each animal eliminated this way. At the end of the game, +1 VP for each animal in your eliminated pile (of any kind).",
+        "Eliminate a LAND-ONLY animal costing 3 or less from each opponent's hand. Gain 1 purchasing power for each one. At the end of the game, +1 VP for each animal among your victims.",
     ),
     "hawk": (
         "Hawks",
-        "Each opponent chooses and eliminates a FLYING-ONLY animal from their hand costing 3 or less (it goes to your own eliminated pile, out of the game); if they have none, they reveal their hand. Gain 1 purchasing power for each animal eliminated this way. At the end of the game, +1 VP for each animal in your eliminated pile (of any kind).",
+        "Eliminate a FLYING-ONLY animal costing 3 or less from each opponent's hand. Gain 1 purchasing power for each one. At the end of the game, +1 VP for each animal among your victims.",
     ),
     "monkey": (
         "Monkeys",
@@ -84,6 +84,10 @@ CARD_TEXT_EN = {
     "peacock": ("Peacocks", "Draw 1 card."),
     "penguin": (
         "Penguins",
+        "Discard from your hand to prevent a Lion, Hawk or Shark from eliminating a card from your hand.",
+    ),
+    "raven": (
+        "Ravens",
         "Add a Silver coin to your hand.",
     ),
     "platypus": (
@@ -104,7 +108,7 @@ CARD_TEXT_EN = {
     ),
     "shark": (
         "Sharks",
-        "Each opponent chooses and eliminates an AQUATIC-ONLY animal from their hand costing 3 or less (it goes to your own eliminated pile, out of the game); if they have none, they reveal their hand. Gain 1 purchasing power for each animal eliminated this way. At the end of the game, +1 VP for each animal in your eliminated pile (of any kind).",
+        "Eliminate an AQUATIC-ONLY animal costing 3 or less from each opponent's hand. Gain 1 purchasing power for each one. At the end of the game, +1 VP for each animal among your victims.",
     ),
     "sloth": ("Sloths", "Does nothing. Just sleeps."),
     "snake": (

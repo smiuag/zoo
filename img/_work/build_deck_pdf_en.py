@@ -17,13 +17,13 @@ BACK_PATH = os.path.join(CARDS_DIR, "_back.png")
 COUNTS = {
     "sloth": 21,
     # Ver el mismo ajuste en build_deck_pdf.py: bronce se queda en 49 (7×7)
-    # "de libro"; plata/oro/platino ceden los 7 que hacían falta en su
-    # lugar (el Halcón, nueva especie, desajustaba el total de múltiplo de
+    # "de libro"; plata/oro/platino ceden los 9 que hacían falta en su
+    # lugar (el Cuervo, nueva especie, desajustaba el total de múltiplo de
     # 18).
     "coin-1": 49,
-    "coin-2": 17,
-    "coin-3": 12,
-    "coin-5": 8,
+    "coin-2": 13,
+    "coin-3": 9,
+    "coin-5": 6,
 }
 # Igual que el motor (ver createGame en engine.ts), escalado a una tirada
 # de 7 jugadores: nº jugadores + 2 para el resto, nº jugadores para las

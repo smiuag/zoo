@@ -8,12 +8,13 @@ import type { CardInstance, GameState, Player } from '../../model/state';
 // features nuevo hay que volver a entrenar (los pesos guardados asumen esta
 // disposición exacta de columnas).
 // 2026-09-14: subido de 81 a 84 al añadir costTierCounts (3 columnas) a
-// encodePlayerContext, y de 84 a 85 al añadir 'scorePerDestroyedCard' a
-// EFFECT_TYPES (Tiburón/Halcón/León) — invalida cualquier weights*.json
-// guardado con la disposición anterior (loadOrInitWeights/
-// loadWeightsFromJson lo detectan por featureDim y reinician desde pesos
-// aleatorios en vez de romper).
-export const FEATURE_DIM = 85;
+// encodePlayerContext, de 84 a 85 al añadir 'scorePerDestroyedCard' a
+// EFFECT_TYPES (Tiburón/Halcón/León), y de 85 a 86 al añadir
+// 'gainBonusPurchasingPowerPerCoinInHand' (nueva habilidad del Murciélago)
+// — invalida cualquier weights*.json guardado con la disposición anterior
+// (loadOrInitWeights/loadWeightsFromJson lo detectan por featureDim y
+// reinician desde pesos aleatorios en vez de romper).
+export const FEATURE_DIM = 86;
 
 // Longitud de encodePlayerContext (más abajo) SOLA, sin nada de acción:
 // la usa el "crítico" del entrenamiento (ver scripts/rl/selfPlay.ts) para
@@ -72,6 +73,7 @@ const EFFECT_TYPES = [
   'returnFromDiscardEachTurn',
   'scorePerCostAtLeast',
   'scorePerDestroyedCard',
+  'gainBonusPurchasingPowerPerCoinInHand',
 ] as const;
 
 const MAX_OPPONENTS = 3;

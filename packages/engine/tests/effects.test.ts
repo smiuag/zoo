@@ -280,7 +280,20 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.bonusPurchasingPowerThisTurn).toBe(0);
   });
 
-  it('pingüino: añade una moneda de Plata de verdad a la mano (no bonus temporal)', () => {
+  it('cuervo: añade una moneda de Plata de verdad a la mano (no bonus temporal)', () => {
+    const { state, player } = setupClean();
+    const raven = freshInstance('raven', 'test');
+    player.hand = [raven];
+
+    playCard(state, player.id, raven.instanceId);
+
+    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
+    const coins = player.hand.filter((c) => c.type === 'coin');
+    expect(coins).toHaveLength(1);
+    expect(coins[0].id).toBe('coin-2');
+  });
+
+  it('pingüino: jugarlo normal no hace nada (no tiene efecto onPlay, su utilidad es protegerse de una captura)', () => {
     const { state, player } = setupClean();
     const penguin = freshInstance('penguin', 'test');
     player.hand = [penguin];
@@ -288,9 +301,55 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     playCard(state, player.id, penguin.instanceId);
 
     expect(player.bonusPurchasingPowerThisTurn).toBe(0);
-    const coins = player.hand.filter((c) => c.type === 'coin');
-    expect(coins).toHaveLength(1);
-    expect(coins[0].id).toBe('coin-2');
+    // playCard manda la carta a playedThisTurn (el "limbo" de este turno),
+    // no directamente al descarte — eso pasa recién en endTurn.
+    expect(player.playedThisTurn).toEqual([penguin]);
+  });
+
+  it('pingüino: se puede descartar en lugar de perder un animal capturado por León/Tiburón/Halcón (protección, cubre TODA la entrega)', () => {
+    const { state, player, opponent } = setupClean();
+    const rabbit = freshInstance('rabbit', 'o1'); // terrestre puro, coste 2: elegible
+    const bat = freshInstance('bat', 'o2'); // terrestre Y volador: NO elegible
+    const penguin = freshInstance('penguin', 'o3'); // no es terrestre puro: tampoco "elegible" normal
+    opponent.hand = [rabbit, bat, penguin];
+    const lion = freshInstance('lion', 'test');
+    player.hand = [lion];
+
+    playCard(state, player.id, lion.instanceId);
+
+    // Hay elección real (rabbit es elegible normal): la decisión queda pendiente.
+    expect(state.pendingDecision?.kind).toBe('destroy');
+    expect(state.pendingDecision?.owed[opponent.id]).toEqual({
+      amount: 1,
+      eligibleInstanceIds: [rabbit.instanceId],
+    });
+
+    // El rival elige proteger con el Pingüino en vez de entregar el conejo.
+    resolveDiscard(state, opponent.id, penguin.instanceId);
+
+    expect(state.pendingDecision).toBeNull();
+    // El Pingüino se descarta normal (protegido), NO acaba en destroyedCards.
+    expect(opponent.discard).toEqual([penguin]);
+    expect(opponent.hand).toEqual(expect.arrayContaining([rabbit, bat]));
+    // Nada fue capturado de verdad: ni destroyedCards ni el bonus de valor de compra.
+    expect(player.destroyedCards).toHaveLength(0);
+    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
+  });
+
+  it('pingüino: si el afectado lo tiene en mano, NO se auto-resuelve aunque solo haya 1 elegible normal (siempre hay elección real)', () => {
+    const { state, player, opponent } = setupClean();
+    const rabbit = freshInstance('rabbit', 'o1'); // único elegible normal
+    const penguin = freshInstance('penguin', 'o2');
+    opponent.hand = [rabbit, penguin];
+    const lion = freshInstance('lion', 'test');
+    player.hand = [lion];
+
+    playCard(state, player.id, lion.instanceId);
+
+    // Antes (sin Pingüino) esto se habría auto-resuelto solo; con Pingüino en
+    // mano, queda pendiente para que el rival elija de verdad.
+    expect(state.pendingDecision).not.toBeNull();
+    expect(state.pendingDecision?.owed[opponent.id]?.amount).toBe(1);
   });
 
   it('ardilla: añade 1 de valor de compra al jugarla (además de su efecto automático de fin/inicio de turno)', () => {
@@ -1365,45 +1424,27 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
   });
 });
 
-describe('murciélago: cada rival elige y descarta 1 carta de su mano', () => {
-  it('no ofrece ninguna variante con target: es una única acción automática', () => {
-    const { state, player, opponent } = setupClean();
+describe('murciélago: gana 1 de valor de compra por cada moneda en su mano', () => {
+  it('cuenta las monedas en mano en el momento de jugarlo (se cuenta a sí mismo si es un animal, aquí no aplica)', () => {
+    const { state, player } = setupClean();
     const bat = freshInstance('bat', 'test');
-    player.hand = [bat];
-    opponent.hand = [freshInstance('coin-1', 'o1')];
-
-    const actions = getLegalActions(state, player.id);
-    const batActions = actions.filter((a) => a.type === 'playCard' && a.instanceId === bat.instanceId);
-    expect(batActions).toEqual([{ type: 'playCard', instanceId: bat.instanceId }]);
-  });
-
-  it('cada rival elige libremente cuál de sus cartas descarta (bloquea hasta que lo haga)', () => {
-    const { state, player, opponent } = setupClean();
-    const bat = freshInstance('bat', 'test');
-    const coin = freshInstance('coin-1', 'o1');
-    const lion = freshInstance('lion', 'o2'); // vale mucho más, pero el rival puede elegirla igualmente
-    player.hand = [bat];
-    opponent.hand = [coin, lion];
-
-    playCard(state, player.id, bat.instanceId);
-    expect(state.pendingDecision?.owed[opponent.id]).toEqual({ amount: 1, eligibleInstanceIds: null });
-
-    resolveDiscard(state, opponent.id, lion.instanceId);
-
-    expect(opponent.hand).toEqual([coin]);
-    expect(opponent.discard).toEqual([lion]);
-    expect(state.pendingDecision).toBeNull();
-  });
-
-  it('si un rival no tiene ninguna carta en mano, no pierde nada', () => {
-    const { state, player, opponent } = setupClean();
-    const bat = freshInstance('bat', 'test');
-    player.hand = [bat];
-    opponent.hand = [];
+    const coin1 = freshInstance('coin-1', 'c1');
+    const coin3 = freshInstance('coin-3', 'c2');
+    const lion = freshInstance('lion', 'l1'); // animal, no moneda: no cuenta
+    player.hand = [bat, coin1, coin3, lion];
 
     playCard(state, player.id, bat.instanceId);
 
-    expect(opponent.hand).toHaveLength(0);
-    expect(opponent.discard).toHaveLength(0);
+    expect(player.bonusPurchasingPowerThisTurn).toBe(2);
+  });
+
+  it('sin ninguna moneda en mano, no da ningún bonus', () => {
+    const { state, player } = setupClean();
+    const bat = freshInstance('bat', 'test');
+    player.hand = [bat];
+
+    playCard(state, player.id, bat.instanceId);
+
+    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
   });
 });

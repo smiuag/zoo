@@ -46,9 +46,10 @@ const ANIMAL_SPECIES = [
   'toucan',
   'squirrel',
   'hawk',
+  'raven',
 ] as const;
 // La partida entra en la ronda final en cuanto este número de mazos
-// compartidos (de las 30 especies, todas cuentan) se hayan agotado.
+// compartidos (de las 34 especies, todas cuentan) se hayan agotado.
 const FINAL_ROUND_EMPTY_DECK_THRESHOLD = 5;
 // Monedas que se pueden comprar directamente (a cambio de otras monedas),
 // además de conseguirse por efectos o el mazo inicial. Suministro
@@ -537,12 +538,13 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
     // Perezoso: siempre se puede descartar en su lugar (aunque no esté entre
     // las elegibles "normales", como los animales más caros de la Hiena),
     // cubriendo TODA la entrega de una vez — ver el trato especial en
-    // resolveDiscard. Solo aplica a entregas de tipo 'discard' (no al
-    // Tiburón, que no es un descarte).
-    const extra =
-      decision.kind === 'discard'
-        ? player.hand.filter((c) => c.id === 'sloth' && !eligible.includes(c))
-        : [];
+    // resolveDiscard. Solo aplica a entregas de tipo 'discard'. Pingüino:
+    // mismo trato pero solo para 'destroy' (Tiburón/Halcón/León) — se
+    // protege descartándose él en vez de perder el animal capturado.
+    const extra = [
+      ...(decision.kind === 'discard' ? player.hand.filter((c) => c.id === 'sloth' && !eligible.includes(c)) : []),
+      ...(decision.kind === 'destroy' ? player.hand.filter((c) => c.id === 'penguin' && !eligible.includes(c)) : []),
+    ];
     return [...eligible, ...extra].map((c) => ({ type: 'resolveDiscard', instanceId: c.instanceId }));
   }
 
@@ -760,7 +762,14 @@ export function endTurn(state: GameState, playerId: string): void {
 // elegibles "normales" (p. ej. la Hiena solo deja elegir animales caros), y
 // hacerlo cubre TODA la entrega pendiente de un jugador de una sola vez (por
 // eso Buitre pide 2 y basta con 1 Perezoso), en vez de contar como 1 carta
-// más de las debidas. Cuando el último jugador que debía algo termina de
+// más de las debidas. EXCEPCIÓN — Pingüino: en una entrega de tipo
+// 'destroy' (Tiburón/Halcón/León), siempre se puede descartar el Pingüino en
+// su lugar aunque no esté entre las elegibles "normales" (nunca es del
+// hábitat exigido), cubriendo TODA la entrega de una vez igual que el
+// Perezoso — pero el Pingüino va al descarte normal, NO a
+// player.destroyedCards: se salvó, no lo capturaron, así que ni cuenta para
+// scorePerDestroyedCard del capturador ni le da su bonus de valor de compra
+// por este animal. Cuando el último jugador que debía algo termina de
 // resolver, se cierra la decisión (y si la disparó el Mono, es aquí cuando
 // quien la jugó roba 1 carta por cada moneda que se haya descartado así en
 // total — nunca se activa si se cubrió con el Perezoso, que no es moneda).
@@ -776,13 +785,17 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
   if (idx === -1) throw new Error(`La carta ${instanceId} no está en la mano de ${playerId}`);
 
   const isSlothSubstitute = decision.kind === 'discard' && player.hand[idx].id === 'sloth';
-  if (!isSlothSubstitute && owed.eligibleInstanceIds && !owed.eligibleInstanceIds.includes(instanceId)) {
+  const isPenguinSubstitute = decision.kind === 'destroy' && player.hand[idx].id === 'penguin';
+  if (!isSlothSubstitute && !isPenguinSubstitute && owed.eligibleInstanceIds && !owed.eligibleInstanceIds.includes(instanceId)) {
     throw new Error(`${instanceId} no es una carta elegible para esta entrega`);
   }
 
   const [card] = player.hand.splice(idx, 1);
   const sourcePlayer = state.players.find((p) => p.id === decision.sourcePlayerId);
-  if (decision.kind === 'destroy') {
+  if (isPenguinSubstitute) {
+    // Protegido: el Pingüino se descarta normal, no cuenta como capturado.
+    player.discard.push(card);
+  } else if (decision.kind === 'destroy') {
     // A la pila de eliminados de quien CAPTURÓ (sourcePlayer), no del rival
     // que la entrega: es él quien luego puntúa por ella con
     // scorePerDestroyedCard, no el rival que se la quedó sin comprarla.
@@ -795,7 +808,7 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
     if (decision.bonusDrawPerCoin && card.type === 'coin') decision.coinsDiscardedSoFar += 1;
   }
 
-  if (isSlothSubstitute) {
+  if (isSlothSubstitute || isPenguinSubstitute) {
     owed.amount = 0;
   } else {
     owed.amount -= 1;
@@ -805,11 +818,13 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
   state.log.push(
     isSlothSubstitute
       ? `${player.name} descartó su Perezoso en lugar de entregar lo debido (${decision.sourceCardName})`
-      : decision.kind === 'destroy'
-        ? `${player.name} perdió ${card.name} para siempre, capturado por ${sourcePlayer?.name ?? '?'} (${decision.sourceCardName})`
-        : decision.kind === 'giveToPlayer'
-          ? `${player.name} le dio ${card.name} a ${sourcePlayer?.name ?? '?'} (${decision.sourceCardName})`
-          : `${player.name} descartó ${card.name} (${decision.sourceCardName})`
+      : isPenguinSubstitute
+        ? `${player.name} descartó su Pingüino para protegerse de ${decision.sourceCardName}`
+        : decision.kind === 'destroy'
+          ? `${player.name} perdió ${card.name} para siempre, capturado por ${sourcePlayer?.name ?? '?'} (${decision.sourceCardName})`
+          : decision.kind === 'giveToPlayer'
+            ? `${player.name} le dio ${card.name} a ${sourcePlayer?.name ?? '?'} (${decision.sourceCardName})`
+            : `${player.name} descartó ${card.name} (${decision.sourceCardName})`
   );
 
   if (Object.keys(decision.owed).length === 0) {
@@ -845,7 +860,10 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
 // "normales": desde que el Perezoso puede sustituir cualquier descarte
 // entero por sí solo, SIEMPRE hay una elección real que hacer (¿sacrifico el
 // Perezoso o las cartas pedidas?), así que el jugador afectado siempre debe
-// decidir explícitamente.
+// decidir explícitamente. Mismo razonamiento para 'destroy'
+// (Tiburón/Halcón/León) cuando el afectado tiene un Pingüino en mano: puede
+// sacrificarlo para protegerse, así que tampoco se auto-resuelve para ÉL
+// (otros afectados sin Pingüino sí se auto-resuelven con normalidad).
 function autoResolveForcedDiscards(state: GameState): void {
   if (!state.pendingDecision || state.pendingDecision.kind === 'discard') return;
   for (const playerId of Object.keys(state.pendingDecision.owed)) {
@@ -854,6 +872,7 @@ function autoResolveForcedDiscards(state: GameState): void {
     while (state.pendingDecision?.owed[playerId]) {
       const owed = state.pendingDecision.owed[playerId];
       const player = state.players.find((p) => p.id === playerId);
+      if (state.pendingDecision.kind === 'destroy' && player?.hand.some((c) => c.id === 'penguin')) break;
       const eligible = owed.eligibleInstanceIds ?? player?.hand.map((c) => c.instanceId) ?? [];
       if (eligible.length > owed.amount) break; // hay elección real: se deja pendiente
       const instanceId = eligible[0];

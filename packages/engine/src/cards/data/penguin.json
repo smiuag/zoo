@@ -3,18 +3,10 @@
   "name": "Pingüino",
   "type": "animal",
   "species": "penguin",
-  "marketCost": 4,
+  "marketCost": 3,
   "victoryPoints": 3,
-  "text": "Añade 1 moneda de Plata a tu mano.",
-  "effects": [
-    {
-      "trigger": "onPlay",
-      "type": "gainCoin",
-      "params": {
-        "coinId": "coin-2"
-      }
-    }
-  ],
+  "text": "Descártalo de tu mano para evitar que un León, Halcón o Tiburón elimine una carta de tu mano.",
+  "effects": [],
   "habitats": [
     "land",
     "aquatic"

@@ -51,6 +51,7 @@ SPECIES_PHOTO = {
     "toucan": "tucan.jpg",
     "squirrel": "ardillas.jpg",
     "hawk": "halcones.jpg",
+    "raven": "cuevos.jpg",
 }
 COIN_PHOTO = {
     "coin-1": "moneda1.jpg",
@@ -68,6 +69,11 @@ COIN_IMAGE = {
     "coin-3": os.path.join(r"C:\proyectos\Claude\zoo\img\coins", "moneda3_marco_intento.png"),
     "coin-5": os.path.join(r"C:\proyectos\Claude\zoo\img\coins", "moneda5_marco_intento.png"),
 }
+# León/Tiburón/Halcón: texto de "ÚNICAMENTE <hábitat>" pedido explícitamente
+# por el usuario, 1 punto más pequeño que el resto de cartas (26 por
+# defecto) para que quepa con holgura — fit_body_font ya reduce por debajo
+# de esto si hiciera falta, este tope solo baja el punto de partida.
+BODY_MAX_SIZE_OVERRIDE = {"lion": 25, "shark": 25, "hawk": 25}
 
 
 def load_cards():
@@ -100,13 +106,13 @@ def template_key_for_card(card):
 
 
 def compose_generic(photo_path, name, type_label, cost, pv, text, out_path, template_key, is_coin=False,
-                     badge_color=None, cost_color=None, pv_color=None):
+                     badge_color=None, cost_color=None, pv_color=None, body_max_size=26):
     card = cc.build_card_base(photo_path, template_key)
     draw = ImageDraw.Draw(card)
 
     f_cost = ImageFont.truetype(cc.FONT_BOLD, cc.BADGE_NUMBER_SIZE)
     f_title_number = ImageFont.truetype(cc.FONT_BOLD, 54)
-    f_body = cc.fit_body_font(draw, text, cc.PANEL_BODY_BOX, max_size=26)
+    f_body = cc.fit_body_font(draw, text, cc.PANEL_BODY_BOX, max_size=body_max_size)
 
     c_cost = cost_color or badge_color or cc.COST_COLOR
     c_pv = pv_color or badge_color or cc.PV_COLOR
@@ -169,6 +175,7 @@ def main():
         compose_generic(
             photo, name, type_label, cost, pv, text, out_path,
             template_key_for_card(card), is_coin=(ctype == "coin"),
+            body_max_size=BODY_MAX_SIZE_OVERRIDE.get(cid, 26),
         )
         generated.append(out_path)
         print("generated", cid)

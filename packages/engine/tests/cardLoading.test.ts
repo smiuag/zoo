@@ -5,7 +5,8 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   goldfish: { cost: 1, pv: 1 },
   snake: { cost: 4, pv: 2 },
   parrot: { cost: 3, pv: 2 },
-  penguin: { cost: 4, pv: 3 },
+  penguin: { cost: 3, pv: 3 },
+  raven: { cost: 3, pv: 2 },
   peacock: { cost: 2, pv: 1 },
   dolphin: { cost: 3, pv: 3 },
   giraffe: { cost: 5, pv: 3 },
@@ -17,14 +18,14 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   spider: { cost: 3, pv: 3 },
   crocodile: { cost: 5, pv: 7 },
   vulture: { cost: 6, pv: 3 },
-  elephant: { cost: 6, pv: 3 },
+  elephant: { cost: 6, pv: 6 },
   orca: { cost: 7, pv: 2 },
   albatross: { cost: 6, pv: 0 },
   hyena: { cost: 4, pv: 5 },
   'polar-bear': { cost: 7, pv: 0 },
   duck: { cost: 2, pv: 1 },
   flamingo: { cost: 3, pv: 1 },
-  seal: { cost: 3, pv: 2 },
+  seal: { cost: 4, pv: 2 },
   parakeet: { cost: 2, pv: 1 },
   owl: { cost: 4, pv: 3 },
   bat: { cost: 3, pv: 3 },
@@ -40,8 +41,8 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
 describe('card registry', () => {
   it('carga y valida todos los ficheros de datos de cartas', () => {
     const cards = getAllCards();
-    // 33 especies de mercado + 1 Perezoso (solo de mazo inicial) + 4 monedas = 38.
-    expect(cards.length).toBe(38);
+    // 34 especies de mercado + 1 Perezoso (solo de mazo inicial) + 4 monedas = 39.
+    expect(cards.length).toBe(39);
   });
 
   it('el Perezoso es terrestre, no cuesta ni da nada, y no está en el mercado de animales', () => {
@@ -71,9 +72,9 @@ describe('card registry', () => {
     expect(getCard('coin-5').marketCost).toBe(7);
   });
 
-  it('expone las 33 especies de animal (1 carta cada una, sin sexo) con su coste/PV según tabla', () => {
+  it('expone las 34 especies de animal (1 carta cada una, sin sexo) con su coste/PV según tabla', () => {
     const species = Object.keys(SPECIES_TIERS);
-    expect(species).toHaveLength(33);
+    expect(species).toHaveLength(34);
     for (const id of species) {
       const card = getCard(id);
       expect(card.type).toBe('animal');
@@ -92,7 +93,8 @@ describe('card registry', () => {
       type: 'chooseDiscardFromEachOpponent',
       params: { amount: 2 },
     });
-    expect(getCard('penguin').effects[0]).toMatchObject({
+    expect(getCard('penguin').effects).toHaveLength(0);
+    expect(getCard('raven').effects[0]).toMatchObject({
       trigger: 'onPlay',
       type: 'gainCoin',
       params: { coinId: 'coin-2' },
@@ -200,11 +202,7 @@ describe('card registry', () => {
       type: 'gainFlatBonusPurchasingPower',
       params: { amount: 1 },
     });
-    expect(getCard('bat').effects[0]).toMatchObject({
-      type: 'gainFlatBonusPurchasingPower',
-      params: { amount: 1 },
-    });
-    expect(getCard('bat').effects[1]).toMatchObject({ type: 'chooseDiscardFromEachOpponent' });
+    expect(getCard('bat').effects[0]).toMatchObject({ type: 'gainBonusPurchasingPowerPerCoinInHand' });
     expect(getCard('squirrel').effects[0]).toMatchObject({
       trigger: 'onPlay',
       type: 'gainFlatBonusPurchasingPower',

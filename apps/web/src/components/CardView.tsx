@@ -105,13 +105,18 @@ export function CardView({
   if (clickable) classNames.push('card--clickable');
   if (compact) classNames.push('card--compact');
 
-  // "N*PV" siempre visible (nunca hace falta pasar el ratón) cuando
-  // livePoints trae un valor distinto del PV impreso — las cartas de PV
-  // variable (Águila, Orca, Oso polar, Albatros, Tucán) SOLO llevan esto
-  // en el mercado (ver livePoints arriba); en mano/mesa nadie pasa
-  // livePoints, así que ahí siempre se ve el PV impreso normal, sin nada
-  // añadido.
-  const showLiveBonus = livePoints !== undefined && livePoints !== card.victoryPoints;
+  // "N*PV" siempre visible (nunca hace falta pasar el ratón) para las
+  // cartas de PV variable (cualquiera con un efecto onScore: Águila, Orca,
+  // Oso polar, Albatros, Tucán, y ahora León/Tiburón/Halcón vía
+  // scorePerDestroyedCard) SOLO en el mercado (ver livePoints arriba); en
+  // mano/mesa nadie pasa livePoints, así que ahí siempre se ve el PV
+  // impreso normal, sin nada añadido. Se muestra el asterisco aunque el
+  // valor en vivo COINCIDA por ahora con el impreso (p. ej. León con la
+  // pila de eliminados todavía vacía: da 5, igual que el PV impreso) — lo
+  // que importa es avisar de que ese número puede cambiar, no solo cuando
+  // ya ha cambiado.
+  const hasVariableScoring = card.effects?.some((e) => e.trigger === 'onScore') ?? false;
+  const showLiveBonus = livePoints !== undefined && (hasVariableScoring || livePoints !== card.victoryPoints);
   const showPvBadge = card.victoryPoints !== 0 || showLiveBonus;
   const pvLabel = showLiveBonus ? `${livePoints}*` : card.victoryPoints !== 0 ? `${card.victoryPoints}` : '';
 

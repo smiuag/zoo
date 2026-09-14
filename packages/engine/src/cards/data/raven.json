@@ -1,0 +1,19 @@
+{
+  "id": "raven",
+  "name": "Cuervo",
+  "type": "animal",
+  "species": "raven",
+  "marketCost": 3,
+  "victoryPoints": 2,
+  "text": "Añade 1 moneda de Plata a tu mano.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainCoin",
+      "params": {
+        "coinId": "coin-2"
+      }
+    }
+  ],
+  "habitats": ["bird"]
+}

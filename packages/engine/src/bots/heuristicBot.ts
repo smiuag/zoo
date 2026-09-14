@@ -77,6 +77,7 @@ function effectBonus(card: CardInstance): number {
         break;
       case 'gainBonusPurchasingPowerPerHabitatInHand':
       case 'gainBonusPurchasingPowerPerDistinctSpeciesInHand':
+      case 'gainBonusPurchasingPowerPerCoinInHand':
         bonus += 1.5; // aproximación fija: el valor real depende de la mano
         break;
       case 'recoverCoinFromDiscardOrDraw':

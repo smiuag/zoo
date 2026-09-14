@@ -40,6 +40,7 @@ def main():
         ca.compose_generic(
             photo, name, type_label, cost, pv, text, out_path,
             ca.template_key_for_card(card), is_coin=(ctype == "coin"),
+            body_max_size=ca.BODY_MAX_SIZE_OVERRIDE.get(cid, 26),
         )
         generated.append(out_path)
         print("generated", cid)

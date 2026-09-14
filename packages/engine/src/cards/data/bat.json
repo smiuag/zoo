@@ -5,18 +5,11 @@
   "species": "bat",
   "marketCost": 3,
   "victoryPoints": 3,
-  "text": "Añade 1 a tu valor de compra. Cada oponente elige y descarta 1 carta de su mano.",
+  "text": "Ganas 1 de valor de compra por cada moneda en tu mano.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "gainFlatBonusPurchasingPower",
-      "params": {
-        "amount": 1
-      }
-    },
-    {
-      "trigger": "onPlay",
-      "type": "chooseDiscardFromEachOpponent"
+      "type": "gainBonusPurchasingPowerPerCoinInHand"
     }
   ],
   "habitats": ["land", "bird"]

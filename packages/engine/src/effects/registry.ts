@@ -371,6 +371,15 @@ registerEffect('gainBonusPurchasingPowerPerDistinctSpeciesInHand', (_state, play
   player.bonusPurchasingPowerThisTurn += species.size;
 });
 
+// Murciélago: gana "dinero para comprar" extra solo este turno por cada
+// MONEDA que tengas en tu mano en este momento. Misma effectiveHand que el
+// resto de efectos "en tu mano" (cuenta también monedas ya jugadas este
+// turno, aunque estén en el limbo de playedThisTurn).
+registerEffect('gainBonusPurchasingPowerPerCoinInHand', (_state, player) => {
+  const count = effectiveHand(player).filter((c) => c.type === 'coin').length;
+  player.bonusPurchasingPowerThisTurn += count;
+});
+
 // Hiena: cada rival muestra su mano y descarta el animal de MAYOR coste
 // (descarte normal, no destrucción: la carta sigue circulando con
 // normalidad). Si hay empate de coste, el propio rival elige cuál de los
