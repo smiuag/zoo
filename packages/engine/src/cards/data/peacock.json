@@ -5,7 +5,7 @@
   "species": "peacock",
   "marketCost": 2,
   "victoryPoints": 1,
-  "text": "Robas 1 carta.",
+  "text": "Roba 1 carta.",
   "effects": [
     {
       "trigger": "onPlay",

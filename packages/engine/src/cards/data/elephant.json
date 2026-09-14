@@ -5,7 +5,7 @@
   "species": "elephant",
   "marketCost": 6,
   "victoryPoints": 6,
-  "text": "Capturas gratis el animal TERRESTRE del mercado que elijas, de coste 5 o menos.",
+  "text": "Captura gratis el animal TERRESTRE del mercado que elijas, de coste 5 o menos.",
   "effects": [
     {
       "trigger": "onPlay",

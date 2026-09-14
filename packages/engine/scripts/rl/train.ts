@@ -42,6 +42,23 @@ export function accumulateGrad(grad: Gradient, features: number[], hidden: numbe
   }
 }
 
+// Suma `source` dentro de `target` (in-place): permite acumular en un solo
+// batch los gradientes parciales calculados por varios workers en paralelo
+// (ver RL_WORKERS en selfPlay.ts/worker.ts) exactamente como si se hubiera
+// hecho todo en un único accumulateGrad secuencial — la suma es
+// conmutativa/asociativa, así que el orden o el reparto entre procesos no
+// cambia el resultado final.
+export function addGrad(target: Gradient, source: Gradient): void {
+  target.b2 += source.b2;
+  for (let j = 0; j < target.w1.length; j++) {
+    target.b1[j] += source.b1[j];
+    target.w2[j] += source.w2[j];
+    const targetRow = target.w1[j];
+    const sourceRow = source.w1[j];
+    for (let i = 0; i < targetRow.length; i++) targetRow[i] += sourceRow[i];
+  }
+}
+
 export function applyGrad(weights: RlWeights, grad: Gradient, learningRate: number): void {
   for (let j = 0; j < weights.hiddenSize; j++) {
     weights.b1[j] += learningRate * grad.b1[j];
