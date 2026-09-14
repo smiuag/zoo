@@ -5,7 +5,7 @@
   "species": "owl",
   "marketCost": 4,
   "victoryPoints": 3,
-  "text": "Añade 1 a tu valor de captura.\nRoba una carta.",
+  "text": "+1 bellota.\nRoba una carta.",
   "effects": [
     {
       "trigger": "onPlay",

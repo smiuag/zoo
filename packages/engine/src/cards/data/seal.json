@@ -5,7 +5,7 @@
   "species": "seal",
   "marketCost": 4,
   "victoryPoints": 2,
-  "text": "Añade 3 a tu valor de captura, pero solo puedes usarlos para capturar animales acuáticos.",
+  "text": "+3 bellotas, pero solo puedes usarlas para capturar animales acuáticos.",
   "effects": [
     {
       "trigger": "onPlay",

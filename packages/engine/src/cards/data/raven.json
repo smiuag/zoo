@@ -5,7 +5,7 @@
   "species": "raven",
   "marketCost": 3,
   "victoryPoints": 3,
-  "text": "Añade 1 de valor de captura por cada moneda en tu mano.",
+  "text": "+1 bellota por cada carta de bellota en tu mano.",
   "effects": [
     {
       "trigger": "onPlay",

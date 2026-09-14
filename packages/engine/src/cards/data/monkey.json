@@ -5,7 +5,7 @@
   "species": "monkey",
   "marketCost": 4,
   "victoryPoints": 3,
-  "text": "Añade 1 a tu valor de captura por cada animal terrestre que tengas en tu mano.",
+  "text": "+1 bellota por cada animal terrestre que tengas en tu mano.",
   "effects": [
     {
       "trigger": "onPlay",

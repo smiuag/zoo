@@ -5,7 +5,7 @@
   "species": "duck",
   "marketCost": 2,
   "victoryPoints": 1,
-  "text": "Elige un jugador: te da una carta de moneda. Si no tiene, muestra su mano.",
+  "text": "Elige un jugador: te da una carta de bellota. Si no tiene, muestra su mano.",
   "effects": [
     {
       "trigger": "onPlay",

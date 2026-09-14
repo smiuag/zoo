@@ -9,31 +9,31 @@ HABITAT_EN = {"land": "Land", "aquatic": "Aquatic", "bird": "Flying"}
 CARD_TEXT_EN = {
     "albatross": (
         "Albatross",
-        "Add 1 to your purchasing power.\n+1 VP for each distinct animal in your deck.",
+        "+1 acorn.\n+1 VP for each distinct animal in your deck.",
     ),
     "bat": (
         "Bats",
         "Discard to prevent a Lion, Hawk or Shark from eliminating a card from your hand.",
     ),
-    "coin-1": ("Bronze", "Add 1 to your purchasing power."),
-    "coin-2": ("Silver", "Add 2 to your purchasing power."),
-    "coin-3": ("Gold", "Add 3 to your purchasing power."),
-    "coin-5": ("Platinum", "Add 5 to your purchasing power."),
+    "coin-1": ("Bronze", "+1 acorn."),
+    "coin-2": ("Silver", "+2 acorns."),
+    "coin-3": ("Gold", "+3 acorns."),
+    "coin-5": ("Platinum", "+5 acorns."),
     "crocodile": (
         "Crocodiles",
         "Draw 1 card.\nAt the end of the game, before scoring, remove one non-flying animal card from your collection.",
     ),
     "dolphin": (
         "Dolphins",
-        "Add 1 to your purchasing power for each aquatic animal in your hand.",
+        "+1 acorn for each aquatic animal in your hand.",
     ),
     "duck": (
         "Ducks",
-        "Choose a player: they give you a coin card. If they have none, they reveal their hand.",
+        "Choose a player: they give you an acorn card. If they have none, they reveal their hand.",
     ),
     "eagle": (
         "Eagles",
-        "Add 2 to your purchasing power.\n+1 VP for each flying animal in your whole deck.",
+        "+2 acorns.\n+1 VP for each flying animal in your whole deck.",
     ),
     "elephant": (
         "Elephants",
@@ -58,45 +58,45 @@ CARD_TEXT_EN = {
     ),
     "lion": (
         "Lions",
-        "Eliminate a land animal costing 3 or less from each opponent's hand. Add 1 purchasing power for each one.\n+1 VP for each eliminated animal.",
+        "Eliminate a land animal costing 3 or less from each opponent's hand.\n+1 acorn for each one.\n+1 VP for each eliminated animal.",
     ),
     "hawk": (
         "Hawks",
-        "Eliminate a flying animal costing 3 or less from each opponent's hand. Add 1 purchasing power for each one.\n+1 VP for each eliminated animal.",
+        "Eliminate a flying animal costing 3 or less from each opponent's hand.\n+1 acorn for each one.\n+1 VP for each eliminated animal.",
     ),
     "monkey": (
         "Monkeys",
-        "Add 1 to your purchasing power for each land animal in your hand.",
+        "+1 acorn for each land animal in your hand.",
     ),
     "orca": (
         "Orcas",
-        "Add 2 to your purchasing power.\n+1 VP for each aquatic animal in your whole deck.",
+        "+2 acorns.\n+1 VP for each aquatic animal in your whole deck.",
     ),
-    "owl": ("Owls", "Add 1 to your purchasing power.\nDraw 1 card."),
+    "owl": ("Owls", "+1 acorn.\nDraw 1 card."),
     "parakeet": (
         "Parakeets",
         "Counts as 2 flying animals.",
     ),
     "parrot": (
         "Parrots",
-        "Add 1 to your purchasing power for each flying animal in your hand.",
+        "+1 acorn for each flying animal in your hand.",
     ),
     "peacock": ("Peacocks", "Draw 1 card."),
     "penguin": (
         "Penguins",
-        "Add a Silver coin to your hand.",
+        "Add a silver acorn card to your hand.",
     ),
     "raven": (
         "Ravens",
-        "Add 1 purchasing power for each coin in your hand.",
+        "+1 acorn for each acorn card in your hand.",
     ),
     "platypus": (
         "Platypuses",
-        "Add 1 to your purchasing power for each distinct animal in your hand.",
+        "+1 acorn for each distinct animal in your hand.",
     ),
     "polar-bear": (
         "Polar Bears",
-        "Add 2 to your purchasing power.\n+1 VP for each land animal in your whole deck.",
+        "+2 acorns.\n+1 VP for each land animal in your whole deck.",
     ),
     "rabbit": (
         "Rabbits",
@@ -104,11 +104,11 @@ CARD_TEXT_EN = {
     ),
     "seal": (
         "Seals",
-        "Add 3 to your purchasing power, but you can only spend it on aquatic animals.",
+        "+3 acorns, but you can only spend them on aquatic animals.",
     ),
     "shark": (
         "Sharks",
-        "Eliminate an aquatic animal costing 3 or less from each opponent's hand. Add 1 purchasing power for each one.\n+1 VP for each eliminated animal.",
+        "Eliminate an aquatic animal costing 3 or less from each opponent's hand.\n+1 acorn for each one.\n+1 VP for each eliminated animal.",
     ),
     "sloth": ("Sloths", "Does nothing. Just sleeps."),
     "snake": (
@@ -121,7 +121,7 @@ CARD_TEXT_EN = {
     ),
     "squirrel": (
         "Squirrels",
-        "Add 1 to your purchasing power.\nAt the start of your turn, if you have 1 or more Squirrels in your discard pile, put one in your hand.",
+        "+1 acorn.\nAt the start of your turn, if you have 1 or more Squirrels in your discard pile, put one in your hand.",
     ),
     "tiger": (
         "Tigers",
@@ -133,7 +133,7 @@ CARD_TEXT_EN = {
     ),
     "turtle": (
         "Turtles",
-        "Upgrade 1 coin in your hand (from 1 to 2, or 2 to 3).",
+        "Upgrade an acorn in your hand for one of the next tier.",
     ),
     "vulture": (
         "Vultures",
