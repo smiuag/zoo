@@ -30,18 +30,47 @@ CENTER_X = 355          # centro horizontal en el fondo
 ADJUST = {1: (0, 0), 2: (0, 0), 3: (0, 0), 5: (0, 0)}   # (dx, dy) de ajuste fino por moneda
 # zonas (x0, y0, x1, y1) del cuadrante donde el pelo claro llega al borde sin linea oscura (orejas
 # del panda rojo): ahi el fleco palido solo se quita en los 2 px mas exteriores
-KEEP = {1: [(130, 50, 160, 102), (225, 60, 266, 112)]}
+KEEP = {
+    1: [(130, 50, 162, 108), (213, 55, 268, 110), (225, 132, 318, 200)],   # orejas, cola y panuelo
+    2: [(220, 143, 246, 178)],                                             # panuelo
+    3: [(170, 58, 207, 75), (233, 88, 318, 178)],                          # mechon y cola
+    5: [(112, 60, 160, 105), (52, 113, 102, 162), (218, 140, 246, 178)],   # oreja, borde de la bellota, panuelo
+}
+# poligonos de exclusion (coordenadas del cuadrante): trozos de fondo que el poligono principal abarca
+EXCLUDE = {
+    1: [[(63, 229), (80, 229), (80, 242), (63, 242)]],                               # flor rosa
+    2: [[(60, 231), (80, 231), (80, 243), (60, 243)],                                # flor rosa
+        [(226, 274), (272, 240), (290, 240), (290, 290), (226, 290)]],               # rama bajo la pata
+    3: [[(266, 196), (290, 196), (290, 236), (266, 236)]],                           # fondo tras la cola
+}
+# zonas que se incluyen sin filtros de color (picos verdosos de los panuelos, planta del pie):
+# solo se les quita el fleco palido del borde
+FORCE = {
+    1: [[(232, 148), (245, 147), (251, 150), (250, 154), (243, 157), (233, 159)],      # pico superior del panuelo
+        [(232, 163), (243, 167), (250, 175), (249, 178), (240, 181), (233, 178)],      # pico inferior
+        [(168, 260), (176, 271), (182, 277), (190, 279), (199, 278), (206, 273), (211, 266), (211, 260)]],  # pie
+    5: [[(232, 148), (244, 148), (251, 152), (250, 155), (242, 158), (234, 160)],
+        [(232, 162), (242, 165), (249, 171), (248, 175), (240, 177), (233, 175)]],
+}
+POLY_SLACK = 6          # px que se ensancha el poligono (solo por encima de POLY_SLACK_Y, lejos de la rama)
+POLY_SLACK_Y = 228
 
-def strip_fringe(m, hsv, keep_boxes):
+def strip_fringe(m, hsv, keep_boxes, force_mask=None):
     """Quita el fleco de fondo palido que queda pegado a la silueta: pixeles claros y poco
     saturados del borde (hasta 10 px) que se alcanzan desde el exterior sin cruzar ninguna linea
     oscura ni ningun color intenso (los contornos del dibujo hacen de barrera, asi que el pelo
     claro de dentro de las orejas o los brillos del rabito de la bellota se conservan)."""
     h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
     dark = (v < 150) | (s > 100)
-    pale = ~dark & (v > 135) & (s <= 90) & (h >= 22) & (h <= 140)
-    band = m & ~ndimage.binary_erosion(m, iterations=10)
-    lab, _ = ndimage.label(~m | (band & pale))
+    pale = ~dark & (v > 150) & (s <= 75) & (h >= 30) & (h <= 140)
+    # colores que solo tiene el fondo (verde azulado palido, rosa de las flores): se quitan a
+    # cualquier profundidad siempre que se alcancen desde fuera sin cruzar un contorno oscuro
+    teal = ~dark & (h >= 95) & (h <= 165) & (s >= 20) & (s <= 110) & (v > 120)
+    pink = ((h >= 200) | (h <= 5)) & (s > 90) & (v > 120)
+    band = m & ~ndimage.binary_erosion(m, iterations=6)
+    bg_deep = m & (teal | pink)
+    if force_mask is not None: bg_deep &= ~force_mask
+    lab, _ = ndimage.label(~m | (band & pale) | bg_deep)
     edge = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]])); edge = edge[edge > 0]
     rm = np.isin(lab, edge) & m
     if keep_boxes:
@@ -50,15 +79,24 @@ def strip_fringe(m, hsv, keep_boxes):
             rm[y0:y1, x0:x1] &= thin[y0:y1, x0:x1]
     return m & ~rm
 
-def matte(img, poly, keep_boxes=()):
+def matte(img, poly, keep_boxes=(), exclude=(), force=()):
     hsv = np.asarray(img.convert('HSV')).astype(float); h, s, v = hsv[..., 0], hsv[..., 1], hsv[..., 2]
     pm = Image.new('L', img.size, 0); ImageDraw.Draw(pm).polygon(poly, fill=255)
+    pm = np.asarray(pm) > 0
+    wide = ndimage.binary_dilation(pm, iterations=POLY_SLACK)
+    wide[POLY_SLACK_Y:] = pm[POLY_SLACK_Y:]          # cerca de la rama, poligono exacto
+    wide[165:, :100] = pm[165:, :100]                # lado izquierdo de la bellota, poligono exacto
+    pm = Image.fromarray(wide.astype(np.uint8) * 255)
+    for ex in exclude: ImageDraw.Draw(pm).polygon(ex, fill=0)
     green = (h > 38) & (h < 130) & (s > 55)
     # cielo/resplandor claro del fondo (amarillo-verdoso palido): tono 33-95, saturacion baja,
     # claro. El pelo claro de los animales es calido (tono < 30) o gris (saturacion < 20), y el
     # cuerpo azulado del koala es mucho mas oscuro, asi que no entran aqui.
-    sky = (h >= 33) & (h <= 95) & (s >= 18) & (s <= 72) & (v > 150)
-    m = (np.asarray(pm) > 0) & ~green & ~sky
+    sky = (h >= 36) & (h <= 95) & (s >= 25) & (s <= 72) & (v > 150)
+    fm = Image.new('L', img.size, 0)
+    for fp in force: ImageDraw.Draw(fm).polygon(fp, fill=255)
+    fm = np.asarray(fm) > 0
+    m = ((np.asarray(pm) > 0) & ~green & ~sky) | fm
     m = ndimage.binary_opening(m, structure=np.ones((2, 2)))
     lab, n = ndimage.label(m); sizes = ndimage.sum(np.ones_like(lab), lab, index=np.arange(1, n + 1))
     m = lab == (np.argmax(sizes) + 1)
@@ -69,15 +107,18 @@ def matte(img, poly, keep_boxes=()):
     lab_h, nh = ndimage.label(holes)
     if nh:
         hs = ndimage.sum(np.ones_like(lab_h), lab_h, index=np.arange(1, nh + 1))
-        m |= np.isin(lab_h, np.arange(1, nh + 1)[hs < 400])
-    m = strip_fringe(m, hsv, keep_boxes)
+        teal_h = (h >= 95) & (h <= 165) & (s >= 20) & (s <= 110) & (v > 120)
+        bgc = ndimage.mean((sky | green | teal_h).astype(float), lab_h, index=np.arange(1, nh + 1))
+        # huecos diminutos siempre (cuadros del panuelo, brillos); medianos solo si no son de color de fondo
+        m |= np.isin(lab_h, np.arange(1, nh + 1)[(hs < 60) | ((hs < 400) & (np.asarray(bgc) < 0.5))])
+    m = strip_fringe(m, hsv, keep_boxes, fm)
     lab, n = ndimage.label(m); sizes = ndimage.sum(np.ones_like(lab), lab, index=np.arange(1, n + 1))
     return lab == (np.argmax(sizes) + 1)
 
 previews = []
 for n, box in QUADS.items():
     q = SRC.crop(box)
-    m = matte(q, POLYS[n], KEEP.get(n, ()))
+    m = matte(q, POLYS[n], KEEP.get(n, ()), EXCLUDE.get(n, ()), FORCE.get(n, ()))
     ys, xs = np.where(m); bx0, bx1, by0, by1 = xs.min(), xs.max() + 1, ys.min(), ys.max() + 1
     s = SCALE
     fg = q.crop((bx0, by0, bx1, by1)).resize((round((bx1 - bx0) * s), round((by1 - by0) * s)), Image.LANCZOS)
@@ -94,7 +135,7 @@ if len(sys.argv) > 1:
     c.save(os.path.join(sys.argv[1], 'coins_4en1.png'))
     # siluetas sobre los cuadrantes, para revisar
     for n, box in QUADS.items():
-        q = SRC.crop(box); a = np.asarray(q).astype(float); m = matte(q, POLYS[n], KEEP.get(n, ()))
+        q = SRC.crop(box); a = np.asarray(q).astype(float); m = matte(q, POLYS[n], KEEP.get(n, ()), EXCLUDE.get(n, ()), FORCE.get(n, ()))
         ov = a.copy(); ov[~m] = ov[~m] * 0.35 + np.array([0, 0, 255]) * 0.65
         d = Image.fromarray(ov.astype(np.uint8)); ImageDraw.Draw(d).polygon(POLYS[n], outline=(255, 0, 0))
         d.resize((q.width * 2, q.height * 2), Image.LANCZOS).save(os.path.join(sys.argv[1], f'q_matte_{n}.png'))
