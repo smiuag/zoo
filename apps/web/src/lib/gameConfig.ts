@@ -147,6 +147,13 @@ export interface GameConfig {
   // useGame.ts) y no se genera la animación de "vuelo" de compra (ver
   // FlyingCard.tsx) — no toca la de aparición suave de cartas nuevas.
   animationsEnabled: boolean;
+  // Nick de cada invitado ONLINE (human-1, human-2...), recogido en la sala
+  // de espera antes de empezar (ver GuestApp.tsx / useHostRoom.ts) — el
+  // host nunca escribe estos, solo `nick` (el suyo propio, human-0). Ausente
+  // en pase-y-juega local: ahí los humanos 2+ siguen usando el nombre por
+  // defecto "J2"/"J3" (ver humanName en useGame.ts), sin campo para
+  // elegirlo. Las claves son el seatId ("human-1", no el índice).
+  guestNicks?: Record<string, string>;
 }
 
 export function defaultGameConfig(): GameConfig {

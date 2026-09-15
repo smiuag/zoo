@@ -10,7 +10,7 @@ import {
   type Player,
   type PlayerScore,
 } from '@zoo/engine';
-import { ActivePlayerBoard } from './ActivePlayerBoard';
+import { ActivePlayerBoard, useActivePlayerMoney } from './ActivePlayerBoard';
 import { CardView } from './CardView';
 import { FlyingCard, type FlightSpec } from './FlyingCard';
 import {
@@ -23,12 +23,30 @@ import {
 import { BOT_ALGORITHM_OPTIONS, displayName } from '../lib/botAlgorithms';
 import { buildTargetChoice, type PendingChoice } from '../lib/pendingChoice';
 import type { BotAlgorithm } from '../lib/gameConfig';
+import type { ReplayStatus } from '../online/protocol';
 
 // Cuántas rondas del final se consideran "recta final" (contador de ronda
 // en rojo, ver .status-pill__round--final).
 const FINAL_ROUNDS_WARNING = 5;
 
 const PURCHASABLE_COIN_IDS = ['coin-2', 'coin-3', 'coin-5'];
+
+// "Repetir partida" (botón en el resumen de fin de partida, ver más abajo):
+// 'local' (pase-y-juega en este mismo dispositivo, o solitario contra
+// bots) reinicia con un solo clic — todos los humanos ya están delante de
+// la misma pantalla, pedido explícito del usuario ("un solo clic vale").
+// 'online' necesita el acuerdo real de cada humano por separado, en su
+// propio dispositivo — ver ReplayStatus en online/protocol.ts, mantenido
+// por el host (useHostRoom.ts) y repartido a todos en cada StateSyncMessage.
+export type ReplayProps =
+  | { mode: 'local'; onReplay: () => void }
+  | {
+      mode: 'online';
+      status: ReplayStatus | null;
+      viewerSeatId: string;
+      onPropose: () => void;
+      onRespond: (accept: boolean) => void;
+    };
 
 export interface GameBoardProps {
   state: GameState;
@@ -54,6 +72,10 @@ export interface GameBoardProps {
   onNewGame?: () => void;
   onRestartTurn?: () => void;
   onSetBotAlgorithm?: (botId: string, algorithm: BotAlgorithm) => void;
+  // Ausente = sin botón de "Repetir partida" (no debería pasar en el flujo
+  // normal, pero por si acaso — ver App.tsx/GuestApp.tsx, que siempre lo
+  // pasan).
+  replay?: ReplayProps;
 }
 
 export function GameBoard({
@@ -69,8 +91,13 @@ export function GameBoard({
   onNewGame,
   onRestartTurn,
   onSetBotAlgorithm,
+  replay,
 }: GameBoardProps) {
   const activePlayer = getActivePlayer(state);
+  // Mismo cálculo que ActivePlayerBoard (comparten el hook): aquí solo hace
+  // falta la cifra, para el badge flotante de móvil de más abajo — ver
+  // .money-float en styles.css.
+  const { purchasingPower, peak: purchasingPowerPeak } = useActivePlayerMoney(state);
   const human = state.players.find((p) => p.id === viewerPlayerId) ?? state.players[0];
   const bots = state.players.filter((p) => !humanIds.includes(p.id));
   // Para una carta del MERCADO (todavía no es tuya): cuánto valdría YA
@@ -243,6 +270,10 @@ export function GameBoard({
   const [pendingChoice, setPendingChoice] = useState<PendingChoice | null>(null);
   const [viewedPlayerId, setViewedPlayerId] = useState<string | null>(null);
   const [confirmEndTurn, setConfirmEndTurn] = useState(false);
+  // Solo lo usa replay?.mode === 'local': un clic en "Repetir partida" abre
+  // esta confirmación de un solo paso (nadie más que confirmar, ver
+  // ReplayProps arriba) antes de llamar a replay.onReplay().
+  const [confirmLocalReplay, setConfirmLocalReplay] = useState(false);
   const choiceRef = useRef<HTMLDivElement>(null);
   const viewedPlayer = state.players.find((p) => p.id === viewedPlayerId) ?? null;
   // Terminar turno "a lo tonto" (con animales por jugar o monedas por
@@ -434,6 +465,19 @@ export function GameBoard({
 
   return (
     <div className="app">
+      {!state.gameOver && (
+        // Solo visible en móvil (ver .money-float en styles.css): en
+        // pantalla ancha "Mesa de X" ya se ve a la vez que el mercado, pero
+        // en una columna sola el mercado queda muy por debajo — pedido
+        // explícito del usuario, poder ver el dinero disponible sin tener
+        // que volver a subir hasta la mesa mientras compras.
+        <p
+          className="money-float"
+          title={`Valor de compra de ${displayName(activePlayer, humanIds, botAlgorithms)}: ${purchasingPower} disponibles de ${purchasingPowerPeak} que ha llegado a tener este turno`}
+        >
+          💰 {purchasingPower}/{purchasingPowerPeak}
+        </p>
+      )}
       {state.gameOver && (
         <div className="panel">
           <div className="panel__header">
@@ -504,6 +548,61 @@ export function GameBoard({
               </tbody>
             </table>
           </div>
+
+          {replay && (
+            <div className="replay-box">
+              {replay.mode === 'local' ? (
+                confirmLocalReplay ? (
+                  <div className="replay-pending">
+                    <span className="setup-hint">¿Repetir con la misma configuración?</span>
+                    <button className="btn btn--ghost" onClick={() => setConfirmLocalReplay(false)}>
+                      Cancelar
+                    </button>
+                    <button
+                      className="btn btn--primary"
+                      onClick={() => {
+                        setConfirmLocalReplay(false);
+                        replay.onReplay();
+                      }}
+                    >
+                      Sí, repetir
+                    </button>
+                  </div>
+                ) : (
+                  <button className="btn btn--primary" onClick={() => setConfirmLocalReplay(true)}>
+                    🔁 Repetir partida
+                  </button>
+                )
+              ) : replay.status === null ? (
+                <button className="btn btn--primary" onClick={replay.onPropose}>
+                  🔁 Repetir partida
+                </button>
+              ) : replay.status.acceptedSeatIds.includes(replay.viewerSeatId) ? (
+                <div className="replay-pending">
+                  <span className="setup-hint">
+                    Esperando a los demás para repetir ({replay.status.acceptedSeatIds.length}/
+                    {replay.status.totalHumanSeats})...
+                  </span>
+                  <button className="btn btn--ghost" onClick={() => replay.onRespond(false)}>
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <div className="replay-pending">
+                  <span className="setup-hint">
+                    {replay.status.proposedByName} propone repetir la partida ({replay.status.acceptedSeatIds.length}/
+                    {replay.status.totalHumanSeats} aceptado)
+                  </span>
+                  <button className="btn btn--ghost" onClick={() => replay.onRespond(false)}>
+                    Rechazar
+                  </button>
+                  <button className="btn btn--primary" onClick={() => replay.onRespond(true)}>
+                    Aceptar
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

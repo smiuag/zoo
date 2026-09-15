@@ -162,6 +162,37 @@ body {
   white-space: nowrap;
 }
 
+/* Badge flotante con el mismo dinero (ver GameBoard.tsx, useActivePlayerMoney):
+   oculto en escritorio (".active-player-money" de arriba ya está siempre a
+   la vista ahí, junto al mercado) — solo se muestra en el breakpoint de
+   abajo, donde ".layout" pasa a una sola columna y el mercado queda muy
+   por debajo de "Mesa de X". position:fixed a propósito, no sticky: sigue
+   visible pase lo que pase por donde se haya scrolleado, sin depender de
+   dentro de qué contenedor viva en el DOM. */
+.money-float {
+  display: none;
+  margin: 0;
+}
+
+@media (max-width: 860px) {
+  .money-float {
+    display: inline-flex;
+    align-items: center;
+    position: fixed;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 40;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #8a6d1f;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  }
+}
+
 .panel__hint {
   font-size: 0.78rem;
   color: var(--muted);
@@ -510,6 +541,20 @@ body {
   color: var(--muted);
   font-weight: 700;
   font-size: 0.78rem;
+}
+
+/* "Repetir partida" (ver ReplayProps en GameBoard.tsx): botón suelto en
+   local, o el mismo hueco con la fila de estado/aceptar-rechazar en
+   online. */
+.replay-box {
+  margin-top: 0.9rem;
+}
+
+.replay-pending {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
 }
 
 /* ---------- Contextual choice panel ---------- */

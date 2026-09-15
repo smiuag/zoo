@@ -31,6 +31,9 @@ interface GameSetupProps {
   // nada que ver con esta partida ni con ninguna configuración de arriba, así
   // que siempre está disponible sin más condición.
   onOpenScoreCalculator: () => void;
+  // Abre el ranking/histórico (ver Ranking.tsx): igual que la calculadora,
+  // sin relación con esta partida.
+  onOpenRanking: () => void;
   // Presente solo si hay una sala online guardada en localStorage (ver
   // App.tsx/online/onlineRoomStorage.ts) — normalmente porque el host
   // refrescó por accidente a mitad de partida. Mostrar el aviso ANTES que
@@ -57,6 +60,7 @@ export function GameSetup({
   onStart,
   onCreateOnlineRoom,
   onOpenScoreCalculator,
+  onOpenRanking,
   resumableOnlineRoomCode,
   onResumeOnlineRoom,
   onDiscardResumableOnlineRoom,
@@ -272,6 +276,9 @@ export function GameSetup({
 
         <button className="btn btn--ghost" type="button" onClick={onOpenScoreCalculator}>
           🌰 Marcador final (sin partida)
+        </button>
+        <button className="btn btn--ghost" type="button" onClick={onOpenRanking}>
+          🏆 Ranking
         </button>
       </form>
     </div>

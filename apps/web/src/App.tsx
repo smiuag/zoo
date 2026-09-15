@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { getLegalActions } from '@zoo/engine';
-import { GameBoard } from './components/GameBoard';
+import { GameBoard, type ReplayProps } from './components/GameBoard';
 import { GameSetup } from './components/GameSetup';
 import { GuestApp } from './components/GuestApp';
 import { OnlineWaitingRoom } from './components/OnlineWaitingRoom';
+import { Ranking } from './components/Ranking';
 import { ScoreCalculator } from './components/ScoreCalculator';
 import { createHostRoom, type CreatedRoom } from './online/createHostRoom';
+import { recordGameResult, type GameMode } from './online/gameResults';
 import { useHostRoom } from './online/useHostRoom';
 import { clearOnlineRoom, loadOnlineRoom, saveOnlineRoom } from './online/onlineRoomStorage';
-import { DEFAULT_ROUND_LIMIT, useGame, type GameConfig } from './state/useGame';
+import { DEFAULT_ROUND_LIMIT, useGame, type GameConfig, type RoundLimit } from './state/useGame';
 
 function useGuestRouteParams(): { roomCode: string; seatId: string; seatKey: string } | null {
   const params = new URLSearchParams(window.location.search);
@@ -63,6 +65,8 @@ function HostOrLocalApp() {
   // completa, independiente de `phase`/`onlineRoom` — se puede abrir y
   // cerrar sin tocar ninguna partida en curso ni su configuración.
   const [showScoreCalculator, setShowScoreCalculator] = useState(false);
+  // Ranking/histórico (ver Ranking.tsx): mismo trato que la calculadora.
+  const [showRanking, setShowRanking] = useState(false);
 
   // Mientras juegan los bots, se sigue mostrando el último humano con
   // agencia (pase-y-juega local): nada interactivo depende de esto, solo
@@ -84,7 +88,17 @@ function HostOrLocalApp() {
   // invitado resuelve su propio descarte pendiente).
   const legalActions = phase === 'playing' ? getLegalActions(state, viewerPlayerId) : [];
 
-  const { connectedSeatIds } = useHostRoom({
+  // "Repetir partida" online (ver ReplayStatus en online/protocol.ts): en
+  // cuanto todos los humanos han aceptado, se reinicia con la MISMA config
+  // exacta con la que se creó esta sala (mismos nicks/bots/duración) — ni
+  // siquiera hace falta reconstruirla, onlineRoom.config ya la conserva tal
+  // cual desde el principio.
+  function handleOnlineReplayAccepted() {
+    if (!onlineRoom) return;
+    startGame(onlineRoom.config);
+  }
+
+  const { connectedSeatIds, connectedSeatNicks, replayStatus, proposeReplay, respondReplay } = useHostRoom({
     roomCode: onlineRoom?.roomCode ?? '',
     seats: onlineRoom?.seats ?? [],
     state,
@@ -95,6 +109,7 @@ function HostOrLocalApp() {
     doAction,
     tick,
     active: isOnlineHost && phase === 'playing',
+    onReplayAccepted: handleOnlineReplayAccepted,
   });
 
   // Guarda el estado de la sala online cada vez que cambia de verdad
@@ -114,6 +129,33 @@ function HostOrLocalApp() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick, isOnlineHost, phase]);
+
+  // Ranking/histórico (pedido explícito del usuario): en cuanto la partida
+  // termina, cada dispositivo registra SOLO los humanos que controla de
+  // verdad, con SU propio device_id — el host de una sala online nunca
+  // registra por los invitados (cada uno se registra a sí mismo, ver
+  // GuestApp.tsx); en local/solitario, "los que controla" son todos los
+  // humanos de la partida (mismo dispositivo, pase y juega). Guardado en
+  // una ref (no en el propio `phase`) para no repetir el registro en cada
+  // re-render mientras la pantalla de resumen sigue montada.
+  const recordedResultRef = useRef(false);
+  useEffect(() => {
+    if (!state.gameOver) {
+      recordedResultRef.current = false;
+      return;
+    }
+    if (recordedResultRef.current) return;
+    recordedResultRef.current = true;
+    const mode: GameMode = isOnlineHost ? 'online' : humanIds.length > 1 ? 'local' : 'solo';
+    const myHumanIds = isOnlineHost ? ['human-0'] : humanIds;
+    for (const humanId of myHumanIds) {
+      const player = state.players.find((p) => p.id === humanId);
+      const score = scores.find((s) => s.playerId === humanId)?.score;
+      if (!player || score === undefined) continue;
+      recordGameResult({ nick: player.name, score, mode, numPlayers: state.players.length, roundLimit: state.maxRounds });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.gameOver]);
 
   function handleResumeOnlineRoom() {
     if (!resumableOnlineRoom) return;
@@ -144,7 +186,13 @@ function HostOrLocalApp() {
 
   function handleStartOnlineGame() {
     if (!onlineRoom) return;
-    startGame(onlineRoom.config);
+    // Los nicks de los invitados (escritos en su propia sala de espera, ver
+    // GuestApp.tsx) llegan aquí vía presencia (ver useHostRoom.ts) — se
+    // incorporan a la config justo ahora, la única vez que se usa de
+    // verdad para crear la partida.
+    const config: GameConfig = { ...onlineRoom.config, guestNicks: Object.fromEntries(connectedSeatNicks) };
+    setOnlineRoom({ ...onlineRoom, config });
+    startGame(config);
   }
 
   function handleCancelOnlineRoom() {
@@ -157,8 +205,32 @@ function HostOrLocalApp() {
     restart();
   }
 
+  // "Repetir partida" en local/solitario (ver ReplayProps en
+  // GameBoard.tsx): un solo clic ya vale (pedido explícito del usuario,
+  // todos los humanos están delante de la misma pantalla), así que aquí
+  // solo hace falta reconstruir una config equivalente a la que se usó —
+  // mismos humanos/bots/duración — y arrancar directamente.
+  function handleLocalReplay() {
+    const nick = state.players.find((p) => p.id === 'human-0')?.name ?? '';
+    const botSeatIds = Object.keys(botAlgorithms).sort(
+      (a, b) => Number(a.split('-')[1]) - Number(b.split('-')[1])
+    );
+    const config: GameConfig = {
+      numHumans: humanIds.length,
+      nick,
+      botAlgorithms: botSeatIds.map((id) => botAlgorithms[id]),
+      roundLimit: (state.maxRounds as RoundLimit | null) ?? DEFAULT_ROUND_LIMIT,
+      animationsEnabled,
+    };
+    startGame(config);
+  }
+
   if (showScoreCalculator) {
     return <ScoreCalculator onClose={() => setShowScoreCalculator(false)} />;
+  }
+
+  if (showRanking) {
+    return <Ranking onClose={() => setShowRanking(false)} />;
   }
 
   if (phase === 'setup') {
@@ -168,6 +240,7 @@ function HostOrLocalApp() {
           roomCode={onlineRoom.roomCode}
           seats={onlineRoom.seats}
           connectedSeatIds={connectedSeatIds}
+          connectedSeatNicks={connectedSeatNicks}
           onStart={handleStartOnlineGame}
           onCancel={handleCancelOnlineRoom}
         />
@@ -178,12 +251,23 @@ function HostOrLocalApp() {
         onStart={startGame}
         onCreateOnlineRoom={handleCreateOnlineRoom}
         onOpenScoreCalculator={() => setShowScoreCalculator(true)}
+        onOpenRanking={() => setShowRanking(true)}
         resumableOnlineRoomCode={resumableOnlineRoom?.roomCode}
         onResumeOnlineRoom={handleResumeOnlineRoom}
         onDiscardResumableOnlineRoom={handleDiscardResumableOnlineRoom}
       />
     );
   }
+
+  const replay: ReplayProps = isOnlineHost
+    ? {
+        mode: 'online',
+        status: replayStatus,
+        viewerSeatId: 'human-0',
+        onPropose: () => proposeReplay('human-0', state.players.find((p) => p.id === 'human-0')?.name ?? 'Host'),
+        onRespond: (accept) => respondReplay('human-0', accept),
+      }
+    : { mode: 'local', onReplay: handleLocalReplay };
 
   return (
     <>
@@ -209,6 +293,7 @@ function HostOrLocalApp() {
         // ciegas el turno en curso de un invitado.
         onRestartTurn={isOnlineHost ? undefined : restartTurn}
         onSetBotAlgorithm={setBotAlgorithm}
+        replay={replay}
       />
     </>
   );

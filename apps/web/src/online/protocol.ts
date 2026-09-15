@@ -63,6 +63,9 @@ export interface StateSyncMessage {
   // para todos los que se unan, así que viaja aquí en vez de dejar que cada
   // invitado lo decida por su cuenta.
   animationsEnabled: boolean;
+  // "Repetir partida" en curso (o null si no hay ninguna) — ver ReplayStatus
+  // más abajo.
+  replayStatus: ReplayStatus | null;
 }
 
 // Mensaje de un invitado recién conectado (o que acaba de refrescar la
@@ -74,4 +77,37 @@ export interface RequestStateMessage {
   seatKey: string;
 }
 
-export type ActionsChannelMessage = ActionMessage | RequestStateMessage;
+// "Repetir partida" (pedido explícito del usuario): un invitado propone
+// repetir con la MISMA configuración (nº jugadores, bots, duración...) en
+// cuanto la partida ha terminado. Nunca lo manda el host (él ya puede
+// proponerlo localmente, sin pasar por ningún canal) — ver useHostRoom.ts.
+export interface ReplayProposeMessage {
+  type: 'replayPropose';
+  seatId: string;
+  seatKey: string;
+}
+
+// Respuesta de un invitado a una propuesta de repetir ya en marcha:
+// accept=false la cancela para TODOS, no solo para quien la rechaza (ver
+// useHostRoom.ts) — no tiene sentido "repetir" si alguno de los presentes
+// no quiere.
+export interface ReplayRespondMessage {
+  type: 'replayRespond';
+  seatId: string;
+  seatKey: string;
+  accept: boolean;
+}
+
+export type ActionsChannelMessage = ActionMessage | RequestStateMessage | ReplayProposeMessage | ReplayRespondMessage;
+
+// Estado en vivo de una propuesta de "repetir partida", calculado y
+// mantenido SOLO por el host (ver useHostRoom.ts) y viajando dentro de cada
+// StateSyncMessage para que todos los invitados vean lo mismo: quién la
+// propuso, quién ya ha aceptado, y cuántos humanos hacen falta en total.
+// null mientras no hay ninguna propuesta en curso.
+export interface ReplayStatus {
+  proposedBySeatId: string;
+  proposedByName: string;
+  acceptedSeatIds: string[];
+  totalHumanSeats: number;
+}

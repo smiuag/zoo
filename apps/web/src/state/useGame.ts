@@ -112,11 +112,15 @@ function shuffled<T>(items: T[]): T[] {
 }
 
 function newGame(config: GameConfig): GameState {
-  const humans = Array.from({ length: config.numHumans }, (_, i) => ({
-    id: `human-${i}`,
-    name: humanName(i, config.numHumans, config.nick.trim().slice(0, MAX_NICK_LENGTH)),
-    deck: buildStarterDeck(),
-  }));
+  const humans = Array.from({ length: config.numHumans }, (_, i) => {
+    const seatId = `human-${i}`;
+    // El host solo escribe SU propio nick (config.nick, siempre human-0);
+    // el de cada invitado online (si lo dio, ver GameConfig.guestNicks)
+    // gana al numerito "J2"/"J3" por defecto para ese mismo asiento.
+    const guestNick = i > 0 ? config.guestNicks?.[seatId]?.trim().slice(0, MAX_NICK_LENGTH) : undefined;
+    const name = guestNick || humanName(i, config.numHumans, config.nick.trim().slice(0, MAX_NICK_LENGTH));
+    return { id: seatId, name, deck: buildStarterDeck() };
+  });
   const bots = config.botAlgorithms.map((_, i) => ({
     id: `bot-${i}`,
     name: `B${i + 1}`,

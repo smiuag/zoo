@@ -6,6 +6,7 @@ import {
   lobbyChannelName,
   seatChannelName,
   type ActionsChannelMessage,
+  type ReplayStatus,
   type StateSyncMessage,
 } from './protocol';
 import { redactStateForSeat } from './redact';
@@ -33,10 +34,27 @@ export interface UseHostRoomParams {
   // La sala se anuncia (presencia) desde que existe, pero solo se retransmite
   // estado real una vez la partida ha empezado de verdad.
   active: boolean;
+  // "Repetir partida" (ver ReplayStatus en protocol.ts): se llama en cuanto
+  // TODOS los humanos (host incluido) han aceptado la propuesta en curso —
+  // quien llama a esto decide qué hacer (normalmente, startGame con la
+  // misma config de siempre). El propio hook limpia replayStatus justo
+  // después, para todos los conectados.
+  onReplayAccepted: () => void;
 }
 
 export interface UseHostRoomResult {
   connectedSeatIds: Set<string>;
+  // Nick que cada invitado conectado escribió antes de entrar (ver
+  // GuestApp.tsx) — vacío para un asiento sin nadie conectado todavía.
+  connectedSeatNicks: Map<string, string>;
+  replayStatus: ReplayStatus | null;
+  // El host propone repetir partida (p. ej. al pulsar el botón él mismo, sin
+  // pasar por ningún canal — ya está "conectado" por definición). Si YA hay
+  // una propuesta en curso, no hace nada (una a la vez).
+  proposeReplay: (bySeatId: string, byName: string) => void;
+  // El host responde a una propuesta en curso (la suya propia o la de un
+  // invitado) — accept=false la cancela para todos, no solo para el host.
+  respondReplay: (seatId: string, accept: boolean) => void;
 }
 
 // Solo la pestaña host llama a este hook. Mantiene, durante toda la vida de
@@ -48,14 +66,81 @@ export interface UseHostRoomResult {
 export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
   const { roomCode, seats } = params;
   const [connectedSeatIds, setConnectedSeatIds] = useState<Set<string>>(new Set());
+  const [connectedSeatNicks, setConnectedSeatNicks] = useState<Map<string, string>>(new Map());
+  const [replayStatus, setReplayStatus] = useState<ReplayStatus | null>(null);
 
   // Espejo de los valores que cambian cada render, para que los callbacks de
   // Supabase (registrados una sola vez) siempre lean el estado más reciente
   // sin tener que volver a suscribirse en cada render.
   const latestRef = useRef(params);
   latestRef.current = params;
+  const replayStatusRef = useRef(replayStatus);
+  replayStatusRef.current = replayStatus;
 
   const seatChannelsRef = useRef<Map<string, ReturnType<NonNullable<typeof supabase>['channel']>>>(new Map());
+
+  // Único punto que arma un StateSyncMessage para UN asiento y lo manda —
+  // usado tanto por la respuesta inmediata a requestState como por la
+  // retransmisión periódica (tick) y por cualquier cambio de replayStatus,
+  // para que las 3 vías nunca puedan divergir en qué campos incluyen.
+  function broadcastToSeat(seatId: string) {
+    const { state, humanIds, botAlgorithms, scores, animationsEnabled, active } = latestRef.current;
+    if (!active) return;
+    const channel = seatChannelsRef.current.get(seatId);
+    if (!channel) return;
+    const payload: StateSyncMessage = {
+      type: 'stateSync',
+      state: redactStateForSeat(state, seatId, humanIds),
+      humanIds,
+      botAlgorithms,
+      scores,
+      animationsEnabled,
+      replayStatus: replayStatusRef.current,
+    };
+    channel.send({ type: 'broadcast', event: 'sync', payload });
+  }
+
+  function broadcastToAll() {
+    for (const seat of seats) broadcastToSeat(seat.seatId);
+  }
+
+  function proposeReplay(bySeatId: string, byName: string) {
+    if (replayStatusRef.current) return; // ya hay una propuesta en curso: una a la vez
+    const status: ReplayStatus = {
+      proposedBySeatId: bySeatId,
+      proposedByName: byName,
+      acceptedSeatIds: [bySeatId],
+      totalHumanSeats: latestRef.current.humanIds.length,
+    };
+    setReplayStatus(status);
+  }
+
+  function respondReplay(seatId: string, accept: boolean) {
+    if (!replayStatusRef.current) return;
+    if (!accept) {
+      setReplayStatus(null);
+      return;
+    }
+    const current = replayStatusRef.current;
+    const acceptedSeatIds = current.acceptedSeatIds.includes(seatId)
+      ? current.acceptedSeatIds
+      : [...current.acceptedSeatIds, seatId];
+    const everyoneAccepted = latestRef.current.humanIds.every((id) => acceptedSeatIds.includes(id));
+    if (everyoneAccepted) {
+      setReplayStatus(null);
+      latestRef.current.onReplayAccepted();
+    } else {
+      setReplayStatus({ ...current, acceptedSeatIds });
+    }
+  }
+
+  // Cualquier cambio de replayStatus se retransmite ya mismo (no esperar al
+  // próximo tick de partida): proponer/aceptar/rechazar debe notarse al
+  // instante en las demás pestañas.
+  useEffect(() => {
+    broadcastToAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [replayStatus]);
 
   useEffect(() => {
     const client = supabase;
@@ -68,22 +153,27 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
 
     lobby
       .on('presence', { event: 'sync' }, () => {
-        const presenceState = lobby.presenceState<{ seatId: string }>();
+        const presenceState = lobby.presenceState<{ seatId: string; nick?: string }>();
         const ids = new Set<string>();
+        const nicks = new Map<string, string>();
         for (const presences of Object.values(presenceState)) {
-          for (const p of presences) ids.add(p.seatId);
+          for (const p of presences) {
+            ids.add(p.seatId);
+            if (p.nick) nicks.set(p.seatId, p.nick);
+          }
         }
         setConnectedSeatIds(ids);
+        setConnectedSeatNicks(nicks);
       })
       .subscribe();
 
     function handleActionsMessage(msg: ActionsChannelMessage) {
-      const { state, humanIds, botAlgorithms, scores, animationsEnabled, doAction, active } = latestRef.current;
+      const { state, humanIds, doAction, active } = latestRef.current;
       const seat = seats.find((s) => s.seatId === msg.seatId && s.seatKey === msg.seatKey);
       if (!seat) return; // seatKey no coincide: no es dueño de ese asiento, se ignora
 
       if (msg.type === 'requestState') {
-        broadcastToSeat(seat.seatId, state, humanIds, botAlgorithms, scores, animationsEnabled, active);
+        broadcastToSeat(seat.seatId);
         return;
       }
 
@@ -98,30 +188,18 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
         const isLegal = legal.some((a) => JSON.stringify(a) === JSON.stringify(msg.action));
         if (!isLegal) return;
         doAction(msg.action);
+        return;
       }
-    }
 
-    function broadcastToSeat(
-      seatId: string,
-      state: GameState,
-      humanIds: string[],
-      botAlgorithms: Record<string, BotAlgorithm>,
-      scores: PlayerScore[],
-      animationsEnabled: boolean,
-      active: boolean
-    ) {
-      if (!active) return;
-      const channel = seatChannelsRef.current.get(seatId);
-      if (!channel) return;
-      const payload: StateSyncMessage = {
-        type: 'stateSync',
-        state: redactStateForSeat(state, seatId, humanIds),
-        humanIds,
-        botAlgorithms,
-        scores,
-        animationsEnabled,
-      };
-      channel.send({ type: 'broadcast', event: 'sync', payload });
+      if (msg.type === 'replayPropose') {
+        const proposerName = state.players.find((p) => p.id === seat.seatId)?.name ?? seat.seatId;
+        proposeReplay(seat.seatId, proposerName);
+        return;
+      }
+
+      if (msg.type === 'replayRespond') {
+        respondReplay(seat.seatId, msg.accept);
+      }
     }
 
     actionsCh.on('broadcast', { event: 'msg' }, ({ payload }) => handleActionsMessage(payload as ActionsChannelMessage)).subscribe();
@@ -143,21 +221,9 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
   // verdad (tick, expuesto por useGame), ya con la partida en marcha.
   useEffect(() => {
     if (!supabase || !params.active) return;
-    for (const seat of seats) {
-      const channel = seatChannelsRef.current.get(seat.seatId);
-      if (!channel) continue;
-      const payload: StateSyncMessage = {
-        type: 'stateSync',
-        state: redactStateForSeat(params.state, seat.seatId, params.humanIds),
-        humanIds: params.humanIds,
-        botAlgorithms: params.botAlgorithms,
-        scores: params.scores,
-        animationsEnabled: params.animationsEnabled,
-      };
-      channel.send({ type: 'broadcast', event: 'sync', payload });
-    }
+    broadcastToAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.tick, params.active]);
 
-  return { connectedSeatIds };
+  return { connectedSeatIds, connectedSeatNicks, replayStatus, proposeReplay, respondReplay };
 }

@@ -6,6 +6,9 @@ import {
   lobbyChannelName,
   seatChannelName,
   type ActionMessage,
+  type ReplayProposeMessage,
+  type ReplayRespondMessage,
+  type ReplayStatus,
   type RequestStateMessage,
   type StateSyncMessage,
 } from './protocol';
@@ -25,21 +28,32 @@ export interface UseGuestRoomResult {
   // el ritmo de bots colgando de un valor "todavía sin saber".
   animationsEnabled: boolean;
   sendAction: (action: Action) => void;
+  replayStatus: ReplayStatus | null;
+  proposeReplay: () => void;
+  respondReplay: (accept: boolean) => void;
 }
 
-// Solo llamado por una pestaña invitada (la URL trae ?room=&seat=&key=). No
-// ejecuta el motor: solo guarda el último `GameState` (ya redactado por el
-// host, ver redact.ts) recibido por su canal privado, y manda las jugadas
-// como peticiones al host en vez de aplicarlas localmente — necesario porque
-// el motor no es determinista entre clientes (ver el plan).
-export function useGuestRoom(roomCode: string, seatId: string, seatKey: string): UseGuestRoomResult {
+// Solo llamado por una pestaña invitada (la URL trae ?room=&seat=&key=), ya
+// con el nick elegido (ver GuestApp.tsx: se pide ANTES de montar esto,
+// porque hace falta para anunciarse en el canal de presencia — ver
+// lobby.track más abajo — y el host lo necesita para poder darle su nombre
+// de verdad a este asiento al empezar la partida, ver GameConfig.guestNicks
+// en useGame.ts). No ejecuta el motor: solo guarda el último `GameState` (ya
+// redactado por el host, ver redact.ts) recibido por su canal privado, y
+// manda las jugadas como peticiones al host en vez de aplicarlas localmente
+// — necesario porque el motor no es determinista entre clientes (ver el
+// plan).
+export function useGuestRoom(roomCode: string, seatId: string, seatKey: string, nick: string): UseGuestRoomResult {
   const [status, setStatus] = useState<GuestRoomStatus>('connecting');
   const [payload, setPayload] = useState<StateSyncMessage | null>(null);
   const actionsChannelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
 
   useEffect(() => {
     const client = supabase;
-    if (!client) return;
+    // Sin nick todavía (ver GuestApp.tsx: se pide antes de conectar) no hay
+    // nada que hacer aquí — el efecto se reejecuta solo en cuanto `nick`
+    // deje de estar vacío, gracias a la dependencia de más abajo.
+    if (!client || !nick) return;
     setStatus('connecting');
     setPayload(null);
 
@@ -80,7 +94,7 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string):
 
     lobby.subscribe(async (s) => {
       if (s !== 'SUBSCRIBED') return;
-      await lobby.track({ seatId });
+      await lobby.track({ seatId, nick });
       setStatus((prev) => (prev === 'connecting' ? 'waitingForHost' : prev));
     });
 
@@ -93,12 +107,26 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string):
       client.removeChannel(actionsCh);
       actionsChannelRef.current = null;
     };
-  }, [roomCode, seatId, seatKey]);
+  }, [roomCode, seatId, seatKey, nick]);
 
   function sendAction(action: Action) {
     const channel = actionsChannelRef.current;
     if (!channel) return;
     const msg: ActionMessage = { type: 'action', seatId, seatKey, action };
+    channel.send({ type: 'broadcast', event: 'msg', payload: msg });
+  }
+
+  function proposeReplay() {
+    const channel = actionsChannelRef.current;
+    if (!channel) return;
+    const msg: ReplayProposeMessage = { type: 'replayPropose', seatId, seatKey };
+    channel.send({ type: 'broadcast', event: 'msg', payload: msg });
+  }
+
+  function respondReplay(accept: boolean) {
+    const channel = actionsChannelRef.current;
+    if (!channel) return;
+    const msg: ReplayRespondMessage = { type: 'replayRespond', seatId, seatKey, accept };
     channel.send({ type: 'broadcast', event: 'msg', payload: msg });
   }
 
@@ -117,5 +145,8 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string):
     legalActions,
     animationsEnabled: payload?.animationsEnabled ?? true,
     sendAction,
+    replayStatus: payload?.replayStatus ?? null,
+    proposeReplay,
+    respondReplay,
   };
 }

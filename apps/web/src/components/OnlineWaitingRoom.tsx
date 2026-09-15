@@ -5,16 +5,20 @@ interface OnlineWaitingRoomProps {
   roomCode: string;
   seats: HostRoomSeat[];
   connectedSeatIds: Set<string>;
+  // Nick que cada invitado escribió antes de entrar (ver GuestApp.tsx), por
+  // seatId — ausente mientras ese asiento no se haya conectado todavía.
+  connectedSeatNicks: Map<string, string>;
   onStart: () => void;
   onCancel: () => void;
 }
 
-function seatLabel(seatId: string): string {
+function seatLabel(seatId: string, nick: string | undefined): string {
+  if (nick) return nick;
   const n = Number(seatId.split('-')[1]) + 1;
   return `Jugador ${n}`;
 }
 
-export function OnlineWaitingRoom({ roomCode, seats, connectedSeatIds, onStart, onCancel }: OnlineWaitingRoomProps) {
+export function OnlineWaitingRoom({ roomCode, seats, connectedSeatIds, connectedSeatNicks, onStart, onCancel }: OnlineWaitingRoomProps) {
   const [copied, setCopied] = useState<string | null>(null);
 
   async function copyLink(seatId: string, url: string) {
@@ -47,7 +51,8 @@ export function OnlineWaitingRoom({ roomCode, seats, connectedSeatIds, onStart, 
           {seats.map((seat) => (
             <div key={seat.seatId} className="setup-row setup-row--bot">
               <label>
-                {seatLabel(seat.seatId)} {connectedSeatIds.has(seat.seatId) ? '🟢 conectado' : '⏳ esperando'}
+                {seatLabel(seat.seatId, connectedSeatNicks.get(seat.seatId))}{' '}
+                {connectedSeatIds.has(seat.seatId) ? '🟢 conectado' : '⏳ esperando'}
               </label>
               <button className="btn btn--ghost" type="button" onClick={() => copyLink(seat.seatId, seat.inviteUrl)}>
                 {copied === seat.seatId ? '✓ copiado' : '📋 copiar enlace'}
