@@ -63,24 +63,25 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(state.pendingDecision).toBeNull();
   });
 
-  it('serpiente (rediseño 2026-09-14): cada jugador con algún animal en mano (quien la juega incluido) debe descartar uno — las monedas no cuentan como elegibles', () => {
+  it('serpiente (rediseño 2026-09-15): cada OPONENTE con algún animal en mano debe descartar uno — quien la juega no descarta nada, y las monedas no cuentan como elegibles', () => {
     const { state, player, opponent } = setupClean();
     const hippo = freshInstance('hippopotamus', 'o1');
     const coin = freshInstance('coin-1', 'o2');
     opponent.hand = [hippo, coin];
     const snake = freshInstance('snake', 'test');
-    const monkey = freshInstance('monkey', 'p1'); // el propio jugador también debe descartar si tiene un animal
+    const monkey = freshInstance('monkey', 'p1');
     player.hand = [snake, monkey];
 
     playCard(state, player.id, snake.instanceId);
 
-    // Nada se ha descartado todavía: el motor espera a que cada uno elija.
+    // Nada se ha descartado todavía: el motor espera a que cada rival elija.
     expect(opponent.hand).toHaveLength(2);
+    // Quien juega la Serpiente no debe nada: su mano queda intacta.
     expect(player.hand).toEqual([monkey]);
     // Solo el animal es elegible para el rival, no la moneda.
     expect(state.pendingDecision?.owed[opponent.id]).toEqual({ amount: 1, eligibleInstanceIds: [hippo.instanceId] });
-    // El propio jugador también debe entregar el suyo.
-    expect(state.pendingDecision?.owed[player.id]).toEqual({ amount: 1, eligibleInstanceIds: [monkey.instanceId] });
+    // Quien la jugó nunca aparece en owed: no le toca entregar nada.
+    expect(state.pendingDecision?.owed[player.id]).toBeUndefined();
   });
 
   it('serpiente: si un jugador solo tiene monedas (o la mano vacía), no debe nada', () => {
@@ -98,24 +99,20 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(state.pendingAnimalAbilityChoice).toBeNull();
   });
 
-  it('serpiente: una vez descartado, quien la jugó elige uno de los animales entregados y activa su habilidad — la carta se queda en el descarte de quien la dio', () => {
+  it('serpiente: una vez descartado por el rival, quien la jugó elige su animal y activa la habilidad — la carta se queda en el descarte de quien la dio', () => {
     const { state, player, opponent } = setupClean();
     const monkey = freshInstance('monkey', 'o1'); // gainBonusPurchasingPowerPerHabitatInHand (land)
     opponent.hand = [monkey];
     const snake = freshInstance('snake', 'test');
-    const rabbit = freshInstance('rabbit', 'p1'); // terrestre, para que el bonus del Mono cuente algo
-    player.hand = [snake, rabbit];
+    player.hand = [snake];
 
     playCard(state, player.id, snake.instanceId);
     resolveDiscard(state, opponent.id, monkey.instanceId);
-    resolveDiscard(state, player.id, rabbit.instanceId);
 
-    // Ambas entregas resueltas: ahora toca elegir qué habilidad usar.
+    // Entrega resuelta: ahora toca elegir qué habilidad usar.
     expect(state.pendingDecision).toBeNull();
     expect(state.pendingAnimalAbilityChoice?.sourcePlayerId).toBe(player.id);
-    expect(state.pendingAnimalAbilityChoice?.candidateInstanceIds.sort()).toEqual(
-      [monkey.instanceId, rabbit.instanceId].sort()
-    );
+    expect(state.pendingAnimalAbilityChoice?.candidateInstanceIds).toEqual([monkey.instanceId]);
     // Nadie más tiene ninguna acción legal mientras tanto.
     expect(getLegalActions(state, opponent.id)).toEqual([]);
 
@@ -124,9 +121,9 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(state.pendingAnimalAbilityChoice).toBeNull();
     // Efecto del Mono activado a favor de player: +1 de valor de compra por
     // cada terrestre en su "mano efectiva" ahora mismo (ver effectiveHand:
-    // mano + lo ya jugado este turno). El rabbit se entregó y ya no cuenta,
-    // pero la propia Serpiente (terrestre+acuática) sigue en
-    // player.playedThisTurn desde que se jugó, así que SÍ cuenta: 1.
+    // mano + lo ya jugado este turno). La propia mano de player está vacía,
+    // pero la Serpiente (terrestre) sigue en player.playedThisTurn desde
+    // que se jugó, así que SÍ cuenta: 1.
     expect(player.bonusPurchasingPowerThisTurn).toBe(1);
     // El Mono elegido NUNCA cambia de dueño: sigue en el descarte del rival.
     expect(opponent.discard).toEqual([monkey]);

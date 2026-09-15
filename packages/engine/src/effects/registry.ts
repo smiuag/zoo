@@ -187,9 +187,9 @@ registerEffect('discardFromEachOpponent', (state, player, _effect, context) => {
 // entregó: solo se "toma prestada" su habilidad una vez.
 registerEffect('discardAnimalFromEachPlayerThenUseAbility', (state, player, _effect, context) => {
   const owed: PendingDiscardDecision['owed'] = {};
-  for (const p of state.players) {
-    const eligible = p.hand.filter((c) => c.type === 'animal');
-    if (eligible.length > 0) owed[p.id] = { amount: 1, eligibleInstanceIds: eligible.map((c) => c.instanceId) };
+  for (const opponent of otherPlayers(state, player)) {
+    const eligible = opponent.hand.filter((c) => c.type === 'animal');
+    if (eligible.length > 0) owed[opponent.id] = { amount: 1, eligibleInstanceIds: eligible.map((c) => c.instanceId) };
   }
   beginPendingDiscard(state, player, owed, {
     sourceCardName: context.sourceCardName ?? 'efecto',

@@ -109,7 +109,7 @@ CARD_TEXT_EN = {
     "sloth": ("Sloths", "Does nothing. Just sleeps."),
     "snake": (
         "Snakes",
-        "Each player discards an animal from their hand.\nChoose one of the discarded animals and use its ability.",
+        "Each opponent discards an animal from their hand.\nChoose one of the discarded animals and use its ability.",
     ),
     "spider": (
         "Spiders",
