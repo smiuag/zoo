@@ -5,7 +5,7 @@
   "species": "spider",
   "marketCost": 3,
   "victoryPoints": 3,
-  "text": "Captura gratis un animal VOLADOR o ACUÁTICO de coste 3 o menos.",
+  "text": "Elige un animal volador o acuático de la reserva de coste 3 o menos y ponlo en tu descarte.",
   "effects": [
     {
       "trigger": "onPlay",

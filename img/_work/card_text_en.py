@@ -37,7 +37,7 @@ CARD_TEXT_EN = {
     ),
     "elephant": (
         "Elephants",
-        "Capture for free (without spending acorns) the LAND animal of your choice from the market, costing 5 or less.",
+        "Choose a LAND animal from the market, costing 5 or less, and put it in your discard pile.",
     ),
     "flamingo": (
         "Flamingos",
@@ -113,7 +113,7 @@ CARD_TEXT_EN = {
     ),
     "spider": (
         "Spiders",
-        "Capture for free (without spending acorns) the FLYING or AQUATIC animal of your choice from the market, costing 3 or less.",
+        "Choose a FLYING or AQUATIC animal from the market, costing 3 or less, and put it in your discard pile.",
     ),
     "squirrel": (
         "Squirrels",

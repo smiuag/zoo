@@ -96,9 +96,9 @@ COST_BADGE = _offset_point((83, 109))             # center of the coin pouch bod
 PV_BADGE = _offset_point((526, 90))               # center of the laurel wreath opening
 BADGE_NUMBER_SIZE = 50             # 45 + 10%
 TITLE_BOX = _offset_box((95, 518, 540, 566))    # wood ribbon banner: card name (bajado 3px + 2px, 2026-09-14)
-TYPE_LINE_POINT = _offset_point((307, 648))       # "Terrestre" label, centered in the panel
+TYPE_LINE_POINT = _offset_point((307, 640))       # "Terrestre" label, centered in the panel
 TYPE_LINE_MAX_WIDTH = 420          # shrink multi-habitat labels to fit
-PANEL_BODY_BOX = _offset_box((95, 672, 540, 858))  # starts right below the type label, top-aligned
+PANEL_BODY_BOX = _offset_box((95, 663, 540, 858))  # starts right below the type label, top-aligned
 
 COST_COLOR = (0, 100, 0)    # verde bosque
 PV_COLOR = (94, 35, 123)    # morado (el mismo que la Hiena en la tanda 4)
