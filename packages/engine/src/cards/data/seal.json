@@ -15,5 +15,5 @@
       }
     }
   ],
-  "habitats": ["land", "aquatic"]
+  "habitats": ["aquatic"]
 }

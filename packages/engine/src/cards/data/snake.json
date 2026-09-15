@@ -13,7 +13,6 @@
     }
   ],
   "habitats": [
-    "land",
-    "aquatic"
+    "land"
   ]
 }

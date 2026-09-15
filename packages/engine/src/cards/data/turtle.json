@@ -12,5 +12,5 @@
       "type": "upgradeCoin"
     }
   ],
-  "habitats": ["land", "aquatic"]
+  "habitats": ["land"]
 }
