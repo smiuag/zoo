@@ -30,6 +30,40 @@ function groupByCard(cards: CardInstance[]): { card: CardInstance; count: number
   return [...byId.values()];
 }
 
+// "Disponible/general de este turno" del jugador activo. El "general" NO es
+// el máximo instantáneo que ha llegado a tener (eso lo confundía con
+// richestTurn, ver abajo): es la suma de TODO lo que ha ganado este turno,
+// aunque ya se haya gastado parte — pedido explícito del usuario: con 6/8 y
+// ganas 2 más, el actual sube a 8 y el general a 10 (nunca se queda en 8/8),
+// y así con cualquier ganancia. Por eso se compara contra el valor del
+// render ANTERIOR (prev), no contra el propio pico: solo un aumento cuenta
+// como "ganancia" y suma al general; un descenso (gastar) nunca lo baja ni
+// lo toca. Distinto del richestTurn que guarda el motor para el resumen
+// final de la partida (ese sí es un máximo instantáneo de verdad, ver
+// recordRichestTurn en engine.ts — no se toca aquí). Se recalcula en cada
+// render leyendo/actualizando la misma ref, igual que lastHumanIdRef en
+// App.tsx — no hace falta un useEffect para esto. Extraído a un hook propio
+// (antes vivía solo dentro de ActivePlayerBoard) para que GameBoard.tsx
+// pueda mostrar la misma cifra en un badge flotante en móvil, sin duplicar
+// el cálculo ni arriesgarse a que las dos copias diverjan.
+export function useActivePlayerMoney(state: GameState) {
+  const activePlayer = getActivePlayer(state);
+  const purchasingPower = currentPurchasingPower(activePlayer);
+  const turnRef = useRef<{ turn: number; peak: number; prev: number }>({
+    turn: state.turn,
+    peak: purchasingPower,
+    prev: purchasingPower,
+  });
+  if (turnRef.current.turn !== state.turn) {
+    turnRef.current = { turn: state.turn, peak: purchasingPower, prev: purchasingPower };
+  } else {
+    const gained = purchasingPower - turnRef.current.prev;
+    if (gained > 0) turnRef.current.peak += gained;
+    turnRef.current.prev = purchasingPower;
+  }
+  return { activePlayer, purchasingPower, peak: turnRef.current.peak };
+}
+
 // Zona pública de mesa de quien tenga el turno ahora mismo (humano o bot,
 // seas tú o no): mazo/descarte y valor de compra en la cabecera (mazo a la
 // izquierda, descarte a la derecha, dinero debajo del título — igual seas
@@ -41,23 +75,10 @@ function groupByCard(cards: CardInstance[]): { card: CardInstance; count: number
 // mientras tiene el turno). La mano y el mazo de robo siguen siendo
 // siempre privados, esto no los toca.
 export function ActivePlayerBoard({ state, humanIds, botAlgorithms, discardPileRef, hiddenDiscardCount = 0 }: ActivePlayerBoardProps) {
-  const activePlayer = getActivePlayer(state);
+  // El hook va ANTES del `if (state.gameOver)` de abajo: las reglas de
+  // hooks no permiten saltárselo condicionalmente.
+  const { activePlayer, purchasingPower, peak } = useActivePlayerMoney(state);
   const activePlayerName = displayName(activePlayer, humanIds, botAlgorithms);
-  // "Disponible/pico de este turno" — el pico es lo más alto que ha tenido
-  // ESTE turno (sube cuando juega algo que le da más valor de compra, nunca
-  // baja), no el pico de toda la partida (eso ya lo guarda richestTurn en
-  // el motor, para el resumen final). Se recalcula en cada render leyendo/
-  // actualizando la misma ref, igual que lastHumanIdRef en App.tsx — no
-  // hace falta un useEffect para esto. El hook va ANTES del `if
-  // (state.gameOver)` de abajo: las reglas de hooks no permiten saltárselo
-  // condicionalmente.
-  const turnPeakRef = useRef<{ turn: number; peak: number }>({ turn: state.turn, peak: 0 });
-  const purchasingPower = currentPurchasingPower(activePlayer);
-  if (turnPeakRef.current.turn !== state.turn) {
-    turnPeakRef.current = { turn: state.turn, peak: purchasingPower };
-  } else if (purchasingPower > turnPeakRef.current.peak) {
-    turnPeakRef.current.peak = purchasingPower;
-  }
 
   if (state.gameOver) return null;
   const played = groupByCard(activePlayer.playedThisTurn);
@@ -70,9 +91,9 @@ export function ActivePlayerBoard({ state, humanIds, botAlgorithms, discardPileR
           <h2>Mesa de {activePlayerName}</h2>
           <p
             className="active-player-money"
-            title={`Valor de compra de ${activePlayerName}: ${purchasingPower} disponibles de ${turnPeakRef.current.peak} que ha llegado a tener este turno`}
+            title={`Valor de compra de ${activePlayerName}: ${purchasingPower} disponibles de ${peak} que ha llegado a tener este turno`}
           >
-            💰 Valor de compra: {purchasingPower}/{turnPeakRef.current.peak}
+            💰 Valor de compra: {purchasingPower}/{peak}
           </p>
         </div>
         <DiscardPile player={activePlayer} pileRef={discardPileRef} hiddenCount={hiddenDiscardCount} />
