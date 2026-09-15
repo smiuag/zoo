@@ -159,6 +159,16 @@ export interface UseGame {
   // useGame decide re-renderizar.
   tick: number;
   startGame: (config: GameConfig) => void;
+  // Retoma una partida ONLINE ya en curso a partir de un GameState guardado
+  // (ver online/onlineRoomStorage.ts) — a diferencia de startGame, no crea
+  // ningún mazo/reparto nuevo, usa tal cual lo que se guardó justo antes del
+  // refresco accidental del host.
+  resumeGame: (saved: {
+    state: GameState;
+    humanIds: string[];
+    botAlgorithms: Record<string, BotAlgorithm>;
+    animationsEnabled: boolean;
+  }) => void;
   doAction: (action: Action) => void;
   // Vuelve a mostrar el formulario de creación de partida (no crea la
   // partida nueva por su cuenta: eso lo hace startGame cuando el jugador
@@ -384,6 +394,24 @@ export function useGame(): UseGame {
     rerender();
   }
 
+  function resumeGame(saved: {
+    state: GameState;
+    humanIds: string[];
+    botAlgorithms: Record<string, BotAlgorithm>;
+    animationsEnabled: boolean;
+  }) {
+    stateRef.current = saved.state;
+    turnSnapshotRef.current = null;
+    botTurnActionCountRef.current = { turn: -1, count: 0 };
+    lastBotActionTypeRef.current = null;
+    animationsEnabledRef.current = saved.animationsEnabled;
+    setHumanIds(saved.humanIds);
+    setBotAlgorithms(saved.botAlgorithms);
+    setPhase('playing');
+    postGameLog(['=== Partida online reanudada tras refresco ==='], true);
+    rerender();
+  }
+
   // Vuelve al formulario de creación en vez de lanzar directamente otra
   // partida con la misma configuración: así el jugador puede cambiar nº de
   // humanos/bots y su tipo cada vez, tal como pide el enunciado ("que al
@@ -421,6 +449,7 @@ export function useGame(): UseGame {
     animationsEnabled: animationsEnabledRef.current,
     tick,
     startGame,
+    resumeGame,
     doAction,
     restart,
     restartTurn,

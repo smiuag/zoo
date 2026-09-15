@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getLegalActions } from '@zoo/engine';
 import { GameBoard } from './components/GameBoard';
 import { GameSetup } from './components/GameSetup';
@@ -7,7 +7,8 @@ import { OnlineWaitingRoom } from './components/OnlineWaitingRoom';
 import { ScoreCalculator } from './components/ScoreCalculator';
 import { createHostRoom, type CreatedRoom } from './online/createHostRoom';
 import { useHostRoom } from './online/useHostRoom';
-import { useGame, type GameConfig } from './state/useGame';
+import { clearOnlineRoom, loadOnlineRoom, saveOnlineRoom } from './online/onlineRoomStorage';
+import { DEFAULT_ROUND_LIMIT, useGame, type GameConfig } from './state/useGame';
 
 function useGuestRouteParams(): { roomCode: string; seatId: string; seatKey: string } | null {
   const params = new URLSearchParams(window.location.search);
@@ -38,6 +39,7 @@ function HostOrLocalApp() {
     animationsEnabled,
     tick,
     startGame,
+    resumeGame,
     doAction,
     restart,
     restartTurn,
@@ -50,6 +52,13 @@ function HostOrLocalApp() {
   // mantiene también mientras phase === 'playing': es lo que decide que esta
   // pestaña es el host y debe retransmitir el estado a los invitados.
   const [onlineRoom, setOnlineRoom] = useState<(CreatedRoom & { config: GameConfig }) | null>(null);
+  // Última sala online guardada en localStorage (ver online/onlineRoomStorage.ts),
+  // leída una sola vez al montar: si el host refresca por accidente a mitad
+  // de partida, esto es lo que permite ofrecerle "Reanudar" en vez de que la
+  // partida (y los enlaces ya repartidos) queden muertos para siempre. Se
+  // pone a null en cuanto se reanuda o se descarta, para que el aviso
+  // desaparezca sin depender de releer localStorage.
+  const [resumableOnlineRoom, setResumableOnlineRoom] = useState(loadOnlineRoom);
   // Calculadora de puntos suelta (ver ScoreCalculator.tsx): pantalla
   // completa, independiente de `phase`/`onlineRoom` — se puede abrir y
   // cerrar sin tocar ninguna partida en curso ni su configuración.
@@ -88,6 +97,46 @@ function HostOrLocalApp() {
     active: isOnlineHost && phase === 'playing',
   });
 
+  // Guarda el estado de la sala online cada vez que cambia de verdad
+  // (mismo tick que usa useHostRoom para retransmitir a los invitados): así,
+  // si el host refresca por accidente, hay algo reciente que ofrecer
+  // reanudar. Solo la pestaña host guarda nada — un invitado nunca necesita
+  // esto, su propio reconectar ya está resuelto en useGuestRoom.
+  useEffect(() => {
+    if (!isOnlineHost || phase !== 'playing' || !onlineRoom) return;
+    saveOnlineRoom({
+      roomCode: onlineRoom.roomCode,
+      seats: onlineRoom.seats,
+      state,
+      humanIds,
+      botAlgorithms,
+      animationsEnabled,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick, isOnlineHost, phase]);
+
+  function handleResumeOnlineRoom() {
+    if (!resumableOnlineRoom) return;
+    setOnlineRoom({
+      roomCode: resumableOnlineRoom.roomCode,
+      seats: resumableOnlineRoom.seats,
+      config: {
+        numHumans: resumableOnlineRoom.humanIds.length,
+        nick: '',
+        botAlgorithms: Object.values(resumableOnlineRoom.botAlgorithms),
+        roundLimit: DEFAULT_ROUND_LIMIT,
+        animationsEnabled: resumableOnlineRoom.animationsEnabled,
+      },
+    });
+    resumeGame(resumableOnlineRoom);
+    setResumableOnlineRoom(null);
+  }
+
+  function handleDiscardResumableOnlineRoom() {
+    clearOnlineRoom();
+    setResumableOnlineRoom(null);
+  }
+
   function handleCreateOnlineRoom(config: GameConfig) {
     const room = createHostRoom(config.numHumans);
     setOnlineRoom({ ...room, config });
@@ -104,6 +153,7 @@ function HostOrLocalApp() {
 
   function handleRestart() {
     setOnlineRoom(null);
+    clearOnlineRoom();
     restart();
   }
 
@@ -128,6 +178,9 @@ function HostOrLocalApp() {
         onStart={startGame}
         onCreateOnlineRoom={handleCreateOnlineRoom}
         onOpenScoreCalculator={() => setShowScoreCalculator(true)}
+        resumableOnlineRoomCode={resumableOnlineRoom?.roomCode}
+        onResumeOnlineRoom={handleResumeOnlineRoom}
+        onDiscardResumableOnlineRoom={handleDiscardResumableOnlineRoom}
       />
     );
   }

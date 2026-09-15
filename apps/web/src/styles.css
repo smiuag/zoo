@@ -1252,8 +1252,14 @@ body {
 .app--setup {
   min-height: 100vh;
   display: flex;
+  /* column, no row (el valor por defecto): con un único panel no se nota,
+     pero el aviso de "reanudar partida online" (ver GameSetup.tsx) añade un
+     segundo panel hermano encima del formulario, y en fila habrían quedado
+     el uno al lado del otro en vez de apilados. */
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1rem;
 }
 
 .setup-panel {
@@ -1425,7 +1431,12 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  flex-wrap: wrap;
+  /* Nunca envuelve: la caja de números (.score-input/.score-formula, ver
+     flex:none más abajo) tiene que quedarse siempre en la misma línea que
+     el título. Si no cabe todo, lo que cede es el texto de dentro de
+     .score-row__label (ver min-width:0 + flex:1 ahí abajo) — la
+     explicación puede partirse en varias líneas, la caja de números no. */
+  flex-wrap: nowrap;
   padding: 0.5rem 0;
   border-bottom: 1px solid var(--panel-border);
 }
@@ -1440,6 +1451,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.05rem;
+  /* Se encoge para ceder sitio a la caja de números en vez de empujarla a
+     su propia línea (min-width:0 es necesario: un flex item no se encoge
+     por debajo de su contenido sin esto) — con eso, "nº Albatros × nº
+     especies distintas" envuelve solo, dentro de su propio ancho. */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* El icono es su propio elemento flex, separado del título: así en móvil
@@ -1462,6 +1479,7 @@ body {
   font: inherit;
   font-variant-numeric: tabular-nums;
   width: 3.4em;
+  flex: none;
   text-align: center;
   border: 1px solid var(--panel-border);
   border-radius: 6px;
@@ -1474,7 +1492,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  flex: 0 0 auto;
+  flex: none;
 }
 
 .score-formula__sign {

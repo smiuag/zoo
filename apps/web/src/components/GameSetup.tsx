@@ -31,6 +31,14 @@ interface GameSetupProps {
   // nada que ver con esta partida ni con ninguna configuración de arriba, así
   // que siempre está disponible sin más condición.
   onOpenScoreCalculator: () => void;
+  // Presente solo si hay una sala online guardada en localStorage (ver
+  // App.tsx/online/onlineRoomStorage.ts) — normalmente porque el host
+  // refrescó por accidente a mitad de partida. Mostrar el aviso ANTES que
+  // el formulario, para que sea imposible pasarlo por alto y arrancar una
+  // partida nueva sin darse cuenta de que había una a medias.
+  resumableOnlineRoomCode?: string;
+  onResumeOnlineRoom?: () => void;
+  onDiscardResumableOnlineRoom?: () => void;
 }
 
 // Alarga o recorta la lista de algoritmos al nuevo nº de bots, conservando
@@ -45,7 +53,14 @@ function resizeBotAlgorithms(current: BotAlgorithm[], count: number): BotAlgorit
   return [...current, ...extra];
 }
 
-export function GameSetup({ onStart, onCreateOnlineRoom, onOpenScoreCalculator }: GameSetupProps) {
+export function GameSetup({
+  onStart,
+  onCreateOnlineRoom,
+  onOpenScoreCalculator,
+  resumableOnlineRoomCode,
+  onResumeOnlineRoom,
+  onDiscardResumableOnlineRoom,
+}: GameSetupProps) {
   // Se lee una sola vez (lazy initializer de useState, no en cada render):
   // nº de humanos, bots elegidos y animaciones de la última partida creada
   // en este dispositivo (ver saveSetupPrefs en buildConfig más abajo). null
@@ -100,6 +115,25 @@ export function GameSetup({ onStart, onCreateOnlineRoom, onOpenScoreCalculator }
 
   return (
     <div className="app app--setup">
+      {resumableOnlineRoomCode && (
+        <div className="panel panel--choice setup-panel setup-resume">
+          <div className="panel__header">
+            <h2>🌐 Partida online sin terminar</h2>
+          </div>
+          <p className="setup-hint">
+            Parece que refrescaste la página a mitad de la sala <strong>{resumableOnlineRoomCode}</strong>. Puedes
+            seguir donde lo dejaste, con los mismos enlaces ya repartidos.
+          </p>
+          <div className="setup-round-options">
+            <button className="btn btn--primary" type="button" onClick={onResumeOnlineRoom}>
+              ▶ Reanudar partida
+            </button>
+            <button className="btn btn--ghost" type="button" onClick={onDiscardResumableOnlineRoom}>
+              Descartar
+            </button>
+          </div>
+        </div>
+      )}
       <form className="panel setup-panel" onSubmit={handleSubmit}>
         <div className="panel__header">
           <h2>Nueva partida</h2>

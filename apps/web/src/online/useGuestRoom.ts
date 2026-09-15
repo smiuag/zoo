@@ -48,8 +48,26 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string):
     const actionsCh = client.channel(actionsChannelName(roomCode));
     actionsChannelRef.current = actionsCh;
 
+    let gotSync = false;
+    // El primer requestState puede perderse (canal de acciones todavía sin
+    // terminar de suscribirse en el momento del send, mensaje perdido...) y
+    // antes eso dejaba al invitado colgado en "Conectando…"/"Esperando…"
+    // para siempre, sin ningún aviso ni reintento — indistinguible de un
+    // host muerto de verdad. Reintenta cada pocos segundos hasta recibir el
+    // primer stateSync; en cuanto llega uno, se detiene solo (ver
+    // gotSync/clearInterval más abajo).
+    function requestState() {
+      const msg: RequestStateMessage = { type: 'requestState', seatId, seatKey };
+      actionsCh.send({ type: 'broadcast', event: 'msg', payload: msg });
+    }
+    const retryId = window.setInterval(() => {
+      if (gotSync) return;
+      requestState();
+    }, 4000);
+
     seatCh
       .on('broadcast', { event: 'sync' }, ({ payload: msg }) => {
+        gotSync = true;
         setPayload(msg as StateSyncMessage);
         setStatus('playing');
       })
@@ -57,8 +75,7 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string):
         if (s !== 'SUBSCRIBED') return;
         // Al conectar (o reconectar tras un refresco), pide el último estado
         // en vez de esperar a que otro jugador mueva ficha.
-        const msg: RequestStateMessage = { type: 'requestState', seatId, seatKey };
-        actionsCh.send({ type: 'broadcast', event: 'msg', payload: msg });
+        requestState();
       });
 
     lobby.subscribe(async (s) => {
@@ -70,6 +87,7 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string):
     actionsCh.subscribe();
 
     return () => {
+      window.clearInterval(retryId);
       client.removeChannel(lobby);
       client.removeChannel(seatCh);
       client.removeChannel(actionsCh);
