@@ -4,6 +4,7 @@ import { GameBoard } from './components/GameBoard';
 import { GameSetup } from './components/GameSetup';
 import { GuestApp } from './components/GuestApp';
 import { OnlineWaitingRoom } from './components/OnlineWaitingRoom';
+import { ScoreCalculator } from './components/ScoreCalculator';
 import { createHostRoom, type CreatedRoom } from './online/createHostRoom';
 import { useHostRoom } from './online/useHostRoom';
 import { useGame, type GameConfig } from './state/useGame';
@@ -49,6 +50,10 @@ function HostOrLocalApp() {
   // mantiene también mientras phase === 'playing': es lo que decide que esta
   // pestaña es el host y debe retransmitir el estado a los invitados.
   const [onlineRoom, setOnlineRoom] = useState<(CreatedRoom & { config: GameConfig }) | null>(null);
+  // Calculadora de puntos suelta (ver ScoreCalculator.tsx): pantalla
+  // completa, independiente de `phase`/`onlineRoom` — se puede abrir y
+  // cerrar sin tocar ninguna partida en curso ni su configuración.
+  const [showScoreCalculator, setShowScoreCalculator] = useState(false);
 
   // Mientras juegan los bots, se sigue mostrando el último humano con
   // agencia (pase-y-juega local): nada interactivo depende de esto, solo
@@ -102,6 +107,10 @@ function HostOrLocalApp() {
     restart();
   }
 
+  if (showScoreCalculator) {
+    return <ScoreCalculator onClose={() => setShowScoreCalculator(false)} />;
+  }
+
   if (phase === 'setup') {
     if (onlineRoom) {
       return (
@@ -114,7 +123,13 @@ function HostOrLocalApp() {
         />
       );
     }
-    return <GameSetup onStart={startGame} onCreateOnlineRoom={handleCreateOnlineRoom} />;
+    return (
+      <GameSetup
+        onStart={startGame}
+        onCreateOnlineRoom={handleCreateOnlineRoom}
+        onOpenScoreCalculator={() => setShowScoreCalculator(true)}
+      />
+    );
   }
 
   return (

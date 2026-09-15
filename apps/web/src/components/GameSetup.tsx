@@ -27,6 +27,10 @@ interface GameSetupProps {
   // configurado, se ofrece "Crear partida online" además de "Empezar
   // partida" (pase-y-juega local, sin cambios).
   onCreateOnlineRoom?: (config: GameConfig) => void;
+  // Abre la calculadora de puntos suelta (ver ScoreCalculator.tsx): no tiene
+  // nada que ver con esta partida ni con ninguna configuración de arriba, así
+  // que siempre está disponible sin más condición.
+  onOpenScoreCalculator: () => void;
 }
 
 // Alarga o recorta la lista de algoritmos al nuevo nº de bots, conservando
@@ -41,7 +45,7 @@ function resizeBotAlgorithms(current: BotAlgorithm[], count: number): BotAlgorit
   return [...current, ...extra];
 }
 
-export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
+export function GameSetup({ onStart, onCreateOnlineRoom, onOpenScoreCalculator }: GameSetupProps) {
   // Se lee una sola vez (lazy initializer de useState, no en cada render):
   // nº de humanos, bots elegidos y animaciones de la última partida creada
   // en este dispositivo (ver saveSetupPrefs en buildConfig más abajo). null
@@ -231,6 +235,10 @@ export function GameSetup({ onStart, onCreateOnlineRoom }: GameSetupProps) {
             )}
           </>
         )}
+
+        <button className="btn btn--ghost" type="button" onClick={onOpenScoreCalculator}>
+          🌰 Marcador final (sin partida)
+        </button>
       </form>
     </div>
   );
