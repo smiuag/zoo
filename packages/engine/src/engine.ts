@@ -450,6 +450,25 @@ function requireActivePlayer(state: GameState, playerId: string): Player {
 // abajo, en getLegalActions.
 const PLAYER_TARGETED_EFFECT_TYPES = new Set(['stealCoinFromChosenPlayer']);
 
+// Una candidata por CLAVE distinta (por defecto `id`, que para una moneda
+// ya identifica el tipo entero — Bronce/Plata/Oro/Platino no tienen
+// `species` como los animales, así que sin esto cada copia física entraba
+// como candidata aparte): pedido explícito del usuario para el Murciélago
+// ("que no pregunte si todas son iguales") y ya usado por la Tortuga (por
+// `value`, ver más abajo) — da igual CUÁL copia concreta se elija entre
+// las que comparten clave, el resultado es idéntico.
+function dedupeByKey<T>(items: T[], keyFn: (item: T) => string | number): T[] {
+  const seen = new Set<string | number>();
+  const representatives: T[] = [];
+  for (const item of items) {
+    const key = keyFn(item);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    representatives.push(item);
+  }
+  return representatives;
+}
+
 function targetedEffectCandidates(state: GameState, player: Player, card: CardInstance): CardInstance[] | null {
   const freeCapture = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'freeCaptureUpToCost');
   if (freeCapture) {
@@ -470,22 +489,20 @@ function targetedEffectCandidates(state: GameState, player: Player, card: CardIn
   }
   const retrieveCoinFromDiscard = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'retrieveCoinFromDiscard');
   if (retrieveCoinFromDiscard) {
-    return player.discard.filter((c) => c.type === 'coin');
+    return dedupeByKey(
+      player.discard.filter((c) => c.type === 'coin'),
+      (c) => c.id
+    );
   }
   const upgradeCoin = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'upgradeCoin');
   if (upgradeCoin) {
     // Tortuga: pedido explícito del usuario — un candidato por VALOR
     // distinto de moneda mejorable en la mano, nunca uno por copia física
     // (da igual cuál de tus 3 Bronces subas, el resultado es idéntico).
-    const seenValues = new Set<number>();
-    const representatives: CardInstance[] = [];
-    for (const c of player.hand) {
-      if (c.type !== 'coin' || typeof c.value !== 'number' || COIN_UPGRADE_TARGET[c.value] === undefined) continue;
-      if (seenValues.has(c.value)) continue;
-      seenValues.add(c.value);
-      representatives.push(c);
-    }
-    return representatives;
+    const upgradable = player.hand.filter(
+      (c) => c.type === 'coin' && typeof c.value === 'number' && COIN_UPGRADE_TARGET[c.value] !== undefined
+    );
+    return dedupeByKey(upgradable, (c) => c.value as number);
   }
   return null;
 }

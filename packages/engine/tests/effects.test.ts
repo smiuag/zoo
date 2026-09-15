@@ -675,6 +675,25 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(actions[0]).toMatchObject({ targetInstanceId: coin.instanceId });
   });
 
+  it('murciélago: getLegalActions ofrece 1 candidata por TIPO de moneda del descarte, nunca una por copia física (pedido explícito del usuario: "que no pregunte si todas son iguales")', () => {
+    const { state, player } = setupClean();
+    const bat = freshInstance('bat', 'test');
+    const bronze1 = freshInstance('coin-1', 'c1');
+    const bronze2 = freshInstance('coin-1', 'c2'); // mismo tipo que bronze1: da igual cuál se recupere
+    const gold = freshInstance('coin-3', 'c3');
+    player.hand = [bat];
+    player.discard = [bronze1, bronze2, gold];
+
+    const actions = getLegalActions(state, player.id).filter(
+      (a) => a.type === 'playCard' && a.instanceId === bat.instanceId
+    );
+
+    expect(actions).toHaveLength(2); // 1 por tipo (bronce, oro), no 3 por copia física
+    const targets = actions.map((a) => (a.type === 'playCard' ? a.targetInstanceId : undefined)).sort();
+    expect(targets.filter((id) => id === bronze1.instanceId || id === bronze2.instanceId)).toHaveLength(1);
+    expect(targets).toContain(gold.instanceId);
+  });
+
   it('jirafa: si no hay ningún animal en el descarte, no pasa nada (no hay candidatos)', () => {
     const { state, player } = setupClean();
     const giraffe = freshInstance('giraffe', 'test');

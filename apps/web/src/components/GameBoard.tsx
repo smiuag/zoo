@@ -148,6 +148,16 @@ export function GameBoard({
   // mapa, justo lo que hace falta para saber "de dónde viene volando".
   const marketRectsRef = useRef<Map<string, DOMRect>>(new Map());
   const discardPileRef = useRef<HTMLDivElement>(null);
+  // En móvil (.layout a una sola columna, ver styles.css) el mercado queda
+  // debajo de la mesa/mano y es muy vertical: pedido explícito del usuario,
+  // justo después de comprar (nunca de jugar una carta) la pantalla sube
+  // sola hasta el mercado para seguir comprando sin buscar dónde estaba, o
+  // hasta "Terminar turno" si ya no queda nada que puedas pagar. En
+  // escritorio (todo visible a la vez) scrollIntoView con block:'nearest'
+  // no hace nada si ya está a la vista, así que esto no molesta ahí.
+  const marketPanelRef = useRef<HTMLDivElement>(null);
+  const endTurnButtonRef = useRef<HTMLButtonElement>(null);
+  const scrollAfterBuyRef = useRef(false);
   const [flights, setFlights] = useState<FlightSpec[]>([]);
   // Vuelos que ya "han aterrizado" de verdad (ver settleFlight/onSettle más
   // abajo) pero cuyo fantasma sigue en pantalla desvaneciéndose: sin esto,
@@ -270,8 +280,21 @@ export function GameBoard({
     if (pendingChoice) choiceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [pendingChoice]);
 
+  // `legalActions` ya refleja el estado DESPUÉS de la compra (llega de
+  // App.tsx recalculado en cada render): si scrollAfterBuyRef quedó
+  // marcado por runAction, aquí es donde se sabe de verdad si todavía se
+  // puede pagar algo más o no.
+  useEffect(() => {
+    if (!scrollAfterBuyRef.current) return;
+    scrollAfterBuyRef.current = false;
+    const canBuyMore = legalActions.some((a) => a.type === 'buyAnimal' || a.type === 'buyCoin');
+    const target = canBuyMore ? marketPanelRef.current : endTurnButtonRef.current;
+    target?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [legalActions]);
+
   function runAction(action: Action | undefined) {
     if (!action) return;
+    if (action.type === 'buyAnimal' || action.type === 'buyCoin') scrollAfterBuyRef.current = true;
     doAction(action);
     setPendingChoice(null);
   }
@@ -592,6 +615,7 @@ export function GameBoard({
             <div className="panel">
               <div className="turn-controls">
                 <button
+                  ref={endTurnButtonRef}
                   className="btn btn--primary"
                   disabled={!legalActions.some((a) => a.type === 'endTurn')}
                   onClick={() => {
@@ -638,7 +662,7 @@ export function GameBoard({
         </div>
 
         <div className="layout__right">
-          <div className="panel">
+          <div className="panel" ref={marketPanelRef}>
             <div className="card-row card-row--market">
               {sortedAnimalTrack.map((card) => (
                 <div
