@@ -15,14 +15,8 @@ import { fileURLToPath } from 'node:url';
 import { deserializeWeights, forward, type RlWeights } from '../../src/bots/rl/network';
 import { encodeAction, FEATURE_DIM } from '../../src/bots/rl/features';
 import { legacyEncodeAction, LEGACY_FEATURE_DIM } from './legacyFeatures64';
-import {
-  applyAction,
-  autoResolvePendingDiscard,
-  createGame,
-  getActivePlayer,
-  getLegalActions,
-  type Action,
-} from '../../src/engine';
+import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer, type Action } from '../../src/engine';
+import { legalActionsForBot } from '../../src/bots/actionPriority';
 import { getCard } from '../../src/cards/registry';
 import type { Card } from '../../src/cards/schema';
 import type { GameState } from '../../src/model/state';
@@ -87,7 +81,7 @@ function chooseGreedy(
   encode: (state: GameState, playerId: string, action: Action) => number[],
   variant: Variant
 ): Action {
-  const actions = filterForHabitat(state, getLegalActions(state, playerId), variant);
+  const actions = filterForHabitat(state, legalActionsForBot(state, playerId), variant);
   if (actions.length === 0) return { type: 'endTurn' };
   const scores = actions.map((a) => {
     const s = forward(weights, encode(state, playerId, a)).score;

@@ -1,6 +1,7 @@
-import { getLegalActions, type Action } from '../engine';
+import type { Action } from '../engine';
 import { getCard } from '../cards/registry';
 import type { CardInstance, GameState, Player } from '../model/state';
+import { legalActionsForBot } from './actionPriority';
 import type { Bot } from './types';
 
 // Bot no aleatorio: para cada acción legal calcula un valor heurístico
@@ -11,9 +12,13 @@ import type { Bot } from './types';
 //
 // Todos los animales puntúan sus PV estén donde estén (mazo/mano/
 // descarte): comprarlos ya asegura su PV. Jugarlos (playCard) NO da PV
-// extra, solo dispara su efecto onPlay si lo tiene. Prioridad general:
-// comprar animales con buen PV o valor económico > jugar cartas de la mano
-// por su efecto > terminar turno.
+// extra, solo dispara su efecto onPlay si lo tiene.
+//
+// La prioridad jugar > comprar (y dentro de jugar, robar antes que
+// cualquier otra carta) es LEY para todos los bots desde legalActionsForBot
+// (ver actionPriority.ts) — scoreAction de aquí abajo solo desempata DENTRO
+// del único nivel que esa ley deje disponible en cada momento, nunca entre
+// niveles distintos (nunca compite un "comprar" contra un "jugar" a la vez).
 
 function findInHand(player: Player, instanceId: string): CardInstance | undefined {
   return player.hand.find((c) => c.instanceId === instanceId);
@@ -251,7 +256,7 @@ const TIE_EPSILON = 1e-9;
 
 export const heuristicBot: Bot = {
   chooseAction(state, playerId) {
-    const actions = getLegalActions(state, playerId);
+    const actions = legalActionsForBot(state, playerId);
     if (actions.length === 0) return { type: 'endTurn' };
 
     const player = state.players.find((p) => p.id === playerId);

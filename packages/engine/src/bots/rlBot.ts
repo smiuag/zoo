@@ -1,4 +1,4 @@
-import { getLegalActions } from '../engine';
+import { legalActionsForBot } from './actionPriority';
 import { encodeAction, FEATURE_DIM } from './rl/features';
 import { createRandomWeights, deserializeWeights, forward, type RlWeights } from './rl/network';
 import type { Bot } from './types';
@@ -64,7 +64,12 @@ export function createRlBot(options: RlBotOptions = {}): Bot {
 
   return {
     chooseAction(state, playerId) {
-      let actions = getLegalActions(state, playerId);
+      // Ley de todos los bots (ver actionPriority.ts): jugar antes que
+      // comprar, y robar antes que cualquier otra carta — se aplica ANTES
+      // del filtro de hábitat de abajo (que solo recorta compras) y antes
+      // de que la red puntúe nada, así que nunca puede aprender/elegir
+      // comprar teniendo mano por jugar.
+      let actions = legalActionsForBot(state, playerId);
       if (options.habitatFilter) {
         const habitat = options.habitatFilter;
         actions = actions.filter((action) => {

@@ -1,17 +1,20 @@
-import { getLegalActions, type Action } from '../engine';
+import type { Action } from '../engine';
 import { getCard } from '../cards/registry';
 import type { CardInstance, GameState, Player } from '../model/state';
+import { legalActionsForBot } from './actionPriority';
 import type { Bot } from './types';
 
 // Bot con una estrategia deliberadamente distinta a heuristicBot (que
 // prioriza ratio PV/coste, y por eso converge siempre en el mismo puñado
-// de "mejores" especies baratas/medias): este prioriza SIEMPRE comprar la
-// especie más CARA que se pueda pagar, sin mirar su PV. Solo cuando no hay
-// nada que comprar decide qué jugar de la mano, y ahí prioriza las cartas
-// que generan dinero (mejoran monedas o dan dinero extra de compra) para
-// poder llegar antes a las compras caras. Sirve para comprobar si "casi
-// nunca se compran las especies más caras" es un problema del juego o solo
-// de cómo decide heuristicBot.
+// de "mejores" especies baratas/medias): este, en cuanto le toca comprar
+// (ver legalActionsForBot: primero SIEMPRE se juega la mano entera, esa
+// parte es ley para todos los bots, no una preferencia suya), elige SIEMPRE
+// la especie más CARA que se pueda pagar, sin mirar su PV. Al jugar de la
+// mano, entre lo no-robo (ver actionPriority.ts) prioriza las cartas que
+// generan dinero (mejoran monedas o dan dinero extra de compra) para poder
+// llegar antes a las compras caras. Sirve para comprobar si "casi nunca se
+// compran las especies más caras" es un problema del juego o solo de cómo
+// decide heuristicBot.
 
 function findInHand(player: Player, instanceId: string): CardInstance | undefined {
   return player.hand.find((c) => c.instanceId === instanceId);
@@ -88,7 +91,7 @@ const TIE_EPSILON = 1e-9;
 
 export const expensiveFirstBot: Bot = {
   chooseAction(state, playerId) {
-    const actions = getLegalActions(state, playerId);
+    const actions = legalActionsForBot(state, playerId);
     if (actions.length === 0) return { type: 'endTurn' };
 
     const player = state.players.find((p) => p.id === playerId);
