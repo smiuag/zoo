@@ -1336,57 +1336,88 @@ body {
 }
 
 /* ---------- Calculadora de puntos suelta (ScoreCalculator.tsx) ---------- */
+/* Flujo de pestañas: un jugador a la vez (ver el componente) en vez de una
+   tarjeta por jugador en rejilla — en el móvil (el uso real de esto,
+   puntuando una partida física en vivo) una rejilla obligaba a scroll
+   horizontal o dejaba los campos diminutos. */
 
-/* Misma pantalla que .setup-panel (formulario de partida), pero más ancha:
-   aquí hay una tarjeta por jugador en vez de una única columna de campos. */
 .setup-panel--wide {
-  max-width: 980px;
+  max-width: 640px;
 }
 
-.score-warning {
+.score-tabs {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.8rem;
+  /* .setup-panel es un flex column: sin min-width:0 este hijo no se
+     encoge por debajo del ancho que pidan sus botones (min-width:auto por
+     defecto en un flex item) y con varios jugadores acababa desbordando el
+     panel/la pantalla entera en vez de hacer SU PROPIO scroll horizontal. */
+  min-width: 0;
+}
+
+.score-tab {
+  flex: 0 0 auto;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
   background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 0.4rem 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.score-tab--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.icon-btn {
+  flex: 0 0 auto;
+  font: inherit;
+  background: transparent;
+  border: 1px solid var(--panel-border);
   border-radius: 8px;
-  padding: 0.5rem 0.7rem;
+  padding: 0.35rem 0.55rem;
+  cursor: pointer;
+  color: var(--muted);
+}
+.icon-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
-.score-players {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 0.9rem;
-}
-
-.score-card {
+.score-form {
   background: var(--bg);
   border: 1px solid var(--panel-border);
   border-radius: var(--radius);
-  padding: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  min-width: 0;
+  padding: 0.85rem 1rem 0.4rem;
 }
 
-.score-card__header {
+.score-form__header {
   display: flex;
   align-items: center;
   gap: 0.4rem;
+  margin-bottom: 0.6rem;
 }
 
-.score-card__name {
-  font: inherit;
-  font-weight: 700;
+.score-name {
   flex: 1;
   min-width: 0;
+  font: inherit;
+  font-weight: 700;
+  font-size: 1.02rem;
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   padding: 0.35rem 0.6rem;
   background: var(--panel-bg);
   color: var(--ink);
-}
-
-.score-card__remove {
-  flex: 0 0 auto;
-  padding: 0.3rem 0.5rem;
 }
 
 .score-row {
@@ -1395,6 +1426,12 @@ body {
   justify-content: space-between;
   gap: 0.5rem;
   flex-wrap: wrap;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.score-row:last-of-type {
+  border-bottom: none;
 }
 
 .score-row__label {
@@ -1403,6 +1440,16 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.05rem;
+}
+
+/* El icono es su propio elemento flex, separado del título: así en móvil
+   "Oso polar" puede partirse en dos líneas sin dejar el icono huérfano en
+   una línea aparte (que es justo lo que pasaba metiendo icono + texto +
+   .score-row__label small como 3 hijos sueltos de un flex en columna). */
+.score-row__title {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
 }
 
 .score-row__label small {
@@ -1444,8 +1491,7 @@ body {
 
 .score-row--total {
   margin-top: 0.2rem;
-  padding-top: 0.55rem;
-  border-top: 1px dashed var(--panel-border);
+  padding-top: 0.6rem;
 }
 
 .score-row--total .score-row__label {
@@ -1457,6 +1503,93 @@ body {
   font-weight: 700;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
+}
+
+.score-nav {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+  flex-wrap: wrap;
+}
+.score-nav .btn {
+  flex: 1;
+}
+
+.score-finish {
+  width: 100%;
+  margin-top: 0.6rem;
+}
+
+/* ---------- Resultado final ---------- */
+
+.score-summary {
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+}
+
+.score-summary h3 {
+  margin: 0 0 0.7rem;
+  font-size: 1.05rem;
+  color: var(--accent);
+}
+
+.score-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.4rem;
+  border-bottom: 1px solid var(--panel-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.score-summary-item:last-of-type {
+  border-bottom: none;
+}
+.score-summary-item:hover {
+  background: var(--panel-bg);
+}
+
+.score-summary-item--winner {
+  background: #fdf1d6;
+}
+
+.score-summary-rank {
+  font-weight: 700;
+  font-size: 1.1rem;
+  width: 1.6em;
+  text-align: center;
+  flex: none;
+}
+
+.score-summary-name {
+  flex: 1;
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.score-summary-name small {
+  display: block;
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.score-summary-total {
+  font-weight: 700;
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-summary-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+.score-summary-actions .btn {
+  flex: 1;
 }
 
 @media (max-width: 480px) {
