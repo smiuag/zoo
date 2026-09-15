@@ -15,15 +15,15 @@ BACK_PATH = os.path.join(CARDS_DIR, "_back.png")
 # Copias pedidas para esta tirada de impresión.
 COUNTS = {
     "sloth": 21,
-    # 49 (7×7) "de libro", sin tocar nunca: el Cuervo (nueva especie, coste
-    # 3, 9 copias por defecto) sumó +9 cartas al total y lo desajustó de
-    # múltiplo de 18 (387) — esas 9 se quitan de plata/oro/platino en su
-    # lugar (ver justo abajo), nunca del bronce/perezoso (ver
-    # [[print_deck_multiple_of_18]]).
+    # 49 (7×7) "de libro", sin tocar nunca (ver [[print_deck_multiple_of_18]]
+    # — solo plata/oro/platino son el ajuste fino). El Halcón se eliminó del
+    # juego (2026-09-14): sus 7 copias (coste 6) desajustaron el total de
+    # 378 a 371, así que se compensa subiendo plata/oro/platino +7 en total
+    # (13→16, 9→11, 6→8) para volver a 378, múltiplo de 18.
     "coin-1": 49,
-    "coin-2": 13,
-    "coin-3": 9,
-    "coin-5": 6,
+    "coin-2": 16,
+    "coin-3": 11,
+    "coin-5": 8,
 }
 # Igual que el motor (ver createGame en engine.ts), escalado a una tirada
 # de 7 jugadores: nº jugadores + 2 para el resto, nº jugadores para las

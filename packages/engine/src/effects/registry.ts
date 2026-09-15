@@ -133,6 +133,7 @@ function beginPendingDiscard(
     bonusDrawPerCoin?: boolean;
     kind?: PendingDiscardDecision['kind'];
     bonusPurchasingPowerPerAnimal?: number;
+    collectDiscardedForAbilityChoice?: boolean;
   }
 ): void {
   if (Object.keys(owed).length === 0) return;
@@ -144,6 +145,8 @@ function beginPendingDiscard(
     coinsDiscardedSoFar: 0,
     bonusPurchasingPowerPerAnimal: opts.bonusPurchasingPowerPerAnimal ?? null,
     returnedSoFar: 0,
+    collectDiscardedForAbilityChoice: opts.collectDiscardedForAbilityChoice,
+    collectedInstanceIds: [],
     owed,
   };
 }
@@ -172,14 +175,25 @@ registerEffect('discardFromEachOpponent', (state, player, _effect, context) => {
 // por cada moneda que se haya descartado así en total (se cuenta cuando se
 // resuelva la decisión, ver resolveDiscard en engine.ts: el rival puede
 // elegir descartar una moneda o no, es cosa suya).
-registerEffect('discardFromEachOpponentAndDrawPerCoin', (state, player, _effect, context) => {
+// Serpiente (rediseño 2026-09-14): TODOS los jugadores (a diferencia del
+// resto de estos efectos, que solo afectan "a cada oponente" — este
+// incluye a quien la juega) descartan 1 animal de su mano si tienen alguno
+// — mismo trato que Buitre/Mono/Hiena (kind 'discard' por defecto: nunca se
+// auto-resuelve, el Perezoso puede cubrir la entrega por su cuenta). Una
+// vez resuelto todo, quien jugó la Serpiente elige UNO cualquiera de esos
+// animales recién descartados y activa su habilidad onPlay a su favor — ver
+// pendingAnimalAbilityChoice/useDiscardedAnimalAbility en engine.ts. La
+// carta elegida no cambia de dueño, se queda en el descarte de quien la
+// entregó: solo se "toma prestada" su habilidad una vez.
+registerEffect('discardAnimalFromEachPlayerThenUseAbility', (state, player, _effect, context) => {
   const owed: PendingDiscardDecision['owed'] = {};
-  for (const opponent of otherPlayers(state, player)) {
-    if (opponent.hand.length > 0) owed[opponent.id] = { amount: 1, eligibleInstanceIds: null };
+  for (const p of state.players) {
+    const eligible = p.hand.filter((c) => c.type === 'animal');
+    if (eligible.length > 0) owed[p.id] = { amount: 1, eligibleInstanceIds: eligible.map((c) => c.instanceId) };
   }
   beginPendingDiscard(state, player, owed, {
     sourceCardName: context.sourceCardName ?? 'efecto',
-    bonusDrawPerCoin: true,
+    collectDiscardedForAbilityChoice: true,
   });
 });
 
@@ -473,6 +487,18 @@ registerEffect('retrieveAnimalFromDiscard', (_state, player, _effect, context) =
   player.hand.push(card);
 });
 
+// Murciélago (rediseño 2026-09-14): recupera a tu mano una moneda elegida
+// (context.targetInstanceId, ver targetedEffectCandidates en engine.ts) de
+// tu propio descarte — mismo patrón que la Jirafa con animales. Si tu
+// descarte no tiene ninguna moneda, o no se elige ninguna, no pasa nada.
+registerEffect('retrieveCoinFromDiscard', (_state, player, _effect, context) => {
+  if (!context.targetInstanceId) return;
+  const idx = player.discard.findIndex((c) => c.instanceId === context.targetInstanceId && c.type === 'coin');
+  if (idx === -1) return;
+  const [card] = player.discard.splice(idx, 1);
+  player.hand.push(card);
+});
+
 // Conejos: muestra la carta de encima de tu mazo; si NO es un animal de
 // coste superior a params.maxCost (por defecto 2) —es decir, si es una
 // moneda, o un animal de ese coste o menos— la añade a tu mano. Si es un
@@ -639,14 +665,20 @@ registerScoreEffect('scorePerDistinctSpecies', (_player, _effect, allCards) => {
   return species.size;
 });
 
-// Tiburón/Halcón/León: al final de la partida, +1PV (× `multiplier`, por
-// defecto 1) por cada animal en player.destroyedCards, DE CUALQUIER TIPO —
-// no solo los capturados por estos 3 (también cuenta, p. ej., el que se
-// haya sacrificado el propio Cocodrilo). No lee `allCards` (deck+mano+
-// descarte): destroyedCards es una zona aparte a propósito, así que hay que
-// mirarla directamente en el jugador. Si el jugador tiene varias copias de
-// Tiburón/Halcón/León, cada una recalcula y suma el mismo total otra vez —
-// igual que el bonus de hábitat de la Orca o el de coste del Tucán.
+// Tiburón (rediseño 2026-09-15): al final de la partida, +1PV por cada
+// CARTA de moneda que tengas en toda tu colección (mazo + mano + descarte),
+// sin importar su valor — una moneda de Oro cuenta igual que una de Bronce.
+registerScoreEffect('scorePerCoinCard', (_player, _effect, allCards) => {
+  return allCards.filter((c) => c.type === 'coin').length;
+});
+
+// Sin ninguna carta que lo use por ahora (León/Tiburón lo llevaban antes
+// del rediseño de 2026-09-14, que les quitó del todo la mecánica de
+// eliminar cartas — Halcón se eliminó del juego en el mismo cambio): se
+// deja registrado por si vuelve a hacer falta. +1PV (× `multiplier`, por
+// defecto 1) por cada animal en player.destroyedCards, DE CUALQUIER TIPO.
+// No lee `allCards` (deck+mano+descarte): destroyedCards es una zona aparte
+// a propósito, así que hay que mirarla directamente en el jugador.
 registerScoreEffect('scorePerDestroyedCard', (player, effect) => {
   const multiplier = typeof effect.params?.multiplier === 'number' ? effect.params.multiplier : 1;
   return player.destroyedCards.length * multiplier;

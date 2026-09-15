@@ -37,6 +37,16 @@ export function resolveDiscardActionFor(legalActions: Action[], cardInstanceId: 
   );
 }
 
+// Serpiente: si esta carta concreta (una de las recién descartadas por
+// "cada jugador", ver pendingAnimalAbilityChoice en el motor) es una de las
+// que el visor puede elegir para usar su habilidad ahora mismo.
+export function useDiscardedAnimalAbilityActionFor(legalActions: Action[], cardInstanceId: string) {
+  return legalActions.find(
+    (a): a is Extract<Action, { type: 'useDiscardedAnimalAbility' }> =>
+      a.type === 'useDiscardedAnimalAbility' && a.instanceId === cardInstanceId
+  );
+}
+
 // Etiqueta corta para un objetivo (carta del mazo/mano/descarte/mercado),
 // usada en el panel contextual de elección (Elefante, Araña).
 export function targetLabel(state: GameState, player: Player, targetInstanceId: string): string {

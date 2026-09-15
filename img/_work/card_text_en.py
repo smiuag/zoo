@@ -13,7 +13,7 @@ CARD_TEXT_EN = {
     ),
     "bat": (
         "Bats",
-        "Discard to prevent a Lion, Hawk or Shark from eliminating a card from your hand.",
+        "Take an acorn from your discard pile to your hand.",
     ),
     "coin-1": ("Bronze", "+1 acorn."),
     "coin-2": ("Silver", "+2 acorns."),
@@ -37,11 +37,11 @@ CARD_TEXT_EN = {
     ),
     "elephant": (
         "Elephants",
-        "Capture for free (without spending coins) the LAND animal of your choice from the market, costing 5 or less.",
+        "Capture for free (without spending acorns) the LAND animal of your choice from the market, costing 5 or less.",
     ),
     "flamingo": (
         "Flamingos",
-        "Exchange an animal from your hand for a different one costing up to 2 coins more.",
+        "Exchange an animal from your hand for a different one costing up to 2 acorns more.",
     ),
     "giraffe": (
         "Giraffes",
@@ -58,11 +58,7 @@ CARD_TEXT_EN = {
     ),
     "lion": (
         "Lions",
-        "Eliminate a land animal costing 3 or less from each opponent's hand.\n+1 acorn for each one.\n+1 VP for each eliminated animal.",
-    ),
-    "hawk": (
-        "Hawks",
-        "Eliminate a flying animal costing 3 or less from each opponent's hand.\n+1 acorn for each one.\n+1 VP for each eliminated animal.",
+        "Add 3 to your purchasing power.",
     ),
     "monkey": (
         "Monkeys",
@@ -84,7 +80,7 @@ CARD_TEXT_EN = {
     "peacock": ("Peacocks", "Draw 1 card."),
     "penguin": (
         "Penguins",
-        "Add a silver acorn card to your hand.",
+        "Add a copper acorn card to your hand.",
     ),
     "raven": (
         "Ravens",
@@ -108,16 +104,16 @@ CARD_TEXT_EN = {
     ),
     "shark": (
         "Sharks",
-        "Eliminate an aquatic animal costing 3 or less from each opponent's hand.\n+1 acorn for each one.\n+1 VP for each eliminated animal.",
+        "Add 3 to your purchasing power.\nAt the end of the game, +1 VP for each acorn card you have.",
     ),
     "sloth": ("Sloths", "Does nothing. Just sleeps."),
     "snake": (
         "Snakes",
-        "Each opponent chooses and discards 1 card from their hand.\nDraw 1 card for each coin discarded this way.",
+        "Each player discards an animal from their hand.\nChoose one of the discarded animals and use its ability.",
     ),
     "spider": (
         "Spiders",
-        "Capture for free (without spending coins) the FLYING or AQUATIC animal of your choice from the market, costing 3 or less.",
+        "Capture for free (without spending acorns) the FLYING or AQUATIC animal of your choice from the market, costing 3 or less.",
     ),
     "squirrel": (
         "Squirrels",

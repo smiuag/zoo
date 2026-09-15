@@ -4,24 +4,19 @@
   "type": "animal",
   "species": "shark",
   "marketCost": 6,
-  "victoryPoints": 5,
-  "text": "Elimina un animal acuático de coste 3 o menos de la mano de cada oponente. Añade 1 de valor de captura por cada uno.\n+1PV por cada animal eliminado.",
+  "victoryPoints": 0,
+  "text": "Añade 3 a tu valor de captura.\nAl final de la partida, +1PV por cada moneda que tengas en tu colección.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "returnAnimalFromEachOpponent",
+      "type": "gainFlatBonusPurchasingPower",
       "params": {
-        "habitat": "aquatic",
-        "maxCost": 3,
-        "bonusPerAnimal": 1
+        "amount": 3
       }
     },
     {
       "trigger": "onScore",
-      "type": "scorePerDestroyedCard",
-      "params": {
-        "multiplier": 1
-      }
+      "type": "scorePerCoinCard"
     }
   ],
   "habitats": ["aquatic"]

@@ -5,11 +5,11 @@
   "species": "snake",
   "marketCost": 4,
   "victoryPoints": 2,
-  "text": "Cada oponente elige y descarta 1 carta de su mano.\nRoba 1 carta por cada moneda que descarten así.",
+  "text": "Cada jugador descarta un animal de su mano.\nElige uno de los animales descartados así y usa su habilidad.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "discardFromEachOpponentAndDrawPerCoin"
+      "type": "discardAnimalFromEachPlayerThenUseAbility"
     }
   ],
   "habitats": [

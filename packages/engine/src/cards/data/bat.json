@@ -3,9 +3,14 @@
   "name": "Murciélago",
   "type": "animal",
   "species": "bat",
-  "marketCost": 3,
-  "victoryPoints": 3,
-  "text": "Descártalo para evitar que un León, Halcón o Tiburón elimine una carta de tu mano.",
-  "effects": [],
+  "marketCost": 2,
+  "victoryPoints": 2,
+  "text": "Coge una moneda de tu descarte a tu mano.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "retrieveCoinFromDiscard"
+    }
+  ],
   "habitats": ["land", "bird"]
 }

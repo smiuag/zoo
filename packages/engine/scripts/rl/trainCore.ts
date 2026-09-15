@@ -16,6 +16,7 @@ import type { GameState } from '../../src/model/state';
 import { scoreGame, scorePlayer, type PlayerScore } from '../../src/scoring';
 import { accumulateGrad, softmax, zeroGrad, type Gradient } from './train';
 import { computeReturn } from './reward';
+import scalerCalibrationData from './scalerCalibration.json';
 
 export const TRAIN_TEMPERATURE = 1;
 export const MAX_ACTIONS_PER_GAME = 400;
@@ -54,6 +55,28 @@ export const CURRENT_VARIANT = (HABITAT_FILTER as 'land' | 'bird' | 'aquatic' | 
 export const RL_CURRICULUM_OPPONENTS = Object.entries(RL_VARIANT_BOTS)
   .filter(([variant]) => variant !== CURRENT_VARIANT)
   .map(([, bot]) => bot);
+
+// Pedido explícito del usuario (2026-09-14): las cartas con un efecto
+// onScore "acumulativo" (Águila/Orca/Oso polar: scorePerHabitatCount;
+// Albatros: scorePerDistinctSpecies; Tucán: scorePerCostAtLeast) tienen las
+// 5 el mismo problema — 0 PV impreso, todo su valor depende de cuánto
+// acabe teniendo el resto de la colección — así que el delta de PV en vivo
+// justo al comprarlas (ver SHAPING_WEIGHT/playOneGame más abajo) es casi
+// nulo tan pronto en la partida como se suelen comprar: compiten en
+// desventaja constante contra cualquier carta con PV impreso alto (que sí
+// recibe crédito inmediato y seguro), aunque a la larga valgan más. En vez
+// de intentar separar "PV impreso vs dinámico" del delta, se sustituye
+// directamente por el valor MEDIO que de verdad suelen acabar aportando
+// (precalculado jugando partidas de verdad, ver
+// scripts/rl/calibrateScalerValues.ts) — "asignado como si fuera fijo" a
+// efectos de valorar la carta, específico de esta variante (Orca vale más
+// en aquatic que en general, por ejemplo, porque un aquatic acumula más
+// animales acuáticos de media). Se regenera a mano cuando cambien estas
+// cartas o el balance general del mazo — no en cada batch de
+// entrenamiento, sería demasiado caro.
+export const SCALER_CALIBRATION: Record<string, number> = (
+  scalerCalibrationData as Record<string, Record<string, number>>
+)[CURRENT_VARIANT] ?? {};
 
 export function filterActionsForHabitat(state: GameState, actions: Action[]): Action[] {
   if (!HABITAT_FILTER) return actions;
@@ -117,27 +140,22 @@ export interface Step {
   shapingBonus: number;
 }
 
-// Pedido explícito del usuario (2026-09-14): cada partida de entrenamiento
-// tiene exactamente 1 asiento del aprendiz (el que se está actualizando) y
-// los otros 3 son las OTRAS 3 variantes de rlBot (RL_CURRICULUM_OPPONENTS,
+// Pedido explícito del usuario (2026-09-14, confirmado de nuevo más tarde
+// ese mismo día con "siempre partidas de 4 con uno de cada" tras probar
+// brevemente el self-play puro para "general"): cada partida de
+// entrenamiento, para las 4 variantes por igual (general incluido), tiene
+// exactamente 1 asiento del aprendiz (el que se está actualizando) y los
+// otros 3 son las OTRAS 3 variantes de rlBot (RL_CURRICULUM_OPPONENTS,
 // pesos congelados leídos del disco al arrancar este proceso), una de cada
-// — nunca bots fijos no-RL (esos quedan solo para evaluate() en
-// selfPlay.ts). EXCEPCIÓN pedida después ese mismo día: el bot "general"
-// (sin restricción de hábitat, CURRENT_VARIANT === 'general') no tiene 3
-// variantes hermanas de las que aprender por contraste como sí tienen los
-// especialistas (land/bird/aquatic aprenden jugando contra "general" y
-// entre ellos) — así que vuelve a self-play puro, las 4 sillas son el
-// propio aprendiz con los mismos pesos, y las 4 aportan trayectoria de
-// gradiente (antes solo 1 de 4 aquí también).
+// — nunca self-play puro ni bots fijos no-RL (esos quedan solo para
+// evaluate() en selfPlay.ts).
 export function playOneGame(weights: RlWeights): { trajectories: Map<string, Step[]>; finalScores: PlayerScore[] } {
   const playerConfigs = Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, deck: buildStarterDeck() }));
   const state = createGame(playerConfigs, { maxRounds: randomMaxRounds() });
 
   const fixedOpponents = new Map<string, Bot>();
-  if (CURRENT_VARIANT !== 'general') {
-    for (let i = 1; i < playerConfigs.length; i++) {
-      fixedOpponents.set(playerConfigs[i].id, RL_CURRICULUM_OPPONENTS[i - 1]);
-    }
+  for (let i = 1; i < playerConfigs.length; i++) {
+    fixedOpponents.set(playerConfigs[i].id, RL_CURRICULUM_OPPONENTS[i - 1]);
   }
 
   const trajectories = new Map<string, Step[]>();
@@ -173,11 +191,24 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
 
     const chosenAction = actions[chosenIndex];
     const stateFeatures = encodePlayerContext(state, player);
-    const scoreBefore = chosenAction.type === 'buyAnimal' ? scorePlayer(state, player) : 0;
+    // Si la carta que se va a comprar es una de las calibradas (ver
+    // SCALER_CALIBRATION más abajo), no hace falta el snapshot de antes: su
+    // shaping se sustituye entero por el valor medio precalculado.
+    const boughtCardId =
+      chosenAction.type === 'buyAnimal'
+        ? state.animalTrack.find((c) => c.instanceId === chosenAction.trackInstanceId)?.id
+        : undefined;
+    const calibratedValue = boughtCardId ? SCALER_CALIBRATION[boughtCardId] : undefined;
+    const scoreBefore = chosenAction.type === 'buyAnimal' && calibratedValue === undefined ? scorePlayer(state, player) : 0;
 
     applyAction(state, player.id, chosenAction);
 
-    const shapingBonus = chosenAction.type === 'buyAnimal' ? (scorePlayer(state, player) - scoreBefore) / 20 : 0;
+    const shapingBonus =
+      calibratedValue !== undefined
+        ? calibratedValue / 20
+        : chosenAction.type === 'buyAnimal'
+          ? (scorePlayer(state, player) - scoreBefore) / 20
+          : 0;
 
     trajectories.get(player.id)?.push({
       allFeatures,

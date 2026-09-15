@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  autoResolvePendingDiscard,
   buyAnimal,
   canAffordMarket,
   createGame,
   getLegalActions,
   playCard,
   resolveDiscard,
+  useDiscardedAnimalAbility,
 } from '../src/engine';
 import { getCard } from '../src/cards/registry';
 import { buildStarterDeck } from './helpers';
@@ -41,110 +41,117 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.hand[0].instanceId).toBe('coin-1#draw1');
   });
 
-  it('serpiente: al jugarla deja un descarte pendiente — el rival elige qué descarta, el motor no decide por él', () => {
+  it('león: añade 3 a tu valor de compra al jugarlo, sin ningún otro efecto', () => {
+    const { state, player } = setupClean();
+    const lion = freshInstance('lion', 'test');
+    player.hand = [lion];
+
+    playCard(state, player.id, lion.instanceId);
+
+    expect(player.bonusPurchasingPowerThisTurn).toBe(3);
+    expect(state.pendingDecision).toBeNull();
+  });
+
+  it('tiburón: añade 3 a tu valor de compra al jugarlo', () => {
+    const { state, player } = setupClean();
+    const shark = freshInstance('shark', 'test');
+    player.hand = [shark];
+
+    playCard(state, player.id, shark.instanceId);
+
+    expect(player.bonusPurchasingPowerThisTurn).toBe(3);
+    expect(state.pendingDecision).toBeNull();
+  });
+
+  it('serpiente (rediseño 2026-09-14): cada jugador con algún animal en mano (quien la juega incluido) debe descartar uno — las monedas no cuentan como elegibles', () => {
     const { state, player, opponent } = setupClean();
     const hippo = freshInstance('hippopotamus', 'o1');
     const coin = freshInstance('coin-1', 'o2');
     opponent.hand = [hippo, coin];
     const snake = freshInstance('snake', 'test');
-    player.hand = [snake];
+    const monkey = freshInstance('monkey', 'p1'); // el propio jugador también debe descartar si tiene un animal
+    player.hand = [snake, monkey];
 
     playCard(state, player.id, snake.instanceId);
 
-    // Nada se ha descartado todavía: el motor espera a que el rival elija.
+    // Nada se ha descartado todavía: el motor espera a que cada uno elija.
     expect(opponent.hand).toHaveLength(2);
-    expect(state.pendingDecision?.owed[opponent.id]).toEqual({ amount: 1, eligibleInstanceIds: null });
-    // Con un descarte pendiente, nadie más tiene ninguna acción normal.
-    expect(getLegalActions(state, player.id)).toEqual([]);
-    // El rival puede elegir CUALQUIERA de sus 2 cartas, no una impuesta.
-    expect(getLegalActions(state, opponent.id)).toHaveLength(2);
+    expect(player.hand).toEqual([monkey]);
+    // Solo el animal es elegible para el rival, no la moneda.
+    expect(state.pendingDecision?.owed[opponent.id]).toEqual({ amount: 1, eligibleInstanceIds: [hippo.instanceId] });
+    // El propio jugador también debe entregar el suyo.
+    expect(state.pendingDecision?.owed[player.id]).toEqual({ amount: 1, eligibleInstanceIds: [monkey.instanceId] });
   });
 
-  it('serpiente: si el rival elige descartar una moneda, tú robas 1 carta al resolverse', () => {
+  it('serpiente: si un jugador solo tiene monedas (o la mano vacía), no debe nada', () => {
     const { state, player, opponent } = setupClean();
-    const coin = freshInstance('coin-1', 'o1');
-    opponent.hand = [freshInstance('hippopotamus', 'o2'), coin];
+    opponent.hand = [freshInstance('coin-1', 'o1')];
     const snake = freshInstance('snake', 'test');
     player.hand = [snake];
-    player.deck = [freshInstance('coin-1', 'draw1')];
 
     playCard(state, player.id, snake.instanceId);
-    resolveDiscard(state, opponent.id, coin.instanceId);
 
-    expect(opponent.discard).toEqual([coin]);
+    expect(state.pendingDecision?.owed[opponent.id]).toBeUndefined();
+    // El propio jugador tampoco tenía ningún animal (solo la Serpiente, ya
+    // jugada): nadie debía nada, así que ni siquiera arranca la decisión.
     expect(state.pendingDecision).toBeNull();
-    expect(player.hand).toHaveLength(1); // robó 1 carta del mazo
+    expect(state.pendingAnimalAbilityChoice).toBeNull();
   });
 
-  it('serpiente: si el rival elige descartar un animal (no una moneda), no robas nada', () => {
+  it('serpiente: una vez descartado, quien la jugó elige uno de los animales entregados y activa su habilidad — la carta se queda en el descarte de quien la dio', () => {
+    const { state, player, opponent } = setupClean();
+    const monkey = freshInstance('monkey', 'o1'); // gainBonusPurchasingPowerPerHabitatInHand (land)
+    opponent.hand = [monkey];
+    const snake = freshInstance('snake', 'test');
+    const rabbit = freshInstance('rabbit', 'p1'); // terrestre, para que el bonus del Mono cuente algo
+    player.hand = [snake, rabbit];
+
+    playCard(state, player.id, snake.instanceId);
+    resolveDiscard(state, opponent.id, monkey.instanceId);
+    resolveDiscard(state, player.id, rabbit.instanceId);
+
+    // Ambas entregas resueltas: ahora toca elegir qué habilidad usar.
+    expect(state.pendingDecision).toBeNull();
+    expect(state.pendingAnimalAbilityChoice?.sourcePlayerId).toBe(player.id);
+    expect(state.pendingAnimalAbilityChoice?.candidateInstanceIds.sort()).toEqual(
+      [monkey.instanceId, rabbit.instanceId].sort()
+    );
+    // Nadie más tiene ninguna acción legal mientras tanto.
+    expect(getLegalActions(state, opponent.id)).toEqual([]);
+
+    useDiscardedAnimalAbility(state, player.id, monkey.instanceId);
+
+    expect(state.pendingAnimalAbilityChoice).toBeNull();
+    // Efecto del Mono activado a favor de player: +1 de valor de compra por
+    // cada terrestre en su "mano efectiva" ahora mismo (ver effectiveHand:
+    // mano + lo ya jugado este turno). El rabbit se entregó y ya no cuenta,
+    // pero la propia Serpiente (terrestre+acuática) sigue en
+    // player.playedThisTurn desde que se jugó, así que SÍ cuenta: 1.
+    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
+    // El Mono elegido NUNCA cambia de dueño: sigue en el descarte del rival.
+    expect(opponent.discard).toEqual([monkey]);
+    expect(player.discard).not.toContainEqual(monkey);
+  });
+
+  it('serpiente: el Perezoso puede sustituir la entrega de un jugador (sigue siendo una entrega de tipo "discard")', () => {
     const { state, player, opponent } = setupClean();
     const hippo = freshInstance('hippopotamus', 'o1');
-    opponent.hand = [hippo, freshInstance('coin-1', 'o2')];
-    const snake = freshInstance('snake', 'test');
-    player.hand = [snake];
-    player.deck = [freshInstance('coin-1', 'draw1')];
-
-    playCard(state, player.id, snake.instanceId);
-    resolveDiscard(state, opponent.id, hippo.instanceId);
-
-    expect(opponent.discard).toEqual([hippo]);
-    expect(player.hand).toHaveLength(0); // no robó nada
-  });
-
-  it('serpiente: la heurística del bot evita descartar una moneda mientras tenga cualquier otra carta, aunque valga menos', () => {
-    const { state, player, opponent } = setupClean();
-    const coin = freshInstance('coin-5', 'o1'); // Platino: la más valiosa de la mano, pero es MONEDA
-    const goldfish = freshInstance('goldfish', 'o2'); // 1PV: vale mucho menos que la moneda, pero no es moneda
-    opponent.hand = [coin, goldfish];
-    const snake = freshInstance('snake', 'test');
-    player.hand = [snake];
-
-    playCard(state, player.id, snake.instanceId);
-    // Nadie ha resuelto todavía "a mano": lo hace la heurística por defecto,
-    // la misma que usan los bots (ver useGame.ts) y el entrenamiento RL (ver
-    // selfPlay.ts) — descartar la moneda le daría a player un robo gratis
-    // además de perder la moneda, así que es la peor opción posible.
-    autoResolvePendingDiscard(state);
-
-    expect(opponent.hand).toEqual([coin]); // se queda la moneda
-    expect(opponent.discard).toEqual([goldfish]); // se descarta el animal, no la moneda
-    expect(player.hand).toHaveLength(0); // no robó nada: no se descartó ninguna moneda
-  });
-
-  it('serpiente: si en la mano solo quedan monedas, la heurística del bot sí descarta una (la de menor valor)', () => {
-    const { state, player, opponent } = setupClean();
-    const cheapCoin = freshInstance('coin-1', 'o1');
-    const expensiveCoin = freshInstance('coin-5', 'o2');
-    opponent.hand = [cheapCoin, expensiveCoin];
-    const snake = freshInstance('snake', 'test');
-    player.hand = [snake];
-    player.deck = [freshInstance('coin-1', 'draw1')];
-
-    playCard(state, player.id, snake.instanceId);
-    autoResolvePendingDiscard(state);
-
-    expect(opponent.hand).toEqual([expensiveCoin]); // se salva la más valiosa
-    expect(opponent.discard).toEqual([cheapCoin]); // sin otra opción, la moneda más barata
-    expect(player.hand).toHaveLength(1); // sí robó: se descartó una moneda
-  });
-
-  it('serpiente: con un Perezoso en la mano, la heurística lo prefiere incluso sobre no tocar las monedas', () => {
-    const { state, player, opponent } = setupClean();
-    const coin = freshInstance('coin-5', 'o1');
     const sloth = freshInstance('sloth', 'o2');
-    opponent.hand = [coin, sloth];
+    opponent.hand = [hippo, sloth];
     const snake = freshInstance('snake', 'test');
     player.hand = [snake];
 
     playCard(state, player.id, snake.instanceId);
-    autoResolvePendingDiscard(state);
+    // El Perezoso es él mismo un animal, así que ya es elegible "normal" —
+    // pero además puede cubrir la entrega igual que en Buitre/Mono/Hiena.
+    resolveDiscard(state, opponent.id, sloth.instanceId);
 
-    expect(opponent.hand).toEqual([coin]);
+    expect(state.pendingDecision).toBeNull();
+    expect(opponent.hand).toEqual([hippo]);
     expect(opponent.discard).toEqual([sloth]);
-    expect(player.hand).toHaveLength(0); // no robó nada
   });
 
-  it('serpiente: con varios rivales, cada uno resuelve el suyo por separado; robas 1 carta por cada moneda descartada en total', () => {
+  it('serpiente: con varios jugadores, cada uno resuelve el suyo por separado antes de que se pueda elegir habilidad', () => {
     const state = createGame([
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
       { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
@@ -156,141 +163,28 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
       p.discard = [];
     }
     const [p1, p2, p3] = state.players;
-    const p2Coin = freshInstance('coin-1', 'b1');
-    p2.hand = [p2Coin];
+    const p2Hippo = freshInstance('hippopotamus', 'b1');
+    p2.hand = [p2Hippo];
     const p3Lion = freshInstance('lion', 'c1');
     p3.hand = [p3Lion];
     const snake = freshInstance('snake', 'test');
     p1.hand = [snake];
-    p1.deck = [freshInstance('coin-1', 'draw1'), freshInstance('coin-1', 'draw2')];
 
     playCard(state, p1.id, snake.instanceId);
 
-    // Ambos rivales tienen exactamente 1 carta (sin elección real entre las
-    // normales), pero las entregas de tipo 'discard' ya nunca se
-    // auto-resuelven (ver autoResolveForcedDiscards en engine.ts: desde el
-    // Perezoso, siempre hay que decidir explícitamente) — cada uno resuelve
-    // la suya.
     expect(state.pendingDecision).not.toBeNull();
-    resolveDiscard(state, p2.id, p2Coin.instanceId);
+    expect(state.pendingAnimalAbilityChoice).toBeNull(); // todavía no: faltan entregas por resolver
+    resolveDiscard(state, p2.id, p2Hippo.instanceId);
     resolveDiscard(state, p3.id, p3Lion.instanceId);
 
     expect(state.pendingDecision).toBeNull();
     expect(p2.hand).toHaveLength(0);
-    expect(p2.discard).toEqual([p2Coin]);
+    expect(p2.discard).toEqual([p2Hippo]);
     expect(p3.hand).toHaveLength(0);
     expect(p3.discard).toEqual([p3Lion]);
-    expect(p1.hand).toHaveLength(1); // solo 1 de los 2 rivales soltó moneda
-  });
-
-  it('león: cada rival elige y elimina para siempre un animal terrestre (basta con que tenga ese hábitat, no hace falta que sea puro) de coste 3 o menos', () => {
-    const { state, player, opponent } = setupClean();
-    const rabbit = freshInstance('rabbit', 'o1'); // terrestre puro, coste 2: elegible
-    const dolphin = freshInstance('dolphin', 'o2'); // solo acuático, sin ningún hábitat terrestre: NO elegible
-    opponent.hand = [rabbit, dolphin];
-    const lion = freshInstance('lion', 'test');
-    player.hand = [lion];
-
-    playCard(state, player.id, lion.instanceId);
-
-    expect(state.pendingDecision).toBeNull(); // rabbit era el único elegible: sin elección real
-    expect(opponent.hand).toEqual([dolphin]);
-    // Eliminado para siempre a la pila de QUIEN CAPTURÓ, nunca de vuelta al mercado.
-    expect(player.destroyedCards).toEqual([rabbit]);
-    expect(state.animalTrack.some((c) => c.instanceId === rabbit.instanceId)).toBe(false);
-  });
-
-  it('halcón: cada rival elige y elimina para siempre un animal volador (basta con que tenga ese hábitat, no hace falta que sea puro) de coste 3 o menos', () => {
-    const { state, player, opponent } = setupClean();
-    const parakeet = freshInstance('parakeet', 'o1'); // volador puro, coste 2: elegible
-    const rabbit = freshInstance('rabbit', 'o2'); // solo terrestre, sin ningún hábitat volador: NO elegible
-    opponent.hand = [parakeet, rabbit];
-    const hawk = freshInstance('hawk', 'test');
-    player.hand = [hawk];
-
-    playCard(state, player.id, hawk.instanceId);
-
-    expect(state.pendingDecision).toBeNull(); // parakeet era el único elegible: sin elección real
-    expect(opponent.hand).toEqual([rabbit]);
-    expect(player.destroyedCards).toEqual([parakeet]);
-    expect(state.animalTrack.some((c) => c.instanceId === parakeet.instanceId)).toBe(false);
-  });
-
-  it('tiburón/halcón/león: BASTA con que el animal tenga su hábitat entre los suyos, no hace falta que sea puro (cambio de regla 2026-09-14) — un Flamenco (volador+acuático) es elegible para Tiburón y Halcón, pero no para León', () => {
-    const { state, player, opponent } = setupClean();
-    const flamingo = freshInstance('flamingo', 'o1'); // volador+acuático, coste 3
-
-    for (const species of ['shark', 'hawk']) {
-      opponent.hand = [flamingo];
-      const card = freshInstance(species, `test-${species}`);
-      player.hand = [card];
-      playCard(state, player.id, card.instanceId);
-      // Único elegible: se resuelve solo, sin elección real.
-      expect(state.pendingDecision).toBeNull();
-      expect(opponent.hand).toEqual([]);
-      expect(player.destroyedCards).toEqual([flamingo]);
-      // Se restaura para la siguiente vuelta del bucle.
-      player.destroyedCards = [];
-    }
-
-    // León (terrestre): el Flamenco no tiene NINGÚN hábitat terrestre, así
-    // que sigue sin ser elegible para él (a diferencia de Tiburón/Halcón).
-    opponent.hand = [flamingo];
-    const lion = freshInstance('lion', 'test-lion');
-    player.hand = [lion];
-    playCard(state, player.id, lion.instanceId);
-    expect(state.pendingDecision).toBeNull(); // nadie debía nada: el Flamenco no tiene hábitat terrestre
-    expect(opponent.hand).toEqual([flamingo]);
-  });
-
-  it('tiburón/halcón/león: ganas 1 de valor de compra por cada animal devuelto en total (2 rivales, 1 cada uno = 2)', () => {
-    // Hacen falta 2 RIVALES distintos (cada uno solo debe 1 devolución como
-    // mucho): setupClean() solo da 1, así que se crea la partida aquí.
-    const state = createGame([
-      { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
-      { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
-      { id: 'p3', name: 'Carol', deck: buildStarterDeck() },
-    ]);
-    const [player, p2, p3] = state.players;
-    for (const p of state.players) {
-      p.deck = [];
-      p.hand = [];
-      p.discard = [];
-    }
-    p2.hand = [freshInstance('dolphin', 'p2a')]; // acuático puro, coste 3: elegible
-    p3.hand = [freshInstance('goldfish', 'p3a')]; // acuático puro, coste 1: elegible
-    const shark = freshInstance('shark', 'test');
-    player.hand = [shark];
-
-    playCard(state, player.id, shark.instanceId);
-    // Ninguno de los 2 tiene elección real (1 solo elegible cada uno): se
-    // resuelven solos y la decisión se cierra sin que el jugador intervenga.
-    expect(state.pendingDecision).toBeNull();
-    expect(player.bonusPurchasingPowerThisTurn).toBe(2);
-  });
-
-  it('tiburón/halcón/león: con solo 1 animal devuelto, el bonus es 1 (no un umbral de 2)', () => {
-    const { state, player, opponent } = setupClean();
-    opponent.hand = [freshInstance('dolphin', 'o1')]; // único elegible de toda la partida
-    const shark = freshInstance('shark', 'test');
-    player.hand = [shark];
-
-    playCard(state, player.id, shark.instanceId);
-
-    expect(state.pendingDecision).toBeNull();
-    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
-  });
-
-  it('tiburón/halcón/león: si no se devuelve ningún animal, no hay bonus', () => {
-    const { state, player, opponent } = setupClean();
-    opponent.hand = [freshInstance('lion', 'o1')]; // terrestre: no elegible para el Tiburón (acuático)
-    const shark = freshInstance('shark', 'test');
-    player.hand = [shark];
-
-    playCard(state, player.id, shark.instanceId);
-
-    expect(state.pendingDecision).toBeNull();
-    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
+    expect(state.pendingAnimalAbilityChoice?.candidateInstanceIds.sort()).toEqual(
+      [p2Hippo.instanceId, p3Lion.instanceId].sort()
+    );
   });
 
   it('pingüino: añade una moneda de Plata de verdad a la mano (no bonus temporal)', () => {
@@ -317,56 +211,6 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     // playCard manda la carta a playedThisTurn (el "limbo" de este turno),
     // no directamente al descarte — eso pasa recién en endTurn.
     expect(player.playedThisTurn).toEqual([bat]);
-  });
-
-  it('murciélago: se puede descartar en lugar de perder un animal capturado por León/Tiburón/Halcón (protección, cubre TODA la entrega)', () => {
-    const { state, player, opponent } = setupClean();
-    const rabbit = freshInstance('rabbit', 'o1'); // terrestre puro, coste 2: elegible
-    const dolphin = freshInstance('dolphin', 'o2'); // solo acuático, sin hábitat terrestre: NO elegible
-    // El propio Murciélago (land+bird) también solapa con "terrestre" y por
-    // tanto es naturalmente elegible con la regla nueva — la prueba real es
-    // que protegerse CON ÉL toma la vía especial (a descarte, no a
-    // destroyedCards) en vez de tratarse como una captura más.
-    const bat = freshInstance('bat', 'o3');
-    opponent.hand = [rabbit, dolphin, bat];
-    const lion = freshInstance('lion', 'test');
-    player.hand = [lion];
-
-    playCard(state, player.id, lion.instanceId);
-
-    // Hay elección real (rabbit y el propio murciélago son elegibles): la decisión queda pendiente.
-    expect(state.pendingDecision?.kind).toBe('destroy');
-    expect(state.pendingDecision?.owed[opponent.id]).toEqual({
-      amount: 1,
-      eligibleInstanceIds: [rabbit.instanceId, bat.instanceId],
-    });
-
-    // El rival elige proteger con el Murciélago en vez de entregar el conejo.
-    resolveDiscard(state, opponent.id, bat.instanceId);
-
-    expect(state.pendingDecision).toBeNull();
-    // El Murciélago se descarta normal (protegido), NO acaba en destroyedCards.
-    expect(opponent.discard).toEqual([bat]);
-    expect(opponent.hand).toEqual(expect.arrayContaining([rabbit, dolphin]));
-    // Nada fue capturado de verdad: ni destroyedCards ni el bonus de valor de captura.
-    expect(player.destroyedCards).toHaveLength(0);
-    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
-  });
-
-  it('murciélago: si el afectado lo tiene en mano, NO se auto-resuelve aunque solo haya 1 elegible normal (siempre hay elección real)', () => {
-    const { state, player, opponent } = setupClean();
-    const dolphin = freshInstance('dolphin', 'o1'); // único elegible normal (acuático puro)
-    const bat = freshInstance('bat', 'o2'); // terrestre+volador: sin solape acuático, no es "elegible normal" aquí
-    opponent.hand = [dolphin, bat];
-    const shark = freshInstance('shark', 'test');
-    player.hand = [shark];
-
-    playCard(state, player.id, shark.instanceId);
-
-    // Antes (sin Murciélago) esto se habría auto-resuelto solo; con
-    // Murciélago en mano, queda pendiente para que el rival elija de verdad.
-    expect(state.pendingDecision).not.toBeNull();
-    expect(state.pendingDecision?.owed[opponent.id]?.amount).toBe(1);
   });
 
   it('ardilla: añade 1 de valor de compra al jugarla (además de su efecto automático de fin/inicio de turno)', () => {
@@ -705,6 +549,37 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.discard.some((c) => c.instanceId === snake.instanceId)).toBe(true);
   });
 
+  it('murciélago (rediseño 2026-09-14): coge la moneda elegida de tu propio descarte a tu mano, nunca un animal', () => {
+    const { state, player } = setupClean();
+    const bat = freshInstance('bat', 'test');
+    const coin = freshInstance('coin-2', 'c1'); // descartada en un turno anterior
+    const rabbit = freshInstance('rabbit', 'r1'); // animal: no es un objetivo válido para el Murciélago
+    player.hand = [bat];
+    player.discard = [coin, rabbit];
+
+    playCard(state, player.id, bat.instanceId, coin.instanceId);
+
+    expect(player.hand.some((c) => c.instanceId === coin.instanceId)).toBe(true);
+    expect(player.discard.some((c) => c.instanceId === coin.instanceId)).toBe(false);
+    expect(player.discard.some((c) => c.instanceId === rabbit.instanceId)).toBe(true);
+  });
+
+  it('murciélago: solo ofrece monedas del descarte como objetivo, nunca animales', () => {
+    const { state, player } = setupClean();
+    const bat = freshInstance('bat', 'test');
+    const coin = freshInstance('coin-1', 'c1');
+    const rabbit = freshInstance('rabbit', 'r1');
+    player.hand = [bat];
+    player.discard = [coin, rabbit];
+
+    const actions = getLegalActions(state, player.id).filter(
+      (a) => a.type === 'playCard' && a.instanceId === bat.instanceId
+    );
+
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatchObject({ targetInstanceId: coin.instanceId });
+  });
+
   it('jirafa: si no hay ningún animal en el descarte, no pasa nada (no hay candidatos)', () => {
     const { state, player } = setupClean();
     const giraffe = freshInstance('giraffe', 'test');
@@ -1035,25 +910,6 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.hand).toHaveLength(0); // no robó nada: no se descartó ninguna moneda
   });
 
-  it('perezoso: NO sustituye una eliminación del Tiburón (solo aplica a descartes)', () => {
-    const { state, player, opponent } = setupClean();
-    const dolphin = freshInstance('dolphin', 'o1'); // único elegible real del Tiburón
-    const sloth = freshInstance('sloth', 'o2'); // terrestre, no cuenta para el Tiburón
-    opponent.hand = [dolphin, sloth];
-    const shark = freshInstance('shark', 'test');
-    player.hand = [shark];
-
-    playCard(state, player.id, shark.instanceId);
-
-    // Sin elección real entre las elegibles del Tiburón (solo dolphin) Y el
-    // Perezoso no aplica a 'destroy': se resuelve solo, como antes.
-    expect(state.pendingDecision).toBeNull();
-    expect(opponent.hand).toEqual([sloth]);
-    expect(opponent.discard).toHaveLength(0);
-    expect(player.destroyedCards).toEqual([dolphin]);
-    expect(state.animalTrack.some((c) => c.instanceId === dolphin.instanceId)).toBe(false);
-  });
-
   it('con un descarte pendiente de verdad (elección real), jugar/comprar/terminar turno es ilegal hasta resolverlo', () => {
     const { state, player, opponent } = setupClean();
     // 3 cartas para que el Buitre (pide 2) deje una elección real: con
@@ -1075,64 +931,6 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     resolveDiscard(state, opponent.id, opponent.hand[0].instanceId);
     // Resuelto: el jugador activo vuelve a tener acciones normales.
     expect(() => playCard(state, player.id, lion.instanceId)).not.toThrow();
-  });
-
-  it('tiburón: cada rival elige (si hay más de un elegible) y elimina para siempre un animal acuático de coste 3 o menos', () => {
-    const { state, player, opponent } = setupClean();
-    const dolphin = freshInstance('dolphin', 'o1'); // acuático, coste 3: elegible
-    const goldfish = freshInstance('goldfish', 'o2'); // acuático, coste 1: elegible (deja elección real)
-    const lion = freshInstance('lion', 'o3'); // terrestre: no elegible (hábitat)
-    const orca = freshInstance('orca', 'o4'); // acuático, coste 7: no elegible (coste)
-    opponent.hand = [dolphin, goldfish, lion, orca];
-    const shark = freshInstance('shark', 'test');
-    player.hand = [shark];
-
-    playCard(state, player.id, shark.instanceId);
-
-    expect(state.pendingDecision?.kind).toBe('destroy');
-    expect(state.pendingDecision?.owed[opponent.id]).toEqual({
-      amount: 1,
-      eligibleInstanceIds: expect.arrayContaining([dolphin.instanceId, goldfish.instanceId]),
-    });
-
-    // Elige libremente cuál de los 2 elegibles entrega.
-    resolveDiscard(state, opponent.id, dolphin.instanceId);
-
-    expect(opponent.hand).toEqual(expect.arrayContaining([goldfish, lion, orca]));
-    expect(opponent.discard).toHaveLength(0); // no fue un descarte: no aparece ahí
-    // Eliminado para siempre a la pila de QUIEN CAPTURÓ (player), no al mercado.
-    expect(player.destroyedCards).toEqual([dolphin]);
-    expect(state.animalTrack.some((c) => c.instanceId === dolphin.instanceId)).toBe(false);
-    expect(state.pendingDecision).toBeNull();
-  });
-
-  it('tiburón: si solo tiene un animal elegible, no hay elección real y se resuelve solo', () => {
-    const { state, player, opponent } = setupClean();
-    const dolphin = freshInstance('dolphin', 'o1'); // único acuático de coste <=3: sin elección
-    opponent.hand = [dolphin];
-    const shark = freshInstance('shark', 'test');
-    player.hand = [shark];
-
-    playCard(state, player.id, shark.instanceId);
-
-    expect(state.pendingDecision).toBeNull();
-    expect(opponent.hand).toHaveLength(0);
-    expect(opponent.discard).toHaveLength(0);
-    expect(player.destroyedCards).toEqual([dolphin]);
-    expect(state.animalTrack.some((c) => c.instanceId === dolphin.instanceId)).toBe(false);
-  });
-
-  it('tiburón: si un rival no tiene ningún animal acuático de coste 3 o menos, no le debe nada y no bloquea la partida', () => {
-    const { state, player, opponent } = setupClean();
-    opponent.hand = [freshInstance('lion', 'o1')]; // terrestre: no elegible
-    const shark = freshInstance('shark', 'test');
-    player.hand = [shark];
-
-    playCard(state, player.id, shark.instanceId);
-
-    expect(opponent.hand).toHaveLength(1);
-    expect(state.pendingDecision).toBeNull(); // nadie debía nada: no llega a bloquear
-    expect(getLegalActions(state, player.id).length).toBeGreaterThan(0);
   });
 
   it('pato: el jugador que elijas te da 1 moneda cualquiera de su mano, y el resto no pierde nada', () => {

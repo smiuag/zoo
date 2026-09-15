@@ -3,24 +3,15 @@
   "name": "León",
   "type": "animal",
   "species": "lion",
-  "marketCost": 6,
-  "victoryPoints": 5,
-  "text": "Elimina un animal terrestre de coste 3 o menos de la mano de cada oponente. Añade 1 de valor de captura por cada uno.\n+1PV por cada animal eliminado.",
+  "marketCost": 5,
+  "victoryPoints": 4,
+  "text": "Añade 3 a tu valor de captura.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "returnAnimalFromEachOpponent",
+      "type": "gainFlatBonusPurchasingPower",
       "params": {
-        "habitat": "land",
-        "maxCost": 3,
-        "bonusPerAnimal": 1
-      }
-    },
-    {
-      "trigger": "onScore",
-      "type": "scorePerDestroyedCard",
-      "params": {
-        "multiplier": 1
+        "amount": 3
       }
     }
   ],

@@ -51,7 +51,6 @@ SPECIES_PHOTO = {
     "shark": "tiburones.jpg",
     "toucan": "tucan.jpg",
     "squirrel": "ardillas.jpg",
-    "hawk": "halcones.jpg",
     "raven": "cuevos.jpg",
 }
 COIN_PHOTO = {
@@ -70,11 +69,7 @@ COIN_IMAGE = {
     "coin-3": os.path.join(r"C:\proyectos\Claude\zoo\img\coins", "moneda3_marco_intento.png"),
     "coin-5": os.path.join(r"C:\proyectos\Claude\zoo\img\coins", "moneda5_marco_intento.png"),
 }
-# León/Tiburón/Halcón: texto de "ÚNICAMENTE <hábitat>" pedido explícitamente
-# por el usuario, 1 punto más pequeño que el resto de cartas (26 por
-# defecto) para que quepa con holgura — fit_body_font ya reduce por debajo
-# de esto si hiciera falta, este tope solo baja el punto de partida.
-BODY_MAX_SIZE_OVERRIDE = {"lion": 25, "shark": 25, "hawk": 25}
+BODY_MAX_SIZE_OVERRIDE: dict[str, int] = {}
 
 
 def load_cards():

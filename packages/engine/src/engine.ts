@@ -45,11 +45,10 @@ const ANIMAL_SPECIES = [
   'shark',
   'toucan',
   'squirrel',
-  'hawk',
   'raven',
 ] as const;
 // La partida entra en la ronda final en cuanto este número de mazos
-// compartidos (de las 34 especies, todas cuentan) se hayan agotado.
+// compartidos (de las 33 especies, todas cuentan) se hayan agotado.
 const FINAL_ROUND_EMPTY_DECK_THRESHOLD = 5;
 // Monedas que se pueden comprar directamente (a cambio de otras monedas),
 // además de conseguirse por efectos o el mazo inicial. Suministro
@@ -97,7 +96,12 @@ export type Action =
   // Resuelve UNA carta de un descarte forzoso pendiente (ver
   // PendingDiscardDecision en model/state.ts): el jugador afectado elige qué
   // descarta, una carta a la vez, hasta cubrir lo que debía.
-  | { type: 'resolveDiscard'; instanceId: string };
+  | { type: 'resolveDiscard'; instanceId: string }
+  // Serpiente (ver pendingAnimalAbilityChoice en model/state.ts): elige cuál
+  // de los animales recién descartados por "cada jugador" usa su habilidad
+  // onPlay para quien jugó la Serpiente. La carta elegida se queda donde
+  // está (en el descarte de quien la entregó); solo se activa su efecto.
+  | { type: 'useDiscardedAnimalAbility'; instanceId: string };
 
 // --- Pago con monedas ---------------------------------------------------
 // El dinero son cartas de tipo "coin" en la mano, cada una con un valor
@@ -353,6 +357,7 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
     gameOver: false,
     scoringFinalized: false,
     pendingDecision: null,
+    pendingAnimalAbilityChoice: null,
   };
 
   state.players = playerConfigs.map((cfg) => {
@@ -454,6 +459,10 @@ function targetedEffectCandidates(state: GameState, player: Player, card: CardIn
   if (retrieveFromDiscard) {
     return player.discard.filter((c) => c.type === 'animal');
   }
+  const retrieveCoinFromDiscard = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'retrieveCoinFromDiscard');
+  if (retrieveCoinFromDiscard) {
+    return player.discard.filter((c) => c.type === 'coin');
+  }
   return null;
 }
 
@@ -521,6 +530,18 @@ function drawThenTopdeckActions(player: Player, card: CardInstance, effect: Effe
 
 export function getLegalActions(state: GameState, playerId: string): Action[] {
   if (state.gameOver) return [];
+
+  // Serpiente: mientras quede pendiente elegir qué habilidad usar (ver
+  // pendingAnimalAbilityChoice en model/state.ts), SOLO quien jugó la
+  // Serpiente tiene alguna acción legal — igual que un descarte forzoso
+  // pendiente bloquea a todos los demás. Nunca coincide con
+  // state.pendingDecision a la vez (uno arranca justo cuando el otro se
+  // vacía del todo), así que el orden entre ambos bloques no importa.
+  if (state.pendingAnimalAbilityChoice) {
+    const choice = state.pendingAnimalAbilityChoice;
+    if (choice.sourcePlayerId !== playerId) return [];
+    return choice.candidateInstanceIds.map((instanceId) => ({ type: 'useDiscardedAnimalAbility', instanceId }));
+  }
 
   // Con un descarte forzoso pendiente, NADIE tiene ninguna acción normal
   // (ni siquiera el jugador activo): solo pueden actuar quienes todavía
@@ -806,6 +827,10 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
   } else {
     player.discard.push(card);
     if (decision.bonusDrawPerCoin && card.type === 'coin') decision.coinsDiscardedSoFar += 1;
+    // Serpiente: registra qué se acaba de descartar (sea la carta pedida o
+    // el Perezoso sustituto) para que luego quien la jugó pueda elegir
+    // entre ellas — ver pendingAnimalAbilityChoice más abajo.
+    if (decision.collectDiscardedForAbilityChoice) decision.collectedInstanceIds.push(card.instanceId);
   }
 
   if (isSlothSubstitute || isBatSubstitute) {
@@ -845,8 +870,53 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
         );
       }
     }
+    // Serpiente: si se descartó al menos un animal entre todos, ahora le
+    // toca a quien la jugó elegir cuál usar — ver useDiscardedAnimalAbility.
+    // Si nadie tenía ningún animal que entregar, collectedInstanceIds sigue
+    // vacío y no hay nada que elegir: la Serpiente simplemente no hace nada
+    // más esta vez.
+    if (decision.collectDiscardedForAbilityChoice && decision.collectedInstanceIds.length > 0) {
+      state.pendingAnimalAbilityChoice = {
+        sourcePlayerId: decision.sourcePlayerId,
+        sourceCardName: decision.sourceCardName,
+        candidateInstanceIds: [...decision.collectedInstanceIds],
+      };
+    }
     state.pendingDecision = null;
   }
+}
+
+// Serpiente: resuelve la elección de pendingAnimalAbilityChoice (ver
+// model/state.ts) — activa la habilidad onPlay de la carta elegida (que
+// sigue en el descarte de quien la entregó, nunca cambia de dueño) a favor
+// de quien jugó la Serpiente, exactamente igual que si la hubiera jugado él
+// mismo (mismo resolveEffect que usa playCard). Si esa habilidad deja a su
+// vez un descarte forzoso pendiente (p. ej. si la carta elegida fuera un
+// Buitre), se encadena con normalidad: autoResolveForcedDiscards ya se
+// llama al final, igual que en playCard.
+export function useDiscardedAnimalAbility(state: GameState, playerId: string, instanceId: string): void {
+  const choice = state.pendingAnimalAbilityChoice;
+  if (!choice) throw new Error('No hay ninguna habilidad de animal descartado pendiente de elegir');
+  if (choice.sourcePlayerId !== playerId) throw new Error(`${playerId} no puede elegir esta habilidad ahora`);
+  if (!choice.candidateInstanceIds.includes(instanceId)) throw new Error(`${instanceId} no es una carta elegible`);
+
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) throw new Error(`Jugador desconocido: ${playerId}`);
+  let card: CardInstance | undefined;
+  for (const p of state.players) {
+    card = p.discard.find((c) => c.instanceId === instanceId);
+    if (card) break;
+  }
+  if (!card) throw new Error(`No se encuentra la carta ${instanceId} en ningún descarte`);
+
+  state.pendingAnimalAbilityChoice = null;
+  for (const effect of card.effects.filter((e) => e.trigger === 'onPlay')) {
+    resolveEffect(state, player, effect, { sourceCardName: card.name });
+  }
+  autoResolveForcedDiscards(state);
+  recordRichestTurn(state, player);
+
+  state.log.push(`${player.name} usó la habilidad de ${card.name} gracias a la Serpiente`);
 }
 
 // Se llama justo después de resolver los efectos onPlay de una carta (ver
@@ -940,6 +1010,9 @@ export function applyAction(state: GameState, playerId: string, action: Action):
       return;
     case 'resolveDiscard':
       resolveDiscard(state, playerId, action.instanceId);
+      return;
+    case 'useDiscardedAnimalAbility':
+      useDiscardedAnimalAbility(state, playerId, action.instanceId);
       return;
   }
 }

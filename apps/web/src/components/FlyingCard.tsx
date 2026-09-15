@@ -38,6 +38,14 @@ export interface FlightSpec {
 
 interface FlyingCardProps {
   flight: FlightSpec;
+  // Se dispara UNA vez, justo al empezar a desvanecerse (no cuando termina
+  // — eso sigue siendo onDone): el momento exacto en que la pila de
+  // descarte DE VERDAD debe dejar de ocultar la carta recién comprada. Sin
+  // esto, la pila real seguía mostrando la carta ANTERIOR durante los
+  // FADE_MS del fantasma, así que se veía a través suyo mientras se hacía
+  // transparente — un parpadeo de "vuelve la carta vieja, luego reaparece
+  // la nueva de golpe" (ver settleFlight en GameBoard.tsx).
+  onSettle: () => void;
   onDone: () => void;
 }
 
@@ -50,7 +58,7 @@ type Phase = 'start' | 'flying' | 'holding' | 'fading';
 // este fantasma (el estado ya se aplicó), así que esto es puramente
 // decorativo — no bloquea ni retrasa nada del juego. Tres fases: vuela,
 // se queda quieta e iluminada un momento en el destino, y se desvanece.
-export function FlyingCard({ flight, onDone }: FlyingCardProps) {
+export function FlyingCard({ flight, onSettle, onDone }: FlyingCardProps) {
   const [phase, setPhase] = useState<Phase>('start');
 
   useEffect(() => {
@@ -66,8 +74,12 @@ export function FlyingCard({ flight, onDone }: FlyingCardProps) {
 
   useEffect(() => {
     if (phase !== 'holding') return;
-    const t = setTimeout(() => setPhase('fading'), HOLD_MS);
+    const t = setTimeout(() => {
+      onSettle();
+      setPhase('fading');
+    }, HOLD_MS);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   const atDestination = phase !== 'start';

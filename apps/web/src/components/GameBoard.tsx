@@ -13,7 +13,13 @@ import {
 import { ActivePlayerBoard } from './ActivePlayerBoard';
 import { CardView } from './CardView';
 import { FlyingCard, type FlightSpec } from './FlyingCard';
-import { buyAnimalActionFor, buyCoinActionFor, playCardActionsFor, resolveDiscardActionFor } from '../lib/actionQuery';
+import {
+  buyAnimalActionFor,
+  buyCoinActionFor,
+  playCardActionsFor,
+  resolveDiscardActionFor,
+  useDiscardedAnimalAbilityActionFor,
+} from '../lib/actionQuery';
 import { BOT_ALGORITHM_OPTIONS, displayName } from '../lib/botAlgorithms';
 import { buildPlayCardTargetChoice, type PendingChoice } from '../lib/pendingChoice';
 import type { BotAlgorithm } from '../lib/gameConfig';
@@ -93,10 +99,12 @@ export function GameBoard({
   // deja sin ninguna acción normal al jugador activo).
   const canAct = legalActions.length > 0;
   const owedDiscard = state.pendingDecision?.owed[viewerPlayerId];
-  // Tiburón/Halcón/León: la carta elegida se elimina de la partida para
-  // siempre; Pato: pasa a la mano de quien jugó la carta — en los 3 casos
-  // solo cambia el texto mostrado, la mecánica de elegir es idéntica al
-  // descarte forzoso normal.
+  // kind 'destroy': la carta elegida se elimina de la partida para siempre
+  // (sin ninguna carta que lo use ahora mismo, ver scorePerDestroyedCard en
+  // effects/registry.ts — se deja el mecanismo por si vuelve a hacer
+  // falta). kind 'giveToPlayer' (Pato): pasa a la mano de quien jugó la
+  // carta — en ambos casos solo cambia el texto mostrado, la mecánica de
+  // elegir es idéntica al descarte forzoso normal.
   const isDestroy = state.pendingDecision?.kind === 'destroy';
   const isGiveToPlayer = state.pendingDecision?.kind === 'giveToPlayer';
   const discardVerb = isDestroy ? 'Elimina' : isGiveToPlayer ? 'Entrega' : 'Descarta';
@@ -115,6 +123,18 @@ export function GameBoard({
   const discardSourcePlayerName = state.pendingDecision
     ? (state.players.find((p) => p.id === state.pendingDecision!.sourcePlayerId)?.name ?? '')
     : '';
+  // Serpiente: si el visor es quien la jugó y toca elegir qué habilidad
+  // usar (ver pendingAnimalAbilityChoice en el motor), resuelve cada
+  // candidato a su CardInstance real allá donde esté (siguen en el
+  // descarte de quien los entregó, puede ser cualquier jugador) para
+  // poder mostrarlos con CardView en el popup de abajo.
+  const animalAbilityChoice =
+    state.pendingAnimalAbilityChoice?.sourcePlayerId === viewerPlayerId ? state.pendingAnimalAbilityChoice : undefined;
+  const animalAbilityCandidates = animalAbilityChoice
+    ? animalAbilityChoice.candidateInstanceIds
+        .map((id) => state.players.flatMap((p) => p.discard).find((c) => c.instanceId === id))
+        .filter((c): c is CardInstance => Boolean(c))
+    : [];
   // Si el visor tiene el turno ahora mismo: decide dónde se ven el
   // mazo/descarte del jugador activo (que en ese caso es el propio visor) y
   // si tiene sentido mostrar los controles de turno (Terminar/Reiniciar) —
@@ -129,6 +149,18 @@ export function GameBoard({
   const marketRectsRef = useRef<Map<string, DOMRect>>(new Map());
   const discardPileRef = useRef<HTMLDivElement>(null);
   const [flights, setFlights] = useState<FlightSpec[]>([]);
+  // Vuelos que ya "han aterrizado" de verdad (ver settleFlight/onSettle más
+  // abajo) pero cuyo fantasma sigue en pantalla desvaneciéndose: sin esto,
+  // hiddenDiscardCount seguía contando el vuelo entero hasta que el
+  // fantasma terminaba de desvanecerse del todo (onTransitionEnd), así que
+  // durante esos últimos ~350ms el fantasma se iba haciendo transparente
+  // sobre la pila de descarte de VERDAD, que todavía mostraba la carta
+  // ANTERIOR debajo — un parpadeo visible de "vuelve la carta vieja, luego
+  // reaparece la nueva de golpe". Al asentarse en cuanto empieza a
+  // desvanecerse (no cuando termina), la pila real ya enseña la carta
+  // nueva ANTES de que el fantasma se vuelva transparente, así que debajo
+  // del fantasma desvaneciéndose siempre hay la misma carta.
+  const [settledFlightKeys, setSettledFlightKeys] = useState<Set<string>>(new Set());
   // Qué instanceId había en el descarte del jugador ACTIVO la última vez
   // (y de quién): para detectar cuáles son nuevos de un render a otro sin
   // comparar entre turnos de jugadores distintos.
@@ -170,8 +202,18 @@ export function GameBoard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePlayer.id, activePlayer.discard.length]);
 
+  function settleFlight(key: string) {
+    setSettledFlightKeys((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+  }
+
   function removeFlight(key: string) {
     setFlights((f) => f.filter((fl) => fl.key !== key));
+    setSettledFlightKeys((prev) => {
+      if (!prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
   }
 
   // Mientras la partida sigue en curso, el mazo de CUALQUIER otro jugador
@@ -492,7 +534,9 @@ export function GameBoard({
             humanIds={humanIds}
             botAlgorithms={botAlgorithms}
             discardPileRef={discardPileRef}
-            hiddenDiscardCount={flights.filter((f) => f.toPlayerId === activePlayer.id).length}
+            hiddenDiscardCount={
+              flights.filter((f) => f.toPlayerId === activePlayer.id && !settledFlightKeys.has(f.key)).length
+            }
           />
 
           {human.hand.length > 0 && (
@@ -683,6 +727,33 @@ export function GameBoard({
         </div>
       )}
 
+      {animalAbilityChoice && (
+        // Igual que el popup de descarte forzoso: sin forma de cancelar, hay
+        // que elegir uno sí o sí (ya se sabe que hay al menos 1 candidato,
+        // ver pendingAnimalAbilityChoice: solo arranca si se descartó algo).
+        <div className="modal-backdrop">
+          <div className="modal modal--discard">
+            <div className="panel__header">
+              <h2>Elige una habilidad</h2>
+            </div>
+            <p className="modal__message">
+              Tu <strong>{animalAbilityChoice.sourceCardName}</strong> hizo que cada jugador descartara un animal.
+              Elige uno de ellos para usar su habilidad como si lo hubieras jugado tú (se queda donde está, en el
+              descarte de quien lo entregó).
+            </p>
+            <div className="card-row">
+              {animalAbilityCandidates.map((card) => (
+                <CardView
+                  key={card.instanceId}
+                  card={card}
+                  onClick={() => runAction(useDiscardedAnimalAbilityActionFor(legalActions, card.instanceId))}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmEndTurn && (
         <div className="modal-backdrop" onClick={() => setConfirmEndTurn(false)}>
           <div className="modal modal--confirm" onClick={(e) => e.stopPropagation()}>
@@ -743,8 +814,8 @@ export function GameBoard({
             {viewedPlayer.destroyedCards.length > 0 && (
               <div className="collection-destroyed">
                 <p className="collection-destroyed__title">
-                  🗑️ Eliminadas ({viewedPlayer.destroyedCards.length}, fuera de la colección — pero cuentan para el
-                  bonus de fin de partida de León/Tiburón/Halcón si tiene alguno)
+                  🗑️ Eliminadas ({viewedPlayer.destroyedCards.length}, fuera de la colección para siempre — no
+                  puntúan)
                 </p>
                 <div className="card-row">
                   {groupedDestroyed(viewedPlayer).map(({ card, count }) => (
@@ -761,7 +832,12 @@ export function GameBoard({
       )}
 
       {flights.map((flight) => (
-        <FlyingCard key={flight.key} flight={flight} onDone={() => removeFlight(flight.key)} />
+        <FlyingCard
+          key={flight.key}
+          flight={flight}
+          onSettle={() => settleFlight(flight.key)}
+          onDone={() => removeFlight(flight.key)}
+        />
       ))}
     </div>
   );

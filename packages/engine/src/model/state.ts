@@ -88,9 +88,32 @@ export interface PendingDiscardDecision {
   // resto de cartas que usan PendingDiscardDecision).
   bonusPurchasingPowerPerAnimal: number | null;
   returnedSoFar: number;
+  // Serpiente: si true, cada carta que se acabe descartando por ESTA
+  // entrega (kind 'discard') se va anotando en collectedInstanceIds
+  // (siguen en el descarte de quien las entregó, esto es solo un registro
+  // aparte). Cuando `owed` se vacía del todo, si hay algo anotado, arranca
+  // pendingAnimalAbilityChoice para que quien jugó la Serpiente elija cuál
+  // de esas habilidades usar — ver resolveDiscard en engine.ts. false/
+  // undefined en el resto de cartas que usan PendingDiscardDecision.
+  collectDiscardedForAbilityChoice?: boolean;
+  collectedInstanceIds: string[];
   // Por jugador afectado: cuántas cartas le quedan por entregar y de qué
   // instanceIds puede elegir (null = cualquier carta de su mano vale).
   owed: Record<string, { amount: number; eligibleInstanceIds: string[] | null }>;
+}
+
+// Serpiente (ver PendingDiscardDecision.collectDiscardedForAbilityChoice
+// arriba): una vez todos los jugadores han entregado su animal (o se ha
+// saltado a quien no tenía ninguno), quien jugó la Serpiente debe elegir
+// UNO de candidateInstanceIds (siguen en el descarte de quien los entregó)
+// para activar su habilidad onPlay a su favor — ver
+// useDiscardedAnimalAbility en engine.ts. Mientras esto no sea null, solo
+// sourcePlayerId tiene alguna acción legal (getLegalActions en engine.ts),
+// igual que pendingDecision bloquea a todos los demás.
+export interface PendingAnimalAbilityChoice {
+  sourcePlayerId: string;
+  sourceCardName: string;
+  candidateInstanceIds: string[];
 }
 
 export interface GameState {
@@ -136,6 +159,7 @@ export interface GameState {
   // scoring.ts.
   scoringFinalized: boolean;
   pendingDecision: PendingDiscardDecision | null;
+  pendingAnimalAbilityChoice: PendingAnimalAbilityChoice | null;
 }
 
 // Acuña una nueva instancia de carta con un instanceId único dentro de la
