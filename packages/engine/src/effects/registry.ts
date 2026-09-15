@@ -60,12 +60,19 @@ function otherPlayers(state: GameState, player: Player): Player[] {
 
 // Heurística usada SOLO por los bots (ver pickDefaultDiscard más abajo) para
 // resolver un descarte forzoso pendiente por su cuenta: se queda con la
-// carta de menor valor (monedas por su valor, el resto por sus PV),
-// desempatando por orden de aparición. Los jugadores humanos, en cambio,
-// eligen de verdad — ver PendingDiscardDecision/resolveDiscard en
-// engine.ts.
+// carta de menor COSTE DE MERCADO (pedido explícito del usuario
+// 2026-09-15: antes era menor PV impreso, pero varios animales valiosos
+// tienen 0PV impreso —todo su valor depende de efectos onScore acumulativos,
+// ver scorePerHabitatCount/scorePerDistinctSpecies/scorePerCostAtLeast en
+// este mismo archivo— así que el bot los entregaba primero pese a ser caros
+// y difíciles de reponer). marketCost sirve igual para monedas que para
+// animales (coin-1 no tiene marketCost propio, por defecto 0 — sigue
+// siendo, con diferencia, la "peor" carta posible), así que ya no hace
+// falta una rama aparte para cada tipo. Desempata por orden de aparición.
+// Los jugadores humanos, en cambio, eligen de verdad — ver
+// PendingDiscardDecision/resolveDiscard en engine.ts.
 function cardWorth(card: CardInstance): number {
-  return card.type === 'coin' ? (card.value ?? 0) : card.victoryPoints;
+  return card.marketCost ?? 0;
 }
 
 function worstCardIndex(hand: CardInstance[]): number {
@@ -285,13 +292,17 @@ registerEffect('freeCaptureUpToCost', (state, player, effect, context) => {
 });
 
 // Tortuga: sube de nivel 1 moneda de la mano (1->2, 2->3, o 3->5: no hay
-// moneda de valor 4, así que el Oro salta directo al Platino), elegida al
-// azar entre las que se puedan subir. El id de la carta destino no se puede
-// derivar de nextValue con un simple `coin-${nextValue}` (el Platino vale 5
-// pero su id es "coin-5" — eso sí coincide, pero conceptualmente es la
-// EXCEPCIÓN: si en el futuro se añadiera una moneda cuyo id no coincida con
-// su valor, este mapa seguiría funcionando y un `coin-${nextValue}` no).
-const COIN_UPGRADE_TARGET: Record<number, string> = { 1: 'coin-2', 2: 'coin-3', 3: 'coin-5' };
+// moneda de valor 4, así que el Oro salta directo al Platino), elegida por
+// el jugador (context.targetInstanceId — ver targetedEffectCandidates en
+// engine.ts, que solo ofrece 1 candidata por VALOR distinto entre las
+// mejorables: pedido explícito del usuario, "que salga 1 de cada tipo, que
+// no se repitan... da igual" cuál copia física se suba, el resultado es el
+// mismo). El id de la carta destino no se puede derivar de nextValue con un
+// simple `coin-${nextValue}` (el Platino vale 5 pero su id es "coin-5" —
+// eso sí coincide, pero conceptualmente es la EXCEPCIÓN: si en el futuro se
+// añadiera una moneda cuyo id no coincida con su valor, este mapa seguiría
+// funcionando y un `coin-${nextValue}` no).
+export const COIN_UPGRADE_TARGET: Record<number, string> = { 1: 'coin-2', 2: 'coin-3', 3: 'coin-5' };
 
 // Expuesta para la web: si esto es false, jugar una Tortuga no hace nada
 // (ver GameBoard.tsx, aviso de "terminar turno con animales sin jugar").
@@ -299,13 +310,17 @@ export function hasUpgradableCoin(player: Player): boolean {
   return player.hand.some((c) => c.type === 'coin' && typeof c.value === 'number' && COIN_UPGRADE_TARGET[c.value] !== undefined);
 }
 
-registerEffect('upgradeCoin', (state, player) => {
-  const upgradable = player.hand.filter(
-    (c) => c.type === 'coin' && typeof c.value === 'number' && COIN_UPGRADE_TARGET[c.value] !== undefined
+registerEffect('upgradeCoin', (state, player, _effect, context) => {
+  if (!context.targetInstanceId) return;
+  const idx = player.hand.findIndex(
+    (c) =>
+      c.instanceId === context.targetInstanceId &&
+      c.type === 'coin' &&
+      typeof c.value === 'number' &&
+      COIN_UPGRADE_TARGET[c.value] !== undefined
   );
-  if (upgradable.length === 0) return;
-  const chosen = upgradable[Math.floor(Math.random() * upgradable.length)];
-  const idx = player.hand.findIndex((c) => c.instanceId === chosen.instanceId);
+  if (idx === -1) return;
+  const chosen = player.hand[idx];
   player.hand.splice(idx, 1);
   const targetId = COIN_UPGRADE_TARGET[chosen.value as number];
   player.hand.push(mintInstance(state, getCard(targetId)));
@@ -579,7 +594,23 @@ registerEffect('returnAnimalForUpgrade', (state, player, effect, context) => {
 
   if (foundInHand) {
     for (const e of returned.effects.filter((e) => e.trigger === 'onPlay')) {
-      resolveEffect(state, player, e, { sourceCardName: returned.name });
+      const abilityContext: EffectContext = { sourceCardName: returned.name };
+      // Si la carta devuelta es una Tortuga, esta segunda habilidad "gratis"
+      // no pasa por getLegalActions (no hay ningún paso de la UI donde el
+      // jugador pueda elegir objetivo aquí): en vez de dejar que
+      // upgradeCoin no haga nada sin target (ver su registerEffect más
+      // arriba), se elige al azar entre las mejorables — mismo
+      // comportamiento que tenía la Tortuga ANTES de dejar elegir moneda al
+      // jugarla de verdad, preservado solo para este caso concreto.
+      if (e.type === 'upgradeCoin') {
+        const upgradable = player.hand.filter(
+          (c) => c.type === 'coin' && typeof c.value === 'number' && COIN_UPGRADE_TARGET[c.value] !== undefined
+        );
+        if (upgradable.length > 0) {
+          abilityContext.targetInstanceId = upgradable[Math.floor(Math.random() * upgradable.length)].instanceId;
+        }
+      }
+      resolveEffect(state, player, e, abilityContext);
     }
   }
 

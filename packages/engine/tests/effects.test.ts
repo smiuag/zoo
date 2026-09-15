@@ -184,6 +184,72 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     );
   });
 
+  it('serpiente + araña: getLegalActions ofrece un objetivo por cada animal volador/acuático de coste ≤3 del mercado, y capturarlo lo manda a TU descarte (no al de quien la entregó)', () => {
+    const { state, player, opponent } = setupClean();
+    const spider = freshInstance('spider', 'o1');
+    opponent.hand = [spider];
+    const snake = freshInstance('snake', 'test');
+    player.hand = [snake];
+
+    playCard(state, player.id, snake.instanceId);
+    resolveDiscard(state, opponent.id, spider.instanceId);
+
+    expect(state.pendingAnimalAbilityChoice?.candidateInstanceIds).toEqual([spider.instanceId]);
+
+    const target = state.animalTrack.find(
+      (c) => (c.habitats as string[])?.some((h) => h === 'bird' || h === 'aquatic') && (c.marketCost ?? 0) <= 3
+    )!;
+    // Antes de este arreglo esto no ofrecía NINGÚN objetivo (la Serpiente
+    // llamaba a resolveEffect sin ninguno, así que la Araña no hacía nada) —
+    // pedido explícito del usuario: "si con la Serpiente uso una Araña...
+    // debería interactuar con mis cartas y mi descarte".
+    expect(getLegalActions(state, player.id)).toContainEqual({
+      type: 'useDiscardedAnimalAbility',
+      instanceId: spider.instanceId,
+      targetInstanceId: target.instanceId,
+    });
+
+    const marketBefore = state.animalTrack.length;
+    useDiscardedAnimalAbility(state, player.id, spider.instanceId, target.instanceId);
+
+    expect(state.animalTrack).toHaveLength(marketBefore);
+    expect(state.animalTrack.some((c) => c.instanceId === target.instanceId)).toBe(false);
+    expect(player.discard.some((c) => c.instanceId === target.instanceId)).toBe(true);
+    // La araña en sí NUNCA cambia de dueño: sigue en el descarte del rival.
+    expect(opponent.discard).toEqual([spider]);
+  });
+
+  it('serpiente + flamenco: el animal a devolver sale de TU mano (no de la del rival que entregó el flamenco)', () => {
+    const { state, player, opponent } = setupClean();
+    const flamingo = freshInstance('flamingo', 'o1');
+    opponent.hand = [flamingo];
+    const snake = freshInstance('snake', 'test');
+    const rabbit = freshInstance('rabbit', 'p1'); // terrestre, coste 2: para tener algo propio que devolver
+    player.hand = [snake, rabbit];
+
+    playCard(state, player.id, snake.instanceId);
+    resolveDiscard(state, opponent.id, flamingo.instanceId);
+
+    const maxCost = (rabbit.marketCost ?? 0) + 1; // maxCostDelta por defecto del Flamenco
+    const destination = state.animalTrack.find((c) => (c.marketCost ?? 0) <= maxCost)!;
+
+    expect(getLegalActions(state, player.id)).toContainEqual({
+      type: 'useDiscardedAnimalAbility',
+      instanceId: flamingo.instanceId,
+      targetInstanceId: rabbit.instanceId,
+      secondaryTargetInstanceId: destination.instanceId,
+    });
+
+    useDiscardedAnimalAbility(state, player.id, flamingo.instanceId, rabbit.instanceId, destination.instanceId);
+
+    // El conejo salió de la mano del jugador (nunca de la del rival), y el
+    // animal cogido a cambio aterriza en SU descarte.
+    expect(player.hand.some((c) => c.instanceId === rabbit.instanceId)).toBe(false);
+    expect(player.discard.some((c) => c.instanceId === destination.instanceId)).toBe(true);
+    // El flamenco en sí NUNCA cambia de dueño: sigue en el descarte del rival.
+    expect(opponent.discard).toEqual([flamingo]);
+  });
+
   it('pingüino: añade una moneda de Plata de verdad a la mano (no bonus temporal)', () => {
     const { state, player } = setupClean();
     const penguin = freshInstance('penguin', 'test');
@@ -480,13 +546,13 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(player.playedThisTurn.some((c) => c.id === 'elephant')).toBe(true);
   });
 
-  it('tortuga: mejora 1 moneda de la mano de 1 a 2', () => {
+  it('tortuga: mejora la moneda elegida de la mano de 1 a 2', () => {
     const { state, player } = setupClean();
     const coin = freshInstance('coin-1', 'c1');
     const turtle = freshInstance('turtle', 'test');
     player.hand = [coin, turtle];
 
-    playCard(state, player.id, turtle.instanceId);
+    playCard(state, player.id, turtle.instanceId, coin.instanceId);
 
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(1);
@@ -499,7 +565,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     const turtle = freshInstance('turtle', 'test');
     player.hand = [coin, turtle];
 
-    playCard(state, player.id, turtle.instanceId);
+    playCard(state, player.id, turtle.instanceId, coin.instanceId);
 
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(1);
@@ -518,6 +584,38 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     const coins = player.hand.filter((c) => c.type === 'coin');
     expect(coins).toHaveLength(1);
     expect(coins[0].instanceId).toBe(coin.instanceId);
+  });
+
+  it('tortuga: sin elegir objetivo, no mejora nada (no hace nada por defecto, igual que Elefante/Araña)', () => {
+    const { state, player } = setupClean();
+    const coin = freshInstance('coin-1', 'c1');
+    const turtle = freshInstance('turtle', 'test');
+    player.hand = [coin, turtle];
+
+    playCard(state, player.id, turtle.instanceId);
+
+    expect(player.hand.some((c) => c.instanceId === coin.instanceId && c.value === 1)).toBe(true);
+  });
+
+  it('tortuga: getLegalActions ofrece 1 candidata por VALOR distinto de moneda mejorable, nunca una por copia física (pedido explícito del usuario: "que no se repitan")', () => {
+    const { state, player } = setupClean();
+    const bronze1 = freshInstance('coin-1', 'c1');
+    const bronze2 = freshInstance('coin-1', 'c2'); // misma especie/valor que bronze1: da igual cuál se suba
+    const gold = freshInstance('coin-3', 'c3');
+    const platinum = freshInstance('coin-5', 'c4'); // ya es el valor máximo: no mejorable, no debe aparecer
+    const turtle = freshInstance('turtle', 'test');
+    player.hand = [bronze1, bronze2, gold, platinum, turtle];
+
+    const actions = getLegalActions(state, player.id).filter(
+      (a) => a.type === 'playCard' && a.instanceId === turtle.instanceId
+    );
+
+    expect(actions).toHaveLength(2); // 1 por valor mejorable (bronce, oro), no 3 por copia física
+    const targets = actions.map((a) => (a.type === 'playCard' ? a.targetInstanceId : undefined)).sort();
+    // La representante del bronce puede ser cualquiera de las 2 copias, pero solo UNA de ellas.
+    expect(targets.filter((id) => id === bronze1.instanceId || id === bronze2.instanceId)).toHaveLength(1);
+    expect(targets).toContain(gold.instanceId);
+    expect(targets).not.toContain(platinum.instanceId);
   });
 
   it('jirafa: recupera a tu mano el animal elegido de tu propio descarte', () => {

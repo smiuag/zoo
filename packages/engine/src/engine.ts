@@ -9,7 +9,7 @@ import {
   type GameState,
   type Player,
 } from './model/state';
-import { pickDefaultDiscard, resolveEffect, setRefillHook } from './effects/registry';
+import { COIN_UPGRADE_TARGET, pickDefaultDiscard, resolveEffect, setRefillHook } from './effects/registry';
 
 const STARTING_HAND_SIZE = 5;
 const ANIMAL_SPECIES = [
@@ -101,7 +101,16 @@ export type Action =
   // de los animales recién descartados por "cada jugador" usa su habilidad
   // onPlay para quien jugó la Serpiente. La carta elegida se queda donde
   // está (en el descarte de quien la entregó); solo se activa su efecto.
-  | { type: 'useDiscardedAnimalAbility'; instanceId: string };
+  // Los mismos target(Instance|Player)Id/secondaryTargetInstanceId que
+  // "playCard" (ver arriba), por si esa habilidad concreta necesita elegir
+  // algo (Elefante/Araña/Jirafa/Murciélago, Flamenco, Tigre).
+  | {
+      type: 'useDiscardedAnimalAbility';
+      instanceId: string;
+      targetInstanceId?: string;
+      secondaryTargetInstanceId?: string;
+      targetPlayerId?: string;
+    };
 
 // --- Pago con monedas ---------------------------------------------------
 // El dinero son cartas de tipo "coin" en la mano, cada una con un valor
@@ -463,69 +472,130 @@ function targetedEffectCandidates(state: GameState, player: Player, card: CardIn
   if (retrieveCoinFromDiscard) {
     return player.discard.filter((c) => c.type === 'coin');
   }
+  const upgradeCoin = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'upgradeCoin');
+  if (upgradeCoin) {
+    // Tortuga: pedido explícito del usuario — un candidato por VALOR
+    // distinto de moneda mejorable en la mano, nunca uno por copia física
+    // (da igual cuál de tus 3 Bronces subas, el resultado es idéntico).
+    const seenValues = new Set<number>();
+    const representatives: CardInstance[] = [];
+    for (const c of player.hand) {
+      if (c.type !== 'coin' || typeof c.value !== 'number' || COIN_UPGRADE_TARGET[c.value] === undefined) continue;
+      if (seenValues.has(c.value)) continue;
+      seenValues.add(c.value);
+      representatives.push(c);
+    }
+    return representatives;
+  }
   return null;
 }
 
-// Genera las variantes de "playCard" para una carta de Flamenco (o
-// cualquier otra que use returnAnimalForUpgrade): una por cada combinación
-// de (animal de tu mano ESTE TURNO que devuelves, animal del mercado que
-// coges a cambio, de coste como mucho effect.params.maxCostDelta —por
-// defecto 1— más que el devuelto). "Tu mano
-// este turno" = effectiveHand: lo que tienes ahora en la mano más lo que
-// ya hayas jugado en este mismo turno (mismo criterio que el resto de
-// efectos que miran "tu mano", ver effectiveHand()); no incluye ni el
-// mazo ni cartas jugadas en turnos anteriores. El Perezoso SÍ se puede
-// devolver (coste 0, así que se puede cambiar por cualquier animal de hasta
-// 2 de coste): aunque no tenga hueco de mercado propio, returnAnimalForUpgrade
-// en registry.ts lo manda de vuelta a su reserva compartida sin colarlo
-// nunca en el mercado (ver isMarketSpecies en refillAnimalMarket). Si un
-// animal devuelto no tiene ningún destino posible en el mercado, se ofrece
-// igual la variante sin `secondaryTargetInstanceId` (se juega su habilidad
-// pero no se coge nada a cambio).
-function returnAnimalForUpgradeActions(state: GameState, player: Player, card: CardInstance, effect: Effect): Action[] {
+// Combinación de objetivo(s) que necesita UN efecto onPlay concreto, sin
+// atarla todavía a ningún tipo de Action ni instanceId de la carta que lo
+// dispara: la misma lista sirve tanto para generar variantes de "playCard"
+// (jugar la carta de tu mano de verdad) como de "useDiscardedAnimalAbility"
+// (Serpiente: usar la habilidad de un animal ajeno recién descartado como si
+// lo hubieras jugado tú) — ver effectTargetSpecsForCard más abajo, que es la
+// única función que de verdad mira DE QUÉ efecto se trata.
+interface EffectTargetSpec {
+  targetInstanceId?: string;
+  secondaryTargetInstanceId?: string;
+  targetPlayerId?: string;
+}
+
+// Genera las combinaciones de objetivo para el Flamenco (o cualquier otra
+// carta que use returnAnimalForUpgrade): una por cada combinación de (animal
+// de tu mano ESTE TURNO que devuelves, animal del mercado que coges a
+// cambio, de coste como mucho effect.params.maxCostDelta —por defecto 1—
+// más que el devuelto). "Tu mano este turno" = effectiveHand: lo que tienes
+// ahora en la mano más lo que ya hayas jugado en este mismo turno (mismo
+// criterio que el resto de efectos que miran "tu mano", ver
+// effectiveHand()); no incluye ni el mazo ni cartas jugadas en turnos
+// anteriores. El Perezoso SÍ se puede devolver (coste 0, así que se puede
+// cambiar por cualquier animal de hasta 2 de coste): aunque no tenga hueco
+// de mercado propio, returnAnimalForUpgrade en registry.ts lo manda de
+// vuelta a su reserva compartida sin colarlo nunca en el mercado (ver
+// isMarketSpecies en refillAnimalMarket). Si un animal devuelto no tiene
+// ningún destino posible en el mercado, se ofrece igual la variante sin
+// `secondaryTargetInstanceId` (se usa la habilidad pero no se coge nada a
+// cambio). Usado también por la Serpiente (ver
+// effectTargetSpecsForCard): el animal que se DEVUELVE siempre sale de la
+// mano de quien la usa, nunca de la carta descartada elegida.
+function returnAnimalForUpgradeTargetSpecs(state: GameState, player: Player, effect: Effect): EffectTargetSpec[] {
   const costDelta = typeof effect.params?.maxCostDelta === 'number' ? effect.params.maxCostDelta : 1;
   const sources = effectiveHand(player).filter((c) => c.type === 'animal');
-  const actions: Action[] = [];
+  const specs: EffectTargetSpec[] = [];
   for (const source of sources) {
     const maxCost = (source.marketCost ?? 0) + costDelta;
     const destinations = state.animalTrack.filter((c) => (c.marketCost ?? 0) <= maxCost);
     if (destinations.length === 0) {
-      actions.push({ type: 'playCard', instanceId: card.instanceId, targetInstanceId: source.instanceId });
+      specs.push({ targetInstanceId: source.instanceId });
       continue;
     }
     for (const destination of destinations) {
-      actions.push({
-        type: 'playCard',
-        instanceId: card.instanceId,
-        targetInstanceId: source.instanceId,
-        secondaryTargetInstanceId: destination.instanceId,
-      });
+      specs.push({ targetInstanceId: source.instanceId, secondaryTargetInstanceId: destination.instanceId });
     }
   }
-  return actions;
+  return specs;
 }
 
-// Genera las variantes de "playCard" para el Tigre (o cualquier otra carta
-// que use drawThenTopdeck): una por cada carta de la mano que resultaría
-// DESPUÉS de robar, para elegir cuál se deja encima del mazo. Como el
-// robo es determinista (el mazo ya está barajado; solo "es aleatorio" en
-// el sentido de que el jugador no lo ve de antemano), se simula sobre una
-// copia de deck/hand/discard — nunca sobre el player real — para saber
-// exactamente qué mano resultaría (incluido un posible rebarajado del
-// descarte si el mazo se queda corto a mitad del robo) sin mutar la
-// partida de verdad. drawThenTopdeck ya no elige la peor por su cuenta:
-// el jugador ve estas opciones en un menú, igual que el Elefante o el
-// Flamenco.
-function drawThenTopdeckActions(player: Player, card: CardInstance, effect: Effect): Action[] {
+// Genera las combinaciones de objetivo para el Tigre (o cualquier otra
+// carta que use drawThenTopdeck): una por cada carta de la mano que
+// resultaría DESPUÉS de robar, para elegir cuál se deja encima del mazo.
+// Como el robo es determinista (el mazo ya está barajado; solo "es
+// aleatorio" en el sentido de que el jugador no lo ve de antemano), se
+// simula sobre una copia de deck/hand/discard — nunca sobre el player real
+// — para saber exactamente qué mano resultaría (incluido un posible
+// rebarajado del descarte si el mazo se queda corto a mitad del robo) sin
+// mutar la partida de verdad. `excludeInstanceId` quita de las opciones la
+// propia carta que dispara el efecto SI todavía sigue en la mano de verdad
+// (el Tigre jugado desde tu mano: playCard aún no lo ha sacado cuando esto
+// se llama) — con la Serpiente la carta origen nunca está en tu mano (sigue
+// en el descarte de quien la entregó), así que ahí no hay nada que excluir.
+function drawThenTopdeckTargetSpecs(player: Player, effect: Effect, excludeInstanceId?: string): EffectTargetSpec[] {
   const drawAmount = typeof effect.params?.drawAmount === 'number' ? effect.params.drawAmount : 2;
   const preview: Player = { ...player, deck: [...player.deck], hand: [...player.hand], discard: [...player.discard] };
   drawCards(preview, drawAmount);
-  // El propio Tigre sigue en preview.hand (todavía no lo ha sacado
-  // playCard, eso pasa después de elegir la acción): no tiene sentido
-  // ofrecer "dejar el Tigre encima del mazo" como opción, así que se excluye.
   return preview.hand
-    .filter((c) => c.instanceId !== card.instanceId)
-    .map((c) => ({ type: 'playCard', instanceId: card.instanceId, targetInstanceId: c.instanceId }));
+    .filter((c) => c.instanceId !== excludeInstanceId)
+    .map((c) => ({ targetInstanceId: c.instanceId }));
+}
+
+// Punto único que decide, para CUALQUIER carta con un efecto onPlay que
+// necesite elegir un objetivo, qué combinaciones son legales ahora mismo —
+// sin saber ni importarle si esa carta se va a jugar de verdad (playCard,
+// sale de tu mano) o si es un animal ajeno recién descartado cuya habilidad
+// usa la Serpiente (useDiscardedAnimalAbility, se queda donde está). Antes
+// esa segunda vía llamaba a resolveEffect directamente sin objetivo
+// ninguno, así que cualquier habilidad que necesitara elegir algo (Elefante/
+// Araña/Jirafa/Murciélago, Flamenco, Tigre) simplemente no hacía nada — el
+// pedido explícito del usuario que motivó esto: "si con la Serpiente uso una
+// Araña o un Flamenco debería interactuar con mis cartas y mi descarte".
+// Sin ningún objetivo que elegir (el caso normal, la mayoría de cartas):
+// una única combinación vacía `[{}]`, nunca `[]` — así el llamante siempre
+// puede iterar el resultado igual, sin un caso especial para "no hace
+// falta elegir nada".
+function effectTargetSpecsForCard(
+  state: GameState,
+  player: Player,
+  card: CardInstance,
+  excludeFromHandInstanceId?: string
+): EffectTargetSpec[] {
+  const returnForUpgrade = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'returnAnimalForUpgrade');
+  if (returnForUpgrade) return returnAnimalForUpgradeTargetSpecs(state, player, returnForUpgrade);
+
+  const drawThenTopdeck = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'drawThenTopdeck');
+  if (drawThenTopdeck) return drawThenTopdeckTargetSpecs(player, drawThenTopdeck, excludeFromHandInstanceId);
+
+  const playerTargeted = card.effects.find((e) => e.trigger === 'onPlay' && PLAYER_TARGETED_EFFECT_TYPES.has(e.type));
+  if (playerTargeted) {
+    const candidates = state.players.filter((p) => p.id !== player.id);
+    return candidates.length > 0 ? candidates.map((c) => ({ targetPlayerId: c.id })) : [{}];
+  }
+
+  const candidates = targetedEffectCandidates(state, player, card);
+  if (candidates && candidates.length > 0) return candidates.map((c) => ({ targetInstanceId: c.instanceId }));
+  return [{}];
 }
 
 export function getLegalActions(state: GameState, playerId: string): Action[] {
@@ -540,7 +610,20 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
   if (state.pendingAnimalAbilityChoice) {
     const choice = state.pendingAnimalAbilityChoice;
     if (choice.sourcePlayerId !== playerId) return [];
-    return choice.candidateInstanceIds.map((instanceId) => ({ type: 'useDiscardedAnimalAbility', instanceId }));
+    const player = state.players.find((p) => p.id === playerId);
+    if (!player) return [];
+    const actions: Action[] = [];
+    for (const instanceId of choice.candidateInstanceIds) {
+      const card = findInAnyDiscard(state, instanceId);
+      if (!card) continue;
+      // Sin excludeFromHandInstanceId: la carta elegida nunca está en la
+      // mano de quien la usa (sigue en el descarte de quien la entregó), así
+      // que no hay nada propio que excluir de las opciones del Tigre.
+      for (const spec of effectTargetSpecsForCard(state, player, card)) {
+        actions.push({ type: 'useDiscardedAnimalAbility', instanceId, ...spec });
+      }
+    }
+    return actions;
   }
 
   // Con un descarte forzoso pendiente, NADIE tiene ninguna acción normal
@@ -578,40 +661,8 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
     // Las monedas nunca se juegan: se gastan solas al pagar una compra.
     if (card.type === 'coin') continue;
 
-    const returnForUpgrade = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'returnAnimalForUpgrade');
-    if (returnForUpgrade) {
-      actions.push(...returnAnimalForUpgradeActions(state, player, card, returnForUpgrade));
-      continue;
-    }
-
-    const drawThenTopdeck = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'drawThenTopdeck');
-    if (drawThenTopdeck) {
-      actions.push(...drawThenTopdeckActions(player, card, drawThenTopdeck));
-      continue;
-    }
-
-    const playerTargeted = card.effects.find(
-      (e) => e.trigger === 'onPlay' && PLAYER_TARGETED_EFFECT_TYPES.has(e.type)
-    );
-    if (playerTargeted) {
-      const candidates = state.players.filter((p) => p.id !== player.id);
-      if (candidates.length > 0) {
-        for (const candidate of candidates) {
-          actions.push({ type: 'playCard', instanceId: card.instanceId, targetPlayerId: candidate.id });
-        }
-      } else {
-        actions.push({ type: 'playCard', instanceId: card.instanceId });
-      }
-      continue;
-    }
-
-    const candidates = targetedEffectCandidates(state, player, card);
-    if (candidates && candidates.length > 0) {
-      for (const candidate of candidates) {
-        actions.push({ type: 'playCard', instanceId: card.instanceId, targetInstanceId: candidate.instanceId });
-      }
-    } else {
-      actions.push({ type: 'playCard', instanceId: card.instanceId });
+    for (const spec of effectTargetSpecsForCard(state, player, card, card.instanceId)) {
+      actions.push({ type: 'playCard', instanceId: card.instanceId, ...spec });
     }
   }
 
@@ -886,15 +937,40 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
   }
 }
 
+// Busca una carta en el descarte de CUALQUIER jugador (los candidatos de
+// pendingAnimalAbilityChoice pueden estar en el descarte de otro jugador
+// distinto de quien va a usar su habilidad — la carta nunca cambia de
+// dueño). Usado tanto por getLegalActions (para calcular qué objetivos
+// tiene esa habilidad concreta) como por useDiscardedAnimalAbility (para
+// aplicarla de verdad).
+function findInAnyDiscard(state: GameState, instanceId: string): CardInstance | undefined {
+  for (const p of state.players) {
+    const card = p.discard.find((c) => c.instanceId === instanceId);
+    if (card) return card;
+  }
+  return undefined;
+}
+
 // Serpiente: resuelve la elección de pendingAnimalAbilityChoice (ver
 // model/state.ts) — activa la habilidad onPlay de la carta elegida (que
 // sigue en el descarte de quien la entregó, nunca cambia de dueño) a favor
 // de quien jugó la Serpiente, exactamente igual que si la hubiera jugado él
-// mismo (mismo resolveEffect que usa playCard). Si esa habilidad deja a su
-// vez un descarte forzoso pendiente (p. ej. si la carta elegida fuera un
-// Buitre), se encadena con normalidad: autoResolveForcedDiscards ya se
-// llama al final, igual que en playCard.
-export function useDiscardedAnimalAbility(state: GameState, playerId: string, instanceId: string): void {
+// mismo (mismo resolveEffect que usa playCard, incluidos los objetivos
+// target(Instance|Player)Id/secondaryTargetInstanceId que haga falta elegir
+// — ver effectTargetSpecsForCard: antes esto llamaba a resolveEffect SIN
+// ningún objetivo, así que un Elefante/Araña/Flamenco/Tigre/Jirafa/
+// Murciélago prestado por la Serpiente no hacía nada en absoluto). Si esa
+// habilidad deja a su vez un descarte forzoso pendiente (p. ej. si la carta
+// elegida fuera un Buitre), se encadena con normalidad:
+// autoResolveForcedDiscards ya se llama al final, igual que en playCard.
+export function useDiscardedAnimalAbility(
+  state: GameState,
+  playerId: string,
+  instanceId: string,
+  targetInstanceId?: string,
+  secondaryTargetInstanceId?: string,
+  targetPlayerId?: string
+): void {
   const choice = state.pendingAnimalAbilityChoice;
   if (!choice) throw new Error('No hay ninguna habilidad de animal descartado pendiente de elegir');
   if (choice.sourcePlayerId !== playerId) throw new Error(`${playerId} no puede elegir esta habilidad ahora`);
@@ -902,16 +978,12 @@ export function useDiscardedAnimalAbility(state: GameState, playerId: string, in
 
   const player = state.players.find((p) => p.id === playerId);
   if (!player) throw new Error(`Jugador desconocido: ${playerId}`);
-  let card: CardInstance | undefined;
-  for (const p of state.players) {
-    card = p.discard.find((c) => c.instanceId === instanceId);
-    if (card) break;
-  }
+  const card = findInAnyDiscard(state, instanceId);
   if (!card) throw new Error(`No se encuentra la carta ${instanceId} en ningún descarte`);
 
   state.pendingAnimalAbilityChoice = null;
   for (const effect of card.effects.filter((e) => e.trigger === 'onPlay')) {
-    resolveEffect(state, player, effect, { sourceCardName: card.name });
+    resolveEffect(state, player, effect, { targetInstanceId, secondaryTargetInstanceId, targetPlayerId, sourceCardName: card.name });
   }
   autoResolveForcedDiscards(state);
   recordRichestTurn(state, player);
@@ -1012,7 +1084,14 @@ export function applyAction(state: GameState, playerId: string, action: Action):
       resolveDiscard(state, playerId, action.instanceId);
       return;
     case 'useDiscardedAnimalAbility':
-      useDiscardedAnimalAbility(state, playerId, action.instanceId);
+      useDiscardedAnimalAbility(
+        state,
+        playerId,
+        action.instanceId,
+        action.targetInstanceId,
+        action.secondaryTargetInstanceId,
+        action.targetPlayerId
+      );
       return;
   }
 }

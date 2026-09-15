@@ -36,13 +36,18 @@ function costOf(state: GameState, player: Player, targetInstanceId: string): num
   return findAnywhere(state, player, targetInstanceId)?.marketCost ?? 0;
 }
 
-export function buildPlayCardTargetChoice(
-  actions: Action[],
-  state: GameState,
-  player: Player,
-  card: CardInstance
-): PendingChoice {
-  const playActions = actions.filter((a): a is Extract<Action, { type: 'playCard' }> => a.type === 'playCard');
+// Genérico sobre el TIPO de acción a propósito: sirve igual para jugar una
+// carta de la mano de verdad (playCard) que para usar la habilidad de un
+// animal ajeno recién descartado vía la Serpiente
+// (useDiscardedAnimalAbility, ver GameBoard.tsx) — ambas comparten la misma
+// forma de campos de objetivo (target(Instance|Player)Id/
+// secondaryTargetInstanceId), y aquí nunca importa cuál de las dos es, solo
+// qué objetivo(s) elegir.
+export function buildTargetChoice(actions: Action[], state: GameState, player: Player, card: CardInstance): PendingChoice {
+  const playActions = actions.filter(
+    (a): a is Extract<Action, { type: 'playCard' | 'useDiscardedAnimalAbility' }> =>
+      a.type === 'playCard' || a.type === 'useDiscardedAnimalAbility'
+  );
 
   // Pato: elige un JUGADOR, no una carta. Una opción por rival, sin segundo
   // menú encadenado.
@@ -57,7 +62,7 @@ export function buildPlayCardTargetChoice(
   // Las variantes con secondaryTargetInstanceId (Flamenco) necesitan un
   // segundo menú: primero se agrupan por targetInstanceId (qué animal
   // propio se devuelve).
-  const bySource = new Map<string, Extract<Action, { type: 'playCard' }>[]>();
+  const bySource = new Map<string, Extract<Action, { type: 'playCard' | 'useDiscardedAnimalAbility' }>[]>();
   for (const a of playActions) {
     const key = a.targetInstanceId ?? '';
     const group = bySource.get(key);

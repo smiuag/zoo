@@ -37,11 +37,14 @@ export function resolveDiscardActionFor(legalActions: Action[], cardInstanceId: 
   );
 }
 
-// Serpiente: si esta carta concreta (una de las recién descartadas por
-// "cada jugador", ver pendingAnimalAbilityChoice en el motor) es una de las
-// que el visor puede elegir para usar su habilidad ahora mismo.
-export function useDiscardedAnimalAbilityActionFor(legalActions: Action[], cardInstanceId: string) {
-  return legalActions.find(
+// Serpiente: todas las variantes de "useDiscardedAnimalAbility" para UNA
+// carta concreta de las recién descartadas por "cada jugador" (ver
+// pendingAnimalAbilityChoice en el motor). Normalmente es solo 1, pero
+// puede haber varias si esa habilidad concreta necesita elegir un objetivo
+// (Elefante, Araña, Flamenco, Tigre...) — mismo motivo que
+// playCardActionsFor de arriba.
+export function useDiscardedAnimalAbilityActionsFor(legalActions: Action[], cardInstanceId: string) {
+  return legalActions.filter(
     (a): a is Extract<Action, { type: 'useDiscardedAnimalAbility' }> =>
       a.type === 'useDiscardedAnimalAbility' && a.instanceId === cardInstanceId
   );

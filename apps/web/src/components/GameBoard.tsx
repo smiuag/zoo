@@ -18,10 +18,10 @@ import {
   buyCoinActionFor,
   playCardActionsFor,
   resolveDiscardActionFor,
-  useDiscardedAnimalAbilityActionFor,
+  useDiscardedAnimalAbilityActionsFor,
 } from '../lib/actionQuery';
 import { BOT_ALGORITHM_OPTIONS, displayName } from '../lib/botAlgorithms';
-import { buildPlayCardTargetChoice, type PendingChoice } from '../lib/pendingChoice';
+import { buildTargetChoice, type PendingChoice } from '../lib/pendingChoice';
 import type { BotAlgorithm } from '../lib/gameConfig';
 
 // Cuántas rondas del final se consideran "recta final" (contador de ronda
@@ -308,7 +308,24 @@ export function GameBoard({
       runAction(acts[0]);
       return;
     }
-    setPendingChoice(buildPlayCardTargetChoice(acts, state, human, card));
+    setPendingChoice(buildTargetChoice(acts, state, human, card));
+  }
+
+  // Serpiente: elegir uno de los animales recién descartados por "cada
+  // jugador" para usar su habilidad. Igual que handleHandCardClick, salvo
+  // que aquí SIEMPRE hay alguna variante (el modal no se abre si no la
+  // hubiera) — si la habilidad no necesita elegir nada (la mayoría) solo hay
+  // 1 y se aplica directa; si necesita objetivo(s) (Elefante/Araña/Jirafa/
+  // Murciélago, Flamenco, Tigre) abre el mismo menú contextual que jugar la
+  // carta de verdad.
+  function handleAnimalAbilityCandidateClick(card: CardInstance) {
+    const acts = useDiscardedAnimalAbilityActionsFor(legalActions, card.instanceId);
+    if (acts.length === 0) return;
+    if (acts.length === 1) {
+      runAction(acts[0]);
+      return;
+    }
+    setPendingChoice(buildTargetChoice(acts, state, human, card));
   }
 
   function isHandCardClickable(card: CardInstance): boolean {
@@ -727,10 +744,15 @@ export function GameBoard({
         </div>
       )}
 
-      {animalAbilityChoice && (
+      {animalAbilityChoice && !pendingChoice && (
         // Igual que el popup de descarte forzoso: sin forma de cancelar, hay
         // que elegir uno sí o sí (ya se sabe que hay al menos 1 candidato,
         // ver pendingAnimalAbilityChoice: solo arranca si se descartó algo).
+        // Se oculta mientras pendingChoice esté abierto (ver
+        // handleAnimalAbilityCandidateClick): si la habilidad elegida
+        // necesita objetivo (Elefante/Araña/Flamenco...), este modal de
+        // pantalla completa taparía el panel de "elige el objetivo", que no
+        // es un modal fijo — cancelar ese panel vuelve a mostrar este.
         <div className="modal-backdrop">
           <div className="modal modal--discard">
             <div className="panel__header">
@@ -746,7 +768,7 @@ export function GameBoard({
                 <CardView
                   key={card.instanceId}
                   card={card}
-                  onClick={() => runAction(useDiscardedAnimalAbilityActionFor(legalActions, card.instanceId))}
+                  onClick={() => handleAnimalAbilityCandidateClick(card)}
                 />
               ))}
             </div>
