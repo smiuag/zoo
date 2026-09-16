@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { GameBoard } from './GameBoard';
 import { useGuestRoom } from '../online/useGuestRoom';
 import { loadSavedNick, saveNick, MAX_NICK_LENGTH } from '../lib/gameConfig';
-import { recordGameResult } from '../online/gameResults';
+import { computePosition, recordGameResult, summarizeCollection } from '../online/gameResults';
 
 interface GuestAppProps {
   roomCode: string;
@@ -53,7 +53,15 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
     const player = state.players.find((p) => p.id === seatId);
     const score = scores.find((s) => s.playerId === seatId)?.score;
     if (!player || score === undefined) return;
-    recordGameResult({ nick: player.name, score, mode: 'online', numPlayers: state.players.length, roundLimit: state.maxRounds });
+    recordGameResult({
+      nick: player.name,
+      score,
+      mode: 'online',
+      numPlayers: state.players.length,
+      roundLimit: state.maxRounds,
+      position: computePosition(scores, seatId),
+      deck: summarizeCollection([...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn]),
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.gameOver]);
 

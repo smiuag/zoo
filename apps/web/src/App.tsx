@@ -7,7 +7,7 @@ import { OnlineWaitingRoom } from './components/OnlineWaitingRoom';
 import { Ranking } from './components/Ranking';
 import { ScoreCalculator } from './components/ScoreCalculator';
 import { createHostRoom, type CreatedRoom } from './online/createHostRoom';
-import { recordGameResult, type GameMode } from './online/gameResults';
+import { computePosition, recordGameResult, summarizeCollection, type GameMode } from './online/gameResults';
 import { useHostRoom } from './online/useHostRoom';
 import { clearOnlineRoom, loadOnlineRoom, saveOnlineRoom } from './online/onlineRoomStorage';
 import { DEFAULT_ROUND_LIMIT, useGame, type GameConfig, type RoundLimit } from './state/useGame';
@@ -153,7 +153,15 @@ function HostOrLocalApp() {
       const player = state.players.find((p) => p.id === humanId);
       const score = scores.find((s) => s.playerId === humanId)?.score;
       if (!player || score === undefined) continue;
-      recordGameResult({ nick: player.name, score, mode, numPlayers: state.players.length, roundLimit: state.maxRounds });
+      recordGameResult({
+        nick: player.name,
+        score,
+        mode,
+        numPlayers: state.players.length,
+        roundLimit: state.maxRounds,
+        position: computePosition(scores, humanId),
+        deck: summarizeCollection([...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn]),
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.gameOver]);

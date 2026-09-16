@@ -1429,6 +1429,20 @@ body {
   color: var(--accent-ink);
 }
 
+/* Sub-pestañas de duración dentro de "Top puntuaciones" (ver Ranking.tsx):
+   una partida a 10 rondas y otra a 20 no son comparables por puntuación
+   bruta, así que cada duración tiene su propio ranking independiente. Más
+   pequeñas que las pestañas principales (top/mine) para marcar que son un
+   nivel por debajo. */
+.score-tabs--secondary {
+  margin-top: -0.4rem;
+}
+
+.score-tabs--secondary .score-tab {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
+}
+
 .icon-btn {
   flex: 0 0 auto;
   font: inherit;

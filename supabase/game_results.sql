@@ -18,11 +18,25 @@ create table if not exists public.game_results (
   score integer not null,
   mode text not null check (mode in ('solo', 'local', 'online')),
   num_players integer not null,
-  round_limit integer
+  round_limit integer,
+  -- Puesto final entre TODOS los jugadores de esa partida (humanos y bots),
+  -- 1 = quien más puntos hizo. Ranking por competición: un empate en primer
+  -- puesto deja al siguiente en 3º, no en 2º.
+  position integer,
+  -- Colección final (deck+mano+descarte+jugado este turno) del humano que
+  -- registra el resultado, comprimida a pares {id de carta, cuántas}: para
+  -- poder "ver la baraja" desde el ranking sin guardar cada CardInstance
+  -- suelta (con su instanceId, que no aporta nada aquí).
+  deck jsonb
 );
 
 create index if not exists game_results_score_idx on public.game_results (score desc);
 create index if not exists game_results_device_id_idx on public.game_results (device_id, created_at desc);
+
+-- Por si la tabla ya existía de antes de añadir position/deck (create table
+-- if not exists de arriba no las añadiría a una tabla ya creada).
+alter table public.game_results add column if not exists position integer;
+alter table public.game_results add column if not exists deck jsonb;
 
 alter table public.game_results enable row level security;
 
