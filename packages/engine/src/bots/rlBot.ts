@@ -9,8 +9,9 @@ import aquaticWeightsJson from './rl/weights-aquatic.json';
 
 // Tamaño de la capa oculta con la que se generan pesos de emergencia cuando
 // no hay un weights.json entrenado/válido disponible (arranque en frío
-// antes del primer `train:rl`, o un checkpoint corrupto).
-const FALLBACK_HIDDEN_SIZE = 32;
+// antes del primer `train:rl`, o un checkpoint corrupto). Debe coincidir
+// con HIDDEN_SIZE en scripts/rl/selfPlay.ts (2026-09-16: 32 -> 48).
+const FALLBACK_HIDDEN_SIZE = 48;
 const TIE_EPSILON = 1e-9;
 
 type Habitat = 'land' | 'bird' | 'aquatic';

@@ -25,7 +25,12 @@ import {
   type EpisodeBatchResult,
 } from './trainCore';
 
-const HIDDEN_SIZE = 32;
+// 2026-09-16: subido de 32 a 48 (x1.5) junto con el bump de FEATURE_DIM
+// 86->96, para darle a la red algo más de capacidad con la que aprender los
+// nuevos cruces "lo que ya tengo/lo que falta en el mercado" × "la carta
+// candidata" (ver features.ts). Coste total por acción evaluada ≈
+// (96/86)*(48/32) ≈ 1.7x, dentro del margen de 2-3x aceptado.
+const HIDDEN_SIZE = 48;
 const LEARNING_RATE = Number(process.env.RL_LR ?? 0.01);
 const EPISODES_PER_BATCH = Number(process.env.RL_EPISODES ?? 32);
 const TOTAL_BATCHES = Number(process.env.RL_BATCHES ?? 2000);

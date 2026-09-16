@@ -12,7 +12,9 @@ import {
 import { COIN_UPGRADE_TARGET, pickDefaultDiscard, resolveEffect, setRefillHook } from './effects/registry';
 
 const STARTING_HAND_SIZE = 5;
-const ANIMAL_SPECIES = [
+// Exportado para que bots/rl/marketScarcity.ts pueda iterar las mismas 33
+// especies "de mercado" que createGame, sin duplicar la lista.
+export const ANIMAL_SPECIES = [
   'monkey',
   'penguin',
   'peacock',
@@ -47,6 +49,15 @@ const ANIMAL_SPECIES = [
   'squirrel',
   'raven',
 ] as const;
+
+// Copias iniciales de una especie en su sharedDecks, según su coste y el
+// nº de jugadores (ver createGame más abajo). Exportada para que
+// bots/rl/marketScarcity.ts pueda recalcular el total inicial de cada
+// especie sin duplicar esta fórmula.
+export function initialMarketCopies(marketCost: number, numPlayers: number): number {
+  return marketCost >= 5 ? numPlayers : numPlayers + 2;
+}
+
 // La partida entra en la ronda final en cuanto este número de mazos
 // compartidos (de las 33 especies, todas cuentan) se hayan agotado.
 const FINAL_ROUND_EMPTY_DECK_THRESHOLD = 5;
@@ -394,7 +405,7 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
   const numPlayers = playerConfigs.length;
   for (const species of ANIMAL_SPECIES) {
     const speciesCard = getCard(species);
-    const copiesPerSpecies = (speciesCard.marketCost ?? 0) >= 5 ? numPlayers : numPlayers + 2;
+    const copiesPerSpecies = initialMarketCopies(speciesCard.marketCost ?? 0, numPlayers);
     state.sharedDecks[species] = shuffle(
       Array.from({ length: copiesPerSpecies }, () => mintInstance(state, speciesCard))
     );

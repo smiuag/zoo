@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createGame, getActivePlayer, getLegalActions } from '../src/engine';
+import { getCard } from '../src/cards/registry';
 import { CRITIC_FEATURE_DIM, encodeAction, encodePlayerContext, FEATURE_DIM } from '../src/bots/rl/features';
 import { buildStarterDeck } from './helpers';
 
@@ -62,5 +63,26 @@ describe('rl/features', () => {
     const after = encodeAction(state, 'p1', { type: 'endTurn' });
 
     expect(after).toEqual(before);
+  });
+
+  it('el contexto cambia si el jugador tiene más cartas de moneda en su colección (Tiburón)', () => {
+    const state = createGame([
+      { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
+      { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
+    ]);
+    const alice = state.players.find((p) => p.id === 'p1')!;
+    const before = encodePlayerContext(state, alice);
+
+    // Mismo valor total en mano (coinSum no cambia), pero más CARTAS de
+    // moneda en el descarte: coinCardCount debería reflejarlo aunque coinSum
+    // no se mueva.
+    const coin1 = getCard('coin-1');
+    alice.discard.push(
+      { ...coin1, instanceId: 'extra-coin-1' },
+      { ...coin1, instanceId: 'extra-coin-2' }
+    );
+    const after = encodePlayerContext(state, alice);
+
+    expect(after).not.toEqual(before);
   });
 });

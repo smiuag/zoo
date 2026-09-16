@@ -1,6 +1,7 @@
 import { getCard } from '../../cards/registry';
 import type { Action } from '../../engine';
 import type { CardInstance, GameState, Player } from '../../model/state';
+import { computeMarketScarcity } from './marketScarcity';
 
 // Vector de entrada de la red del rlBot: longitud fija (se rellena con
 // ceros si hace falta) para que la dimensión de los pesos entrenados nunca
@@ -10,11 +11,17 @@ import type { CardInstance, GameState, Player } from '../../model/state';
 // 2026-09-14: subido de 81 a 84 al añadir costTierCounts (3 columnas) a
 // encodePlayerContext, de 84 a 85 al añadir 'scorePerDestroyedCard' a
 // EFFECT_TYPES (Tiburón/Halcón/León), y de 85 a 86 al añadir
-// 'gainBonusPurchasingPowerPerCoinInHand' (nueva habilidad del Murciélago)
-// — invalida cualquier weights*.json guardado con la disposición anterior
-// (loadOrInitWeights/loadWeightsFromJson lo detectan por featureDim y
-// reinician desde pesos aleatorios en vez de romper).
-export const FEATURE_DIM = 86;
+// 'gainBonusPurchasingPowerPerCoinInHand' (habilidad del Cuervo).
+// 2026-09-16: subido de 86 a 96 al (a) añadir 3 tipos de efecto que
+// faltaban en EFFECT_TYPES — 'retrieveCoinFromDiscard' (Murciélago),
+// 'scorePerCoinCard' (Tiburón) y 'discardAnimalFromEachPlayerThenUseAbility'
+// (Serpiente), invisibles para la red hasta ahora, mismo bug que la Araña
+// de 2026-09-13 — y (b) añadir coinCardCount + escasez de mercado a
+// encodePlayerContext (ver más abajo). Invalida cualquier weights*.json
+// guardado con la disposición anterior (loadOrInitWeights/
+// loadWeightsFromJson lo detectan por featureDim y reinician desde pesos
+// aleatorios en vez de romper).
+export const FEATURE_DIM = 96;
 
 // Longitud de encodePlayerContext (más abajo) SOLA, sin nada de acción:
 // la usa el "crítico" del entrenamiento (ver scripts/rl/selfPlay.ts) para
@@ -24,7 +31,7 @@ export const FEATURE_DIM = 86;
 // carta). Verificado por un test que compara con la longitud real
 // devuelta por encodePlayerContext (ver rlFeatures.test.ts) — si cambia
 // esa función hay que actualizar esto también.
-export const CRITIC_FEATURE_DIM = 30;
+export const CRITIC_FEATURE_DIM = 37;
 
 const HABITATS = ['land', 'bird', 'aquatic'] as const;
 const ACTION_TYPES = ['playCard', 'buyAnimal', 'buyCoin', 'endTurn'] as const;
@@ -74,6 +81,12 @@ const EFFECT_TYPES = [
   'scorePerCostAtLeast',
   'scorePerDestroyedCard',
   'gainBonusPurchasingPowerPerCoinInHand',
+  // Añadidos el 2026-09-16: existían en effects/registry.ts y en las cartas
+  // de datos (Murciélago/Tiburón/Serpiente) desde sus rediseños, pero nunca
+  // se habían añadido aquí — mismo bug de la Araña de 2026-09-13.
+  'retrieveCoinFromDiscard',
+  'scorePerCoinCard',
+  'discardAnimalFromEachPlayerThenUseAbility',
 ] as const;
 
 const MAX_OPPONENTS = 3;
@@ -112,6 +125,16 @@ function costTierCounts(cards: CardInstance[]): number[] {
   return [cheap, mid, expensive];
 }
 
+// Recuento de CARTAS de moneda en toda la colección (no su valor: eso ya lo
+// da coinSum, y solo de la mano). Añadido el 2026-09-16 al confirmar que el
+// Tiburón (scorePerCoinCard, +1 PV por cada carta de moneda que tengas, sin
+// importar su valor) no tenía ningún input del que depender su valor real
+// — mismo patrón que costTierCounts para el Tucán: una variable de la que
+// depende el efecto de una carta, invisible para la red hasta ahora.
+function coinCardCount(cards: CardInstance[]): number {
+  return cards.filter((c) => c.type === 'coin').length;
+}
+
 // Contexto propio del jugador que decide, más lo único que se puede saber
 // legítimamente de cada rival: el tamaño de su mano (nunca su contenido) y
 // su descarte entero (boca arriba, es información pública).
@@ -145,6 +168,14 @@ export function encodePlayerContext(state: GameState, player: Player): number[] 
   const hasRoundLimit = state.maxRounds !== null ? 1 : 0;
   const roundProgress = state.maxRounds !== null ? Math.min(1, state.round / state.maxRounds) : 0;
 
+  // Escasez de mercado: qué ratio de cada hábitat/tramo de coste sigue sin
+  // comprar entre todos los jugadores (sharedDecks + animalTrack). Proxy
+  // agregado de "cuánto compiten los rivales por esta categoría" sin mirar
+  // sus manos (información oculta) ni escalar con MAX_OPPONENTS: un mercado
+  // casi agotado de una categoría es señal de que se la disputan; uno casi
+  // intacto, de que a nadie le interesa y por tanto es fácil de acumular.
+  const marketScarcity = computeMarketScarcity(state);
+
   const context = [
     state.turn / 50,
     player.hand.length / 10,
@@ -156,10 +187,13 @@ export function encodePlayerContext(state: GameState, player: Player): number[] 
     ...habitatCounts(own).map((n) => n / 15),
     distinctSpeciesCount(own) / 27,
     ...costTierCounts(own).map((n) => n / 15),
+    coinCardCount(own) / 15,
     emptyDecks / 5,
     state.finalRoundTriggerPlayerIndex !== null ? 1 : 0,
     hasRoundLimit,
     roundProgress,
+    ...marketScarcity.habitat,
+    ...marketScarcity.costTier,
   ];
 
   const opponents = state.players.filter((p) => p.id !== player.id);
