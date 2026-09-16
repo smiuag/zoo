@@ -37,6 +37,7 @@ function HostOrLocalApp() {
     actingHumanId,
     scores,
     canRestartTurn,
+    turnRestartCount,
     botAlgorithms,
     animationsEnabled,
     tick,
@@ -285,6 +286,7 @@ function HostOrLocalApp() {
         botAlgorithms={botAlgorithms}
         animationsEnabled={animationsEnabled}
         canRestartTurn={canRestartTurn}
+        turnRestartCount={turnRestartCount}
         doAction={doAction}
         onNewGame={handleRestart}
         // "Reiniciar turno" se desactiva online: la foto que usa (ver

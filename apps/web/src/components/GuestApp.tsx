@@ -127,6 +127,9 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
       botAlgorithms={botAlgorithms}
       animationsEnabled={animationsEnabled}
       canRestartTurn={false}
+      // Invitado online: nunca hay reinicio de turno local (ver
+      // canRestartTurn={false} arriba), así que este contador nunca cambia.
+      turnRestartCount={0}
       doAction={sendAction}
       replay={{ mode: 'online', status: replayStatus, viewerSeatId: seatId, onPropose: proposeReplay, onRespond: respondReplay }}
     />

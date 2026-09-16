@@ -65,6 +65,10 @@ export interface GameBoardProps {
   // useGame.ts, con el mismo valor.
   animationsEnabled: boolean;
   canRestartTurn: boolean;
+  // Ver turnRestartCount en useGame.ts: se pasa tal cual a useActivePlayerMoney
+  // (aquí y en ActivePlayerBoard) para que "reiniciar turno" también
+  // reinicie el general acumulado, no solo el disponible actual.
+  turnRestartCount: number;
   doAction: (action: Action) => void;
   // Ausentes = ocultan el control correspondiente: online no ofrece
   // reiniciar turno (no hay foto local que restaurar) ni cambiar el
@@ -87,6 +91,7 @@ export function GameBoard({
   botAlgorithms,
   animationsEnabled,
   canRestartTurn,
+  turnRestartCount,
   doAction,
   onNewGame,
   onRestartTurn,
@@ -97,7 +102,7 @@ export function GameBoard({
   // Mismo cálculo que ActivePlayerBoard (comparten el hook): aquí solo hace
   // falta la cifra, para el badge flotante de móvil de más abajo — ver
   // .money-float en styles.css.
-  const { purchasingPower, peak: purchasingPowerPeak } = useActivePlayerMoney(state);
+  const { purchasingPower, peak: purchasingPowerPeak } = useActivePlayerMoney(state, turnRestartCount);
   const human = state.players.find((p) => p.id === viewerPlayerId) ?? state.players[0];
   const bots = state.players.filter((p) => !humanIds.includes(p.id));
   // Para una carta del MERCADO (todavía no es tuya): cuánto valdría YA
@@ -670,6 +675,7 @@ export function GameBoard({
 
           <ActivePlayerBoard
             state={state}
+            turnRestartCount={turnRestartCount}
             humanIds={humanIds}
             botAlgorithms={botAlgorithms}
             discardPileRef={discardPileRef}

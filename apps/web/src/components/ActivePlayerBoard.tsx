@@ -7,6 +7,9 @@ import type { BotAlgorithm } from '../lib/gameConfig';
 
 interface ActivePlayerBoardProps {
   state: GameState;
+  // Ver turnRestartCount en useGame.ts: se pasa tal cual a useActivePlayerMoney
+  // para que "reiniciar turno" también reinicie el general acumulado.
+  turnRestartCount: number;
   // Igual que en el marcador de GameBoard.tsx: para mostrar el mismo
   // nombre ahí que aquí (código corto del algoritmo para un bot, nunca su
   // "B1"/"B2" interno, ver displayName en lib/botAlgorithms.ts).
@@ -46,16 +49,23 @@ function groupByCard(cards: CardInstance[]): { card: CardInstance; count: number
 // (antes vivía solo dentro de ActivePlayerBoard) para que GameBoard.tsx
 // pueda mostrar la misma cifra en un badge flotante en móvil, sin duplicar
 // el cálculo ni arriesgarse a que las dos copias diverjan.
-export function useActivePlayerMoney(state: GameState) {
+//
+// turnRestartCount (ver useGame.ts): "reiniciar turno" restaura el GameState
+// de la foto de inicio de turno, pero NO cambia state.turn (sigue siendo el
+// mismo turno, deshecho) — sin esto, el general se quedaba con lo acumulado
+// del intento descartado y seguía sumando desde ahí en vez de volver a
+// arrancar desde el valor real de inicio de turno.
+export function useActivePlayerMoney(state: GameState, turnRestartCount: number) {
   const activePlayer = getActivePlayer(state);
   const purchasingPower = currentPurchasingPower(activePlayer);
-  const turnRef = useRef<{ turn: number; peak: number; prev: number }>({
-    turn: state.turn,
+  const key = `${state.turn}:${turnRestartCount}`;
+  const turnRef = useRef<{ key: string; peak: number; prev: number }>({
+    key,
     peak: purchasingPower,
     prev: purchasingPower,
   });
-  if (turnRef.current.turn !== state.turn) {
-    turnRef.current = { turn: state.turn, peak: purchasingPower, prev: purchasingPower };
+  if (turnRef.current.key !== key) {
+    turnRef.current = { key, peak: purchasingPower, prev: purchasingPower };
   } else {
     const gained = purchasingPower - turnRef.current.prev;
     if (gained > 0) turnRef.current.peak += gained;
@@ -74,10 +84,17 @@ export function useActivePlayerMoney(state: GameState) {
 // online/redact.ts: el jugado de un humano solo viaja sin redactar
 // mientras tiene el turno). La mano y el mazo de robo siguen siendo
 // siempre privados, esto no los toca.
-export function ActivePlayerBoard({ state, humanIds, botAlgorithms, discardPileRef, hiddenDiscardCount = 0 }: ActivePlayerBoardProps) {
+export function ActivePlayerBoard({
+  state,
+  turnRestartCount,
+  humanIds,
+  botAlgorithms,
+  discardPileRef,
+  hiddenDiscardCount = 0,
+}: ActivePlayerBoardProps) {
   // El hook va ANTES del `if (state.gameOver)` de abajo: las reglas de
   // hooks no permiten saltárselo condicionalmente.
-  const { activePlayer, purchasingPower, peak } = useActivePlayerMoney(state);
+  const { activePlayer, purchasingPower, peak } = useActivePlayerMoney(state, turnRestartCount);
   const activePlayerName = displayName(activePlayer, humanIds, botAlgorithms);
 
   if (state.gameOver) return null;

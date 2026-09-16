@@ -150,6 +150,13 @@ export interface UseGame {
   actingHumanId: string | undefined;
   scores: PlayerScore[];
   canRestartTurn: boolean;
+  // Sube cada vez que restartTurn() deshace el turno humano en curso.
+  // state.turn NO cambia en un reinicio (se vuelve a la foto de ESE mismo
+  // turno), así que nada que solo mire state.turn para "detectar un turno
+  // nuevo" (ver useActivePlayerMoney en ActivePlayerBoard.tsx) se entera de
+  // que debería reiniciar también su propio acumulado — de ahí esta señal
+  // aparte.
+  turnRestartCount: number;
   botAlgorithms: Record<string, BotAlgorithm>;
   // Decidido al crear ESTA partida (ver GameConfig): si está desactivado,
   // los bots actúan sin ningún retraso artificial y no hay animación de
@@ -205,6 +212,10 @@ export function useGame(): UseGame {
   // entera antes de pasar de jugador, no solo el retraso normal entre
   // pasos — ver el cálculo de delayMs más abajo.
   const lastBotActionTypeRef = useRef<Action['type'] | null>(null);
+  // Ver turnRestartCount en UseGame: solo lo incrementa restartTurn(), nunca
+  // se resetea entre partidas porque no hace falta (solo se compara con su
+  // propio valor anterior, nunca con un número absoluto).
+  const turnRestartCountRef = useRef(0);
   const [tick, setTick] = useState(0);
   const rerender = () => setTick((t) => t + 1);
   const [botAlgorithms, setBotAlgorithms] = useState<Record<string, BotAlgorithm>>({});
@@ -430,6 +441,7 @@ export function useGame(): UseGame {
     // Se clona también al restaurar: la foto guardada debe seguir intacta
     // por si el jugador la usa varias veces en el mismo turno.
     stateRef.current = structuredClone(turnSnapshotRef.current.snapshot);
+    turnRestartCountRef.current += 1;
     rerender();
   }
 
@@ -449,6 +461,7 @@ export function useGame(): UseGame {
     actingHumanId,
     scores,
     canRestartTurn,
+    turnRestartCount: turnRestartCountRef.current,
     botAlgorithms,
     animationsEnabled: animationsEnabledRef.current,
     tick,
