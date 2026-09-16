@@ -293,12 +293,12 @@ function topOfOwnDeck(player: Player): CardInstance | undefined {
   return player.deck[player.deck.length - 1];
 }
 
-export function encodeAction(state: GameState, playerId: string, action: Action): number[] {
-  const player = state.players.find((p) => p.id === playerId);
-  if (!player) return new Array(FEATURE_DIM).fill(0);
-
+// Parte del vector que sí depende de LA ACCIÓN candidata (a diferencia de
+// encodePlayerContext, que es igual para todas las acciones de una misma
+// decisión — ver encodeActionsForPlayer más abajo, que aprovecha eso).
+function finishActionVector(context: number[], state: GameState, player: Player, action: Action): number[] {
   const features = [
-    ...encodePlayerContext(state, player),
+    ...context,
     ...actionTypeOneHot(action),
     ...encodeCardBlock(actingCard(state, player, action)),
     ...encodeTargetBlock(targetCard(state, player, action)),
@@ -308,4 +308,26 @@ export function encodeAction(state: GameState, playerId: string, action: Action)
 
   if (features.length >= FEATURE_DIM) return features.slice(0, FEATURE_DIM);
   return [...features, ...new Array(FEATURE_DIM - features.length).fill(0)];
+}
+
+export function encodeAction(state: GameState, playerId: string, action: Action): number[] {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return new Array(FEATURE_DIM).fill(0);
+  return finishActionVector(encodePlayerContext(state, player), state, player, action);
+}
+
+// Puntuar TODAS las acciones legales de una misma decisión es el caso más
+// caliente de todo el bot (rlBot.ts en producción, y el núcleo del
+// entrenamiento en trainCore.ts): encodePlayerContext no depende de la
+// acción, así que recalcularlo una vez POR CADA acción candidata (como
+// hacía repetir encodeAction en un .map()) rehace de 15 a 30 veces por turno
+// el mismo trabajo — reconstruir la colección completa, contar hábitats/
+// tramos de coste/especies, y recorrer las 33 especies del mercado para la
+// escasez. Aquí se calcula una única vez por decisión y se reutiliza para
+// cada acción — mismo resultado exacto, sin repetir nada.
+export function encodeActionsForPlayer(state: GameState, playerId: string, actions: Action[]): number[][] {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return actions.map(() => new Array(FEATURE_DIM).fill(0));
+  const context = encodePlayerContext(state, player);
+  return actions.map((action) => finishActionVector(context, state, player, action));
 }

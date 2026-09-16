@@ -6,7 +6,7 @@
 // de un batch en paralelo en vez de un único proceso jugándolas todas
 // secuencialmente. Nunca importado desde src/index.ts ni desde apps/web.
 import { aquaticRlBot, birdRlBot, landRlBot, rlBot } from '../../src/bots/rlBot';
-import { encodeAction, encodePlayerContext } from '../../src/bots/rl/features';
+import { encodeActionsForPlayer, encodePlayerContext } from '../../src/bots/rl/features';
 import { forward, type RlWeights } from '../../src/bots/rl/network';
 import type { Bot } from '../../src/bots/types';
 import { getCard } from '../../src/cards/registry';
@@ -93,7 +93,7 @@ export function filterActionsForHabitat(state: GameState, actions: Action[]): Ac
 export function chooseLearnerAction(state: GameState, playerId: string, weights: RlWeights): Action {
   const actions = filterActionsForHabitat(state, legalActionsForBot(state, playerId));
   if (actions.length === 0) return { type: 'endTurn' };
-  const scores = actions.map((a) => forward(weights, encodeAction(state, playerId, a)).score);
+  const scores = encodeActionsForPlayer(state, playerId, actions).map((x) => forward(weights, x).score);
   const best = Math.max(...scores);
   const bestIdx = actions.map((_, i) => i).filter((i) => scores[i] >= best - 1e-9);
   return actions[bestIdx[Math.floor(Math.random() * bestIdx.length)]];
@@ -127,7 +127,7 @@ export function sampleIndex(scores: number[], temperature: number): number {
 
 export interface Step {
   allFeatures: number[][];
-  allHidden: number[][];
+  allHidden: Float64Array[];
   allScores: number[];
   chosenIndex: number;
   // Features de SOLO ESTADO en el momento de esta decisión (antes de
@@ -189,7 +189,7 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
     const actions = filterActionsForHabitat(state, legalActionsForBot(state, player.id));
     if (actions.length === 0) break;
 
-    const allFeatures = actions.map((action) => encodeAction(state, player.id, action));
+    const allFeatures = encodeActionsForPlayer(state, player.id, actions);
     const allForward = allFeatures.map((x) => forward(weights, x));
     const allScores = allForward.map((f) => f.score);
     const chosenIndex = sampleIndex(allScores, TRAIN_TEMPERATURE);

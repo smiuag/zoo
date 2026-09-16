@@ -14,6 +14,7 @@
 import { createInterface } from 'node:readline';
 import { deserializeWeights } from '../../src/bots/rl/network';
 import { runEpisodes } from './trainCore';
+import { serializeGradient } from './train';
 
 interface BatchRequest {
   weights: unknown;
@@ -29,5 +30,13 @@ rl.on('line', (line) => {
   const weights = deserializeWeights(msg.weights);
   const criticWeights = deserializeWeights(msg.criticWeights);
   const result = runEpisodes(weights, criticWeights, msg.episodes);
-  process.stdout.write(`${JSON.stringify(result)}\n`);
+  // grad/criticGrad viajan como arrays normales (ver serializeGradient en
+  // train.ts): JSON.stringify de un Float64Array no da un array.
+  process.stdout.write(
+    `${JSON.stringify({
+      ...result,
+      grad: serializeGradient(result.grad),
+      criticGrad: serializeGradient(result.criticGrad),
+    })}\n`
+  );
 });

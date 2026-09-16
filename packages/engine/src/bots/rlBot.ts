@@ -1,5 +1,5 @@
 import { legalActionsForBot } from './actionPriority';
-import { encodeAction, FEATURE_DIM } from './rl/features';
+import { encodeActionsForPlayer, FEATURE_DIM } from './rl/features';
 import { createRandomWeights, deserializeWeights, forward, type RlWeights } from './rl/network';
 import type { Bot } from './types';
 import defaultWeightsJson from './rl/weights.json';
@@ -91,8 +91,8 @@ export function createRlBot(options: RlBotOptions = {}): Bot {
       // de por medio devuelve NaN y ninguna comparación >= NaN es cierta,
       // lo que dejaría bestIndices vacío y el bot sin ninguna acción legal
       // que devolver.
-      const scores = actions.map((action) => {
-        const score = forward(weights, encodeAction(state, playerId, action)).score;
+      const scores = encodeActionsForPlayer(state, playerId, actions).map((features) => {
+        const score = forward(weights, features).score;
         return Number.isFinite(score) ? score : -Infinity;
       });
 

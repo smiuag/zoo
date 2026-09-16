@@ -14,7 +14,7 @@ import { createRandomWeights, deserializeWeights, serializeWeights, type RlWeigh
 import type { Bot } from '../../src/bots/types';
 import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer } from '../../src/engine';
 import { scoreGame } from '../../src/scoring';
-import { addGrad, applyGrad, zeroGrad } from './train';
+import { addGrad, applyGrad, deserializeGradient, zeroGrad } from './train';
 import {
   buildStarterDeck,
   chooseLearnerAction,
@@ -113,7 +113,16 @@ function spawnWorker(): WorkerHandle {
   return {
     send(msg) {
       return new Promise((resolve, reject) => {
-        pending.push((line) => resolve(JSON.parse(line) as EpisodeBatchResult));
+        pending.push((line) => {
+          // grad/criticGrad viajan como arrays normales (ver
+          // serializeGradient en worker.ts): hay que reconstruir los
+          // Float64Array antes de que addGrad/applyGrad los toquen.
+          const raw = JSON.parse(line) as Omit<EpisodeBatchResult, 'grad' | 'criticGrad'> & {
+            grad: Parameters<typeof deserializeGradient>[0];
+            criticGrad: Parameters<typeof deserializeGradient>[0];
+          };
+          resolve({ ...raw, grad: deserializeGradient(raw.grad), criticGrad: deserializeGradient(raw.criticGrad) });
+        });
         pendingErrors.push(reject);
         child.stdin.write(`${JSON.stringify(msg)}\n`);
       });
