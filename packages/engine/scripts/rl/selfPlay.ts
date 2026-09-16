@@ -13,7 +13,7 @@ import { serializeWeights, type RlWeights } from '../../src/bots/rl/network';
 import type { Bot } from '../../src/bots/types';
 import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer } from '../../src/engine';
 import { scoreGame } from '../../src/scoring';
-import { addGrad, applyGradAdam, createAdamState, deserializeGradient, scaleGrad, zeroGrad, type AdamState } from './train';
+import { addGrad, applyGrad, applyGradAdam, createAdamState, deserializeGradient, scaleGrad, zeroGrad, type AdamState } from './train';
 import { loadOrInitWeights, saveWeightsWithRetry } from './weightsIo';
 import {
   buildStarterDeck,
@@ -52,6 +52,18 @@ const TOTAL_BATCHES = Number(process.env.RL_BATCHES ?? 2000);
 // puede distinguir ambos casos.
 const CRITIC_HIDDEN_SIZE = 16;
 const CRITIC_LR = Number(process.env.RL_CRITIC_LR ?? 0.02);
+// Optimizador de la POLÍTICA (el crítico usa Adam siempre: es una regresión
+// normal y ahí va bien). Por defecto SGD, como en todas las tandas largas
+// que han funcionado (|w1|≈10 tras 4000 batches). Adam (añadido el
+// 2026-09-16) se probó en una tanda larga ese mismo día y hace crecer las
+// normas de los pesos sin freno: x5 en 900 batches (|w1| 10 -> 55, del 0%
+// al 25-33% de unidades tanh saturadas), porque da pasos de tamaño ~lr en
+// la dirección del gradiente aunque este sea minúsculo, y el gradiente de
+// política siempre empuja en la misma dirección (sube la acción elegida,
+// baja el resto) — con SGD el paso encoge cuando el softmax se satura y la
+// escala se estabiliza sola. RL_OPTIMIZER=adam lo reactiva para
+// experimentos.
+const POLICY_OPTIMIZER = process.env.RL_OPTIMIZER === 'adam' ? 'adam' : 'sgd';
 const EVAL_EVERY = Number(process.env.RL_EVAL_EVERY ?? 50);
 const EVAL_GAMES = Number(process.env.RL_EVAL_GAMES ?? 40);
 
@@ -200,7 +212,8 @@ async function trainBatch(
   // magnitud del gradiente (m/v) deben ser comparables de un batch a otro,
   // y episodesUsed/stepCount varían ligeramente según duren las partidas.
   scaleGrad(merged.grad, 1 / Math.max(1, merged.episodesUsed));
-  applyGradAdam(weights, merged.grad, policyAdam, LEARNING_RATE);
+  if (POLICY_OPTIMIZER === 'adam') applyGradAdam(weights, merged.grad, policyAdam, LEARNING_RATE);
+  else applyGrad(weights, merged.grad, LEARNING_RATE);
   // Normalizado por stepCount (número de decisiones, no de episodios): es
   // una regresión de error cuadrático sobre cada paso, no un gradiente de
   // política por episodio, así que promediar por episodio infla el tamaño
@@ -266,7 +279,7 @@ async function main(): Promise<void> {
 
   const habitatLabel = HABITAT_FILTER ? ` (especialista: solo compra ${HABITAT_FILTER})` : '';
   console.log(
-    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, epsilon=${EPSILON}, floor_weight=${FLOOR_WEIGHT}, workers=${WORKER_COUNT}`
+    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, optimizador=${POLICY_OPTIMIZER}, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, epsilon=${EPSILON}, floor_weight=${FLOOR_WEIGHT}, workers=${WORKER_COUNT}`
   );
 
   try {

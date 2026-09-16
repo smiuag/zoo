@@ -16,10 +16,13 @@
 // vector de features y el score de TODAS las candidatas. Objetivo de cada
 // buyAnimal por debajo del score de endTurn: ese score de endTurn; el resto
 // (incluido endTurn) se ancla a su propio score actual para no mover lo que
-// la red ya sabe. Regresión MSE con Adam hasta que el déficit medio de las
+// la red ya sabe. Regresión MSE con SGD hasta que el déficit medio de las
 // cartas hundidas baje de un umbral, y guarda los pesos (ya migrados a
 // FEATURE_DIM columnas si venían de una disposición anterior, ver
-// weightsIo.ts). No toca el crítico.
+// weightsIo.ts). No toca el crítico. Las métricas descuentan el
+// desplazamiento global medio de los scores (un +k igual para todas las
+// candidatas no cambia ningún argmax ni ningún softmax): solo cuenta lo
+// relativo.
 //
 // Uso: npx vite-node scripts/rl/reviveDeadCards.ts [partidas=60] [maxEpocas=400]
 import { fileURLToPath } from 'node:url';
@@ -29,13 +32,17 @@ import { encodeAction, encodeActionsForPlayer, FEATURE_DIM } from '../../src/bot
 import { forward, type RlWeights } from '../../src/bots/rl/network';
 import { getCard } from '../../src/cards/registry';
 import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer, type Action } from '../../src/engine';
-import { accumulateGrad, applyGradAdam, createAdamState, scaleGrad, zeroGrad } from './train';
+import { accumulateGrad, applyGrad, scaleGrad, zeroGrad } from './train';
 import { buildStarterDeck, MAX_ACTIONS_PER_GAME, randomMaxRounds } from './trainCore';
 import { loadOrInitWeights, saveWeightsWithRetry } from './weightsIo';
 
 const GAMES_PER_VARIANT = Number(process.argv[2] ?? 60);
 const MAX_EPOCHS = Number(process.argv[3] ?? 400);
-const LEARNING_RATE = 0.01;
+// SGD plano, no Adam: la primera versión (Adam, lr 0.01, 300 épocas) dejó
+// al bot general con |w1| 11 -> 50 y el 63% de las unidades tanh saturadas
+// (Adam mueve TODOS los pesos ~lr por época aunque su gradiente sea
+// mínimo). Con SGD solo se mueven los pesos que de verdad reducen el error.
+const LEARNING_RATE = Number(process.env.RL_REVIVE_LR ?? 0.01);
 // Déficit medio (puntos de score por debajo del suelo) a partir del cual se
 // da por rescatada la variante.
 const TARGET_SHORTFALL = 0.5;
@@ -114,29 +121,44 @@ function collectSamples(weights: RlWeights, habitat: Habitat | undefined, games:
   return { samples, decisions, sunk };
 }
 
-// Déficit medio de las hundidas (cuánto siguen por debajo de su suelo) y
-// deriva media absoluta de las anclas (cuánto se ha movido lo que no
-// debía moverse).
-function measure(weights: RlWeights, samples: Sample[]): { shortfall: number; drift: number } {
+// Desplazamiento global (media de score − objetivo sobre las anclas): un
+// mismo +k para todas las candidatas no cambia ninguna decisión, así que se
+// descuenta. Devuelve el déficit medio de las hundidas (cuánto siguen por
+// debajo de su suelo, ya descontado el desplazamiento) y la deriva media
+// absoluta de las anclas respecto a ese mismo desplazamiento (cuánto se ha
+// movido de verdad lo que no debía moverse).
+function measure(weights: RlWeights, samples: Sample[]): { shortfall: number; drift: number; shift: number } {
+  const scores = samples.map((s) => forward(weights, s.features).score);
+  let shiftSum = 0;
+  let anchorCount = 0;
+  samples.forEach((s, i) => {
+    if (!s.raised) {
+      shiftSum += scores[i] - s.target;
+      anchorCount++;
+    }
+  });
+  const shift = anchorCount ? shiftSum / anchorCount : 0;
   let shortfall = 0;
   let raisedCount = 0;
   let drift = 0;
-  let anchorCount = 0;
-  for (const s of samples) {
-    const score = forward(weights, s.features).score;
+  samples.forEach((s, i) => {
     if (s.raised) {
-      shortfall += Math.max(0, s.target - score);
+      shortfall += Math.max(0, s.target + shift - scores[i]);
       raisedCount++;
     } else {
-      drift += Math.abs(s.target - score);
-      anchorCount++;
+      drift += Math.abs(scores[i] - s.target - shift);
     }
-  }
-  return { shortfall: raisedCount ? shortfall / raisedCount : 0, drift: anchorCount ? drift / anchorCount : 0 };
+  });
+  return { shortfall: raisedCount ? shortfall / raisedCount : 0, drift: anchorCount ? drift / anchorCount : 0, shift };
+}
+
+const norm = (a: ArrayLike<number>) => Math.sqrt(Array.from(a).reduce((s, v) => s + v * v, 0));
+function printNorms(label: string, weights: RlWeights): void {
+  const w1 = norm(weights.w1.flatMap((row) => Array.from(row)));
+  console.log(`  normas (${label}): |w1|=${w1.toFixed(1)} |w2|=${norm(weights.w2).toFixed(1)}`);
 }
 
 function regress(weights: RlWeights, samples: Sample[]): void {
-  const adam = createAdamState(weights.featureDim, weights.hiddenSize);
   for (let epoch = 0; epoch < MAX_EPOCHS; epoch++) {
     const grad = zeroGrad(weights.featureDim, weights.hiddenSize);
     for (const s of samples) {
@@ -146,11 +168,11 @@ function regress(weights: RlWeights, samples: Sample[]): void {
       accumulateGrad(grad, s.features, hidden, weights.w2, s.target - score);
     }
     scaleGrad(grad, 1 / samples.length);
-    applyGradAdam(weights, grad, adam, LEARNING_RATE);
+    applyGrad(weights, grad, LEARNING_RATE);
 
     if (epoch % 20 === 0 || epoch === MAX_EPOCHS - 1) {
-      const { shortfall, drift } = measure(weights, samples);
-      console.log(`  época ${epoch}: déficit medio hundidas=${shortfall.toFixed(2)} deriva media anclas=${drift.toFixed(2)}`);
+      const { shortfall, drift, shift } = measure(weights, samples);
+      console.log(`  época ${epoch}: déficit medio hundidas=${shortfall.toFixed(2)} deriva media anclas=${drift.toFixed(2)} (desplazamiento global ${shift.toFixed(1)})`);
       if (shortfall < TARGET_SHORTFALL) break;
     }
   }
@@ -203,12 +225,14 @@ async function main(): Promise<void> {
     const weights = loadOrInitWeights(path, FEATURE_DIM, HIDDEN_SIZE);
     console.log(`\n=== ${variant.label} (${variant.file}) ===`);
     printReference('antes', weights);
+    printNorms('antes', weights);
 
     const { samples, decisions, sunk } = collectSamples(weights, variant.habitat, GAMES_PER_VARIANT);
     console.log(`  ${GAMES_PER_VARIANT} partidas, ${decisions} decisiones de compra, ${samples.length} candidatas, ${sunk} compras por debajo de endTurn`);
     if (sunk > 0) regress(weights, samples);
 
     printReference('después', weights);
+    printNorms('después', weights);
     await saveWeightsWithRetry(weights, path);
     console.log(`  guardado ${path} (featureDim=${weights.featureDim})`);
   }
