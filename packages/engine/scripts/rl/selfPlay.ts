@@ -13,7 +13,7 @@ import { serializeWeights, type RlWeights } from '../../src/bots/rl/network';
 import type { Bot } from '../../src/bots/types';
 import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer } from '../../src/engine';
 import { scoreGame } from '../../src/scoring';
-import { addGrad, applyGrad, applyGradAdam, createAdamState, deserializeGradient, scaleGrad, zeroGrad, type AdamState } from './train';
+import { addGrad, applyGrad, applyGradAdam, clampWeightNorms, createAdamState, deserializeGradient, scaleGrad, zeroGrad, type AdamState } from './train';
 import { loadOrInitWeights, saveWeightsWithRetry } from './weightsIo';
 import {
   buildStarterDeck,
@@ -64,6 +64,16 @@ const CRITIC_LR = Number(process.env.RL_CRITIC_LR ?? 0.02);
 // escala se estabiliza sola. RL_OPTIMIZER=adam lo reactiva para
 // experimentos.
 const POLICY_OPTIMIZER = process.env.RL_OPTIMIZER === 'adam' ? 'adam' : 'sgd';
+// Topes de norma de la política (ver clampWeightNorms en train.ts). 16 ≈ lo
+// que medían las redes sanas de tandas anteriores (|w1|≈|w2|≈10 con 32
+// unidades ocultas; con 48 escala a ~12-13) con algo de margen. Se aplica
+// tras CADA actualización; al arrancar sobre unos pesos ya inflados (el
+// general venía con |w1|≈48 y el 60% de unidades saturadas) el primer
+// batch los reescala de golpe al tope — es la "desaturación" acordada con
+// el usuario el 2026-09-16 (factor 3, ver desaturateWeights.ts para la
+// comprobación en duelos que se hizo antes de decidirlo).
+const MAX_NORM_W1 = Number(process.env.RL_MAX_NORM_W1 ?? 16);
+const MAX_NORM_W2 = Number(process.env.RL_MAX_NORM_W2 ?? 16);
 const EVAL_EVERY = Number(process.env.RL_EVAL_EVERY ?? 50);
 const EVAL_GAMES = Number(process.env.RL_EVAL_GAMES ?? 40);
 
@@ -214,6 +224,7 @@ async function trainBatch(
   scaleGrad(merged.grad, 1 / Math.max(1, merged.episodesUsed));
   if (POLICY_OPTIMIZER === 'adam') applyGradAdam(weights, merged.grad, policyAdam, LEARNING_RATE);
   else applyGrad(weights, merged.grad, LEARNING_RATE);
+  clampWeightNorms(weights, MAX_NORM_W1, MAX_NORM_W2);
   // Normalizado por stepCount (número de decisiones, no de episodios): es
   // una regresión de error cuadrático sobre cada paso, no un gradiente de
   // política por episodio, así que promediar por episodio infla el tamaño
@@ -279,7 +290,7 @@ async function main(): Promise<void> {
 
   const habitatLabel = HABITAT_FILTER ? ` (especialista: solo compra ${HABITAT_FILTER})` : '';
   console.log(
-    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, optimizador=${POLICY_OPTIMIZER}, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, epsilon=${EPSILON}, floor_weight=${FLOOR_WEIGHT}, workers=${WORKER_COUNT}`
+    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, optimizador=${POLICY_OPTIMIZER}, max_norm_w1=${MAX_NORM_W1}, max_norm_w2=${MAX_NORM_W2}, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, epsilon=${EPSILON}, floor_weight=${FLOOR_WEIGHT}, workers=${WORKER_COUNT}`
   );
 
   try {

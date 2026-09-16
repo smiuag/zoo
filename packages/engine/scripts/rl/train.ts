@@ -191,3 +191,42 @@ export function applyGradAdam(weights: RlWeights, grad: Gradient, adam: AdamStat
   const vHatB2 = adam.v.b2 / bc2;
   weights.b2 += learningRate * (mHatB2 / (Math.sqrt(vHatB2) + ADAM_EPSILON));
 }
+
+// Tope de norma ("max-norm", 2026-09-16): si la norma euclídea de w1 (todas
+// las filas juntas) supera maxW1, se reescalan w1 Y b1 por el mismo factor
+// (así la preactivación de cada unidad conserva su orden entre estados y,
+// como tanh es monótona, también su salida); si la de w2 supera maxW2, se
+// reescala w2 (el score de todas las candidatas se multiplica por el mismo
+// factor: mismo argmax, mismo orden, solo cambia la "temperatura" del
+// softmax). Motivo: con epsilon (ver EPSILON en trainCore.ts) el gradiente
+// de política ya no se apaga cuando el softmax se satura — las acciones
+// forzadas siempre aportan gradiente completo — y las normas crecen sin
+// freno incluso con SGD (|w1| 10 -> 22-28 en 800 batches, del 0% al 15%
+// de unidades tanh saturadas); con Adam era aún peor. Una vez en el tope,
+// cada paso de SGD que "estira" la red se proyecta de vuelta: sigue
+// aprendiendo direcciones, no escala. Devuelve los factores aplicados (1 si
+// no hubo que tocar nada). 0 en cualquiera de los topes lo desactiva.
+export function clampWeightNorms(weights: RlWeights, maxW1: number, maxW2: number): { w1Factor: number; w2Factor: number } {
+  let w1Factor = 1;
+  let w2Factor = 1;
+  if (maxW1 > 0) {
+    let sq = 0;
+    for (const row of weights.w1) for (let i = 0; i < row.length; i++) sq += row[i] * row[i];
+    const norm = Math.sqrt(sq);
+    if (norm > maxW1) {
+      w1Factor = maxW1 / norm;
+      for (const row of weights.w1) for (let i = 0; i < row.length; i++) row[i] *= w1Factor;
+      for (let j = 0; j < weights.b1.length; j++) weights.b1[j] *= w1Factor;
+    }
+  }
+  if (maxW2 > 0) {
+    let sq = 0;
+    for (let j = 0; j < weights.w2.length; j++) sq += weights.w2[j] * weights.w2[j];
+    const norm = Math.sqrt(sq);
+    if (norm > maxW2) {
+      w2Factor = maxW2 / norm;
+      for (let j = 0; j < weights.w2.length; j++) weights.w2[j] *= w2Factor;
+    }
+  }
+  return { w1Factor, w2Factor };
+}
