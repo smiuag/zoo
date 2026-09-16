@@ -4,20 +4,22 @@
 // src/index.ts ni desde apps/web: es una herramienta de desarrollo, no algo
 // que la app o el motor necesiten en tiempo de ejecución normal.
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { heuristicBot } from '../../src/bots/heuristicBot';
 import { randomBot } from '../../src/bots/randomBot';
 import { CRITIC_FEATURE_DIM, FEATURE_DIM } from '../../src/bots/rl/features';
-import { createRandomWeights, deserializeWeights, serializeWeights, type RlWeights } from '../../src/bots/rl/network';
+import { serializeWeights, type RlWeights } from '../../src/bots/rl/network';
 import type { Bot } from '../../src/bots/types';
 import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer } from '../../src/engine';
 import { scoreGame } from '../../src/scoring';
 import { addGrad, applyGradAdam, createAdamState, deserializeGradient, scaleGrad, zeroGrad, type AdamState } from './train';
+import { loadOrInitWeights, saveWeightsWithRetry } from './weightsIo';
 import {
   buildStarterDeck,
   chooseLearnerAction,
+  EPSILON,
+  FLOOR_WEIGHT,
   HABITAT_FILTER,
   MAX_ACTIONS_PER_GAME,
   randomMaxRounds,
@@ -253,69 +255,6 @@ function evaluate(weights: RlWeights, opponent: Bot, games: number): number {
   return wins / games;
 }
 
-// Generalizada para servir tanto a los pesos de política (WEIGHTS_PATH,
-// FEATURE_DIM, HIDDEN_SIZE) como a los del crítico (CRITIC_PATH,
-// CRITIC_FEATURE_DIM, CRITIC_HIDDEN_SIZE) — misma lógica de
-// validar-o-reiniciar, dos archivos y dos dimensiones distintas.
-function loadOrInitWeights(path: string, expectedFeatureDim: number, hiddenSize: number): RlWeights {
-  if (existsSync(path)) {
-    try {
-      const weights = deserializeWeights(readFileSync(path, 'utf-8'));
-      // deserializeWeights solo valida que el JSON sea internamente
-      // consistente (sus propias filas coinciden con SU featureDim
-      // guardado), no que coincida con el FEATURE_DIM de este módulo. Sin
-      // esto, un weights.json de una FEATURE_DIM antigua (p. ej. de antes de
-      // añadir una feature nueva) se aceptaría "tal cual" y forward()
-      // truncaría en silencio el vector de entrada a las columnas viejas,
-      // desalineando el gradiente en vez de fallar con un error claro.
-      if (weights.featureDim !== expectedFeatureDim) {
-        console.warn(
-          `${path} tiene featureDim ${weights.featureDim}, no coincide con el esperado (${expectedFeatureDim}): se reinicia desde pesos aleatorios.`
-        );
-      } else {
-        return weights;
-      }
-    } catch {
-      console.warn(`${path} existente es inválido, se reinicia desde pesos aleatorios.`);
-    }
-  }
-  return createRandomWeights(expectedFeatureDim, hiddenSize);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// Desde que los 4 entrenamientos (general/land/bird/aquatic) también LEEN
-// los pesos de las otras 3 variantes al arrancar (ver RL_VARIANT_BOTS en
-// trainCore.ts, para el cruce entre bots), corren con mucha más E/S
-// simultánea en este mismo directorio que antes — cada uno guarda SU PROPIO
-// checkpoint cada EVAL_EVERY batches, así que con los 4 en paralelo hay
-// escrituras entrelazadas constantes. En Windows eso puede toparse con un
-// bloqueo de archivo transitorio (antivirus/indexador tocando el directorio
-// justo en ese instante, "UNKNOWN: unknown error" de writeFileSync) — visto
-// en la práctica reventando un entrenamiento entero, tirando horas de
-// progreso ya bueno por la borda por un solo guardado que no consiguió
-// abrir el archivo. Ahora escribe a un archivo TEMPORAL propio (nombre
-// único por proceso, nunca lo abre nadie más) y solo AL FINAL hace un
-// rename atómico sobre el destino. Aun así reintenta el conjunto
-// (escritura+rename) varias veces con espera creciente antes de rendirse.
-async function saveWeightsWithRetry(weights: RlWeights, path: string, attempts = 10): Promise<void> {
-  const serialized = serializeWeights(weights);
-  const tmpPath = `${path}.tmp-${process.pid}`;
-  for (let i = 0; i < attempts; i++) {
-    try {
-      writeFileSync(tmpPath, serialized);
-      renameSync(tmpPath, path);
-      return;
-    } catch (err) {
-      if (i === attempts - 1) throw err;
-      console.warn(`No se pudo guardar ${path} (intento ${i + 1}/${attempts}), reintentando...`, err);
-      await sleep(Math.min(200 * (i + 1), 2000));
-    }
-  }
-}
-
 async function main(): Promise<void> {
   const weights = loadOrInitWeights(WEIGHTS_PATH, FEATURE_DIM, HIDDEN_SIZE);
   const criticWeights = loadOrInitWeights(CRITIC_PATH, CRITIC_FEATURE_DIM, CRITIC_HIDDEN_SIZE);
@@ -327,7 +266,7 @@ async function main(): Promise<void> {
 
   const habitatLabel = HABITAT_FILTER ? ` (especialista: solo compra ${HABITAT_FILTER})` : '';
   console.log(
-    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, workers=${WORKER_COUNT}`
+    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, epsilon=${EPSILON}, floor_weight=${FLOOR_WEIGHT}, workers=${WORKER_COUNT}`
   );
 
   try {
@@ -353,7 +292,9 @@ async function main(): Promise<void> {
     for (const worker of workers) worker.kill();
   }
 
-  await recalibrateScalerValues();
+  // RL_SKIP_RECALIBRATE=1: para pruebas cortas (humo/ablaciones) en las que
+  // no interesa esperar las ~600 partidas de la recalibración.
+  if (process.env.RL_SKIP_RECALIBRATE !== '1') await recalibrateScalerValues();
 }
 
 // Norma pedida explícitamente por el usuario (2026-09-16): recalcular

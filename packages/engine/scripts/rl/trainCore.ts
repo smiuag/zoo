@@ -33,6 +33,36 @@ export const ADVANTAGE_CLIP = 5;
 // fin de partida). Ver memoria rl_manual_card_boost_no_improvement.md.
 export const SHAPING_WEIGHT = Number(process.env.RL_SHAPING_WEIGHT ?? 1);
 
+// Exploración epsilon-greedy (2026-09-16): con esta probabilidad, la acción
+// del aprendiz se elige UNIFORME entre las candidatas en vez de muestrear
+// el softmax de sus scores. Motivo: el softmax a temperatura 1 sobre scores
+// que se separan 40-80 puntos es en la práctica un argmax — una carta que
+// cae 10 puntos por detrás de la mejor tiene p≈5e-5 de volver a probarse,
+// y a 70 puntos (Tucán en el bot general, ver reviveDeadCards.ts) p=0.
+// Como el término de gradiente de una acción no elegida es -p_k·ventaja ≈
+// 0, su score no recibe NINGUNA corrección nunca más: un pozo del que es
+// imposible salir. Ni un bonus de entropía lo arregla (su gradiente también
+// es proporcional a p_k). Solo una elección forzada le da muestras reales:
+// el gradiente de la acción elegida es (1-p_k)·ventaja ≈ ventaja, sea cual
+// sea su score actual. Off-policy leve, aceptable con epsilon pequeño (la
+// ventaja ya va recortada a ±ADVANTAGE_CLIP).
+export const EPSILON = Number(process.env.RL_EPSILON ?? 0.1);
+
+// Suelo blando (2026-09-16), DESACTIVADO por defecto: en cada decisión de
+// compra, cualquier buyAnimal cuyo score quede por debajo del de endTurn
+// recibiría un empujón hacia él (delta = FLOOR_WEIGHT · (score_endTurn −
+// score_k), ver accumulateFloorGrad). La idea era complementar a EPSILON
+// evitando que una carta se hunda tanto que tarde cientos de batches en
+// volver. MEDIDO en ablaciones de 40 batches desde los pesos rescatados
+// (reviveDeadCards.ts): con peso 0.1 el retorno medio cae de +1.5 a −2 en
+// 20 batches; con 0.01 baja de +0.2 a −0.9 en 40; sin suelo (solo epsilon)
+// se mantiene estable. Con ~37% de las candidatas justo en el borde del
+// suelo, su gradiente agregado (sobre columnas de contexto compartidas por
+// todas las candidatas, w2, b1...) domina al de la política y la
+// desordena. Se deja como opción (RL_FLOOR_WEIGHT>0) por si se quiere
+// volver a probar con otro diseño, pero el antipozo real es EPSILON.
+export const FLOOR_WEIGHT = Number(process.env.RL_FLOOR_WEIGHT ?? 0);
+
 // Entrena un especialista de hábitat (RL_HABITAT=land|bird|aquatic): el
 // aprendiz solo puede comprar animales de ese hábitat. Sin la variable,
 // entrena el bot normal sin restricciones.
@@ -78,6 +108,24 @@ export const RL_CURRICULUM_OPPONENTS = Object.entries(RL_VARIANT_BOTS)
 export const SCALER_CALIBRATION: Record<string, number> = (
   scalerCalibrationData as Record<string, Record<string, number>>
 )[CURRENT_VARIANT] ?? {};
+
+// Valor de shaping de una compra (2026-09-16, sustituye a "la constante
+// calibrada entera" para las cartas acumulativas): `liveDelta` es lo que la
+// compra suma al marcador YA (PV impreso + efectos sobre la colección
+// actual, p. ej. Tucán con 11 animales de coste 5+ = 12), y `calibrated` el
+// valor final MEDIO que esa carta acaba aportando en partidas reales (ver
+// SCALER_CALIBRATION), o undefined para cartas normales. Se interpola con
+// las rondas que quedan: al principio de la partida (roundProgress≈0) manda
+// el calibrado si es mayor (lo que hoy vale poco crecerá); en el último
+// turno (roundProgress=1) manda EXACTAMENTE el delta real, que es lo único
+// que cuenta cuando ya no hay más turnos; y nunca queda por debajo del
+// delta real, porque la colección solo crece. Antes el Tucán recibía el
+// mismo shaping (5.6) tuviera 0 u 11 animales caros — justo el dato que le
+// diría a la red "aquí vale 12" se tiraba.
+export function shapedPurchaseValue(liveDelta: number, calibrated: number | undefined, roundProgress: number): number {
+  if (calibrated === undefined) return liveDelta;
+  return liveDelta + (1 - roundProgress) * Math.max(0, calibrated - liveDelta);
+}
 
 export function filterActionsForHabitat(state: GameState, actions: Action[]): Action[] {
   if (!HABITAT_FILTER) return actions;
@@ -125,6 +173,10 @@ export interface Step {
   allFeatures: number[][];
   allHidden: Float64Array[];
   allScores: number[];
+  // Tipo de cada acción candidata, en el mismo orden que allFeatures/
+  // allScores: lo usa el suelo blando (FLOOR_WEIGHT) para saber cuál es
+  // endTurn y cuáles son compras de animal.
+  actionTypes: Action['type'][];
   chosenIndex: number;
   // Features de SOLO ESTADO en el momento de esta decisión (antes de
   // elegir la acción) — ver CRITIC_FEATURE_DIM/encodePlayerContext en
@@ -188,33 +240,30 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
     const allFeatures = encodeActionsForPlayer(state, player.id, actions);
     const allForward = allFeatures.map((x) => forward(weights, x));
     const allScores = allForward.map((f) => f.score);
-    const chosenIndex = sampleIndex(allScores, TRAIN_TEMPERATURE);
+    const chosenIndex =
+      Math.random() < EPSILON ? Math.floor(Math.random() * actions.length) : sampleIndex(allScores, TRAIN_TEMPERATURE);
 
     const chosenAction = actions[chosenIndex];
     const stateFeatures = encodePlayerContext(state, player);
-    // Si la carta que se va a comprar es una de las calibradas (ver
-    // SCALER_CALIBRATION más abajo), no hace falta el snapshot de antes: su
-    // shaping se sustituye entero por el valor medio precalculado.
     const boughtCardId =
       chosenAction.type === 'buyAnimal'
         ? state.animalTrack.find((c) => c.instanceId === chosenAction.trackInstanceId)?.id
         : undefined;
     const calibratedValue = boughtCardId ? SCALER_CALIBRATION[boughtCardId] : undefined;
-    const scoreBefore = chosenAction.type === 'buyAnimal' && calibratedValue === undefined ? scorePlayer(state, player) : 0;
+    // scorePlayer a mitad de partida es puro (su fase destructiva solo corre
+    // con gameOver && !scoringFinalized, ver scoring.ts).
+    const scoreBefore = chosenAction.type === 'buyAnimal' ? scorePlayer(state, player) : 0;
+    const roundProgress = state.maxRounds !== null ? Math.min(1, state.round / state.maxRounds) : 0;
 
     applyAction(state, player.id, chosenAction);
 
-    const shapingBonus =
-      calibratedValue !== undefined
-        ? calibratedValue / 20
-        : chosenAction.type === 'buyAnimal'
-          ? (scorePlayer(state, player) - scoreBefore) / 20
-          : 0;
+    const shapingBonus = chosenAction.type === 'buyAnimal' ? shapedPurchaseValue(scorePlayer(state, player) - scoreBefore, calibratedValue, roundProgress) / 20 : 0;
 
     trajectories.get(player.id)?.push({
       allFeatures,
       allHidden: allForward.map((f) => f.hidden),
       allScores,
+      actionTypes: actions.map((a) => a.type),
       chosenIndex,
       stateFeatures,
       shapingBonus,
@@ -224,6 +273,22 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
   }
 
   return { trajectories, finalScores: scoreGame(state) };
+}
+
+// Suelo blando (ver FLOOR_WEIGHT): para cada compra de animal candidata
+// cuyo score esté por debajo del de endTurn en esta misma decisión, suma el
+// gradiente que la empujaría hacia ese score (regresión hacia el suelo, no
+// más allá). Sin endTurn entre las candidatas (decisiones de jugar carta,
+// descartes...) no hace nada.
+export function accumulateFloorGrad(grad: Gradient, step: Step, w2: Float64Array, floorWeight = FLOOR_WEIGHT): void {
+  if (floorWeight <= 0) return;
+  const endTurnIndex = step.actionTypes.indexOf('endTurn');
+  if (endTurnIndex === -1) return;
+  const floor = step.allScores[endTurnIndex];
+  for (let k = 0; k < step.allScores.length; k++) {
+    if (step.actionTypes[k] !== 'buyAnimal' || step.allScores[k] >= floor) continue;
+    accumulateGrad(grad, step.allFeatures[k], step.allHidden[k], w2, floorWeight * (floor - step.allScores[k]));
+  }
 }
 
 export interface EpisodeBatchResult {
@@ -279,6 +344,7 @@ export function runEpisodes(weights: RlWeights, criticWeights: RlWeights, episod
           const delta = ((k === step.chosenIndex ? 1 : 0) - probs[k]) * policyAdvantage;
           accumulateGrad(grad, step.allFeatures[k], step.allHidden[k], weights.w2, delta);
         }
+        accumulateFloorGrad(grad, step, weights.w2);
         accumulateGrad(criticGrad, step.stateFeatures, critic.hidden, criticWeights.w2, advantage);
       }
       episodesUsed++;

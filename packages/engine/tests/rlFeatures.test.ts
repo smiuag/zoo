@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createGame, getActivePlayer, getLegalActions } from '../src/engine';
 import { getCard } from '../src/cards/registry';
-import { CRITIC_FEATURE_DIM, encodeAction, encodePlayerContext, FEATURE_DIM } from '../src/bots/rl/features';
+import { CRITIC_FEATURE_DIM, encodeAction, encodePlayerContext, FEATURE_DIM, LIVE_DELTA_INDEX } from '../src/bots/rl/features';
 import { buildStarterDeck } from './helpers';
 
 describe('rl/features', () => {
@@ -84,5 +84,31 @@ describe('rl/features', () => {
     const after = encodePlayerContext(state, alice);
 
     expect(after).not.toEqual(before);
+  });
+  it('liveScoreDelta: comprar un Tucán vale hoy 1 + los animales de coste 5+ que ya tengas, y endTurn 0', () => {
+    const state = createGame([
+      { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
+      { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
+    ]);
+    const alice = state.players.find((p) => p.id === 'p1')!;
+    const hippo = getCard('hippopotamus'); // coste 5
+    alice.discard.push(
+      { ...hippo, instanceId: 'h1' },
+      { ...hippo, instanceId: 'h2' },
+      { ...hippo, instanceId: 'h3' }
+    );
+    const toucan = { ...getCard('toucan'), instanceId: 'toucan#m' };
+    state.animalTrack = [toucan, { ...hippo, instanceId: 'hippo#m' }];
+
+    const buyToucan = encodeAction(state, 'p1', { type: 'buyAnimal', trackInstanceId: 'toucan#m' });
+    // 3 hipopótamos de coste 5 + el propio Tucán = 4 PV (0 impresos).
+    expect(buyToucan[LIVE_DELTA_INDEX]).toBeCloseTo(4 / 20);
+    expect(encodeAction(state, 'p1', { type: 'endTurn' })[LIVE_DELTA_INDEX]).toBe(0);
+
+    // Con un Tucán ya en la colección, comprar otro coste 5 vale sus PV
+    // impresos (4) más 1 por el Tucán: la feature ve la sinergia entera.
+    alice.discard.push({ ...getCard('toucan'), instanceId: 'toucan#owned' });
+    const buyHippo = encodeAction(state, 'p1', { type: 'buyAnimal', trackInstanceId: 'hippo#m' });
+    expect(buyHippo[LIVE_DELTA_INDEX]).toBeCloseTo(5 / 20);
   });
 });

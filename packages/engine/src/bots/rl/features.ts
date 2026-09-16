@@ -1,6 +1,7 @@
 import { getCard } from '../../cards/registry';
 import type { Action } from '../../engine';
 import type { CardInstance, GameState, Player } from '../../model/state';
+import { previewScoreDelta, scoreCollection } from '../../scoring';
 import { computeMarketScarcity } from './marketScarcity';
 
 // Vector de entrada de la red del rlBot: longitud fija (se rellena con
@@ -21,7 +22,22 @@ import { computeMarketScarcity } from './marketScarcity';
 // guardado con la disposición anterior (loadOrInitWeights/
 // loadWeightsFromJson lo detectan por featureDim y reinician desde pesos
 // aleatorios en vez de romper).
-export const FEATURE_DIM = 96;
+// 2026-09-16 (tarde): subido de 96 a 97 al añadir liveScoreDelta (ver
+// LIVE_DELTA_INDEX): los PV que sumaría de verdad AHORA comprar la carta
+// candidata, calculados con el marcador real (previewScoreDelta en
+// scoring.ts). Sin esto, una carta acumulativa (Tucán: +1 PV por cada
+// animal de coste 5+) entraba siempre con vp=0 y la red solo podía inferir
+// su valor del cruce "tipo de efecto × recuento de caros", que nunca llegó
+// a aprender porque nunca la muestreaba (ver reviveDeadCards.ts). Esta vez
+// los pesos guardados NO se reinician: loadOrInitWeights (scripts/rl/
+// weightsIo.ts) migra los de 96 columnas insertando la nueva a cero.
+export const FEATURE_DIM = 97;
+
+// Índice de la columna liveScoreDelta dentro del vector: justo después del
+// bloque de la carta protagonista (37 contexto + 4 tipo de acción + 37
+// bloque de carta). Lo usa la migración de pesos 96->97 (weightsIo.ts) y
+// los tests.
+export const LIVE_DELTA_INDEX = 78;
 
 // Longitud de encodePlayerContext (más abajo) SOLA, sin nada de acción:
 // la usa el "crítico" del entrenamiento (ver scripts/rl/selfPlay.ts) para
@@ -149,12 +165,12 @@ export function encodePlayerContext(state: GameState, player: Player): number[] 
   const emptyDecks = Object.entries(state.sharedDecks).filter(
     ([species, deck]) => species !== 'sloth' && deck.length === 0
   ).length;
-  // OJO: nunca usar scorePlayer() aquí. Tiene un efecto secundario
-  // destructivo (el Cocodrilo elimina una carta acuática cada vez que se
-  // llama, pensado para resolverse una única vez al terminar la partida) y
-  // encodeAction se invoca en cada decisión, no solo al final: usar
-  // scorePlayer() corrompería la mano/mazo/descarte del jugador en mitad de
-  // la partida. Basta una suma de PV en bruto, sin resolver efectos.
+  // OJO: nunca usar scorePlayer() aquí: su fase destructiva (el Cocodrilo
+  // elimina una carta) se ejecuta con gameOver && !scoringFinalized, y
+  // encodeAction puede invocarse justo en ese estado (marcador en vivo de la
+  // web tras acabar). Aquí basta una suma de PV en bruto, sin resolver
+  // efectos; el valor con efectos ya lo aporta liveScoreDelta (más abajo)
+  // para la carta candidata, vía la fase pura scoreCollection.
   const rawVictoryPoints = own.reduce((sum, c) => sum + c.victoryPoints, 0);
 
   // Duración elegida de la partida (ver maxRounds en GameState): sin esto,
@@ -293,14 +309,42 @@ function topOfOwnDeck(player: Player): CardInstance | undefined {
   return player.deck[player.deck.length - 1];
 }
 
+// Lo que se calcula UNA vez por decisión y comparten todas las acciones
+// candidatas: el contexto del jugador y el marcador actual de su colección
+// (base de liveScoreDelta, ver finishActionVector).
+interface DecisionBase {
+  context: number[];
+  baseScore: number;
+}
+
+function decisionBase(state: GameState, player: Player): DecisionBase {
+  return {
+    context: encodePlayerContext(state, player),
+    baseScore: scoreCollection(player, fullCollection(player)),
+  };
+}
+
+// PV que sumaría de verdad comprar esta carta ahora mismo (ver
+// previewScoreDelta en scoring.ts), solo para buyAnimal: el resto de
+// acciones no añaden ninguna carta a la colección (buyCoin añade una moneda
+// de 0 PV; jugar una carta no cambia la colección). Misma escala /20 que el
+// retorno y el shaping del entrenamiento.
+function liveScoreDelta(base: DecisionBase, state: GameState, player: Player, action: Action): number {
+  if (action.type !== 'buyAnimal') return 0;
+  const card = actingCard(state, player, action);
+  if (!card) return 0;
+  return previewScoreDelta(player, card, base.baseScore) / 20;
+}
+
 // Parte del vector que sí depende de LA ACCIÓN candidata (a diferencia de
 // encodePlayerContext, que es igual para todas las acciones de una misma
 // decisión — ver encodeActionsForPlayer más abajo, que aprovecha eso).
-function finishActionVector(context: number[], state: GameState, player: Player, action: Action): number[] {
+function finishActionVector(base: DecisionBase, state: GameState, player: Player, action: Action): number[] {
   const features = [
-    ...context,
+    ...base.context,
     ...actionTypeOneHot(action),
     ...encodeCardBlock(actingCard(state, player, action)),
+    liveScoreDelta(base, state, player, action),
     ...encodeTargetBlock(targetCard(state, player, action)),
     ...encodeTargetBlock(secondaryTargetCard(state, action)),
     ...encodeTargetBlock(topOfOwnDeck(player)),
@@ -313,7 +357,7 @@ function finishActionVector(context: number[], state: GameState, player: Player,
 export function encodeAction(state: GameState, playerId: string, action: Action): number[] {
   const player = state.players.find((p) => p.id === playerId);
   if (!player) return new Array(FEATURE_DIM).fill(0);
-  return finishActionVector(encodePlayerContext(state, player), state, player, action);
+  return finishActionVector(decisionBase(state, player), state, player, action);
 }
 
 // Puntuar TODAS las acciones legales de una misma decisión es el caso más
@@ -328,6 +372,6 @@ export function encodeAction(state: GameState, playerId: string, action: Action)
 export function encodeActionsForPlayer(state: GameState, playerId: string, actions: Action[]): number[][] {
   const player = state.players.find((p) => p.id === playerId);
   if (!player) return actions.map(() => new Array(FEATURE_DIM).fill(0));
-  const context = encodePlayerContext(state, player);
-  return actions.map((action) => finishActionVector(context, state, player, action));
+  const base = decisionBase(state, player);
+  return actions.map((action) => finishActionVector(base, state, player, action));
 }

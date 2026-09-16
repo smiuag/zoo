@@ -46,6 +46,7 @@ declare const process: {
   env: Record<string, string | undefined>;
   argv: string[];
   pid: number;
+  exitCode: number | undefined;
   execPath: string;
   stdin: unknown;
   stdout: { write(data: string): void };

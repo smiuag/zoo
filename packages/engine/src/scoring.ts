@@ -52,7 +52,15 @@ export function scorePlayer(state: GameState, player: Player): number {
   // Fase 2: con la colección ya depurada, se suman los PV base y el resto
   // de efectos onScore. Todos los animales puntúan estén donde estén
   // (mazo, mano o descarte) — igual que monedas y empleados.
-  const allCards = collectAllCards(player);
+  return scoreCollection(player, collectAllCards(player));
+}
+
+// Fase 2 de scorePlayer sobre una lista de cartas dada: PV base + efectos
+// onScore NO destructivos. Pura: no toca ninguna zona del jugador (solo lee
+// player para los efectos que miran algo suyo, p. ej. destroyedCards). Se
+// exporta para poder puntuar colecciones HIPOTÉTICAS (ver previewScoreDelta)
+// sin pasar por la fase destructiva.
+export function scoreCollection(player: Player, allCards: CardInstance[]): number {
   let total = allCards.reduce((sum, card) => sum + card.victoryPoints, 0);
   for (const card of allCards) {
     for (const effect of card.effects.filter(
@@ -61,8 +69,24 @@ export function scorePlayer(state: GameState, player: Player): number {
       total += resolveScoreEffect(player, effect, allCards, card);
     }
   }
-
   return total;
+}
+
+// Cuántos PV sumaría AHORA MISMO añadir `card` a la colección del jugador,
+// contando todos los efectos onScore de la colección entera: no solo lo que
+// aporta la propia carta (PV impreso + su efecto acumulativo, p. ej. Tucán =
+// 1 por cada animal de coste 5+ ya tenido), sino también lo que hace crecer
+// a otras cartas que ya se tienen (comprar cualquier coste 5+ suma +1 por
+// cada Tucán en la colección; un terrestre, +1 por cada Oso polar...). Pura,
+// nunca resuelve el Cocodrilo. La usa el rlBot como feature (ver
+// features.ts): en el último turno es el valor exacto de la compra; antes,
+// un suelo (la colección solo crece). `baseScore` permite pasar
+// scoreCollection(player, current) ya calculado cuando se evalúan muchas
+// cartas candidatas sobre la misma colección.
+export function previewScoreDelta(player: Player, card: CardInstance, baseScore?: number): number {
+  const current = collectAllCards(player);
+  const base = baseScore ?? scoreCollection(player, current);
+  return scoreCollection(player, [...current, card]) - base;
 }
 
 export interface PlayerScore {
