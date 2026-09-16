@@ -12,7 +12,7 @@ import type { Bot } from '../../src/bots/types';
 import { getCard } from '../../src/cards/registry';
 import type { Card } from '../../src/cards/schema';
 import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer, type Action } from '../../src/engine';
-import { filterUpgradeChoicesForRl, legalActionsForBot } from '../../src/bots/actionPriority';
+import { filterActionsByHabitat, filterUpgradeChoicesForRl, legalActionsForBot } from '../../src/bots/actionPriority';
 import type { GameState } from '../../src/model/state';
 import { scoreGame, scorePlayer, type PlayerScore } from '../../src/scoring';
 import { accumulateGrad, softmax, zeroGrad, type Gradient } from './train';
@@ -81,11 +81,7 @@ export const SCALER_CALIBRATION: Record<string, number> = (
 
 export function filterActionsForHabitat(state: GameState, actions: Action[]): Action[] {
   if (!HABITAT_FILTER) return actions;
-  return actions.filter((a) => {
-    if (a.type !== 'buyAnimal') return true;
-    const animal = state.animalTrack.find((c) => c.instanceId === a.trackInstanceId);
-    return (animal?.habitats as string[] | undefined)?.includes(HABITAT_FILTER) ?? false;
-  });
+  return filterActionsByHabitat(state, actions, HABITAT_FILTER);
 }
 
 // Puntúa y elige, en modo greedy (temperature 0), entre las acciones legales

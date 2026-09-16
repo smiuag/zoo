@@ -352,6 +352,48 @@ async function main(): Promise<void> {
   } finally {
     for (const worker of workers) worker.kill();
   }
+
+  await recalibrateScalerValues();
+}
+
+// Norma pedida explícitamente por el usuario (2026-09-16): recalcular
+// scalerCalibration.json después de CADA entrenamiento, no solo a mano de
+// vez en cuando — si no, el valor de shaping de Águila/Orca/Oso polar/
+// Albatros/Tucán/Tiburón se queda anclado a como jugaba el bot mucho más
+// atrás y deja de reflejar lo que de verdad es capaz de acumular ahora.
+//
+// Tiene que ser un PROCESO NUEVO, no una llamada normal dentro de este
+// mismo proceso: rlBot.ts importa weights*.json como JSON estático al
+// arrancar (`import defaultWeightsJson from './rl/weights.json'`), así que
+// aunque este proceso acabe de guardar pesos nuevos en disco, sus propias
+// copias de rlBot/landRlBot/birdRlBot/aquaticRlBot seguirían siendo las de
+// cuando arrancó — calibrateScalerValues.ts en un proceso aparte los vuelve
+// a leer de disco desde cero y sí ve los recién guardados.
+async function recalibrateScalerValues(): Promise<void> {
+  console.log('Recalibrando scalerCalibration.json con los pesos recién guardados...');
+  await new Promise<void>((resolve) => {
+    // Anotado como ChildProcessWithoutNullStreams (igual que spawnWorker más
+    // arriba) solo para que TS resuelva bien las sobrecargas de .on(): no se
+    // toca stdout/stdin como stream en ningún momento, todo va con
+    // stdio:'inherit' (se ve directamente en esta terminal).
+    const child: ChildProcessWithoutNullStreams = spawn(
+      process.execPath,
+      [VITE_NODE_ENTRY, 'scripts/rl/calibrateScalerValues.ts'],
+      { cwd: ENGINE_DIR, env: process.env, stdio: ['inherit', 'inherit', 'inherit'] }
+    );
+    // Un fallo aquí no debe tirar el entrenamiento ya terminado y guardado:
+    // como mucho, la próxima tanda usa una calibración desactualizada, igual
+    // que pasaba antes de esta norma.
+    child.on('exit', () => resolve());
+    // TS en este proyecto no resuelve bien la sobrecarga de .on('error', ...)
+    // sobre ChildProcess (ver .on('exit', ...) arriba, que sí funciona sin
+    // más); en vez de pelear con el tipado exacto, se trata como un emisor
+    // de eventos genérico solo para esta línea.
+    (child as unknown as { on(event: 'error', listener: (err: Error) => void): void }).on('error', (err) => {
+      console.warn('No se pudo recalibrar scalerCalibration.json:', err);
+      resolve();
+    });
+  });
 }
 
 main();

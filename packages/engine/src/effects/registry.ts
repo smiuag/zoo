@@ -720,6 +720,24 @@ registerScoreEffect('scorePerDestroyedCard', (player, effect) => {
 // ningún PV, para que lo que destruyan no llegue a puntuar.
 export const DESTRUCTIVE_SCORE_EFFECT_TYPES = new Set(['destroyWeakestNonFlyingOnScore']);
 
+// Efectos onScore "acumulativos": 0 PV impreso, todo su valor depende de
+// cuánto acabe teniendo el resto de la colección al final de la partida
+// (hábitat, especies distintas, coste mínimo, cartas de moneda) — hoy
+// Águila/Orca/Oso polar (habitatCount), Albatros (distinctSpecies), Tucán
+// (costAtLeast) y Tiburón (coinCard). Lo usan calibrateScalerValues.ts (qué
+// cartas recalibrar) y filterActionsByHabitat en bots/actionPriority.ts (qué
+// cartas se libran del filtro de hábitat de los especialistas RL, pedido
+// explícito del usuario 2026-09-16: su valor no depende de encajar con tu
+// especialidad, así que vetarlas de raíz les impedía aprender si alguna vez
+// merece la pena hacerse con una de todas formas). Cualquier carta nueva con
+// uno de estos tipos se suma sola a ambos sitios, sin tocarlos.
+export const COMPOUNDING_SCORE_EFFECT_TYPES = new Set([
+  'scorePerHabitatCount',
+  'scorePerDistinctSpecies',
+  'scorePerCostAtLeast',
+  'scorePerCoinCard',
+]);
+
 // Cuánto vale REALMENTE una carta a la hora de puntuar: sus PV base más lo
 // que le sumen sus propios efectos onScore no destructivos (p. ej. el bonus
 // de hábitat de la Orca/Oso polar/Albatros, o el de especies distintas del

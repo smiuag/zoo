@@ -1,4 +1,5 @@
 import { getLegalActions, type Action } from '../engine';
+import { COMPOUNDING_SCORE_EFFECT_TYPES } from '../effects/registry';
 import { effectiveHand, type CardInstance, type GameState, type Player } from '../model/state';
 
 // Efectos que de verdad te dejan con más cartas en la mano de las que
@@ -40,6 +41,31 @@ export function legalActionsForBot(state: GameState, playerId: string): Action[]
   if (playActions.length > 0) return playActions;
 
   return actions;
+}
+
+function hasCompoundingScoreEffect(card: CardInstance): boolean {
+  return card.effects.some((e) => e.trigger === 'onScore' && COMPOUNDING_SCORE_EFFECT_TYPES.has(e.type));
+}
+
+// Filtra buyAnimal a un solo hábitat (especialistas de RL, ver
+// habitatFilter en rlBot.ts y HABITAT_FILTER en trainCore.ts), con UNA
+// excepción: cartas con un efecto onScore "acumulativo" (Águila/Orca/Oso
+// polar/Albatros/Tucán/Tiburón, ver COMPOUNDING_SCORE_EFFECT_TYPES) se
+// pueden comprar aunque no encajen con el hábitat — pedido explícito del
+// usuario, 2026-09-16: su valor no depende de que la carta en sí sea de tu
+// hábitat (el bonus de la Orca es sobre TUS acuáticos, no sobre si Orca lo
+// es), así que vetarlas de raíz le impedía a cualquier especialista aprender
+// si alguna vez merece la pena hacerse con una de todas formas (por su otro
+// efecto onPlay, o para topear puntuación al final). Antes esta lógica vivía
+// duplicada e idéntica dentro de rlBot.ts; ahora la comparten ambos sitios.
+export function filterActionsByHabitat(state: GameState, actions: Action[], habitat: string): Action[] {
+  return actions.filter((action) => {
+    if (action.type !== 'buyAnimal') return true;
+    const animal = state.animalTrack.find((c) => c.instanceId === action.trackInstanceId);
+    if (!animal) return false;
+    if (hasCompoundingScoreEffect(animal)) return true;
+    return (animal.habitats as string[] | undefined)?.includes(habitat) ?? false;
+  });
 }
 
 function findCardById(state: GameState, player: Player, instanceId: string | undefined): CardInstance | undefined {

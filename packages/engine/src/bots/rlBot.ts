@@ -1,4 +1,4 @@
-import { filterUpgradeChoicesForRl, legalActionsForBot } from './actionPriority';
+import { filterActionsByHabitat, filterUpgradeChoicesForRl, legalActionsForBot } from './actionPriority';
 import { encodeActionsForPlayer, FEATURE_DIM } from './rl/features';
 import { createRandomWeights, deserializeWeights, forward, type RlWeights } from './rl/network';
 import type { Bot } from './types';
@@ -72,12 +72,7 @@ export function createRlBot(options: RlBotOptions = {}): Bot {
       // comprar teniendo mano por jugar.
       let actions = filterUpgradeChoicesForRl(state, playerId, legalActionsForBot(state, playerId));
       if (options.habitatFilter) {
-        const habitat = options.habitatFilter;
-        actions = actions.filter((action) => {
-          if (action.type !== 'buyAnimal') return true;
-          const animal = state.animalTrack.find((c) => c.instanceId === action.trackInstanceId);
-          return (animal?.habitats as string[] | undefined)?.includes(habitat) ?? false;
-        });
+        actions = filterActionsByHabitat(state, actions, options.habitatFilter);
       }
       if (actions.length === 0) return { type: 'endTurn' };
 
