@@ -1,5 +1,5 @@
 import { getLegalActions, type Action } from '../engine';
-import type { GameState } from '../model/state';
+import { effectiveHand, type CardInstance, type GameState, type Player } from '../model/state';
 
 // Efectos que de verdad te dejan con más cartas en la mano de las que
 // tenías ("Roba X cartas" en el texto de la carta): el mismo conjunto que
@@ -40,4 +40,41 @@ export function legalActionsForBot(state: GameState, playerId: string): Action[]
   if (playActions.length > 0) return playActions;
 
   return actions;
+}
+
+function findCardById(state: GameState, player: Player, instanceId: string | undefined): CardInstance | undefined {
+  if (!instanceId) return undefined;
+  return effectiveHand(player).find((c) => c.instanceId === instanceId) ?? state.animalTrack.find((c) => c.instanceId === instanceId);
+}
+
+// SOLO para los bots de RL (rlBot.ts en producción, trainCore.ts en
+// entrenamiento) — heuristicBot y los jugadores humanos siguen viendo TODAS
+// las combinaciones que de verdad permite el motor (getLegalActions), esta
+// función no las toca ahí. Pedido explícito del usuario, 2026-09-16: una
+// carta con returnAnimalForUpgrade (Flamenco) genera una acción por cada
+// combinación (animal que entregas × animal del mercado que recibes, hasta
+// maxCostDelta más caro) — casi todas dominadas por la de +maxCostDelta
+// exacto (si puedes conseguir algo hasta 2 más caro entregando la misma
+// carta, no hay motivo real para quedarte con uno +0/+1), y demasiado
+// parecidas entre sí para que la red aprenda a distinguirlas bien. Se
+// recorta a solo la mejora máxima posible por cada carta entregable. No
+// cambia FEATURE_DIM ni invalida pesos ya entrenados: solo reduce qué
+// acciones se ofrecen a elegir/aprender, ni una feature nueva de por medio.
+export function filterUpgradeChoicesForRl(state: GameState, playerId: string, actions: Action[]): Action[] {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return actions;
+
+  return actions.filter((action) => {
+    if (action.type !== 'playCard' || !action.secondaryTargetInstanceId) return true;
+    const card = effectiveHand(player).find((c) => c.instanceId === action.instanceId);
+    const effect = card?.effects.find((e) => e.trigger === 'onPlay' && e.type === 'returnAnimalForUpgrade');
+    if (!effect) return true;
+
+    const source = findCardById(state, player, action.targetInstanceId);
+    const destination = findCardById(state, player, action.secondaryTargetInstanceId);
+    if (!source || !destination) return true;
+
+    const maxCostDelta = typeof effect.params?.maxCostDelta === 'number' ? effect.params.maxCostDelta : 1;
+    return (destination.marketCost ?? 0) === (source.marketCost ?? 0) + maxCostDelta;
+  });
 }

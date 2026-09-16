@@ -14,7 +14,7 @@ import { createRandomWeights, deserializeWeights, serializeWeights, type RlWeigh
 import type { Bot } from '../../src/bots/types';
 import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer } from '../../src/engine';
 import { scoreGame } from '../../src/scoring';
-import { addGrad, applyGrad, deserializeGradient, zeroGrad } from './train';
+import { addGrad, applyGradAdam, createAdamState, deserializeGradient, scaleGrad, zeroGrad, type AdamState } from './train';
 import {
   buildStarterDeck,
   chooseLearnerAction,
@@ -168,7 +168,12 @@ function mergeEpisodeResults(results: EpisodeBatchResult[], weights: RlWeights, 
 // |ventaja| (cuánto se equivocaba el crítico de media, en valor absoluto —
 // baja con el entrenamiento si el crítico aprende bien) y la media de
 // retorno crudo (a título informativo, sin más).
-async function trainBatch(weights: RlWeights, criticWeights: RlWeights): Promise<{ avgAbsAdvantage: number; avgReturn: number }> {
+async function trainBatch(
+  weights: RlWeights,
+  criticWeights: RlWeights,
+  policyAdam: AdamState,
+  criticAdam: AdamState
+): Promise<{ avgAbsAdvantage: number; avgReturn: number }> {
   const shares = splitEvenly(EPISODES_PER_BATCH, WORKER_COUNT + 1);
   const serializedWeights = serializeWeights(weights);
   const serializedCriticWeights = serializeWeights(criticWeights);
@@ -188,14 +193,20 @@ async function trainBatch(weights: RlWeights, criticWeights: RlWeights): Promise
 
   const merged = mergeEpisodeResults([ownResult, ...workerResults], weights, criticWeights);
 
-  applyGrad(weights, merged.grad, LEARNING_RATE / Math.max(1, merged.episodesUsed));
+  // Adam necesita ver la MEDIA del batch, no la suma cruda de
+  // episodios/pasos (ver scaleGrad en train.ts): sus medias móviles de
+  // magnitud del gradiente (m/v) deben ser comparables de un batch a otro,
+  // y episodesUsed/stepCount varían ligeramente según duren las partidas.
+  scaleGrad(merged.grad, 1 / Math.max(1, merged.episodesUsed));
+  applyGradAdam(weights, merged.grad, policyAdam, LEARNING_RATE);
   // Normalizado por stepCount (número de decisiones, no de episodios): es
   // una regresión de error cuadrático sobre cada paso, no un gradiente de
   // política por episodio, así que promediar por episodio infla el tamaño
   // real del paso en un factor igual a "pasos por episodio" (~20-40x) —
   // justo lo que causaba una divergencia vista en producción (ver
   // ADVANTAGE_CLIP en trainCore.ts).
-  applyGrad(criticWeights, merged.criticGrad, CRITIC_LR / Math.max(1, merged.stepCount));
+  scaleGrad(merged.criticGrad, 1 / Math.max(1, merged.stepCount));
+  applyGradAdam(criticWeights, merged.criticGrad, criticAdam, CRITIC_LR);
 
   return {
     avgAbsAdvantage: merged.stepCount > 0 ? merged.sumAbsAdvantage / merged.stepCount : 0,
@@ -308,6 +319,11 @@ async function saveWeightsWithRetry(weights: RlWeights, path: string, attempts =
 async function main(): Promise<void> {
   const weights = loadOrInitWeights(WEIGHTS_PATH, FEATURE_DIM, HIDDEN_SIZE);
   const criticWeights = loadOrInitWeights(CRITIC_PATH, CRITIC_FEATURE_DIM, CRITIC_HIDDEN_SIZE);
+  // Estado de Adam (ver train.ts): vive solo en memoria de este proceso, no
+  // se guarda en weights*.json — cada invocación de train:rl arranca sus
+  // medias móviles desde cero aunque continúe unos pesos ya entrenados.
+  const policyAdam = createAdamState(weights.featureDim, weights.hiddenSize);
+  const criticAdam = createAdamState(criticWeights.featureDim, criticWeights.hiddenSize);
 
   const habitatLabel = HABITAT_FILTER ? ` (especialista: solo compra ${HABITAT_FILTER})` : '';
   console.log(
@@ -316,7 +332,7 @@ async function main(): Promise<void> {
 
   try {
     for (let batch = 0; batch < TOTAL_BATCHES; batch++) {
-      const { avgAbsAdvantage, avgReturn } = await trainBatch(weights, criticWeights);
+      const { avgAbsAdvantage, avgReturn } = await trainBatch(weights, criticWeights, policyAdam, criticAdam);
 
       if (batch % EVAL_EVERY === 0 || batch === TOTAL_BATCHES - 1) {
         const winrateVsHeuristic = evaluate(weights, heuristicBot, EVAL_GAMES);

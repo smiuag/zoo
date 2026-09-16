@@ -12,7 +12,7 @@ import type { Bot } from '../../src/bots/types';
 import { getCard } from '../../src/cards/registry';
 import type { Card } from '../../src/cards/schema';
 import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer, type Action } from '../../src/engine';
-import { legalActionsForBot } from '../../src/bots/actionPriority';
+import { filterUpgradeChoicesForRl, legalActionsForBot } from '../../src/bots/actionPriority';
 import type { GameState } from '../../src/model/state';
 import { scoreGame, scorePlayer, type PlayerScore } from '../../src/scoring';
 import { accumulateGrad, softmax, zeroGrad, type Gradient } from './train';
@@ -91,7 +91,7 @@ export function filterActionsForHabitat(state: GameState, actions: Action[]): Ac
 // Puntúa y elige, en modo greedy (temperature 0), entre las acciones legales
 // ya filtradas por hábitat. Solo lo usa evaluate() en selfPlay.ts.
 export function chooseLearnerAction(state: GameState, playerId: string, weights: RlWeights): Action {
-  const actions = filterActionsForHabitat(state, legalActionsForBot(state, playerId));
+  const actions = filterUpgradeChoicesForRl(state, playerId, filterActionsForHabitat(state, legalActionsForBot(state, playerId)));
   if (actions.length === 0) return { type: 'endTurn' };
   const scores = encodeActionsForPlayer(state, playerId, actions).map((x) => forward(weights, x).score);
   const best = Math.max(...scores);
@@ -186,7 +186,7 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
     // comprar, y robar antes que cualquier otra carta — aplicada aquí para
     // que el propio aprendiz nunca vea (ni pueda aprender a elegir) comprar
     // teniendo mano por jugar, exactamente igual que cualquier otro bot.
-    const actions = filterActionsForHabitat(state, legalActionsForBot(state, player.id));
+    const actions = filterUpgradeChoicesForRl(state, player.id, filterActionsForHabitat(state, legalActionsForBot(state, player.id)));
     if (actions.length === 0) break;
 
     const allFeatures = encodeActionsForPlayer(state, player.id, actions);

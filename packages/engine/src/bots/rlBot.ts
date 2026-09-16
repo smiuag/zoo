@@ -1,4 +1,4 @@
-import { legalActionsForBot } from './actionPriority';
+import { filterUpgradeChoicesForRl, legalActionsForBot } from './actionPriority';
 import { encodeActionsForPlayer, FEATURE_DIM } from './rl/features';
 import { createRandomWeights, deserializeWeights, forward, type RlWeights } from './rl/network';
 import type { Bot } from './types';
@@ -70,7 +70,7 @@ export function createRlBot(options: RlBotOptions = {}): Bot {
       // del filtro de hábitat de abajo (que solo recorta compras) y antes
       // de que la red puntúe nada, así que nunca puede aprender/elegir
       // comprar teniendo mano por jugar.
-      let actions = legalActionsForBot(state, playerId);
+      let actions = filterUpgradeChoicesForRl(state, playerId, legalActionsForBot(state, playerId));
       if (options.habitatFilter) {
         const habitat = options.habitatFilter;
         actions = actions.filter((action) => {

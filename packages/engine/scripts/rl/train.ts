@@ -101,6 +101,11 @@ export function deserializeGradient(raw: RawGradient): Gradient {
   };
 }
 
+// SGD plano: cada actualización solo mira el gradiente de ESTE batch. Con
+// self-play (gradiente ruidoso, solo unas pocas decenas de episodios por
+// batch) esto da bandazos — ver applyGradAdam más abajo, que es lo que usa
+// selfPlay.ts de verdad. Se mantiene por si hace falta comparar contra la
+// baseline sin momentum/adaptación.
 export function applyGrad(weights: RlWeights, grad: Gradient, learningRate: number): void {
   for (let j = 0; j < weights.hiddenSize; j++) {
     weights.b1[j] += learningRate * grad.b1[j];
@@ -110,4 +115,79 @@ export function applyGrad(weights: RlWeights, grad: Gradient, learningRate: numb
     for (let i = 0; i < weights.featureDim; i++) row[i] += learningRate * gradRow[i];
   }
   weights.b2 += learningRate * grad.b2;
+}
+
+// Multiplica `grad` in-place por `factor` — se usa para pasar de "suma de
+// gradiente de todos los episodios/pasos de este batch" a "media", ANTES de
+// dárselo a Adam: sus medias móviles (m/v, ver AdamState) necesitan ver una
+// magnitud de gradiente consistente entre batches, y episodesUsed/stepCount
+// varía ligeramente de un batch a otro (duraciones de partida distintas).
+export function scaleGrad(grad: Gradient, factor: number): void {
+  grad.b2 *= factor;
+  for (let j = 0; j < grad.w1.length; j++) {
+    grad.b1[j] *= factor;
+    grad.w2[j] *= factor;
+    const row = grad.w1[j];
+    for (let i = 0; i < row.length; i++) row[i] *= factor;
+  }
+}
+
+// Adam (Kingma & Ba 2014): momentum (media móvil del gradiente, `m`) +
+// tasa de aprendizaje adaptada POR PESO según cuánto ha variado su
+// gradiente históricamente (media móvil del gradiente al cuadrado, `v`).
+// Un peso con gradientes grandes/ruidosos frena solo; uno con gradientes
+// pequeños/tranquilos acelera solo — sin tener que buscar a mano una única
+// tasa de aprendizaje que le venga bien a la vez a la columna de "coste" (
+// gradiente en cada decisión) y a la de un tipo de efecto raro (gradiente
+// solo cuando aparece esa carta exacta). betas/epsilon son los valores por
+// defecto de siempre (Kingma & Ba), rara vez hace falta tocarlos.
+//
+// Vive en memoria del proceso, nunca se guarda en weights*.json: cada
+// invocación de train:rl arranca sus medias móviles desde cero (m=v=0,
+// t=0), incluso si continúa unos pesos ya entrenados de una tanda anterior
+// — un pequeño "arranque en frío" de un puñado de batches, no una pérdida
+// real (a diferencia de los propios pesos, que si se guardan).
+const ADAM_BETA1 = 0.9;
+const ADAM_BETA2 = 0.999;
+const ADAM_EPSILON = 1e-8;
+
+export interface AdamState {
+  m: Gradient;
+  v: Gradient;
+  t: number;
+}
+
+export function createAdamState(featureDim: number, hiddenSize: number): AdamState {
+  return { m: zeroGrad(featureDim, hiddenSize), v: zeroGrad(featureDim, hiddenSize), t: 0 };
+}
+
+function adamStep(w: Float64Array, g: Float64Array, m: Float64Array, v: Float64Array, lr: number, bc1: number, bc2: number): void {
+  for (let i = 0; i < w.length; i++) {
+    m[i] = ADAM_BETA1 * m[i] + (1 - ADAM_BETA1) * g[i];
+    v[i] = ADAM_BETA2 * v[i] + (1 - ADAM_BETA2) * g[i] * g[i];
+    const mHat = m[i] / bc1;
+    const vHat = v[i] / bc2;
+    w[i] += lr * (mHat / (Math.sqrt(vHat) + ADAM_EPSILON));
+  }
+}
+
+// `grad` debe ser ya la MEDIA del batch (ver scaleGrad arriba), no la suma
+// cruda de accumulateGrad/addGrad.
+export function applyGradAdam(weights: RlWeights, grad: Gradient, adam: AdamState, learningRate: number): void {
+  adam.t += 1;
+  const bc1 = 1 - ADAM_BETA1 ** adam.t;
+  const bc2 = 1 - ADAM_BETA2 ** adam.t;
+
+  for (let j = 0; j < weights.hiddenSize; j++) {
+    adamStep(weights.w1[j], grad.w1[j], adam.m.w1[j], adam.v.w1[j], learningRate, bc1, bc2);
+  }
+  adamStep(weights.b1, grad.b1, adam.m.b1, adam.v.b1, learningRate, bc1, bc2);
+  adamStep(weights.w2, grad.w2, adam.m.w2, adam.v.w2, learningRate, bc1, bc2);
+
+  // b2 es un escalar, no un Float64Array: mismo cálculo pero sin bucle.
+  adam.m.b2 = ADAM_BETA1 * adam.m.b2 + (1 - ADAM_BETA1) * grad.b2;
+  adam.v.b2 = ADAM_BETA2 * adam.v.b2 + (1 - ADAM_BETA2) * grad.b2 * grad.b2;
+  const mHatB2 = adam.m.b2 / bc1;
+  const vHatB2 = adam.v.b2 / bc2;
+  weights.b2 += learningRate * (mHatB2 / (Math.sqrt(vHatB2) + ADAM_EPSILON));
 }
