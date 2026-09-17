@@ -20,6 +20,7 @@ import {
   chooseLearnerAction,
   EPSILON,
   FLOOR_WEIGHT,
+  SHAPING_WEIGHT,
   HABITAT_FILTER,
   MAX_ACTIONS_PER_GAME,
   randomMaxRounds,
@@ -290,7 +291,7 @@ async function main(): Promise<void> {
 
   const habitatLabel = HABITAT_FILTER ? ` (especialista: solo compra ${HABITAT_FILTER})` : '';
   console.log(
-    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, optimizador=${POLICY_OPTIMIZER}, max_norm_w1=${MAX_NORM_W1}, max_norm_w2=${MAX_NORM_W2}, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, epsilon=${EPSILON}, floor_weight=${FLOOR_WEIGHT}, workers=${WORKER_COUNT}`
+    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, optimizador=${POLICY_OPTIMIZER}, max_norm_w1=${MAX_NORM_W1}, max_norm_w2=${MAX_NORM_W2}, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, epsilon=${EPSILON}, shaping=${SHAPING_WEIGHT}, floor_weight=${FLOOR_WEIGHT}, workers=${WORKER_COUNT}`
   );
 
   try {

@@ -31,7 +31,17 @@ export const ADVANTAGE_CLIP = 5;
 // vivo que produce comprar un animal, sumado a la ventaja que mueve la
 // política (nunca al objetivo del crítico, que predice el retorno real de
 // fin de partida). Ver memoria rl_manual_card_boost_no_improvement.md.
-export const SHAPING_WEIGHT = Number(process.env.RL_SHAPING_WEIGHT ?? 1);
+// Por defecto 3 desde el 2026-09-17: con peso 1, tras 8000 batches el bot
+// general seguía puntuando el Tucán en -48 (Tigre 97) en un mazo con 11
+// animales de coste 5+, donde vale 13 PV reales; con peso 3, 8000 batches
+// más lo dejaron como primera opción (104.4 vs 102.0) y la versión
+// resultante ganó el 80% de 200 duelos a la anterior (100% vs heuristicBot).
+// Aves y acuático también mejoraron con 3 (63% y 59% de duelos contra sus
+// versiones con peso 1). El motivo: la ventaja terminal de una decisión
+// suelta es muy ruidosa (|A| medio ~1 con resultado de partida a 4), y este
+// término es la única señal limpia por decisión de "esta compra vale X PV
+// ahora".
+export const SHAPING_WEIGHT = Number(process.env.RL_SHAPING_WEIGHT ?? 3);
 
 // Exploración epsilon-greedy (2026-09-16): con esta probabilidad, la acción
 // del aprendiz se elige UNIFORME entre las candidatas en vez de muestrear
@@ -46,7 +56,17 @@ export const SHAPING_WEIGHT = Number(process.env.RL_SHAPING_WEIGHT ?? 1);
 // el gradiente de la acción elegida es (1-p_k)·ventaja ≈ ventaja, sea cual
 // sea su score actual. Off-policy leve, aceptable con epsilon pequeño (la
 // ventaja ya va recortada a ±ADVANTAGE_CLIP).
-export const EPSILON = Number(process.env.RL_EPSILON ?? 0.1);
+//
+// 0.05 para el especialista terrestre (2026-09-17): con 0.1 degeneró dos
+// veces en condiciones idénticas a aves/acuático (scores de todas las
+// compras comprimidos en 2-3 puntos, 20-28% de unidades saturadas, margen
+// -3); con 0.05 completó 8000 batches sano (1% saturación, margen positivo)
+// y ganó el 72% de 200 duelos a su versión de partida. Es el hábitat con
+// más especies candidatas por decisión y el que más compite con el bot
+// general por las mismas cartas, así que sus acciones forzadas son más
+// ruido que señal. RL_EPSILON lo sobreescribe para cualquier variante.
+const DEFAULT_EPSILON = process.env.RL_HABITAT === 'land' ? 0.05 : 0.1;
+export const EPSILON = Number(process.env.RL_EPSILON ?? DEFAULT_EPSILON);
 
 // Suelo blando (2026-09-16), DESACTIVADO por defecto: en cada decisión de
 // compra, cualquier buyAnimal cuyo score quede por debajo del de endTurn
