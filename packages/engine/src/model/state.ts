@@ -180,14 +180,65 @@ export function shuffle<T>(items: T[]): T[] {
   return arr;
 }
 
+// PRNG determinista (mulberry32): mismo seed => misma secuencia siempre.
+// Solo la usa reshuffleDiscardIntoDeck (ver más abajo) — el resto de
+// barajados (mazo inicial, mazos compartidos de especie) siguen usando
+// shuffle() con Math.random() de verdad, sin ningún motivo para cambiarlos.
+function mulberry32(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seededShuffle<T>(items: T[], seed: number): T[] {
+  const arr = [...items];
+  const rand = mulberry32(seed);
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Repone el mazo personal desde el descarte cuando se vacía a mitad de un
+// robo. Determinista a partir de la FORMA del mazo/descarte del propio
+// jugador en ese instante (tamaños + compras hechas), NO de Math.random():
+// el Tigre (drawThenTopdeck) necesita simular este mismo robo dos veces —
+// una para ofrecer al jugador qué carta puede dejar encima del mazo
+// (drawThenTopdeckTargetSpecs en engine.ts, sobre una COPIA del jugador,
+// para no mutar la partida de verdad solo por consultar las acciones
+// legales) y otra al aplicar la acción elegida de verdad (drawThenTopdeck
+// en effects/registry.ts, ya con la propia carta jugada sacada de la mano
+// y en player.playedThisTurn — ver playCard) — con Math.random() cada
+// llamada barajaba distinto, así que la carta que el jugador elegía dejar
+// encima podía no ser ninguna de las que de verdad acababan en su mano,
+// dejando una en la mano que no estaba entre las opciones ofrecidas.
+// Deliberadamente NO se usa player.hand.length en el seed: es precisamente
+// lo único que cambia entre esas dos llamadas (playCard ya ha sacado la
+// carta jugada de la mano para la segunda), así que incluirlo rompería la
+// propia consistencia que esto busca — deck/discard/purchasesCount no se
+// tocan hasta después. Sigue siendo "aleatorio" de una reposición a la
+// siguiente porque el propio descarte a barajar ya es distinto cada vez
+// (más cartas, otra composición), no porque el PRNG cambie de seed por las
+// buenas.
+function reshuffleDiscardIntoDeck(player: Player): void {
+  const seed = player.purchasesCount * 97 + player.discard.length * 31 + player.deck.length * 13 + 1;
+  player.deck = seededShuffle(player.discard, seed);
+  player.discard = [];
+}
+
 // El "final" del mazo (índice más alto) es la cima: robar hace pop(),
 // guardar/devolver una carta encima del mazo hace push().
 export function drawCards(player: Player, count: number): void {
   for (let i = 0; i < count; i++) {
     if (player.deck.length === 0) {
       if (player.discard.length === 0) return;
-      player.deck = shuffle(player.discard);
-      player.discard = [];
+      reshuffleDiscardIntoDeck(player);
     }
     const card = player.deck.pop();
     if (card) player.hand.push(card);

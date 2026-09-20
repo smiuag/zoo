@@ -377,6 +377,40 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(targets).toEqual([existing.instanceId, drawn1.instanceId, drawn2.instanceId].sort());
   });
 
+  it('tigre: si el robo necesita rebarajar el descarte a mitad, la carta elegida en getLegalActions es la que de verdad acaba en la mano', () => {
+    // Regresión: drawThenTopdeckTargetSpecs (para ofrecer las opciones) y el
+    // propio efecto al aplicarse (drawThenTopdeck en registry.ts) llaman los
+    // dos a drawCards por separado. Antes, cuando el mazo se quedaba corto a
+    // mitad del robo, cada llamada rebarajaba el descarte con Math.random()
+    // de forma independiente, así que la carta ofrecida como "puedes dejarla
+    // encima" podía no ser ninguna de las que de verdad se robaban, dejando
+    // en la mano una carta que nunca apareció entre las opciones.
+    const { state, player } = setupClean();
+    player.deck = [freshInstance('rabbit', 'd1')]; // 1 sola carta: hace falta rebarajar para la 2ª
+    player.discard = ['snake', 'owl', 'raven', 'giraffe', 'hyena', 'elephant'].map((id, i) => freshInstance(id, `disc${i}`));
+    const tiger = freshInstance('tiger', 'test');
+    const coin = freshInstance('coin-1', 'c1');
+    player.hand = [tiger, coin];
+
+    // Pedir las opciones varias veces (como hace la UI en cada render) debe
+    // dar siempre el mismo resultado, no uno distinto cada vez.
+    const optionsPerCall = Array.from({ length: 5 }, () =>
+      getLegalActions(state, player.id)
+        .filter((a): a is Extract<typeof a, { type: 'playCard' }> => a.type === 'playCard' && a.instanceId === tiger.instanceId)
+        .map((a) => a.targetInstanceId)
+    );
+    expect(new Set(optionsPerCall.map((o) => JSON.stringify(o))).size).toBe(1);
+
+    // La carta recién robada que se ofrece como opción (ni la moneda ni el
+    // conejo, que ya se conocían de antemano) debe ser justo la que de
+    // verdad quede en la mano si se elige otra distinta a ella.
+    const drawnOption = optionsPerCall[0].find((id) => id !== coin.instanceId && id !== 'rabbit#d1')!;
+    playCard(state, player.id, tiger.instanceId, coin.instanceId); // deja la moneda encima, no la recién robada
+
+    expect(player.hand.map((c) => c.instanceId)).toContain(drawnOption);
+    expect(player.deck.map((c) => c.instanceId)).toContain(coin.instanceId);
+  });
+
   it('delfín: gana 1 moneda extra por cada animal acuático en su mano al jugarlo (se cuenta a sí mismo)', () => {
     const { state, player } = setupClean();
     const dolphin = freshInstance('dolphin', 'test'); // acuático: se cuenta a sí mismo
