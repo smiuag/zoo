@@ -6,6 +6,7 @@ import { GuestApp } from './components/GuestApp';
 import { OnlineWaitingRoom } from './components/OnlineWaitingRoom';
 import { Ranking } from './components/Ranking';
 import { ScoreCalculator } from './components/ScoreCalculator';
+import { ArtStyleProvider } from './lib/artStyle';
 import { createHostRoom, type CreatedRoom } from './online/createHostRoom';
 import { computePosition, recordGameResult, summarizeCollection, type GameMode } from './online/gameResults';
 import { useHostRoom } from './online/useHostRoom';
@@ -23,10 +24,15 @@ function useGuestRouteParams(): { roomCode: string; seatId: string; seatKey: str
 
 export default function App() {
   const guestParams = useGuestRouteParams();
-  if (guestParams) {
-    return <GuestApp roomCode={guestParams.roomCode} seatId={guestParams.seatId} seatKey={guestParams.seatKey} />;
-  }
-  return <HostOrLocalApp />;
+  return (
+    <ArtStyleProvider>
+      {guestParams ? (
+        <GuestApp roomCode={guestParams.roomCode} seatId={guestParams.seatId} seatKey={guestParams.seatKey} />
+      ) : (
+        <HostOrLocalApp />
+      )}
+    </ArtStyleProvider>
+  );
 }
 
 function HostOrLocalApp() {
@@ -273,6 +279,11 @@ function HostOrLocalApp() {
         mode: 'online',
         status: replayStatus,
         viewerSeatId: 'human-0',
+        // Repetir exige que todos los invitados humanos sigan conectados
+        // (ver useHostRoom.ts): si alguien cerró la pestaña, proponer o
+        // aceptar no serviría de nada, así que el botón lo refleja en vez de
+        // fallar en silencio al pulsarlo.
+        allGuestsConnected: onlineRoom.seats.every((seat) => connectedSeatIds.has(seat.seatId)),
         onPropose: () => proposeReplay('human-0', state.players.find((p) => p.id === 'human-0')?.name ?? 'Host'),
         onRespond: (accept) => respondReplay('human-0', accept),
       }

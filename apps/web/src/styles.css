@@ -4,6 +4,10 @@
   --panel-border: #e3ddca;
   --ink: #2b2a28;
   --muted: #7a7364;
+  /* Un pelín más oscuro que --muted: para el tipo de hábitat bajo el icono
+     de la carta, ahora que es el único texto que queda ahí (sin el nombre)
+     y necesita leerse un poco mejor. */
+  --muted-dark: #5c5648;
   --accent: #2f6d4f;
   --accent-ink: #ffffff;
   --danger: #b3492f;
@@ -222,11 +226,11 @@ body {
   aspect-ratio: 76 / 112;
   padding: 0.3rem 0.25rem 0.6rem;
 }
-.card-row--hand .card__icon,
-.card-row--hand .card__icon-img {
+.card-row--hand .card__icon--emoji,
+.card-row--hand .card__emoji-img {
   font-size: 1.7rem;
 }
-.card-row--hand .card__icon-img {
+.card-row--hand .card__emoji-img {
   width: 1.7rem;
   height: 1.7rem;
 }
@@ -601,8 +605,12 @@ body {
   --card-h: var(--card-compact-h);
   padding: 0.25rem;
 }
-.card--compact .card__icon {
+.card--compact .card__icon--emoji {
   font-size: 1.7rem;
+}
+.card--compact .card__emoji-img {
+  width: 1.7rem;
+  height: 1.7rem;
 }
 .card--compact .card__name {
   font-size: 0.58rem;
@@ -698,26 +706,52 @@ body {
   color: var(--danger);
 }
 
+/* flex:1 le da todo el alto que sobra entre .card__top y .card__footer;
+   align-self:stretch (el padre .card centra en cruz por defecto) le da
+   también todo el ancho, para que la ilustración aproveche el hueco
+   entero en vez de quedarse a un tamaño fijo pequeño en el centro. */
 .card__icon {
-  font-size: 3.4rem;
-  line-height: 1;
   flex: 1;
+  min-height: 0;
+  align-self: stretch;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* PRUEBA Twemoji (ver CardView): tamaño equivalente al font-size de arriba
-   para que ocupe el mismo hueco que el emoji de texto que sustituye. */
-.card__icon-img {
+/* Modo emoji (ver isEmoji en CardView.tsx): tamaño tal cual estaba antes
+   de las ilustraciones — un carácter de texto a este font-size, o el SVG
+   de Twemoji (.card__emoji-img) al mismo tamaño para ocupar el mismo
+   hueco cuando el sistema no tiene el glifo nativo. */
+.card__icon--emoji {
+  font-size: 3.4rem;
+  line-height: 1;
+}
+.card__emoji-img {
   width: 3.4rem;
   height: 3.4rem;
 }
-.card--compact .card__icon-img {
-  width: 1.7rem;
-  height: 1.7rem;
+
+/* Ilustración real de la carta (ver cardImageUrl en cardVisuals.ts), ya sin
+   fondo (PNG con transparencia): ocupa el hueco de .card__icon en cualquier
+   contexto (mano, mesa compacta, mercado, móvil) sin necesitar una regla de
+   tamaño por contexto — object-fit:contain para no deformarla ni recortarla
+   ahora que no hay fondo que enmascare un recorte. Al 80% (no 100%) queda un
+   pelín más pequeña que el hueco entero, centrada por el flex del padre.
+   --icon-scale (ver cardIconScale en cardVisuals.ts, puesta inline por
+   carta) sube ese 80% base para las pocas ilustraciones que salen más
+   pequeñas de lo esperado tras su recorte (monedas, Tigre, León, Tucán);
+   el resto no define la variable y se queda en el 80% de siempre. */
+.card__icon-img {
+  width: calc(80% * var(--icon-scale, 1));
+  height: calc(80% * var(--icon-scale, 1));
+  object-fit: contain;
 }
 
+/* Solo en emoji (ver isEmoji en CardView.tsx): el nombre completo, ya que
+   ahí un emoji suelto no siempre basta para identificar la especie exacta
+   (aproximaciones temáticas como vulture/toucan). La imagen real no lo
+   necesita. */
 .card__name {
   font-size: 0.72rem;
   font-weight: 700;
@@ -746,8 +780,27 @@ body {
   max-width: 100%;
 }
 
+/* Solo en modo imagen (ver isEmoji en CardView.tsx): sin el nombre debajo,
+   el pie es el único texto que queda ahí y se lee mejor un pelín más
+   oscuro que el --muted de siempre (que sí sigue usando el modo emoji,
+   con el nombre justo encima). */
+.card__footer--muted-dark {
+  color: var(--muted-dark);
+}
+
 .card__gender {
   font-weight: 700;
+}
+
+/* Valor de captura de una moneda en modo imagen (ver .card__footer en
+   CardView.tsx): mucho más grande/marcado que el texto normal del pie,
+   porque el número grabado en la propia ilustración de la bellota no se
+   distingue bien a este tamaño. En emoji va como texto "vale N" normal
+   (ver isEmoji), el 🪙 de siempre nunca lo necesitó. */
+.card__coin-value {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #b8860b;
 }
 
 .card__badge {
@@ -867,12 +920,14 @@ body {
 
   /* El resto de tamaños de fuente de la carta son fijos en rem: sin esto,
      el texto de una carta de 96px de ancho se ve igual de grande que en
-     una de 128px, y no cabe. */
-  .card__icon,
-  .card__icon-img {
+     una de 128px, y no cabe. (.card__icon-img ya es 100%/100% de su hueco,
+     no necesita una regla de tamaño aparte aquí; .card__icon--emoji /
+     .card__emoji-img sí, ver más abajo.) */
+  .card__icon--emoji,
+  .card__emoji-img {
     font-size: 2.3rem;
   }
-  .card__icon-img {
+  .card__emoji-img {
     width: 2.3rem;
     height: 2.3rem;
   }
@@ -905,11 +960,11 @@ body {
   .card-row--hand {
     gap: 0.35rem;
   }
-  .card-row--hand .card__icon,
-  .card-row--hand .card__icon-img {
+  .card-row--hand .card__icon--emoji,
+  .card-row--hand .card__emoji-img {
     font-size: 1.5rem;
   }
-  .card-row--hand .card__icon-img {
+  .card-row--hand .card__emoji-img {
     width: 1.5rem;
     height: 1.5rem;
   }
@@ -917,11 +972,11 @@ body {
     font-size: 0.52rem;
   }
 
-  .card__icon,
-  .card__icon-img {
+  .card__icon--emoji,
+  .card__emoji-img {
     font-size: 1.7rem;
   }
-  .card__icon-img {
+  .card__emoji-img {
     width: 1.7rem;
     height: 1.7rem;
   }

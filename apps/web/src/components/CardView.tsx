@@ -1,6 +1,16 @@
 import { useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import type { CardInstance } from '@zoo/engine';
-import { cardAccentClass, cardIcon, habitatLabel, supportsEmojiNatively, twemojiUrl } from '../lib/cardVisuals';
+import { useArtStyle } from '../lib/artStyle';
+import {
+  cardAccentClass,
+  cardIcon,
+  cardIconScale,
+  cardImageUrl,
+  habitatLabel,
+  supportsEmojiNatively,
+  twemojiUrl,
+} from '../lib/cardVisuals';
 
 // PRUEBA: si ESTE sistema ya tiene un glifo de verdad para el emoji (ver
 // supportsEmojiNatively), se usa el carácter nativo tal cual — cada uno ve
@@ -11,7 +21,7 @@ import { cardAccentClass, cardIcon, habitatLabel, supportsEmojiNatively, twemoji
 function EmojiIcon({ emoji }: { emoji: string }) {
   const [failed, setFailed] = useState(false);
   if (failed || supportsEmojiNatively(emoji)) return <>{emoji}</>;
-  return <img className="card__icon-img" src={twemojiUrl(emoji)} alt={emoji} draggable={false} onError={() => setFailed(true)} />;
+  return <img className="card__emoji-img" src={twemojiUrl(emoji)} alt={emoji} draggable={false} onError={() => setFailed(true)} />;
 }
 
 interface CardViewProps {
@@ -94,10 +104,16 @@ export function CardView({
 }: CardViewProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  const [artStyle] = useArtStyle();
   const clickable = Boolean(onClick) && !disabled && !destroyed;
+  const isEmoji = artStyle === 'emoji';
   const bits: string[] = [];
   if (card.type === 'animal') bits.push(habitatLabel(card));
-  if (card.value) bits.push(`vale ${card.value}`);
+  // El "+N" dorado (ver .card__coin-value) es una ayuda pensada para las
+  // ilustraciones nuevas, que ya no llevan el número grabado encima; en
+  // emoji, el 🪙 de siempre nunca lo necesitó — se vuelve al texto "vale N"
+  // de toda la vida, igual que en el resto del pie.
+  if (isEmoji && card.value) bits.push(`vale ${card.value}`);
 
   const classNames = ['card', cardAccentClass(card)];
   if (disabled) classNames.push('card--disabled');
@@ -139,11 +155,33 @@ export function CardView({
           </span>
         )}
       </div>
-      <div className="card__icon">
-        <EmojiIcon emoji={cardIcon(card)} />
+      <div className={`card__icon${isEmoji ? ' card__icon--emoji' : ''}`}>
+        {isEmoji ? (
+          <EmojiIcon emoji={cardIcon(card)} />
+        ) : (
+          <img
+            className="card__icon-img"
+            src={cardImageUrl(card)}
+            alt={card.name}
+            draggable={false}
+            style={{ '--icon-scale': cardIconScale(card) } as CSSProperties}
+          />
+        )}
       </div>
-      <div className="card__name">{card.name}</div>
-      <div className="card__footer">{bits.join(' · ')}</div>
+      {/* El nombre solo se repite aparte en emoji (tal y como estaba antes
+          de las ilustraciones): un emoji por sí solo no siempre basta para
+          identificar la especie (p. ej. vulture/toucan usan una
+          aproximación temática, ver SPECIES_ICONS). Con la imagen real ya
+          no hace falta, así que ese sitio se queda para el hábitat. */}
+      {isEmoji && <div className="card__name">{card.name}</div>}
+      {/* El número grabado en la ilustración de la bellota (ver img/web) es
+          demasiado pequeño/decorativo para distinguirse de un vistazo, así
+          que en modo imagen el valor real de captura se repite aquí,
+          grande y en el color de acento dorado (ver .card__coin-value); en
+          emoji ya va como texto "vale N" dentro de bits (ver arriba). */}
+      <div className={`card__footer${isEmoji ? '' : ' card__footer--muted-dark'}`}>
+        {!isEmoji && card.type === 'coin' && card.value ? <span className="card__coin-value">+{card.value}</span> : bits.join(' · ')}
+      </div>
       {remainingLabel !== undefined && (
         <span className="card__badge">
           {badgePrefix}

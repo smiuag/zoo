@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
+import { useArtStyle } from '../lib/artStyle';
 import {
   DEFAULT_BOT_ALGORITHM,
   DEFAULT_ROUND_LIMIT,
@@ -78,6 +79,11 @@ export function GameSetup({
   );
   const [roundLimit, setRoundLimit] = useState<RoundLimit>(savedSetupPrefs?.roundLimit ?? DEFAULT_ROUND_LIMIT);
   const [animationsEnabled, setAnimationsEnabled] = useState(savedSetupPrefs?.animationsEnabled ?? true);
+  // Puramente local (ver lib/artStyle.tsx): se guarda solo en pulsar el
+  // botón, no en buildConfig como el resto del formulario — así se recuerda
+  // aunque el jugador cambie de opinión y no llegue a empezar la partida, y
+  // nunca viaja por el protocolo online (cada jugador ve el suyo).
+  const [artStyle, setArtStyle] = useArtStyle();
 
   const totalPlayers = numHumans + botAlgorithms.length;
   const canStart = totalPlayers >= MIN_TOTAL_PLAYERS;
@@ -232,6 +238,29 @@ export function GameSetup({
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="setup-row">
+          <label>Estilo de cartas</label>
+          <div className="setup-round-options">
+            <button
+              type="button"
+              className={`btn ${artStyle === 'imagen' ? 'btn--primary' : 'btn--ghost'}`}
+              aria-pressed={artStyle === 'imagen'}
+              onClick={() => setArtStyle('imagen')}
+            >
+              🖼️ Imagen
+            </button>
+            <button
+              type="button"
+              className={`btn ${artStyle === 'emoji' ? 'btn--primary' : 'btn--ghost'}`}
+              aria-pressed={artStyle === 'emoji'}
+              onClick={() => setArtStyle('emoji')}
+            >
+              🐯 Emoji
+            </button>
+          </div>
+          <span className="setup-hint">Se recuerda en este dispositivo. Cada jugador puede elegir el suyo sin afectar a los demás.</span>
         </div>
 
         <div className="setup-row">

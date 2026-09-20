@@ -1,6 +1,16 @@
 import twemoji from 'twemoji';
 import type { CardInstance } from '@zoo/engine';
 
+// Ilustración real de cada carta (especie, moneda o perezoso), servida desde
+// la propia app — un archivo por `card.id` en public/cards/ (ver
+// apps/web/public/cards/), así que no hace falta ningún mapeo: el nombre de
+// archivo ES el id. Alternativa a los emojis (ver SPECIES_ICONS/cardIcon más
+// abajo) cuando el jugador elige el estilo "imagen" (ver ArtStyle en
+// artStyle.tsx) — a partir de aquí es el usuario quien decide cuál ver.
+export function cardImageUrl(card: CardInstance): string {
+  return `/cards/${card.id}.png`;
+}
+
 const SPECIES_ICONS: Record<string, string> = {
   monkey: '🐒',
   penguin: '🐧',
@@ -44,10 +54,6 @@ const SPECIES_ICONS: Record<string, string> = {
   toucan: '🦤',
   // No hay emoji de ornitorrinco en Unicode: usa el 🐾 genérico (fallback
   // de cardIcon) en vez de uno inexacto.
-  // Tampoco hay un emoji de halcón distinto del águila (🦅, ya usado por
-  // eagle): 🪶 (pluma) como aproximación distinguible, mismo criterio que
-  // vulture/toucan arriba.
-  hawk: '🪶',
   // Emoji real de cuervo, pero muy reciente (Unicode 15.0, 2022): a
   // propósito NO está en scripts/fetch-twemoji.mjs (esa versión de
   // Twemoji, congelada en 14.0.2, no lo tiene) — solo se ve si el sistema
@@ -63,27 +69,27 @@ export function cardIcon(card: CardInstance): string {
   return '❓';
 }
 
-// PRUEBA: ruta al SVG de Twemoji para un emoji dado, para que se vea
-// siempre igual (mismo dibujo) en cualquier sistema operativo/navegador,
-// en vez de depender de la fuente de emoji instalada (Segoe UI Emoji en
-// Windows, Noto Color Emoji en Android/Linux...), que varía entre
-// ordenadores y a veces ni siquiera tiene el glifo (emojis añadidos en
-// versiones recientes de Unicode). Los 31 SVG que hacen falta (los de
-// SPECIES_ICONS + 🪙/🐾/❓) ya están descargados en public/twemoji/ (ver
-// apps/web/scripts/fetch-twemoji.mjs para regenerarlos si se añade una
-// especie nueva): se sirven desde la propia app, sin depender de ningún
-// CDN externo en tiempo de ejecución.
+// Ruta al SVG de Twemoji para un emoji dado, para que se vea siempre igual
+// (mismo dibujo) en cualquier sistema operativo/navegador, en vez de
+// depender de la fuente de emoji instalada (Segoe UI Emoji en Windows, Noto
+// Color Emoji en Android/Linux...), que varía entre ordenadores y a veces ni
+// siquiera tiene el glifo (emojis añadidos en versiones recientes de
+// Unicode). Los SVG que hacen falta (los de SPECIES_ICONS + 🪙/🐾/❓) ya
+// están descargados en public/twemoji/ (ver apps/web/scripts/
+// fetch-twemoji.mjs para regenerarlos si se añade una especie nueva): se
+// sirven desde la propia app, sin depender de ningún CDN externo en tiempo
+// de ejecución.
 export function twemojiUrl(emoji: string): string {
   const codepoint = twemoji.convert.toCodePoint(emoji);
   return `/twemoji/${codepoint}.svg`;
 }
 
-// PRUEBA: ¿este navegador/sistema tiene de verdad un glifo a color para
-// este emoji, o lo pintaría como un "tofu" (el cuadradito/rectángulo
-// vacío de "carácter no soportado")? Se usa para decidir, emoji a emoji,
-// si mostrar el carácter nativo (se prefiere: usa la fuente/estilo propio
-// del sistema del jugador) o caer al SVG de Twemoji (ver twemojiUrl) como
-// respaldo consistente cuando el sistema no lo tiene.
+// ¿Este navegador/sistema tiene de verdad un glifo a color para este emoji,
+// o lo pintaría como un "tofu" (el cuadradito/rectángulo vacío de "carácter
+// no soportado")? Se usa para decidir, emoji a emoji, si mostrar el
+// carácter nativo (se prefiere: usa la fuente/estilo propio del sistema del
+// jugador) o caer al SVG de Twemoji (ver twemojiUrl) como respaldo
+// consistente cuando el sistema no lo tiene.
 //
 // Truco: se pinta el emoji en un <canvas> oculto y se cuenta cuántos
 // colores DISTINTOS aparecen entre los píxeles no transparentes. Un glifo
@@ -123,6 +129,26 @@ export function supportsEmojiNatively(emoji: string): boolean {
 
   emojiSupportCache.set(emoji, supported);
   return supported;
+}
+
+// Algunas ilustraciones (importadas de img/web, ver notas de la conversación)
+// quedan visualmente más pequeñas que el resto una vez recortadas a su
+// silueta — no por error, sino porque el sujeto ocupa menos del encuadre
+// original. Escala extra por carta, dejando el resto en su 80% habitual
+// (ver --icon-scale y .card__icon-img en styles.css). León y Tigre piden
+// más ajuste que el resto (silueta aún más pequeña dentro de su recorte).
+const ICON_SCALE_BY_ID: Record<string, number> = {
+  'coin-1': 1.2,
+  'coin-2': 1.2,
+  'coin-3': 1.2,
+  'coin-5': 1.2,
+  toucan: 1.2,
+  tiger: 1.4,
+  lion: 1.4,
+};
+
+export function cardIconScale(card: CardInstance): number {
+  return ICON_SCALE_BY_ID[card.id] ?? 1;
 }
 
 export function cardAccentClass(card: CardInstance): string {
