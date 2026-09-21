@@ -284,7 +284,12 @@ registerEffect('drawThenTopdeck', (_state, player, effect, context) => {
 // array de strings); params.excludeHabitat restringe a animales que NO
 // tengan ese hábitat (sin uso actual, disponible para cartas futuras).
 // Repone su hueco igual que una compra normal. params.maxCost limita el
-// coste máximo capturable (Elefante: 5, Araña: 3); si se omite no hay límite.
+// coste máximo capturable (Elefante: 5, Araña: 3, Pterodáctilo: 5 — "coste
+// inferior a 6"); si se omite no hay límite. Se compara SIEMPRE contra
+// c.marketCost (el coste impreso/de catálogo, nunca effectiveMarketCost):
+// pedido explícito del usuario 2026-09-21, "que compruebe el coste frente a
+// coste impreso" — el descuento por dinosaurio jugado este turno no debe
+// colar un dinosaurio caro que solo resulta barato AHORA MISMO.
 registerEffect('freeCaptureUpToCost', (state, player, effect, context) => {
   const maxCost = typeof effect.params?.maxCost === 'number' ? effect.params.maxCost : Infinity;
   const habitats = matchHabitatList(effect.params?.habitat);

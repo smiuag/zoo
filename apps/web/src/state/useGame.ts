@@ -269,7 +269,11 @@ export function useGame(): UseGame {
       const botPlayer = state.players.find((p) => p.id === owedBotId);
       const instanceId = botPlayer
         ? pickDefaultDiscard(
-            botPlayer.hand,
+            // Mano Y mesa: "cada oponente elimina un animal..." también alcanza a los animales
+            // que el bot dejó sobre la mesa (ver eachOpponentDestroysAnimalFromHand en el motor).
+            // Mirando solo la mano, un bot cuya única carta elegible estaba en su mesa no
+            // entregaba nada y la partida se quedaba esperándole para siempre.
+            [...botPlayer.hand, ...(botPlayer.table ?? [])],
             owed.eligibleInstanceIds,
             state.pendingDecision.kind === 'discard',
             state.pendingDecision.bonusDrawPerCoin
@@ -281,6 +285,12 @@ export function useGame(): UseGame {
           const sourceCardName = state.pendingDecision?.sourceCardName ?? '';
           applyAction(state, owedBotId, action);
           postGameLog([`T${state.turn} | ${botPlayer.name} | ${describeAction(action)} (descarte: ${sourceCardName})`]);
+        } else if (state.pendingDecision) {
+          // Nada que entregar pese a deberlo: igual que autoResolvePendingDiscard en el motor, se
+          // le perdona la deuda en vez de dejar la partida bloqueada para todos.
+          delete state.pendingDecision.owed[owedBotId];
+          if (Object.keys(state.pendingDecision.owed).length === 0) state.pendingDecision = null;
+          postGameLog([`T${state.turn} | !! ${owedBotId} debía una entrega y no tenía ninguna carta elegible: se omite`]);
         }
         rerender();
       };

@@ -809,12 +809,36 @@ function discardCoinToPeekTargetSpecs(player: Player, effect: Effect): EffectTar
   const coins = discardCoinCandidates(player, effect.params?.minValue);
   if (coins.length === 0) return [{}];
   const peekCount = typeof effect.params?.peekCount === 'number' ? effect.params.peekCount : 3;
-  const preview: Player = { ...player, deck: [...player.deck], hand: [], discard: [...player.discard] };
-  drawCards(preview, peekCount);
-  const peeked = preview.hand;
-  if (peeked.length === 0) return coins.map((c) => ({ targetInstanceId: c.instanceId }));
+  // Una vista previa POR MONEDA (no una compartida para todas), con esa
+  // moneda YA en el descarte antes de robar — así reproduce EXACTAMENTE el
+  // orden real (discardCoinMinValueToPeekAndKeep en registry.ts descarta la
+  // moneda antes de robar). Corrige un bug real (2026-09-21, "cuando elijo
+  // un animal no se me pone en la mano, con monedas sí"): si hacía falta
+  // rebarajar el descarte a mitad del robo, reshuffleDiscardIntoDeck calcula
+  // su semilla a partir de player.discard.length — con una vista previa
+  // compartida que NO incluía la moneda todavía, esa longitud salía 1 de
+  // menos que en la ejecución real, así que la baraja resultante (y por
+  // tanto qué carta caía en qué posición) podía salir distinta. El
+  // secondaryTargetInstanceId elegido en el menú no coincidía con ninguna de
+  // las cartas robadas de verdad, y discardCoinMinValueToPeekAndKeep acababa
+  // descartando las 3 en vez de quedarse con la elegida. Con pocas cartas
+  // en el mazo (rebaraja poco después) esto pasaba con cualquier tipo de
+  // carta, no solo animales — pero un mazo con más monedas que animales
+  // hacía que se notara antes ahí.
   const specs: EffectTargetSpec[] = [];
   for (const coin of coins) {
+    const preview: Player = {
+      ...player,
+      deck: [...player.deck],
+      hand: [],
+      discard: [...player.discard, coin],
+    };
+    drawCards(preview, peekCount);
+    const peeked = preview.hand;
+    if (peeked.length === 0) {
+      specs.push({ targetInstanceId: coin.instanceId });
+      continue;
+    }
     for (const card of peeked) {
       specs.push({ targetInstanceId: coin.instanceId, secondaryTargetInstanceId: card.instanceId });
     }

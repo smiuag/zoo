@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buyAnimal, canAffordMarket, createGame, effectiveMarketCost, playCard } from '../src/engine';
+import { buyAnimal, canAffordMarket, createGame, effectiveMarketCost, getLegalActions, playCard } from '../src/engine';
 import { getCard } from '../src/cards/registry';
 import { drawCards, type CardInstance } from '../src/model/state';
 import { scorePlayer } from '../src/scoring';
@@ -213,6 +213,41 @@ describe('Nutria: descarta cualquier moneda para mirar 3 y quedarte 1', () => {
     expect(player.hand.map((c) => c.instanceId)).toEqual(['tiger#b']);
     expect(player.discard.map((c) => c.instanceId).sort()).toEqual(['coin-1#small', 'lion#a', 'monkey#c'].sort());
   });
+
+  it('la carta elegida en el menú acaba de verdad en la mano incluso si hay que rebarajar el descarte a mitad del robo', () => {
+    // Regresión (2026-09-21, "cuando elijo un animal no se me pone en la
+    // mano, con monedas sí"): con el mazo casi vacío, la vista previa que
+    // arma el menú (getLegalActions) tiene que simular EXACTAMENTE la misma
+    // rebaraja que la ejecución real (playCard) — si no, el
+    // secondaryTargetInstanceId elegido no coincide con ninguna carta
+    // robada de verdad y la mano se queda vacía en vez de con la elegida.
+    const { state, player } = setupClean();
+    const otter = freshInstance('otter', 'x');
+    const bronze = freshInstance('coin-1', 'small');
+    player.hand = [otter, bronze];
+    // Menos cartas que peekCount(3): fuerza una rebaraja del descarte a
+    // mitad del robo.
+    player.deck = [freshInstance('lion', 'top')];
+    player.discard = [freshInstance('tiger', 'd1'), freshInstance('monkey', 'd2'), freshInstance('owl', 'd3')];
+
+    const legal = getLegalActions(state, player.id);
+    const playOtter = legal.filter(
+      (a): a is Extract<(typeof legal)[number], { type: 'playCard' }> =>
+        a.type === 'playCard' && a.instanceId === otter.instanceId && a.secondaryTargetInstanceId !== undefined
+    );
+    expect(playOtter.length).toBeGreaterThan(0);
+
+    // Cualquiera de las variantes ofrecidas por el menú debe funcionar: se
+    // prueban todas para no depender de cuál en concreto exponga el bug.
+    for (const action of playOtter) {
+      const { state: freshState, player: freshPlayer } = setupClean();
+      freshPlayer.hand = [freshInstance('otter', 'x'), freshInstance('coin-1', 'small')];
+      freshPlayer.deck = [freshInstance('lion', 'top')];
+      freshPlayer.discard = [freshInstance('tiger', 'd1'), freshInstance('monkey', 'd2'), freshInstance('owl', 'd3')];
+      playCard(freshState, freshPlayer.id, 'otter#x', 'coin-1#small', action.secondaryTargetInstanceId);
+      expect(freshPlayer.hand.map((c) => c.instanceId)).toEqual([action.secondaryTargetInstanceId]);
+    }
+  });
 });
 
 describe('Gallina: descarta una moneda para capturar gratis de la reserva', () => {
@@ -241,14 +276,29 @@ describe('Pez Dorado: cambia una moneda por una bellota dorada (Oro)', () => {
   });
 });
 
-describe('Pterodáctilo: captura un dinosaurio de coste inferior a 8 al jugarlo', () => {
+describe('Pterodáctilo: captura un dinosaurio de coste inferior a 6 al jugarlo', () => {
   it('elige un dinosaurio válido del mercado', () => {
     const { state, player } = setupClean();
     const ptero = freshInstance('pterodactyl', 'x');
     player.hand = [ptero];
-    const target = state.animalTrack.find((c) => c.habitats.includes('dinosaur') && (c.marketCost ?? 0) <= 7)!;
+    const target = state.animalTrack.find((c) => c.habitats.includes('dinosaur') && (c.marketCost ?? 0) <= 5)!;
     playCard(state, player.id, ptero.instanceId, target.instanceId);
     expect(player.discard.some((c) => c.instanceId === target.instanceId)).toBe(true);
+  });
+
+  it('nunca captura un dinosaurio de coste 6 o más, aunque su coste EN VIVO (con el descuento de este turno) baje de 6', () => {
+    const { state, player } = setupClean();
+    const ptero = freshInstance('pterodactyl', 'x');
+    player.hand = [ptero];
+    // 2 dinosaurios ya jugados este turno bajarían el coste EN VIVO de otro
+    // Pterodáctilo del mercado (coste impreso 7) a 5 — pero la comprobación
+    // debe usar SIEMPRE el coste impreso, nunca el descontado, así que sigue
+    // sin ser capturable.
+    player.playedThisTurn.push(freshInstance('iguana', 'd1'), freshInstance('iguana', 'd2'));
+    const marketPtero = state.animalTrack.find((c) => c.species === 'pterodactyl')!;
+    playCard(state, player.id, ptero.instanceId, marketPtero.instanceId);
+    expect(player.discard.some((c) => c.instanceId === marketPtero.instanceId)).toBe(false);
+    expect(state.animalTrack.some((c) => c.instanceId === marketPtero.instanceId)).toBe(true);
   });
 });
 

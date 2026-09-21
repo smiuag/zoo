@@ -7,7 +7,7 @@
 # JSON — el resto de compose_all.py sigue leyendo card["text"] tal cual.
 CARD_TEXT_ES_PRINT = {
     "tyrannosaurus": "Cuesta 1 bellota menos por cada dinosaurio que hayas jugado este turno.\n+4 bellotas.\nCada oponente elimina un animal terrestre de coste 4 o menos de su mano.",
-    "pterodactyl": "Cuesta 1 bellota menos por cada dinosaurio que hayas jugado este turno.\nAl jugarlo, elige: roba una carta, o descarta una bellota de Oro (o mejor) y devuélvelo a su reserva para conseguir, del mercado, un Tiranosaurio o un Pterodáctilo.",
+    "pterodactyl": "Cuesta 1 bellota menos por cada dinosaurio que hayas jugado este turno.\nAl jugarlo, elige un dinosaurio de la reserva de coste inferior a 6 y ponlo en tu descarte.",
     "mosasaurus": "Cuesta 1 bellota menos por cada dinosaurio que hayas jugado este turno.\n+4 bellotas.\nCada oponente elimina un animal acuático de coste 4 o menos de su mano.",
     "diplodocus": "Cuesta 1 bellota menos por cada dinosaurio que hayas jugado este turno.\n+5 bellotas, pero solo puedes usarlas para comprar dinosaurios.",
     "plesiosaurus": "Cuesta 2 bellotas menos por cada dinosaurio que hayas jugado este turno.\nAl jugarlo, roba 2 cartas.\nAl final de la partida, +1PV por cada dinosaurio que tengas en toda tu colección.",

@@ -10,7 +10,7 @@ CARD_TEXT_EN = {
     "dog": ("Dogs", "When you play it, you may leave it on the table instead of sending it to your discard pile, until you shuffle your deck: while it's there, it plays itself again and repeats its ability every turn.\n+1 acorn."),
     "diplodocus": ("Diplodocus", "Costs 1 acorn less for each dinosaur you have played this turn."),
     "tyrannosaurus": ("Tyrannosaurus", "Costs 1 acorn less for each dinosaur you have played this turn.\n+4 acorns.\nEach opponent removes a LAND animal costing 4 or less from their hand."),
-    "pterodactyl": ("Pterodactyls", "Costs 1 acorn less for each dinosaur you have played this turn.\nWhen you play it, choose a dinosaur from the supply costing less than 8 and put it in your discard pile."),
+    "pterodactyl": ("Pterodactyls", "Costs 1 acorn less for each dinosaur you have played this turn.\nWhen you play it, choose a dinosaur from the supply costing less than 6 and put it in your discard pile."),
     "mosasaurus": ("Mosasaurs", "Costs 1 acorn less for each dinosaur you have played this turn.\n+4 acorns.\nEach opponent removes an AQUATIC animal costing 4 or less from their hand."),
     "chicken": ("Chickens", "Discard an acorn from your hand to capture, from the supply, a LAND or AQUATIC animal costing 2 or less, and put it in your discard pile."),
     "golden-fish": ("Golden Fish", "Swap an acorn from your hand for a gold acorn (value 3)."),

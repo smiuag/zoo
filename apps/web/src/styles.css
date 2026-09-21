@@ -2383,3 +2383,17 @@ body {
     z-index: 50;
   }
 }
+
+/* Aviso de entrega forzosa: etiqueta bajo las cartas que no están en la mano sino sobre la mesa. */
+.discard-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.discard-option__where {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+}

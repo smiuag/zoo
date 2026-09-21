@@ -161,9 +161,18 @@ export function GameBoard({
   // descarte pendiente (se muestran en el popup de abajo): se derivan de
   // legalActions, nunca de owedDiscard.eligibleInstanceIds directamente,
   // para que sea SIEMPRE justo lo que de verdad se puede pulsar.
+  // También las de tu MESA (animales dejados ahí con el Perro/Gallina/
+  // Colibrí, ver player.table): "cada oponente elimina un animal..." las
+  // alcanza igual que a las de la mano. Antes solo se miraba la mano, y si la
+  // ÚNICA elegible estaba sobre la mesa este aviso salía sin ninguna carta
+  // que pulsar y sin forma de cerrarlo — la partida se quedaba bloqueada
+  // (reportado por el usuario 2026-09-21, con un Pteranodon rival).
+  const tableInstanceIds = new Set((human.table ?? []).map((c) => c.instanceId));
   const eligibleDiscardCards = owedDiscard
-    ? human.hand.filter((c) => resolveDiscardActionFor(legalActions, c.instanceId))
+    ? [...human.hand, ...(human.table ?? [])].filter((c) => resolveDiscardActionFor(legalActions, c.instanceId))
     : [];
+  const eligibleOnTable = eligibleDiscardCards.filter((c) => tableInstanceIds.has(c.instanceId));
+  const eligibleOnlyOnTable = eligibleDiscardCards.length > 0 && eligibleOnTable.length === eligibleDiscardCards.length;
   // Perezoso: si aparece entre las elegibles, descartarlo cubre TODA la
   // entrega él solo (ver resolveDiscard en el motor) — se avisa en el modal
   // porque si no, no es evidente que sustituya a las demás en vez de contar
@@ -1031,7 +1040,8 @@ export function GameBoard({
             <p className="modal__message">
               {discardSourcePlayerName} ha jugado <strong>{state.pendingDecision?.sourceCardName}</strong>: tienes
               que {isDestroy ? 'eliminar de la partida' : isGiveToPlayer ? `darle a ${discardSourcePlayerName}` : 'descartar'}{' '}
-              {owedDiscard.amount === 1 ? 'una carta' : `${owedDiscard.amount} cartas`} de tu mano.
+              {owedDiscard.amount === 1 ? 'una carta' : `${owedDiscard.amount} cartas`}{' '}
+              {eligibleOnlyOnTable ? 'de las que tienes sobre la mesa' : eligibleOnTable.length > 0 ? 'de tu mano o de tu mesa' : 'de tu mano'}.
               Elige cuál{owedDiscard.amount === 1 ? '' : 'es'}.
               {hasSlothSubstitute && (
                 <>
@@ -1042,14 +1052,26 @@ export function GameBoard({
             </p>
             <div className="card-row">
               {eligibleDiscardCards.map((card) => (
-                <CardView
-                  key={card.instanceId}
-                  card={card}
-                  onClick={() => runAction(resolveDiscardActionFor(legalActions, card.instanceId))}
-                  hideType
-                />
+                <div key={card.instanceId} className="discard-option">
+                  <CardView
+                    card={card}
+                    onClick={() => runAction(resolveDiscardActionFor(legalActions, card.instanceId))}
+                    hideType
+                  />
+                  {tableInstanceIds.has(card.instanceId) && <span className="discard-option__where">sobre la mesa</span>}
+                </div>
               ))}
             </div>
+            {eligibleDiscardCards.length === 0 && (
+              // Red de seguridad: este aviso no se puede cerrar, así que NUNCA debe quedarse sin
+              // salida. Si el motor dice que debes algo pero aquí no hay ninguna carta que ofrecer
+              // (un caso que no debería darse), se explica y se deja seguir la partida en vez de
+              // bloquearla para todos.
+              <p className="modal__message">
+                No encuentro ninguna carta que puedas entregar, así que no hay nada que elegir. Esto no debería pasar:
+                si lo ves, cuéntamelo con una captura.
+              </p>
+            )}
           </div>
         </div>
       )}
