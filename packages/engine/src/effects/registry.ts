@@ -972,13 +972,18 @@ registerEffect('returnAllFromDiscard', (_state, player, effect) => {
 
 // Cerdo: descarta una moneda de tu mano de valor `minValue` o más
 // (context.targetInstanceId, ver discardCoinCandidates en engine.ts) para
-// robar `drawAmount` cartas. Sin ninguna moneda que llegue a ese valor, no
-// hay nada que elegir y el efecto no hace nada (mismo patrón "forzoso si es
-// posible" que la Tortuga con upgradeCoin: si hay alguna elegible hay que
-// elegir una, no hay opción de "no pagar").
+// robar cartas. Sin ninguna moneda que llegue a ese valor, no hay nada que
+// elegir y el efecto no hace nada (mismo patrón "forzoso si es posible" que
+// la Tortuga con upgradeCoin: si hay alguna elegible hay que elegir una, no
+// hay opción de "no pagar"). `drawEqualToCoinValue` (Cerdo, pedido explícito
+// del usuario 2026-09-21: "que robes tantas cartas como bellotas de la
+// carta de bellota"): roba tantas cartas como el VALOR de la moneda
+// descartada en vez de un `drawAmount` fijo — cuanto más vale la moneda que
+// sacrificas, más robas.
 registerEffect('discardCoinMinValueToDrawCards', (_state, player, effect, context) => {
   const minValue = typeof effect.params?.minValue === 'number' ? effect.params.minValue : 0;
-  const drawAmount = typeof effect.params?.drawAmount === 'number' ? effect.params.drawAmount : 1;
+  const fixedDrawAmount = typeof effect.params?.drawAmount === 'number' ? effect.params.drawAmount : 1;
+  const drawEqualToCoinValue = effect.params?.drawEqualToCoinValue === true;
   if (!context.targetInstanceId) return;
   const idx = player.hand.findIndex(
     (c) => c.instanceId === context.targetInstanceId && c.type === 'coin' && typeof c.value === 'number' && c.value >= minValue
@@ -986,6 +991,7 @@ registerEffect('discardCoinMinValueToDrawCards', (_state, player, effect, contex
   if (idx === -1) return;
   const [coin] = player.hand.splice(idx, 1);
   player.discard.push(coin);
+  const drawAmount = drawEqualToCoinValue ? (coin.value ?? fixedDrawAmount) : fixedDrawAmount;
   drawCards(player, drawAmount);
 });
 

@@ -4,8 +4,8 @@ import { useArtStyle } from '../lib/artStyle';
 import { CUSTOM_COPY_DELTA_OPTIONS, CUSTOM_PICKABLE_SPECIES, type CustomCopyDeltas } from '../lib/gameConfig';
 
 // Reducido (uno de los 3 presets del picker, ver abajo): todo marcado salvo
-// estas 11 especies clásicas — pedido explícito del usuario 2026-09-21,
-// mismos ids verificados contra ANIMAL_SPECIES.
+// estas especies — pedido explícito del usuario 2026-09-21 (ampliado el mismo
+// día con elefante/ardilla/pato), mismos ids verificados contra ANIMAL_SPECIES.
 const REDUCED_EXCLUDED_SPECIES = new Set([
   'polar-bear',
   'orca',
@@ -18,6 +18,9 @@ const REDUCED_EXCLUDED_SPECIES = new Set([
   'rabbit',
   'lion',
   'spider',
+  'elephant',
+  'squirrel',
+  'duck',
 ]);
 
 // Agrupa por COSTE (en vez de por hábitat, como al principio): con varios
@@ -173,7 +176,7 @@ export function GameSettingsModal({
             <span className="delta-groups__heading">Copias extra respecto al nº de jugadores</span>
             <div className="delta-groups">
               <div className="delta-group">
-                <span className="delta-group__label">Coste &lt;5</span>
+                <span className="delta-group__label">Coste menor a 5</span>
                 <div className="setup-round-options">
                   {CUSTOM_COPY_DELTA_OPTIONS.map((delta) => (
                     <button
@@ -189,7 +192,7 @@ export function GameSettingsModal({
                 </div>
               </div>
               <div className="delta-group">
-                <span className="delta-group__label">Coste ≥5</span>
+                <span className="delta-group__label">Coste 5 o mayor</span>
                 <div className="setup-round-options">
                   {CUSTOM_COPY_DELTA_OPTIONS.map((delta) => (
                     <button
@@ -222,7 +225,7 @@ export function GameSettingsModal({
               <button type="button" className="preset-btn" onClick={applyReducedPreset}>
                 <span className="preset-btn__icon">✂️</span>
                 <span className="preset-btn__label">Reducido</span>
-                <span className="preset-btn__hint">Sin las más complicadas</span>
+                <span className="preset-btn__hint">Versión reducida compensada</span>
               </button>
             </div>
             <p className="setup-hint">{customSpecies.size} especies marcadas de {CUSTOM_PICKABLE_SPECIES.length}.</p>

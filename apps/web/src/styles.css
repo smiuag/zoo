@@ -1669,6 +1669,7 @@ body {
   font-weight: 700;
   font-size: 0.82rem;
   color: var(--ink);
+  text-align: center;
 }
 
 .delta-group .setup-round-options .btn {

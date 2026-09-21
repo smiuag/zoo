@@ -153,7 +153,7 @@ describe('Hámster: devuelve todas las copias de su descarte a la vez', () => {
   });
 });
 
-describe('Cerdo: descarta cualquier moneda para robar una carta', () => {
+describe('Cerdo: descarta cualquier moneda para robar tantas cartas como su valor', () => {
   it('sin ninguna moneda en la mano, no hace nada', () => {
     const { state, player } = setupClean();
     const pig = freshInstance('pig', 'x');
@@ -164,7 +164,7 @@ describe('Cerdo: descarta cualquier moneda para robar una carta', () => {
     expect(player.deck).toHaveLength(1);
   });
 
-  it('incluso con solo un Bronce (valor 1), la descarta y roba', () => {
+  it('con un Bronce (valor 1), la descarta y roba 1 carta', () => {
     const { state, player } = setupClean();
     const pig = freshInstance('pig', 'x');
     const bronze = freshInstance('coin-1', 'small');
@@ -173,6 +173,18 @@ describe('Cerdo: descarta cualquier moneda para robar una carta', () => {
     playCard(state, player.id, pig.instanceId, bronze.instanceId);
     expect(player.hand.map((c) => c.id)).toEqual(['coin-1']);
     expect(player.discard.some((c) => c.instanceId === bronze.instanceId)).toBe(true);
+  });
+
+  it('con un Oro (valor 3), la descarta y roba 3 cartas', () => {
+    const { state, player } = setupClean();
+    const pig = freshInstance('pig', 'x');
+    const gold = freshInstance('coin-3', 'big');
+    player.hand = [pig, gold];
+    player.deck = [freshInstance('coin-1', 'a'), freshInstance('coin-1', 'b'), freshInstance('coin-1', 'c')];
+    playCard(state, player.id, pig.instanceId, gold.instanceId);
+    expect(player.hand).toHaveLength(3);
+    expect(player.deck).toHaveLength(0);
+    expect(player.discard.some((c) => c.instanceId === gold.instanceId)).toBe(true);
   });
 });
 
