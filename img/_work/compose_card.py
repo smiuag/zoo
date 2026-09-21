@@ -225,7 +225,17 @@ def _build_template_alpha(template_key):
 
 # Ilustraciones que traen un marco de papel pintado alrededor (los dinosaurios,
 # 2026-09-20): px que se recortan por cada lado antes de encajarlas en la ventana.
-PHOTO_INSET = {"diplodocus.jpg": 34, "mosasaurus.jpg": 34, "terodactilo.jpg": 34}
+PHOTO_INSET = {"diplodocus.jpg": 34, "mosasaurus.jpg": 34, "pteranodon.jpg": 34}
+
+# Sesgo vertical del recorte (fracción de la altura desde donde empieza la
+# ventana), por foto: el valor por defecto (0.03, casi pegado arriba) asume
+# que lo importante está arriba y el suelo se puede perder. En avestruz.jpg
+# el sujeto ocupa toda la altura (incluida una cría en primer plano abajo del
+# todo) y con el 0.03 por defecto el recorte se comía las patas de esa cría
+# (2026-09-21, aviso del usuario: "se ha recortado demasiado y se pierde
+# parte"); con 0.08 la ventana baja lo justo para conservarla sin perder el
+# árbol de arriba (que ya entraba cortado en la foto original).
+PHOTO_TOP_BIAS = {"avestruz.jpg": 0.08}
 
 
 def build_card_base(photo_path, template_key):
@@ -253,8 +263,9 @@ def build_card_base(photo_path, template_key):
     crop_w = int(crop_h * aspect)
     left = (w - crop_w) // 2
     # Nunca por debajo del borde inferior: en una foto apaisada (crop_h == h)
-    # ese 3% de sesgo se salia de la imagen y dejaba una franja negra abajo.
-    top = min(int(h * 0.03), h - crop_h)
+    # ese sesgo se salia de la imagen y dejaba una franja negra abajo.
+    bias = PHOTO_TOP_BIAS.get(os.path.basename(photo_path).lower(), 0.03)
+    top = min(int(h * bias), h - crop_h)
     photo = photo.crop((left, top, left + crop_w, top + crop_h))
     photo = photo.resize((bw, bh), Image.LANCZOS)
 

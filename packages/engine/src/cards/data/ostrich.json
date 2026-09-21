@@ -6,14 +6,15 @@
   "edition": "full",
   "marketCost": 5,
   "victoryPoints": 7,
-  "text": "Elige: roba una carta, o devuélvela a su reserva para conseguir gratis, del mercado, un Tiranosaurio o un Terodáctilo.",
+  "text": "Elige: roba una carta, o descarta una moneda de Oro (o mejor) y devuélvela a su reserva para conseguir, del mercado, un Tiranosaurio o un Pterodáctilo.",
   "effects": [
     {
       "trigger": "onPlay",
       "type": "drawOrReturnSelfForSpecies",
       "params": {
         "drawAmount": 1,
-        "speciesOptions": ["tyrannosaurus", "pterodactyl"]
+        "speciesOptions": ["tyrannosaurus", "pterodactyl"],
+        "minValue": 3
       }
     }
   ],

@@ -4,9 +4,9 @@
   "type": "animal",
   "species": "diplodocus",
   "edition": "full",
-  "marketCost": 15,
+  "marketCost": 12,
   "costReductionPerDinosaurPlayedThisTurn": 1,
-  "victoryPoints": 15,
+  "victoryPoints": 10,
   "text": "Cuesta 1 moneda menos por cada dinosaurio que hayas jugado este turno.\nAñade 5 a tu valor de captura, pero solo puedes usarlo para comprar dinosaurios.",
   "effects": [
     {

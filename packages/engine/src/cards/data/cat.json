@@ -6,7 +6,7 @@
   "edition": "full",
   "marketCost": 2,
   "victoryPoints": 2,
-  "text": "Cuando tengas que eliminar un animal terrestre, puedes descartar el Gato en vez de eliminarlo.",
+  "text": "Cuando tengas que eliminar un animal (sea cual sea su tipo), puedes descartar el Gato en vez de eliminarlo.",
   "effects": [],
   "habitats": [
     "land",

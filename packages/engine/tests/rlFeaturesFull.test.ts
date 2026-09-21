@@ -66,7 +66,7 @@ describe('rl/featuresFull (edición completa)', () => {
     // acción(4) + [PV, COSTE, valor...].
     const costIndex = CRITIC_FEATURE_DIM_FULL + 4 + 1;
     expect(after[costIndex]).toBeLessThan(before[costIndex]);
-    expect(after[costIndex]).toBeCloseTo((15 - 2) / 10, 6);
+    expect(after[costIndex]).toBeCloseTo((12 - 2) / 10, 6);
   });
 
   it('el hábitat "dinosaur" se ve en el bloque de carta (no solo los 3 básicos)', () => {
@@ -101,6 +101,26 @@ describe('rl/featuresFull (edición completa)', () => {
     // = donde empieza el bloque de objetivo SECUNDARIO; su primera columna
     // ("existe") debe ser 1, no 0 (en blanco).
     const secondaryBase = CRITIC_FEATURE_DIM_FULL + 4 + 49 + 1 + 8;
+    expect(features[secondaryBase]).toBe(1);
+  });
+
+  it('Avestruz: el objetivo secundario (la moneda que costea evolucionar, EN LA MANO) se resuelve, no queda en blanco', () => {
+    const { state, player } = setupFull();
+    const ostrich = freshInstance('ostrich', 'x');
+    const gold = freshInstance('coin-3', 'gold');
+    player.hand = [ostrich, gold];
+
+    const actions = getLegalActions(state, player.id).filter(
+      (a) => a.type === 'playCard' && a.instanceId === ostrich.instanceId && a.secondaryTargetInstanceId
+    );
+    expect(actions.length).toBeGreaterThan(0);
+    const features = encodeActionsForPlayer(state, player.id, actions)[0];
+
+    const secondaryBase = CRITIC_FEATURE_DIM_FULL + 4 + 49 + 1 + 8;
+    // "existe" = 1 (no en blanco): a diferencia de Nutria (carta del propio
+    // mazo), aquí la moneda está en la MANO, no en mazo/descarte/mercado, así
+    // que ejercita la rama nueva de secondaryTargetCard (sin ella, la red
+    // vería este bloque entero en blanco y sería ciega al coste real).
     expect(features[secondaryBase]).toBe(1);
   });
 

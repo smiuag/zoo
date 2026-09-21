@@ -39,15 +39,22 @@ export interface Player {
   // cuenta a sí misma, y también cuentan las que ya hayas jugado antes este
   // mismo turno. Ver effectiveHand().
   playedThisTurn: CardInstance[];
-  // Perro/Gallina/Colibrí (efecto mayStayOnTable): cartas que su dueño ha
-  // decidido dejar SOBRE LA MESA al jugarlas, en vez de mandarlas al
-  // descarte. Siguen siendo suyas y puntúan al final como cualquier otra
-  // (ver collectAllCards en scoring.ts), y mientras están aquí no las
-  // alcanza ningún efecto que mire la mano ni el descarte. Llegan aquí en
-  // endTurn (ver stayingOnTableIds); vuelven al descarte (y por tanto
-  // circulan de nuevo) en cuanto el propio mazo del jugador se reponga
-  // barajando su descarte — "se queda en la mesa hasta que barajes",
-  // pedido explícito del usuario 2026-09-21 — ver reshuffleDiscardIntoDeck.
+  // Perro/Colibrí (efecto mayStayOnTable): cartas que su dueño ha decidido
+  // dejar SOBRE LA MESA al jugarlas, en vez de mandarlas al descarte. Siguen
+  // siendo suyas y puntúan al final como cualquier otra (ver
+  // collectAllCards en scoring.ts), y mientras están aquí no las alcanza
+  // ningún efecto que mire la mano ni el descarte (sí las alcanzan los que
+  // miran específicamente la mesa, como eachOpponentDestroysAnimalFromHand).
+  // Llegan aquí en endTurn (ver stayingOnTableIds); vuelven al descarte (y
+  // por tanto circulan de nuevo) en cuanto el propio mazo del jugador se
+  // reponga barajando su descarte — "se queda en la mesa hasta que
+  // barajes", pedido explícito del usuario 2026-09-21 — ver
+  // reshuffleDiscardIntoDeck. CADA TURNO del dueño (beginPlayerTurn, ver
+  // replayTableCards en engine.ts) vuelven a "jugarse" solas: entran de
+  // nuevo en playedThisTurn y su(s) efecto(s) onPlay se resuelven otra vez
+  // — pedido explícito del usuario 2026-09-21 ("que se dispare su
+  // habilidad si la tiene"), así el Perro da su +1 de valor de compra TODOS
+  // los turnos que esté en la mesa, no solo el turno en que se jugó.
   table: CardInstance[];
   // instanceIds de cartas jugadas ESTE turno con keepOnTable: siguen en
   // playedThisTurn (cuentan para effectiveHand el resto del turno) y

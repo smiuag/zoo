@@ -240,13 +240,21 @@ function targetCard(state: GameState, player: Player, action: Action): CardInsta
 // (simuladas en discardCoinToPeekTargetSpecs, engine.ts, sobre una copia del
 // jugador — pero son las MISMAS instancias que siguen en tu player.deck de
 // verdad hasta que de verdad juegues la carta), o en tu descarte si esa
-// simulación tuvo que rebarajar a mitad.
+// simulación tuvo que rebarajar a mitad. MÁS la propia mano (2026-09-21):
+// lo necesita Avestruz/Cocodrilo (drawOrReturnSelfForSpecies con coste de
+// evolución) — su objetivo secundario es la moneda que se descarta de la
+// mano para costear evolucionar, a diferencia de Gallina (donde la moneda
+// es el objetivo PRIMARIO, no el secundario) — sin esto, la red vería un
+// bloque de objetivo secundario en blanco y sería ciega al coste real de
+// evolucionar (sabría que hay "algo" en secondaryTargetInstanceId, pero no
+// qué es ni cuánto vale).
 function secondaryTargetCard(state: GameState, player: Player, action: Action): CardInstance | undefined {
   if (action.type !== 'playCard' || !action.secondaryTargetInstanceId) return undefined;
   return (
     state.animalTrack.find((c) => c.instanceId === action.secondaryTargetInstanceId) ??
     player.deck.find((c) => c.instanceId === action.secondaryTargetInstanceId) ??
-    player.discard.find((c) => c.instanceId === action.secondaryTargetInstanceId)
+    player.discard.find((c) => c.instanceId === action.secondaryTargetInstanceId) ??
+    player.hand.find((c) => c.instanceId === action.secondaryTargetInstanceId)
   );
 }
 

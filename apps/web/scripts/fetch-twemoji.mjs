@@ -61,6 +61,7 @@ const EMOJIS = [
   '🐔',
   '🦦',
   '🐡',
+  '🐤',
   // 🪿 (ganso/Oca) queda FUERA a propósito, mismo motivo que el cuervo más
   // abajo: Twemoji 14.0.2 no lo tiene descargable (probado, 404) aunque sea
   // de Unicode 14.0 — solo se ve como glifo nativo, sin respaldo SVG.

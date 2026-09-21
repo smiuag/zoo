@@ -75,11 +75,12 @@ SPECIES_PHOTO = {
     "cat": "gatos.jpg",
     "diplodocus": "diplodocus.jpg",
     "tyrannosaurus": "triceratops.jpg",
-    "pterodactyl": "terodactilo.jpg",
+    "pterodactyl": "pterodactilo.jpg",
     "mosasaurus": "mosasaurus.jpg",
     # Segunda tanda de la edicion completa (2026-09-21)
     "chicken": "gallina.jpg",
     "golden-fish": "pezdorado.jpg",
+    "goose": "oca.jpg",
     "hamster": "hamsters.jpg",
     "hummingbird": "colibri.jpg",
     "iguana": "iguanas.jpg",
@@ -87,7 +88,7 @@ SPECIES_PHOTO = {
     "otter": "nutrias.jpg",
     "pig": "cerdos.jpg",
     "plesiosaurus": "plesiosaurio.jpg",
-    "pteranodon": "ptenarodon.jpg",
+    "pteranodon": "pteranodon.jpg",
 }
 COIN_PHOTO = {
     "coin-1": "moneda1.jpg",
@@ -117,6 +118,12 @@ def load_cards():
             if card.get("edition", "classic") != "classic":
                 continue                                    # carta solo de la edicion completa
             card["habitats"] = [h for h in card.get("habitats", []) if h in HABITAT_ORDER]   # sin tipos extra
+        elif card.get("fullEditionText"):
+            # Cartas CLASICAS cuyo texto cambia en la completa (p. ej.
+            # Cocodrilo: en la completa puede evolucionar a Mosasaurio) -
+            # ver fullEditionText en schema.ts y mintInstance en state.ts,
+            # que aplica el mismo criterio en el motor.
+            card["text"] = card["fullEditionText"]
         cards.append(card)
     return cards
 

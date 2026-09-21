@@ -493,18 +493,25 @@ registerEffect('returnAnimalFromEachOpponent', (state, player, effect, context) 
 });
 
 // Tiranosaurio/Terodáctilo/Mosasaurio: cada OPONENTE (nunca quien lo juega:
-// corrección del usuario 2026-09-20) elimina de su mano un animal que tenga params.habitat entre sus hábitats
-// (["land"]/["bird"]/["aquatic"], basta con uno). Quien no tenga ninguno
-// elegible no pierde nada. Cada carta eliminada va a player.destroyedCards de quien
-// jugó el dinosaurio (misma pila que el resto de 'destroy', fuera de toda
-// colección: no puntúa para nadie). Gato: si lo exigido es un terrestre, su
-// dueño puede entregar el Gato y va al descarte en vez de eliminarse — ver
+// corrección del usuario 2026-09-20) elimina un animal que tenga
+// params.habitat entre sus hábitats (["land"]/["bird"]/["aquatic"], basta
+// con uno), de su mano O de su mesa (player.table, vía mayStayOnTable — el
+// nombre del tipo de efecto se queda igual por compatibilidad con los datos/
+// tests/features ya existentes, pero desde 2026-09-21 también alcanza a lo
+// que el afectado mantenga sobre la mesa de turnos anteriores, pedido
+// explícito del usuario: "a la hora de que te eliminen uno, también deben
+// poder contar los que están en mesa"). Quien no tenga ninguno elegible (ni
+// en mano ni en mesa) no pierde nada. Cada carta eliminada va a
+// player.destroyedCards de quien jugó el dinosaurio (misma pila que el
+// resto de 'destroy', fuera de toda colección: no puntúa para nadie). Gato:
+// si lo exigido es un terrestre, su dueño puede entregar el Gato (siempre
+// desde la mano) y va al descarte en vez de eliminarse — ver
 // requiredHabitats en resolveDiscard (engine.ts).
 registerEffect('eachOpponentDestroysAnimalFromHand', (state, player, effect, context) => {
   const habitats = matchHabitatList(effect.params?.habitat);
   const owed: PendingDiscardDecision['owed'] = {};
   for (const affected of otherPlayers(state, player)) {
-    const eligible = affected.hand.filter(
+    const eligible = [...affected.hand, ...affected.table].filter(
       (c) => c.type === 'animal' && (habitats.length === 0 || ((c.habitats as string[]) ?? []).some((h) => habitats.includes(h)))
     );
     if (eligible.length === 0) continue;
@@ -715,15 +722,21 @@ function removeSelfFromWherever(state: GameState, instanceId: string): CardInsta
 }
 
 // Avestruz/Cocodrilo: al jugarla, ELIGE entre robar `drawAmount` cartas (sin
-// elegir ningún objetivo, context.targetInstanceId vacío) o devolverse ELLA
-// MISMA a su propio mazo compartido (vuelve a circular, comprable de
-// inmediato — ver returnToMarketImmediately) para conseguir gratis, del
-// mercado, una copia de alguna de las especies en effect.params.speciesOptions
-// (context.targetInstanceId identifica cuál de esas especies del mercado se
-// captura — ver drawOrReturnSelfForSpeciesTargetSpecs en engine.ts). A
-// diferencia del resto de efectos con objetivo "forzoso si es posible"
-// (Tortuga, Cerdo...), aquí SIEMPRE se ofrece la opción de robar aunque haya
-// alguna especie capturable: es una elección real, no un mínimo.
+// elegir ningún objetivo, context.targetInstanceId vacío) o EVOLUCIONAR:
+// devolverse ELLA MISMA a su propio mazo compartido (vuelve a circular,
+// comprable de inmediato — ver returnToMarketImmediately) para conseguir
+// gratis, del mercado, una copia de alguna de las especies en
+// effect.params.speciesOptions (context.targetInstanceId identifica cuál de
+// esas especies del mercado se captura — ver
+// drawOrReturnSelfForSpeciesTargetSpecs en engine.ts). A diferencia del
+// resto de efectos con objetivo "forzoso si es posible" (Tortuga, Cerdo...),
+// aquí SIEMPRE se ofrece la opción de robar aunque haya alguna especie
+// capturable: es una elección real, no un mínimo.
+// Evolucionar tiene un coste (pedido explícito del usuario, 2026-09-21):
+// descartar una moneda de valor effect.params.minValue o más
+// (context.secondaryTargetInstanceId, ver drawOrReturnSelfForSpeciesTargetSpecs)
+// — hoy 3 (Plata) en Avestruz/Cocodrilo. Sin ese parámetro (cartas futuras
+// con este mismo efecto), evolucionar sigue siendo gratis, igual que antes.
 registerEffect('drawOrReturnSelfForSpecies', (state, player, effect, context) => {
   const drawAmount = typeof effect.params?.drawAmount === 'number' ? effect.params.drawAmount : 1;
   if (!context.targetInstanceId) {
@@ -739,6 +752,24 @@ registerEffect('drawOrReturnSelfForSpecies', (state, player, effect, context) =>
   if (trackIdx === -1) {
     drawCards(player, drawAmount);
     return;
+  }
+  const minCoinValue = effect.params?.minValue;
+  if (typeof minCoinValue === 'number') {
+    const coinIdx = player.hand.findIndex(
+      (c) =>
+        c.instanceId === context.secondaryTargetInstanceId &&
+        c.type === 'coin' &&
+        typeof c.value === 'number' &&
+        c.value >= minCoinValue
+    );
+    if (coinIdx === -1) {
+      // Sin moneda válida para costear la evolución: nunca evoluciona
+      // gratis, cae a robar (igual que si no se hubiera elegido objetivo).
+      drawCards(player, drawAmount);
+      return;
+    }
+    const [coin] = player.hand.splice(coinIdx, 1);
+    player.discard.push(coin);
   }
   const [captured] = state.animalTrack.splice(trackIdx, 1);
   player.discard.push(captured);

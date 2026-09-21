@@ -124,7 +124,7 @@ export function ActivePlayerBoard({
             <div key={card.instanceId} className="card-stack">
               {Array.from({ length: Math.min(count, 4) }, (_, i) => (
                 <div key={i} className="card-stack__item">
-                  <CardView card={card} compact />
+                  <CardView card={card} compact hideType />
                 </div>
               ))}
               {count > 1 && <span className="card-stack__count">×{count}</span>}

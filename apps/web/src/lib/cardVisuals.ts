@@ -58,15 +58,15 @@ const SPECIES_ICONS: Record<string, string> = {
   // Especies añadidas 2026-09-21 (aún sin ilustración real, ver
   // game-editions-classic-vs-full): iguana/hámster/cerdo/gallina/nutria
   // tienen emoji real; Pez Dorado (pez existente 🐠 ya usado por goldfish)
-  // usa 🐡 para distinguirse. Colibrí no tiene emoji propio: reutiliza el
-  // 🐦 genérico, igual que el periquito.
+  // usa 🐡 para distinguirse. Colibrí no tiene emoji propio: pollito 🐤
+  // (elegido por el usuario) en vez del 🐦 genérico que ya usa el periquito.
   iguana: '🦎',
   hamster: '🐹',
   pig: '🐷',
   chicken: '🐔',
   otter: '🦦',
   'golden-fish': '🐡',
-  hummingbird: '🐦',
+  hummingbird: '🐤',
   // Oca: emoji real de ganso (Unicode 14.0, 2021), pero sin respaldo SVG de
   // Twemoji 14.0.2 (probado: 404) — mismo trato que el cuervo más abajo,
   // fuera de fetch-twemoji.mjs, solo se ve si el sistema lo soporta

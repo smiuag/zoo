@@ -101,7 +101,7 @@ export function FlyingCard({ flight, onSettle, onDone }: FlyingCardProps) {
         if (e.propertyName === 'opacity' && phase === 'fading') onDone();
       }}
     >
-      <CardView card={flight.card} compact />
+      <CardView card={flight.card} compact hideType />
     </div>
   );
 }

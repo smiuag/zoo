@@ -41,7 +41,7 @@ export function DiscardPile({
   return (
     <div className="pile pile--discard" title={`Descarte de ${player.name}`} ref={pileRef}>
       {lastDiscarded ? (
-        <CardView card={lastDiscarded} compact badgePrefix="" remainingLabel={String(visibleCount)} />
+        <CardView card={lastDiscarded} compact badgePrefix="" remainingLabel={String(visibleCount)} hideType />
       ) : (
         <div className="card card--compact card--empty" />
       )}

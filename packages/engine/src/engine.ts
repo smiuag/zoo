@@ -261,26 +261,33 @@ export function canAffordMarket(player: Player, cost: number, habitats: readonly
   return pickCoinsToPay(player, remaining) !== null;
 }
 
-// Nº de dinosaurios que el jugador ya ha JUGADO (playCard desde su mano,
-// nunca comprado) en ESTE mismo turno — cuenta lo que siga en su mano
-// jugada este turno (playedThisTurn), igual que effectiveHand. Usado solo
-// por effectiveMarketCost.
-function dinosaursPlayedThisTurn(player: Player): number {
-  return player.playedThisTurn.filter((c) => (c.habitats as string[] | undefined)?.includes('dinosaur')).length;
+// Nº de dinosaurios que cuentan para el descuento de effectiveMarketCost:
+// los jugados (playCard desde la mano) EN ESTE MISMO turno (playedThisTurn,
+// igual que effectiveHand) MÁS los que el jugador mantiene sobre la mesa de
+// turnos anteriores (player.table, vía mayStayOnTable — hoy Gallina y
+// Colibrí, ambos con hábitat dinosaurio) — pedido explícito del usuario
+// (2026-09-21): "entre los jugados deben contar los que se quedan en mesa
+// de turnos anteriores". Antes solo miraba playedThisTurn, así que una
+// Gallina/Colibrí dejada sobre la mesa dejaba de abaratar dinosaurios en
+// cuanto pasaba el turno en que se jugó. Usado solo por effectiveMarketCost.
+function dinosaursInPlay(player: Player): number {
+  const isDinosaur = (c: CardInstance) => (c.habitats as string[] | undefined)?.includes('dinosaur');
+  return player.playedThisTurn.filter(isDinosaur).length + player.table.filter(isDinosaur).length;
 }
 
 // Coste real de COMPRAR (buyAnimal) un animal del mercado compartido: su
 // marketCost menos, si la propia carta lleva costReductionPerDinosaurPlayed
 // ThisTurn (Diplodocus/Plesiosaurio/Pteranodon y los 3 que eliminan
 // animales — Tiranosaurio/Terodáctilo/Mosasaurio, ver schema.ts), esa
-// cantidad por cada dinosaurio que el comprador ya haya jugado este turno.
-// Nunca baja de 0. El resto de cartas (sin ese campo) pagan siempre su
-// marketCost fijo, igual que antes.
+// cantidad por cada dinosaurio que el comprador tenga en juego ahora mismo
+// (jugado este turno o mantenido en mesa, ver dinosaursInPlay). Nunca baja
+// de 0. El resto de cartas (sin ese campo) pagan siempre su marketCost fijo,
+// igual que antes.
 export function effectiveMarketCost(player: Player, card: CardInstance): number {
   const reduction = card.costReductionPerDinosaurPlayedThisTurn ?? 0;
   const base = card.marketCost ?? 0;
   if (reduction <= 0) return base;
-  return Math.max(0, base - reduction * dinosaursPlayedThisTurn(player));
+  return Math.max(0, base - reduction * dinosaursInPlay(player));
 }
 
 function payCoins(player: Player, cost: number, habitats: readonly string[] = []): void {
@@ -395,6 +402,30 @@ function resolveTurnStartEffects(state: GameState, player: Player): void {
   }
 }
 
+// Perro/Colibrí (mayStayOnTable) mantenidos de turnos anteriores: pedido
+// explícito del usuario (2026-09-21) "en los siguientes turnos que te
+// aparezcan como jugadas, y que se dispare su habilidad si la tiene" — cada
+// turno vuelven a contar como recién jugadas (entran en playedThisTurn, como
+// cualquier otra carta jugada este turno: cuentan para effectiveHand, el
+// descuento de dinosaurios, etc.) y su(s) efecto(s) onPlay se resuelven de
+// nuevo (salvo mayStayOnTable, que no hace nada por sí solo). Así el Perro
+// da +1 de valor de compra TODOS los turnos que esté en la mesa, no solo el
+// turno en que se jugó. Se marcan otra vez en stayingOnTableIds para que
+// endTurn las devuelva a la mesa (en vez de descartarlas) exactamente igual
+// que si se acabaran de jugar con keepOnTable — ver endTurn más abajo.
+function replayTableCards(state: GameState, player: Player): void {
+  const kept = player.table;
+  player.table = [];
+  for (const card of kept) {
+    player.playedThisTurn.push(card);
+    player.stayingOnTableIds.push(card.instanceId);
+    for (const effect of card.effects) {
+      if (effect.trigger !== 'onPlay' || effect.type === STAY_ON_TABLE_EFFECT_TYPE) continue;
+      resolveEffect(state, player, effect, { sourceCardName: card.name, sourceInstanceId: card.instanceId });
+    }
+  }
+}
+
 // Solo resetea los contadores propios de ESTE turno; ya NO roba (ver
 // endTurn: la mano se roba al final del turno anterior, no al principio del
 // siguiente, para que los rivales tengan mano de verdad entre turno y
@@ -406,6 +437,7 @@ function beginPlayerTurn(state: GameState, player: Player): void {
   player.boughtSpeciesThisTurn = [];
   player.playedThisTurn = [];
   player.stayingOnTableIds = [];
+  replayTableCards(state, player);
   resolveTurnStartEffects(state, player);
   recordRichestTurn(state, player);
 }
@@ -749,18 +781,35 @@ function discardCoinToPeekTargetSpecs(player: Player, effect: Effect): EffectTar
 }
 
 // Avestruz/Cocodrilo: la opción "robar" (spec vacío `{}`) SIEMPRE está
-// disponible, y además una opción por cada especie de effect.params.
-// speciesOptions que esté AHORA MISMO visible en el mercado (solo lo que se
-// ve se puede capturar, igual que el resto de capturas gratis) — a
-// diferencia del resto de efectos "forzoso si es posible" (Tortuga, Cerdo),
-// aquí robar sigue siendo una opción real aunque haya alguna especie
-// capturable.
-function drawOrReturnSelfForSpeciesTargetSpecs(state: GameState, effect: Effect): EffectTargetSpec[] {
+// disponible, y además una opción por cada (especie de effect.params.
+// speciesOptions AHORA MISMO visible en el mercado × moneda de la mano de
+// valor effect.params.minValue o más, ver discardCoinCandidates) — evolucionar
+// cuesta descartar esa moneda (context.secondaryTargetInstanceId, pedido
+// explícito del usuario 2026-09-21), así que sin ninguna moneda que la
+// costee no se ofrece ninguna variante de evolución, solo robar. Sin
+// effect.params.minValue (cartas futuras con este efecto sin coste), se
+// mantiene el comportamiento de siempre: una opción por especie candidata,
+// sin moneda. A diferencia del resto de efectos "forzoso si es posible"
+// (Tortuga, Cerdo), aquí robar sigue siendo una opción real aunque haya
+// alguna especie capturable.
+function drawOrReturnSelfForSpeciesTargetSpecs(state: GameState, player: Player, effect: Effect): EffectTargetSpec[] {
   const speciesOptions = Array.isArray(effect.params?.speciesOptions)
     ? (effect.params.speciesOptions as unknown[]).filter((s): s is string => typeof s === 'string')
     : [];
   const candidates = state.animalTrack.filter((c) => speciesOptions.includes(c.species ?? ''));
-  return [{}, ...candidates.map((c) => ({ targetInstanceId: c.instanceId }))];
+  const minCoinValue = effect.params?.minValue;
+  if (typeof minCoinValue !== 'number') {
+    return [{}, ...candidates.map((c) => ({ targetInstanceId: c.instanceId }))];
+  }
+  const coins = discardCoinCandidates(player, minCoinValue);
+  if (coins.length === 0) return [{}];
+  const specs: EffectTargetSpec[] = [{}];
+  for (const coin of coins) {
+    for (const candidate of candidates) {
+      specs.push({ targetInstanceId: candidate.instanceId, secondaryTargetInstanceId: coin.instanceId });
+    }
+  }
+  return specs;
 }
 
 // Punto único que decide, para CUALQUIER carta con un efecto onPlay que
@@ -796,7 +845,7 @@ function effectTargetSpecsForCard(
   if (discardCoinToPeek) return discardCoinToPeekTargetSpecs(player, discardCoinToPeek);
 
   const drawOrReturnSelf = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'drawOrReturnSelfForSpecies');
-  if (drawOrReturnSelf) return drawOrReturnSelfForSpeciesTargetSpecs(state, drawOrReturnSelf);
+  if (drawOrReturnSelf) return drawOrReturnSelfForSpeciesTargetSpecs(state, player, drawOrReturnSelf);
 
   const playerTargeted = card.effects.find((e) => e.trigger === 'onPlay' && PLAYER_TARGETED_EFFECT_TYPES.has(e.type));
   if (playerTargeted) {
@@ -847,18 +896,28 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
     if (!owed || owed.amount <= 0) return [];
     const player = state.players.find((p) => p.id === playerId);
     if (!player) return [];
+    // eligibleInstanceIds puede incluir cartas de player.table (mantenidas
+    // de turnos anteriores vía mayStayOnTable), no solo de la mano — ver
+    // eachOpponentDestroysAnimalFromHand en registry.ts.
     const eligible = owed.eligibleInstanceIds
-      ? player.hand.filter((c) => owed.eligibleInstanceIds!.includes(c.instanceId))
+      ? [...player.hand, ...player.table].filter((c) => owed.eligibleInstanceIds!.includes(c.instanceId))
       : player.hand;
     // Perezoso: siempre se puede descartar en su lugar (aunque no esté entre
     // las elegibles "normales", como los animales más caros de la Hiena),
     // cubriendo TODA la entrega de una vez — ver el trato especial en
     // resolveDiscard. Solo aplica a entregas de tipo 'discard'. Murciélago:
-    // mismo trato pero solo para 'destroy' (Tiburón/Halcón/León) — se
-    // protege descartándose él en vez de perder el animal capturado.
+    // mismo trato pero para cualquier 'destroy' (Tiburón/Halcón/León y
+    // también Tiranosaurio/Pterodáctilo/Mosasaurio) — se protege
+    // descartándose él en vez de perder el animal. Gato: mismo trato, pero
+    // SOLO para el 'destroy' con requiredHabitats (la habilidad de "cada
+    // oponente elimina un animal de X hábitat"), sea cual sea ese hábitat —
+    // ver isCatSubstitute en resolveDiscard.
     const extra = [
       ...(decision.kind === 'discard' ? player.hand.filter((c) => c.id === 'sloth' && !eligible.includes(c)) : []),
       ...(decision.kind === 'destroy' ? player.hand.filter((c) => c.id === 'bat' && !eligible.includes(c)) : []),
+      ...(decision.kind === 'destroy' && decision.requiredHabitats !== undefined
+        ? player.hand.filter((c) => c.id === 'cat' && !eligible.includes(c))
+        : []),
     ];
     return [...eligible, ...extra].map((c) => ({ type: 'resolveDiscard', instanceId: c.instanceId }));
   }
@@ -1090,21 +1149,43 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
 
   const player = state.players.find((p) => p.id === playerId);
   if (!player) throw new Error(`Jugador desconocido: ${playerId}`);
+  // La carta a entregar normalmente vive en la mano, pero desde 2026-09-21
+  // (eachOpponentDestroysAnimalFromHand también alcanza player.table, ver
+  // registry.ts) puede ser un animal mantenido sobre la mesa de turnos
+  // anteriores (Gallina/Colibrí vía mayStayOnTable) — se busca primero en la
+  // mano y, si no está ahí, en la mesa. Los sustitutos protectores (Perezoso/
+  // Murciélago/Gato) siguen buscándose SOLO en la mano vía `idx` más abajo:
+  // no tiene sentido "sustituir" entregando algo que ya está en la mesa.
   const idx = player.hand.findIndex((c) => c.instanceId === instanceId);
-  if (idx === -1) throw new Error(`La carta ${instanceId} no está en la mano de ${playerId}`);
+  const tableIdx = idx === -1 ? player.table.findIndex((c) => c.instanceId === instanceId) : -1;
+  if (idx === -1 && tableIdx === -1) throw new Error(`La carta ${instanceId} no está en la mano ni en la mesa de ${playerId}`);
 
-  const isSlothSubstitute = decision.kind === 'discard' && player.hand[idx].id === 'sloth';
-  const isBatSubstitute = decision.kind === 'destroy' && player.hand[idx].id === 'bat';
-  // Gato: cuando lo que hay que eliminar es un animal TERRESTRE, su dueño
-  // puede entregar el Gato (que es terrestre, así que ya está entre las
-  // elegibles) y va a su descarte en vez de eliminarse.
+  const isSlothSubstitute = idx !== -1 && decision.kind === 'discard' && player.hand[idx].id === 'sloth';
+  const isBatSubstitute = idx !== -1 && decision.kind === 'destroy' && player.hand[idx].id === 'bat';
+  // Gato: protege sea cual sea el TIPO de animal exigido (land/bird/
+  // aquatic) por la habilidad de "cada oponente elimina un animal de X
+  // hábitat" (Tiranosaurio/Pterodáctilo/Mosasaurio, ver requiredHabitats en
+  // registry.ts) — pedido explícito del usuario 2026-09-21: antes solo
+  // protegía si lo exigido era terrestre (porque el Gato es terrestre y ya
+  // estaba entre las elegibles "normales" en ese caso); ahora, igual que el
+  // Murciélago, siempre se ofrece como sustituto aunque no encaje con el
+  // hábitat exigido (ver decision.requiredHabitats más abajo en
+  // getLegalActions). Nunca aplica a otras entregas 'destroy' sin
+  // requiredHabitats (Tiburón/Halcón/León): esas no son "tipo de animal
+  // eliminado", capturan por otro criterio, ajeno al Gato.
   const isCatSubstitute =
-    decision.kind === 'destroy' && player.hand[idx].id === 'cat' && (decision.requiredHabitats ?? []).includes('land');
-  if (!isSlothSubstitute && !isBatSubstitute && owed.eligibleInstanceIds && !owed.eligibleInstanceIds.includes(instanceId)) {
+    idx !== -1 && decision.kind === 'destroy' && decision.requiredHabitats !== undefined && player.hand[idx].id === 'cat';
+  if (
+    !isSlothSubstitute &&
+    !isBatSubstitute &&
+    !isCatSubstitute &&
+    owed.eligibleInstanceIds &&
+    !owed.eligibleInstanceIds.includes(instanceId)
+  ) {
     throw new Error(`${instanceId} no es una carta elegible para esta entrega`);
   }
 
-  const [card] = player.hand.splice(idx, 1);
+  const [card] = idx !== -1 ? player.hand.splice(idx, 1) : player.table.splice(tableIdx, 1);
   const sourcePlayer = state.players.find((p) => p.id === decision.sourcePlayerId);
   if (isBatSubstitute || isCatSubstitute) {
     // Protegido: el Murciélago/Gato se descarta normal, no cuenta como capturado.
@@ -1139,7 +1220,7 @@ export function resolveDiscard(state: GameState, playerId: string, instanceId: s
       : isBatSubstitute
         ? `${player.name} descartó su Murciélago para protegerse de ${decision.sourceCardName}`
         : isCatSubstitute
-          ? `${player.name} descartó su Gato en vez de eliminar un animal terrestre (${decision.sourceCardName})`
+          ? `${player.name} descartó su Gato en vez de eliminar un animal (${decision.sourceCardName})`
         : decision.kind === 'destroy'
           ? `${player.name} perdió ${card.name} para siempre, capturado por ${sourcePlayer?.name ?? '?'} (${decision.sourceCardName})`
           : decision.kind === 'giveToPlayer'
@@ -1265,6 +1346,22 @@ function autoResolveForcedDiscards(state: GameState): void {
       const owed = state.pendingDecision.owed[playerId];
       const player = state.players.find((p) => p.id === playerId);
       if (state.pendingDecision.kind === 'destroy' && player?.hand.some((c) => c.id === 'bat')) break;
+      // Gato: mismo motivo que el Murciélago justo arriba — si puede
+      // protegerse sacrificándolo, eso es una elección real que hacer, no
+      // se auto-resuelve por él. Solo hace falta este chequeo aparte cuando
+      // el Gato NO es ya una de las elegibles "normales" (destroy de
+      // volador/acuático: el Gato es terrestre) — si ya lo es (destroy de
+      // terrestre), el chequeo de "eligible.length > owed.amount" de más
+      // abajo ya cubre el caso (y si el Gato es la única elegible, auto-
+      // resolverlo A ÉL directamente sigue siendo protegerse, no hace falta
+      // pausar). Solo aplica al 'destroy' con requiredHabitats (ver
+      // isCatSubstitute en resolveDiscard).
+      if (
+        state.pendingDecision.kind === 'destroy' &&
+        state.pendingDecision.requiredHabitats !== undefined &&
+        player?.hand.some((c) => c.id === 'cat' && !(owed.eligibleInstanceIds ?? []).includes(c.instanceId))
+      )
+        break;
       const eligible = owed.eligibleInstanceIds ?? player?.hand.map((c) => c.instanceId) ?? [];
       if (eligible.length > owed.amount) break; // hay elección real: se deja pendiente
       const instanceId = eligible[0];
@@ -1292,17 +1389,20 @@ export function autoResolvePendingDiscard(state: GameState): boolean {
   }
   const player = state.players.find((p) => p.id === owedId);
   const owed = state.pendingDecision.owed[owedId];
-  // Gato: si hay que eliminar un terrestre y tiene un Gato a mano, siempre
-  // es la mejor entrega (va al descarte, no se pierde nada).
+  // Gato: si la entrega exige un tipo concreto de animal (sea cual sea) y
+  // tiene un Gato a mano, siempre es la mejor entrega (va al descarte, no se
+  // pierde nada) — ver isCatSubstitute en resolveDiscard.
   const protectingCat =
-    state.pendingDecision.kind === 'destroy' && (state.pendingDecision.requiredHabitats ?? []).includes('land')
+    state.pendingDecision.kind === 'destroy' && state.pendingDecision.requiredHabitats !== undefined
       ? player?.hand.find((c) => c.id === 'cat')
       : undefined;
   const instanceId = protectingCat
     ? protectingCat.instanceId
     : player
     ? pickDefaultDiscard(
-        player.hand,
+        // eligibleInstanceIds puede incluir cartas de player.table (ver
+        // eachOpponentDestroysAnimalFromHand en registry.ts), no solo mano.
+        [...player.hand, ...player.table],
         owed.eligibleInstanceIds,
         state.pendingDecision.kind === 'discard',
         state.pendingDecision.bonusDrawPerCoin

@@ -744,6 +744,7 @@ export function GameBoard({
                     // pendiente sí las haga elegibles.
                     onClick={isHandCardClickable(card) ? () => handleHandCardClick(card) : undefined}
                     disabled={canAct && card.type !== 'coin' && !isHandCardClickable(card)}
+                    hideType
                   />
                 ))}
               </div>
@@ -901,6 +902,7 @@ export function GameBoard({
                   key={card.instanceId}
                   card={card}
                   onClick={() => runAction(resolveDiscardActionFor(legalActions, card.instanceId))}
+                  hideType
                 />
               ))}
             </div>
@@ -933,6 +935,7 @@ export function GameBoard({
                   key={card.instanceId}
                   card={card}
                   onClick={() => handleAnimalAbilityCandidateClick(card)}
+                  hideType
                 />
               ))}
             </div>
@@ -984,7 +987,7 @@ export function GameBoard({
                 const total = perCardPoints.reduce((sum, p) => sum + p, 0);
                 return (
                   <div key={card.id} className="collection-entry">
-                    <CardView card={card} />
+                    <CardView card={card} hideType />
                     {count > 1 && <span className="collection-entry__count">×{count}</span>}
                     <div
                       className={['collection-entry__points', total < 0 && 'collection-entry__points--negative']
@@ -1006,7 +1009,7 @@ export function GameBoard({
                 <div className="card-row">
                   {groupedDestroyed(viewedPlayer).map(({ card, count }) => (
                     <div key={card.id} className="collection-entry">
-                      <CardView card={card} destroyed />
+                      <CardView card={card} destroyed hideType />
                       {count > 1 && <span className="collection-entry__count">×{count}</span>}
                     </div>
                   ))}

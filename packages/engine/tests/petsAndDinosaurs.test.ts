@@ -103,6 +103,27 @@ describe('perro: puede quedarse sobre la mesa', () => {
     expect(scorePlayer(state, player)).toBe(2);
   });
 
+  it('en el turno siguiente del dueño, vuelve a "jugarse" y su habilidad se dispara de nuevo', () => {
+    const { state, player, opponent } = setupClean();
+    const dog = freshInstance('dog', 'test');
+    player.hand = [dog];
+    applyAction(state, player.id, { type: 'playCard', instanceId: dog.instanceId, keepOnTable: true });
+    endTurn(state, player.id); // pasa a la mesa
+    expect(player.table.map((c) => c.instanceId)).toEqual([dog.instanceId]);
+
+    endTurn(state, opponent.id); // turno del rival, vuelve a tocarle al dueño
+    // Al empezar su siguiente turno, el Perro "se juega" otra vez: aparece
+    // en playedThisTurn y su +1 de valor de compra se dispara de nuevo (no
+    // solo el turno en que se jugó por primera vez).
+    expect(player.table).toHaveLength(0);
+    expect(player.playedThisTurn.map((c) => c.instanceId)).toEqual([dog.instanceId]);
+    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
+
+    endTurn(state, player.id); // vuelve a la mesa al acabar este turno también
+    expect(player.table.map((c) => c.instanceId)).toEqual([dog.instanceId]);
+    expect([...player.deck, ...player.hand, ...player.discard].some((c) => c.instanceId === dog.instanceId)).toBe(false);
+  });
+
   it('una carta sin esa habilidad no se puede dejar sobre la mesa', () => {
     const { state, player } = setupClean();
     const lion = freshInstance('lion', 'test');
@@ -133,7 +154,7 @@ describe('dinosaurios: cada oponente elimina un animal de su mano', () => {
 
   it('con varios elegibles, el afectado elige cuál elimina', () => {
     const { state, player, opponent } = setupClean();
-    const ptero = freshInstance('pterodactyl', 'test');
+    const ptero = freshInstance('pteranodon', 'test');
     const owl = freshInstance('owl', 'opp');
     const eagle = freshInstance('eagle', 'opp');
     player.hand = [ptero];
@@ -162,6 +183,20 @@ describe('dinosaurios: cada oponente elimina un animal de su mano', () => {
     expect(player.hand).toHaveLength(1);
     expect(player.destroyedCards).toHaveLength(0);
     expect(opponent.hand).toHaveLength(1);
+  });
+
+  it('también alcanza un animal mantenido en la mesa del afectado (de turnos anteriores), no solo su mano', () => {
+    const { state, player, opponent } = setupClean();
+    const ptero = freshInstance('pteranodon', 'test');
+    const keptOwl = freshInstance('owl', 'kept');
+    player.hand = [ptero];
+    opponent.hand = [freshInstance('coin-1', 'opp')]; // nada volador en mano
+    opponent.table = [keptOwl]; // sí en mesa, de un turno anterior
+    playCard(state, player.id, ptero.instanceId);
+    // Un solo elegible (en mesa): se resuelve solo, sin decisión pendiente.
+    expect(state.pendingDecision).toBeNull();
+    expect(opponent.table.some((c) => c.instanceId === keptOwl.instanceId)).toBe(false);
+    expect(player.destroyedCards.map((c) => c.instanceId)).toEqual([keptOwl.instanceId]);
   });
 });
 
@@ -195,14 +230,31 @@ describe('gato: se descarta en vez de eliminar un terrestre', () => {
     expect(player.destroyedCards).toHaveLength(0);
   });
 
-  it('no protege de eliminar un volador o un acuático', () => {
+  it('también protege de eliminar un acuático (o volador): vale para cualquier tipo, no solo terrestre', () => {
+    const { state, player, opponent } = setupClean();
+    const mosa = freshInstance('mosasaurus', 'test');
+    const cat = freshInstance('cat', 'opp');
+    const seal = freshInstance('seal', 'opp');
+    player.hand = [mosa];
+    opponent.hand = [cat, seal];
+    playCard(state, player.id, mosa.instanceId);
+    // El Gato no es acuático, así que no está entre las "elegibles" normales
+    // de esta entrega — pero sigue siendo un sustituto válido igualmente.
+    expect(state.pendingDecision).not.toBeNull();
+    resolveDiscard(state, opponent.id, cat.instanceId);
+    expect(state.pendingDecision).toBeNull();
+    expect(opponent.discard.map((c) => c.instanceId)).toEqual([cat.instanceId]);
+    expect(opponent.hand.map((c) => c.instanceId)).toEqual([seal.instanceId]);
+    expect(player.destroyedCards).toHaveLength(0);
+  });
+
+  it('sin Gato, un eliminación de tipo no-terrestre sigue funcionando como siempre', () => {
     const { state, player, opponent } = setupClean();
     const mosa = freshInstance('mosasaurus', 'test');
     const seal = freshInstance('seal', 'opp');
     player.hand = [mosa];
-    opponent.hand = [freshInstance('cat', 'opp'), seal];
+    opponent.hand = [seal];
     playCard(state, player.id, mosa.instanceId);
     expect(player.destroyedCards.map((c) => c.instanceId)).toEqual([seal.instanceId]);
-    expect(opponent.hand.map((c) => c.id)).toEqual(['cat']);
   });
 });

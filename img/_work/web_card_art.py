@@ -14,7 +14,7 @@ DST = r"C:\proyectos\Claude\zoo\apps\web\public\cards"
 # id de carta -> (archivo, tolerancia de color respecto al fondo)
 ART = {
     "dog": ("Perro.jpg", 20), "cat": ("gato.jpg", 20), "diplodocus": ("diplodocus.jpg", 20),
-    "tyrannosaurus": ("tiranosaurio.jpg", 20), "pterodactyl": ("terodactilo.jpg", 20), "mosasaurus": ("mosasaurus.jpg", 20),
+    "tyrannosaurus": ("tiranosaurio.jpg", 20), "pterodactyl": ("pterodactilo.jpg", 20), "mosasaurus": ("mosasaurus.jpg", 20),
     # Segunda tanda de la edición completa (2026-09-21)
     "pig": ("cerdos.jpg", 20), "hamster": ("hamster.jpg", 20), "chicken": ("gallina.jpg", 20),
     "hummingbird": ("colibri.jpg", 20), "iguana": ("iguana.jpg", 20), "otter": ("nutria.jpg", 20),

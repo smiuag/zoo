@@ -6,12 +6,8 @@
   "edition": "full",
   "marketCost": 3,
   "victoryPoints": 3,
-  "text": "Al jugarla, puedes dejarla sobre la mesa en vez de enviarla al descarte, hasta que barajes tu mazo.\nDescarta una moneda de tu mano para capturar, de la reserva, un animal terrestre o acuático de coste 2 o menos y ponlo en tu descarte.",
+  "text": "Descarta una moneda de tu mano para capturar, de la reserva, un animal terrestre o acuático de coste 2 o menos y ponlo en tu descarte.",
   "effects": [
-    {
-      "trigger": "onPlay",
-      "type": "mayStayOnTable"
-    },
     {
       "trigger": "onPlay",
       "type": "discardCoinToCapture",

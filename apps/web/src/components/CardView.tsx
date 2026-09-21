@@ -54,6 +54,11 @@ interface CardViewProps {
   // Halcón/León): se marca con una X roja encima, para el resumen final.
   // Nunca es clicable (no tiene sentido interactuar con ella).
   destroyed?: boolean;
+  // Oculta el tipo (hábitats + mascota/dinosaurio) del pie de la carta: solo
+  // lo usa el descarte (ver PlayerPiles.tsx) — ahí solo se ve la última
+  // carta cada vez, sin comparar unas con otras, así que el tipo no aporta
+  // y sobraba visualmente (pedido explícito del usuario, 2026-09-21).
+  hideType?: boolean;
   // Cuánto valdría YA MISMO comprar esta carta del mercado (simulación:
   // se añade a una copia de tu colección actual, ver
   // marketCardPreviewPoints en GameBoard.tsx) — SOLO tiene sentido para
@@ -113,6 +118,7 @@ export function CardView({
   badgePrefix = '×',
   destroyed,
   livePoints,
+  hideType,
 }: CardViewProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -122,7 +128,7 @@ export function CardView({
   // Tipo (hábitats + mascota/dinosaurio) partido en líneas de 2 en 2 (ver
   // chunkPairs arriba): con 3-4 tipos a la vez una sola línea no cabía y se
   // recortaba con "…" (ver .card__footer en styles.css).
-  const footerLines = card.type === 'animal' ? chunkPairs(habitatLabelParts(card)) : [];
+  const footerLines = card.type === 'animal' && !hideType ? chunkPairs(habitatLabelParts(card)) : [];
   const bits: string[] = [];
   // El "+N" dorado (ver .card__coin-value) es una ayuda pensada para las
   // ilustraciones nuevas, que ya no llevan el número grabado encima; en

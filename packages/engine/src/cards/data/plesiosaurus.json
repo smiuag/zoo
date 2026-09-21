@@ -4,7 +4,7 @@
   "type": "animal",
   "species": "plesiosaurus",
   "edition": "full",
-  "marketCost": 15,
+  "marketCost": 14,
   "costReductionPerDinosaurPlayedThisTurn": 2,
   "victoryPoints": 0,
   "text": "Cuesta 2 monedas menos por cada dinosaurio que hayas jugado este turno.\nAl jugarlo, roba 2 cartas.\nAl final de la partida, +1PV por cada dinosaurio que tengas en toda tu colección.",

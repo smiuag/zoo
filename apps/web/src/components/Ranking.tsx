@@ -204,7 +204,7 @@ export function Ranking({ onClose }: RankingProps) {
             <div className="card-row">
               {deckCards?.map(({ instance, count }) => (
                 <div key={instance.id} className="collection-entry">
-                  <CardView card={instance} />
+                  <CardView card={instance} hideType />
                   {count > 1 && <span className="collection-entry__count">×{count}</span>}
                 </div>
               ))}

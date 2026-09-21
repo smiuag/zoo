@@ -6,7 +6,7 @@
   "edition": "full",
   "marketCost": 1,
   "victoryPoints": 1,
-  "text": "Al jugarlo, puedes dejarlo sobre la mesa en vez de enviarlo al descarte, hasta que barajes tu mazo.",
+  "text": "Al jugarlo, puedes dejarlo sobre la mesa en vez de enviarlo al descarte, hasta que barajes tu mazo: mientras esté ahí, cada turno vuelve a jugarse.",
   "effects": [
     {
       "trigger": "onPlay",
