@@ -7,15 +7,23 @@ import { ANIMAL_SPECIES, FULL_EDITION_EXTRA_SPECIES, type GameEdition } from '@z
 export const CUSTOM_PICKABLE_SPECIES: readonly string[] = [...ANIMAL_SPECIES, ...FULL_EDITION_EXTRA_SPECIES];
 
 // Delta de copias iniciales por tramo de coste (ver initialMarketCopies en
-// el motor), solo para edition === 'custom'. Rango fijo -2..+2 (pedido
-// explícito del usuario: botones discretos, no un campo numérico libre).
+// el motor: se aplica directamente sobre el nº de jugadores, IGUAL en los
+// dos tramos), solo para edition === 'custom'. Botones discretos, no un
+// campo numérico libre (pedido explícito del usuario). Rangos distintos por
+// tramo (pedido explícito del usuario 2026-09-21): las caras (coste>=5)
+// van de -3 a +1, no -2 a +2 — con pocos jugadores, 1 copia de una carta
+// cara de 8 especies distintas ya es bastante, y rara vez hace falta subir
+// por encima del "normal" (delta 0).
 export interface CustomCopyDeltas {
   cheap: number;
   expensive: number;
 }
-export const CUSTOM_COPY_DELTA_OPTIONS = [-2, -1, 0, 1, 2] as const;
+export const CUSTOM_COPY_DELTA_OPTIONS_CHEAP = [-2, -1, 0, 1, 2] as const;
+export const CUSTOM_COPY_DELTA_OPTIONS_EXPENSIVE = [-3, -2, -1, 0, 1] as const;
 // Por defecto +2 en baratas (coste<5) y 0 en caras (coste>=5) — pedido
-// explícito del usuario 2026-09-21, no 0/0.
+// explícito del usuario 2026-09-21, no 0/0. Con estos valores por defecto,
+// initialMarketCopies da el mismo resultado que el caso sin deltas
+// (numPlayers+2 en baratas, numPlayers en caras).
 export const DEFAULT_CUSTOM_COPY_DELTAS: CustomCopyDeltas = { cheap: 2, expensive: 0 };
 // Los 4 algoritmos de IA disponibles para cada hueco de bot (pedido
 // explícito del usuario 2026-09-21: solo estos 4, nunca los heurísticos/
@@ -145,10 +153,13 @@ export function loadSavedSetupPrefs(): SetupPrefs | null {
       : undefined;
 
     const rawDeltas = parsed.customCopyDeltas;
-    const isValidDelta = (n: unknown): n is number =>
-      typeof n === 'number' && (CUSTOM_COPY_DELTA_OPTIONS as readonly number[]).includes(n);
+    const isValidDelta = (n: unknown, options: readonly number[]): n is number =>
+      typeof n === 'number' && options.includes(n);
     const customCopyDeltas =
-      rawDeltas && typeof rawDeltas === 'object' && isValidDelta(rawDeltas.cheap) && isValidDelta(rawDeltas.expensive)
+      rawDeltas &&
+      typeof rawDeltas === 'object' &&
+      isValidDelta(rawDeltas.cheap, CUSTOM_COPY_DELTA_OPTIONS_CHEAP) &&
+      isValidDelta(rawDeltas.expensive, CUSTOM_COPY_DELTA_OPTIONS_EXPENSIVE)
         ? { cheap: rawDeltas.cheap, expensive: rawDeltas.expensive }
         : DEFAULT_CUSTOM_COPY_DELTAS;
 

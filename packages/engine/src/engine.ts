@@ -117,10 +117,18 @@ export function initialMarketCopies(
   numPlayers: number,
   customDeltas?: { cheap: number; expensive: number }
 ): number {
-  const base = marketCost >= 5 ? numPlayers : numPlayers + 2;
-  if (!customDeltas) return base;
+  if (!customDeltas) {
+    return marketCost >= 5 ? numPlayers : numPlayers + 2;
+  }
+  // A diferencia del caso sin deltas (arriba), aquí el delta se aplica
+  // directamente sobre numPlayers en AMBOS tramos, no sobre el "+2" oculto
+  // de las baratas — pedido explícito del usuario 2026-09-21: "que sea
+  // sobre el número de jugadores en ambos casos. Ahora mismo las de <=5
+  // parece que está sobre jugadores +2". Con los deltas por defecto
+  // ({cheap:2, expensive:0}, ver DEFAULT_CUSTOM_COPY_DELTAS en
+  // gameConfig.ts) el resultado coincide con el caso sin deltas de arriba.
   const delta = marketCost >= 5 ? customDeltas.expensive : customDeltas.cheap;
-  return Math.max(1, base + delta);
+  return Math.max(1, numPlayers + delta);
 }
 
 // La partida entra en la ronda final en cuanto este número de mazos

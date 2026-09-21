@@ -301,11 +301,11 @@ function HostOrLocalApp() {
 
   return (
     <>
-      {isOnlineHost && (
-        <div className="panel">
-          <span className="chip">🌐 Sala {onlineRoom.roomCode}</span>
-        </div>
-      )}
+      {/* Durante la partida NO se muestra el código de sala (quitado a petición
+          del usuario 2026-09-21): nadie lo teclea — los invitados entran por
+          su enlace de invitación, que ya lleva sala, asiento y clave — y solo
+          ocupaba una línea entera encima del tablero. Sigue viéndose en la
+          sala de espera (OnlineWaitingRoom / GuestApp). */}
       <GameBoard
         state={state}
         humanIds={humanIds}

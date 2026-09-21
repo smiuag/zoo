@@ -33,9 +33,17 @@
    mayor que la pantalla), que se recorte en vez de generar scroll
    horizontal en toda la página — el vertical es normal, el horizontal en
    el body no debería pasar nunca (ver responsive más abajo, sobre todo el
-   mercado, que era la causa real). */
-html,
-body {
+   mercado, que era la causa real).
+   SOLO en <html>, nunca también en <body>: poner overflow-x:hidden en los
+   dos a la vez fuerza (por spec CSS) el overflow-y de AMBOS a "auto",
+   convirtiendo a <body> en su propio contenedor de scroll independiente
+   del de <html> — dos scrollboxes anidados con topes distintos, que es
+   justo lo que hacía que el scroll rápido (rueda/trackpad) pareciera
+   "quedarse clavado a mitad" en pantallas largas como Configuración
+   (pedido explícito del usuario 2026-09-21). Con overflow-x:hidden solo en
+   <html>, <body> vuelve a no tener scrollbox propio y todo el contenido
+   scrollea de una sola pieza, como siempre debió ser. */
+html {
   max-width: 100%;
   overflow-x: hidden;
 }
@@ -400,6 +408,11 @@ body {
   align-items: center;
   gap: 0.6rem;
   min-width: 0;
+  /* Mismo margen a la derecha que el que ya hay a la izquierda (el relleno de
+     la barra): los botones quedan centrados sobre el panel de la mesa, en vez
+     de llegar hasta su borde derecho solo por un lado. La columna en sí no
+     cambia, así que el dinero sigue empezando donde empieza el mercado. */
+  padding-right: var(--bar-inset);
 }
 
 .bottom-bar__left > .btn {
@@ -420,6 +433,35 @@ body {
   justify-content: center;
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* En medio, el marcador va SIEMPRE en una sola línea: si no cabe, no se parte
+   ahí dentro sino que GameBoard.tsx (ver scoreboardBelow) activa esta variante
+   y baja a una segunda fila, en horizontal, debajo de ronda/"Nueva partida". */
+.bottom-bar__mid .scoreboard {
+  flex-wrap: nowrap;
+}
+
+.bottom-bar__mid--stacked {
+  flex-wrap: wrap;
+  row-gap: 0.5rem;
+}
+
+.bottom-bar__mid--stacked .bottom-bar__right {
+  margin-left: auto;
+}
+
+.bottom-bar__mid--stacked .bottom-bar__scoreboard {
+  order: 3;
+  flex: 1 0 100%;
+  justify-content: flex-end;
+}
+
+/* Solo si ni siquiera en su propia fila cabe (ventana muy estrecha con 8
+   jugadores), se le deja partirse, alineado a la derecha. */
+.bottom-bar__mid--stacked .scoreboard {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .bottom-bar__right {
@@ -933,10 +975,56 @@ body {
   color: #f1efe8;
 }
 
-.card:hover .card__tooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(calc(-50% + var(--tooltip-shift-x))) translateY(0);
+/* Solo con ratón: en táctil :hover se queda pegado tras tocar, así que ahí
+   el tooltip lo abre CardView.tsx mientras dura la pulsación (ver
+   .card-press-tooltip más abajo). */
+@media (hover: hover) and (pointer: fine) {
+  .card:hover .card__tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(calc(-50% + var(--tooltip-shift-x))) translateY(0);
+  }
+}
+
+/* Tooltip táctil: vive en <body> (portal), siempre centrado en la pantalla y
+   por encima de todo, incluida la barra fija de abajo. No captura toques:
+   soltar el dedo tiene que llegarle a la carta para cerrarlo. */
+.card-press-tooltip {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: max-content;
+  max-width: min(340px, 88vw);
+  background: var(--ink);
+  color: #fff;
+  border-radius: 10px;
+  padding: 0.8rem 0.95rem;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+  z-index: 200;
+  pointer-events: none;
+  text-align: left;
+  /* Sin animación de entrada a propósito: una que arranque en opacity:0 deja
+     el tooltip invisible si el navegador no llega a avanzarla (pestaña en
+     segundo plano, ahorro de energía), y aquí solo se ve mientras pulsas. */
+}
+
+.card-press-tooltip .card__tooltip-name {
+  font-size: 1.1rem;
+}
+
+.card-press-tooltip .card__tooltip-text {
+  font-size: 1rem;
+}
+
+/* Mantener el dedo sobre una carta no debe seleccionar texto ni abrir el menú
+   de "guardar imagen" del móvil. */
+@media (hover: none), (pointer: coarse) {
+  .card {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 
 .card__check {
@@ -1036,35 +1124,6 @@ body {
   .pair-row {
     flex-direction: column;
     gap: 0.4rem;
-  }
-
-  /* Tooltip SIEMPRE centrado en la pantalla (no ya anclado a la carta):
-     pedido explícito del usuario 2026-09-21, "intentar que el tooltip
-     salga siempre en el centro de la pantalla, aunque la carta esté en un
-     lado. Ahora se acaba cortando siempre" — con la carta pegada a
-     cualquier borde (columnas del mercado, mano de 5 en fila...) el
-     recorte por los lados era constante pese al desplazamiento de
-     clampTooltipPosition (CardView.tsx: sigue corriendo, pero aquí se
-     ignora top/left/transform con la misma especificidad, ver el orden de
-     este bloque respecto a la regla base de .card__tooltip). position:
-     fixed además de centrarlo lo desacopla del scroll: no hace falta que
-     la carta sea visible para que el tooltip lo sea. */
-  .card__tooltip,
-  .card__tooltip--above {
-    position: fixed;
-    top: 50%;
-    bottom: auto;
-    left: 50%;
-    right: auto;
-    transform: translate(-50%, -55%);
-    max-width: min(320px, 88vw);
-    width: max-content;
-    /* Por encima de .bottom-bar (z-index:40, también fixed): centrado en
-       pantalla puede caer parcialmente sobre ella en pantallas bajas. */
-    z-index: 60;
-  }
-  .card:hover .card__tooltip {
-    transform: translate(-50%, -50%);
   }
 
   /* El resto de tamaños de fuente de la carta son fijos en rem: sin esto,
@@ -1565,7 +1624,16 @@ body {
      el uno al lado del otro en vez de apilados. */
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /* "safe center", no un center a secas: con contenido que no desborda
+     (el formulario normal) centra igual, pero en Configuración — con el
+     picker de ~50 cartas, mucho más alto que la pantalla — un center normal
+     hace que el navegador calcule mal el scroll disponible y el scroll
+     rápido (rueda/trackpad) se quede clavado a mitad en vez de llegar
+     arriba/abajo del todo. "safe" pasa a alinear desde el principio en
+     cuanto el contenido desborda, sin ese bug. Pedido explícito del usuario
+     2026-09-21: "en configuración cuando hago scroll deprisa se queda
+     parado como a mitad". */
+  justify-content: safe center;
   gap: 1rem;
 }
 

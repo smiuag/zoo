@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { CSSProperties } from 'react';
 import type { CardInstance } from '@zoo/engine';
 import { useArtStyle } from '../lib/artStyle';
@@ -99,15 +100,13 @@ interface CardViewProps {
 // y se corrige con un desplazamiento horizontal (--tooltip-shift-x, una
 // custom property que la hoja de estilos ya incorpora a su transform, en
 // vez de pisar el transform desde aquí y romper la transición de
-// aparición) — en móvil (≤860px, ver styles.css) esta corrección deja de
-// notarse: el tooltip pasa a position:fixed centrado en la pantalla
-// entera pase lo que pase (pedido explícito del usuario 2026-09-21, "que
-// salga siempre en el centro de la pantalla... ahora se acaba cortando
-// siempre"), así que este cálculo se sigue ejecutando pero el CSS de ese
-// breakpoint lo pisa entero; se deja tal cual porque sigue haciendo falta
-// en escritorio. Y, si no cabe debajo, se pasa a mostrar por ARRIBA
-// (card__tooltip--above).
+// aparición). Y, si no cabe debajo, se pasa a mostrar por ARRIBA
+// (card__tooltip--above). Esto es solo para RATÓN: en táctil el tooltip es
+// otro elemento, centrado en la pantalla y abierto mientras dura la
+// pulsación (ver pressOpen más abajo y .card-press-tooltip en styles.css).
 const TOOLTIP_VIEWPORT_MARGIN = 8;
+// Cuánto hay que mantener el dedo sobre la carta para que cuente como "leer" y no como toque.
+const LONG_PRESS_MS = 220;
 
 function clampTooltipPosition(card: HTMLElement, tooltip: HTMLElement) {
   tooltip.style.setProperty('--tooltip-shift-x', '0px');
@@ -146,6 +145,29 @@ export function CardView({
 }: CardViewProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
+  // Pantalla táctil: el tooltip NO depende de :hover (que en móvil se queda
+  // "pegado" tras tocar la carta hasta que tocas otra cosa, y estorba —
+  // pedido explícito del usuario 2026-09-21: "en móvil que salga solo
+  // mientras pulsas"). Se abre manteniendo el dedo sobre la carta y se
+  // cierra al soltar, al arrastrar (el navegador manda pointercancel cuando
+  // empieza el scroll) o al salir de la carta. Un toque corto sigue siendo
+  // la acción de siempre (jugar/comprar); una pulsación larga que llegó a
+  // abrir el tooltip NO dispara esa acción al soltar — si no, leer una carta
+  // que puedes pagar la compraría.
+  const [pressOpen, setPressOpen] = useState(false);
+  const pressTimerRef = useRef<number | null>(null);
+  const swallowNextClickRef = useRef(false);
+  const clearPressTimer = () => {
+    if (pressTimerRef.current !== null) {
+      window.clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+  };
+  const endPress = () => {
+    clearPressTimer();
+    setPressOpen(false);
+  };
+  useEffect(() => clearPressTimer, []);
   const [artStyle] = useArtStyle();
   const clickable = Boolean(onClick) && !disabled && !destroyed;
   const isEmoji = artStyle === 'emoji';
@@ -194,6 +216,32 @@ export function CardView({
       ref={cardRef}
       className={classNames.join(' ')}
       onClick={clickable ? onClick : undefined}
+      onClickCapture={(e) => {
+        if (!swallowNextClickRef.current) return;
+        swallowNextClickRef.current = false;
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onPointerDown={(e) => {
+        swallowNextClickRef.current = false;
+        if (e.pointerType === 'mouse' || !card.text) return;
+        clearPressTimer();
+        pressTimerRef.current = window.setTimeout(() => {
+          pressTimerRef.current = null;
+          swallowNextClickRef.current = true;
+          setPressOpen(true);
+        }, LONG_PRESS_MS);
+      }}
+      // Solo el dedo que abrió el tooltip puede cerrarlo: en un equipo con
+      // pantalla táctil Y ratón, el puntero del ratón entrando/saliendo de la
+      // carta no debe cerrar una pulsación táctil en curso.
+      onPointerUp={(e) => e.pointerType !== 'mouse' && endPress()}
+      onPointerCancel={(e) => e.pointerType !== 'mouse' && endPress()}
+      onPointerLeave={(e) => e.pointerType !== 'mouse' && endPress()}
+      onContextMenu={(e) => {
+        // El menú contextual de "mantener pulsado" del móvil (guardar imagen...) taparía el tooltip.
+        if (pressOpen || pressTimerRef.current !== null) e.preventDefault();
+      }}
       onMouseEnter={() => {
         if (card.text && cardRef.current && tooltipRef.current) clampTooltipPosition(cardRef.current, tooltipRef.current);
       }}
@@ -269,6 +317,21 @@ export function CardView({
           <div className="card__tooltip-text">{isEmoji ? card.text : (BELLOTA_TEXT[card.id] ?? card.text)}</div>
         </div>
       )}
+      {/* Versión táctil: centrada en la PANTALLA y fuera del árbol de la carta
+          (portal a <body>). Dentro de la carta, position:fixed no sirve: las
+          cartas deshabilitadas llevan `filter: grayscale(...)`, y un filtro
+          convierte al elemento en el bloque contenedor de sus hijos fixed —
+          el tooltip salía pegado a la carta, cortado por el borde y además
+          agrisado/translúcido como ella. */}
+      {pressOpen &&
+        card.text &&
+        createPortal(
+          <div className="card-press-tooltip" role="tooltip">
+            <div className="card__tooltip-name">{card.name}</div>
+            <div className="card__tooltip-text">{isEmoji ? card.text : (BELLOTA_TEXT[card.id] ?? card.text)}</div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

@@ -548,6 +548,36 @@ export function GameBoard({
     );
   }
 
+  // Barra de escritorio: el marcador va en medio, entre el dinero y
+  // ronda/"Nueva partida", SOLO si cabe entero en una línea. Si no (muchos
+  // jugadores, ventana estrecha), baja a una segunda fila propia, en
+  // horizontal, debajo de ronda/"Nueva partida" — pedido explícito del
+  // usuario 2026-09-21; antes se partía en varias líneas dentro del hueco
+  // central. Hay que medirlo: CSS solo no sabe "si no cabe, que baje ESTE
+  // elemento y no el último". Se mide el ancho natural de cada hijo (no el
+  // del <ul>, que ya está encogido por el propio layout).
+  const barMidRef = useRef<HTMLDivElement>(null);
+  const [scoreboardBelow, setScoreboardBelow] = useState(false);
+  useLayoutEffect(() => {
+    const mid = barMidRef.current;
+    if (!mid) return;
+    const measure = () => {
+      const list = mid.querySelector<HTMLElement>('.scoreboard');
+      if (!list) return;
+      const gapOf = (el: Element) => parseFloat(getComputedStyle(el).columnGap) || 0;
+      const items = Array.from(list.children) as HTMLElement[];
+      const scoreboardWidth = items.reduce((sum, li) => sum + li.offsetWidth, 0) + gapOf(list) * Math.max(0, items.length - 1);
+      const others = (Array.from(mid.children) as HTMLElement[]).filter((el) => !el.classList.contains('bottom-bar__scoreboard'));
+      const othersWidth = others.reduce((sum, el) => sum + el.offsetWidth, 0);
+      const needed = scoreboardWidth + othersWidth + gapOf(mid) * others.length;
+      setScoreboardBelow(needed > mid.clientWidth);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(mid);
+    return () => observer.disconnect();
+  });
+
   function renderScoreboard() {
     return (
       <ul className="scoreboard">
@@ -624,15 +654,11 @@ export function GameBoard({
               </>
             )}
           </div>
-          <div className="bottom-bar__mid">
-            {!state.gameOver && (
-              <span
-                className="bottom-bar__money"
-                title={`Valor de compra de ${displayName(activePlayer, humanIds, botAlgorithms)}: ${purchasingPower} disponibles de ${purchasingPowerPeak} que ha llegado a tener este turno`}
-              >
-                💰 {purchasingPower}/{purchasingPowerPeak}
-              </span>
-            )}
+          <div ref={barMidRef} className={`bottom-bar__mid${scoreboardBelow ? ' bottom-bar__mid--stacked' : ''}`}>
+            {/* Sin el dinero aquí (quitado a petición del usuario 2026-09-21): en
+                pantalla grande ya se ve justo debajo, en "Valor de compra" del
+                panel de la mesa. La barra de móvil sí lo conserva, porque allí
+                ese panel queda fuera de la vista al bajar al mercado. */}
             <div className="bottom-bar__scoreboard">{renderScoreboard()}</div>
             <div className="bottom-bar__right">
               {renderStatusPill()}

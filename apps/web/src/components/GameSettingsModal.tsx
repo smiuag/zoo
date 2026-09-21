@@ -1,7 +1,12 @@
 import { getCard, type CardInstance } from '@zoo/engine';
 import { CardView } from './CardView';
 import { useArtStyle } from '../lib/artStyle';
-import { CUSTOM_COPY_DELTA_OPTIONS, CUSTOM_PICKABLE_SPECIES, type CustomCopyDeltas } from '../lib/gameConfig';
+import {
+  CUSTOM_COPY_DELTA_OPTIONS_CHEAP,
+  CUSTOM_COPY_DELTA_OPTIONS_EXPENSIVE,
+  CUSTOM_PICKABLE_SPECIES,
+  type CustomCopyDeltas,
+} from '../lib/gameConfig';
 
 // Reducido (uno de los 3 presets del picker, ver abajo): todo marcado salvo
 // estas especies — pedido explícito del usuario 2026-09-21 (ampliado el mismo
@@ -186,7 +191,7 @@ export function GameSettingsModal({
               <div className="delta-group">
                 <span className="delta-group__label">Coste menor a 5</span>
                 <div className="setup-round-options">
-                  {CUSTOM_COPY_DELTA_OPTIONS.map((delta) => (
+                  {CUSTOM_COPY_DELTA_OPTIONS_CHEAP.map((delta) => (
                     <button
                       key={delta}
                       type="button"
@@ -202,7 +207,7 @@ export function GameSettingsModal({
               <div className="delta-group">
                 <span className="delta-group__label">Coste 5 o mayor</span>
                 <div className="setup-round-options">
-                  {CUSTOM_COPY_DELTA_OPTIONS.map((delta) => (
+                  {CUSTOM_COPY_DELTA_OPTIONS_EXPENSIVE.map((delta) => (
                     <button
                       key={delta}
                       type="button"
