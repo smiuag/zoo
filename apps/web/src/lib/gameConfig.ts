@@ -146,8 +146,7 @@ export interface GameConfig {
   // defecto "J2"/"J3" (ver humanName en useGame.ts), sin campo para
   // elegirlo. Las claves son el seatId ("human-1", no el índice).
   guestNicks?: Record<string, string>;
-  // Edición de la baraja. Solo se puede pedir 'full' con la app en local (ver
-  // lib/edition.ts); ausente = 'classic', la oficial.
+  // Edición de la baraja (ver lib/edition.ts); ausente = 'classic', la oficial.
   edition?: GameEdition;
 }
 

@@ -194,14 +194,14 @@ export interface GameState {
 // partida. Vive aquí (no en engine.ts) para que tanto el motor como los
 // handlers de efectos puedan usarla sin crear una dependencia circular.
 // 'classic': la baraja OFICIAL — 33 especies y solo los 3 hábitats de
-// siempre; es lo único que se imprime y lo único que ofrece la web fuera de
-// localhost. 'full': añade mascotas y dinosaurios (6 especies más y los tipos
-// extra 'pet'/'dinosaur'); de momento solo para probar en local. 'learning'
-// (2026-09-21, pedido explícito del usuario): mismo mazo clásico de siempre
-// (mismos 3 hábitats, sin mascotas/dinosaurios) pero el mercado solo ofrece
-// las especies de coste 4 o menos (21 de las 33) — pensado para partidas más
-// sencillas, sin las cartas caras/complejas; disponible también fuera de
-// localhost, a diferencia de 'full'. Ver marketSpeciesFor en engine.ts.
+// siempre; es lo único que se imprime, pero las 3 ediciones se ofrecen por
+// igual en la web publicada. 'full' (2026-09-21: publicada, antes solo
+// disponible en localhost): añade mascotas y dinosaurios (varias especies más
+// y los tipos extra 'pet'/'dinosaur'). 'learning' (2026-09-21, pedido
+// explícito del usuario): mismo mazo clásico de siempre (mismos 3 hábitats,
+// sin mascotas/dinosaurios) pero el mercado solo ofrece las especies de coste
+// 4 o menos (21 de las 33) — pensado para partidas más sencillas, sin las
+// cartas caras/complejas. Ver marketSpeciesFor en engine.ts.
 export type GameEdition = 'classic' | 'full' | 'learning';
 
 const EXTRA_TYPES = ['pet', 'dinosaur'];

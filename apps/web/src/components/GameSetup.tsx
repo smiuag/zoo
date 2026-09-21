@@ -21,7 +21,7 @@ import {
   type RoundLimit,
 } from '../lib/gameConfig';
 import { isOnlineAvailable } from '../online/supabaseClient';
-import { isFullEditionAvailable, loadSavedEdition, saveEdition } from '../lib/edition';
+import { loadSavedEdition, saveEdition } from '../lib/edition';
 
 interface GameSetupProps {
   onStart: (config: GameConfig) => void;
@@ -88,7 +88,6 @@ export function GameSetup({
   // aunque el jugador cambie de opinión y no llegue a empezar la partida, y
   // nunca viaja por el protocolo online (cada jugador ve el suyo).
   const [artStyle, setArtStyle] = useArtStyle();
-  // Solo en local (ver lib/edition.ts): fuera de localhost esto es siempre 'classic' y no hay selector.
   const [edition, setEdition] = useState(loadSavedEdition);
 
   const totalPlayers = numHumans + botAlgorithms.length;
@@ -115,9 +114,6 @@ export function GameSetup({
     // de empezar (no al teclear/tocar cada campo).
     saveNick(cleanNick);
     saveSetupPrefs({ numHumans, botAlgorithms, roundLimit, animationsEnabled });
-    // 'learning' se guarda siempre (disponible en cualquier sitio); 'full'
-    // solo en local — loadSavedEdition ya protege de leer 'full' fuera de
-    // local aunque quedara guardado de una sesión anterior en local.
     saveEdition(edition);
     return { numHumans, nick: cleanNick, botAlgorithms, roundLimit, animationsEnabled, edition };
   }
@@ -341,22 +337,20 @@ export function GameSetup({
             >
               Clásica
             </button>
-            {isFullEditionAvailable && (
-              <button
-                type="button"
-                className={`btn ${edition === 'full' ? 'btn--primary' : 'btn--ghost'}`}
-                aria-pressed={edition === 'full'}
-                onClick={() => setEdition('full')}
-              >
-                Completa
-              </button>
-            )}
+            <button
+              type="button"
+              className={`btn ${edition === 'full' ? 'btn--primary' : 'btn--ghost'}`}
+              aria-pressed={edition === 'full'}
+              onClick={() => setEdition('full')}
+            >
+              Completa
+            </button>
           </div>
           <p className="setup-hint">
             {edition === 'learning'
               ? `Mismo mazo clásico de siempre, pero el mercado solo ofrece animales de coste ${LEARNING_EDITION_MAX_COST} o menos: partidas más sencillas y rápidas para aprender.`
               : edition === 'full'
-                ? 'La completa añade mascotas y dinosaurios. Este selector no existe en la web publicada: allí siempre se juega la clásica o la de aprendizaje.'
+                ? 'La completa añade mascotas y dinosaurios a las 33 especies clásicas.'
                 : 'La oficial: 33 especies, sin restricciones.'}
           </p>
         </div>

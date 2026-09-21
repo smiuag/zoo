@@ -28,24 +28,24 @@ Todo lo que genera las cartas impresas vive en esta carpeta. El intérprete es `
 - Si un archivo de `img/` está abierto en un visor, Windows bloquea la escritura ("Invalid argument"):
   escribir a una carpeta temporal y copiar encima con `cp -f`.
 
-## Ediciones: clásica (oficial) y completa (pruebas)
+## Ediciones: clásica, aprendizaje y completa
 
-| | Clásica | Completa |
-|---|---|---|
-| Especies | 33 | 39 (añade perro, gato, diplodocus, tiranosaurio, terodáctilo, mosasaurio) |
-| Tipos | terrestre, volador, acuático | + mascota (`pet`) y dinosaurio (`dinosaur`) |
-| Dónde se ve | impresión y web publicada | solo `localhost` |
-| Carpetas | `img/cards`, `img/cards_en`, los 4 PDFs | `img/cards_completa`, `img/cards_completa_en` (sin PDF) |
+| | Clásica | Aprendizaje | Completa |
+|---|---|---|---|
+| Especies | 33 | mismas 33 (mercado limitado a coste ≤4) | 33 + especies extra (perro, gato, diplodocus, tiranosaurio, terodáctilo, mosasaurio, iguana, hámster, cerdo, gallina, nutria, pez dorado, plesiosaurio, pteranodon, colibrí, avestruz, oca) |
+| Tipos | terrestre, volador, acuático | igual que clásica | + mascota (`pet`) y dinosaurio (`dinosaur`) |
+| Dónde se ve | impresión y web publicada | solo web publicada | solo web publicada (desde 2026-09-21; antes solo `localhost`) |
+| Carpetas | `img/cards`, `img/cards_en`, los 4 PDFs | igual que clásica (mismo mazo) | `img/cards_completa`, `img/cards_completa_en` (sin PDF) |
 
-- La clásica es **la única oficial**. De la completa no debe verse nada ni al imprimir ni en la web publicada.
+- La clásica es **la única que se imprime**. De la completa no debe verse nada al imprimir (sigue sin PDF), pero sí está disponible como edición jugable en la web publicada.
 - Para componer la completa: `ZOO_EDITION=full /c/Python310/python img/_work/compose_all.py` (y `_en`).
 - Las cartas solo-completa llevan `"edition": "full"` en su JSON. En la clásica, `load_cards()` las omite y
   quita `pet`/`dinosaur` de las demás (pez de colores, periquito y cocodrilo vuelven a ser lo de siempre).
 - Motor: `createGame(..., { edition })`, por defecto `'classic'`. `ANIMAL_SPECIES` sigue siendo la lista
   clásica (los bots RL dependen de ella) y `FULL_EDITION_EXTRA_SPECIES` las 6 extra. `mintInstance` quita
   los tipos extra en partidas clásicas.
-- Web: el selector "Clásica / Completa (pruebas)" solo se pinta en localhost (`apps/web/src/lib/edition.ts`);
-  `effectiveEdition` fuerza clásica en cualquier otro host.
+- Web: el selector "Aprendizaje / Clásica / Completa" (`apps/web/src/lib/edition.ts`) está disponible en
+  cualquier sitio, incluida la web publicada — no hay restricción por host.
 - Reglas de las cartas de la completa:
   - **Perro** (3, 3 PV, terrestre-mascota): al jugarlo se puede dejar sobre la mesa (`player.table`) en vez de
     ir al descarte. Sigue puntuando, deja de circular y ningún efecto lo alcanza. Efecto `mayStayOnTable`,
@@ -60,8 +60,9 @@ Todo lo que genera las cartas impresas vive en esta carpeta. El intérprete es `
   planos de `img/web/` (Perro, gato, diplodocus, tiranosaurio, terodactilo, mosasaurus) en PNG transparentes
   de 700 px recortados al sujeto, en `apps/web/public/cards/<id>.png`. Quita el fondo liso y la sombra del
   suelo por inundación desde los bordes. `img/web/triceratops.jpg` existe pero no tiene carta.
-- Pendiente en la completa: descargar los emojis nuevos (`apps/web/scripts/fetch-twemoji.mjs`) y reentrenar
-  los bots RL, que no conocen las cartas nuevas.
+- Los bots RL de la completa ya están entrenados (pesos `weights-full*.json` en
+  `packages/engine/src/bots/rl/`); si se añade una especie o habilidad nueva hay que reentrenarlos
+  (ver el `CLAUDE.md` de la raíz, sección "Bots RL").
 - OJO con dos fotos: `img/tiranosaurios.jpg` muestra un triceratops y `img/triceratops.jpg` muestra el
   tiranosaurio (562x463, poca resolución). `SPECIES_PHOTO` usa la segunda.
 
