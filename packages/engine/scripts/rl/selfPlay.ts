@@ -8,7 +8,6 @@ import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { heuristicBot } from '../../src/bots/heuristicBot';
 import { randomBot } from '../../src/bots/randomBot';
-import { CRITIC_FEATURE_DIM, FEATURE_DIM } from '../../src/bots/rl/features';
 import { serializeWeights, type RlWeights } from '../../src/bots/rl/network';
 import type { Bot } from '../../src/bots/types';
 import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer } from '../../src/engine';
@@ -16,6 +15,8 @@ import { scoreGame } from '../../src/scoring';
 import { addGrad, applyGrad, applyGradAdam, clampWeightNorms, createAdamState, deserializeGradient, scaleGrad, zeroGrad, type AdamState } from './train';
 import { loadOrInitWeights, saveWeightsWithRetry } from './weightsIo';
 import {
+  ACTIVE_CRITIC_FEATURE_DIM,
+  ACTIVE_FEATURE_DIM,
   buildStarterDeck,
   chooseLearnerAction,
   EPSILON,
@@ -24,6 +25,7 @@ import {
   HABITAT_FILTER,
   MAX_ACTIONS_PER_GAME,
   randomMaxRounds,
+  RL_EDITION,
   runEpisodes,
   type EpisodeBatchResult,
 } from './trainCore';
@@ -78,14 +80,33 @@ const MAX_NORM_W2 = Number(process.env.RL_MAX_NORM_W2 ?? 16);
 const EVAL_EVERY = Number(process.env.RL_EVAL_EVERY ?? 50);
 const EVAL_GAMES = Number(process.env.RL_EVAL_GAMES ?? 40);
 
-const WEIGHTS_FILE = HABITAT_FILTER ? `weights-${HABITAT_FILTER}.json` : 'weights.json';
+// Edición completa (2026-09-21): archivo propio (weights-full.json), nunca
+// weights.json — ese es el generalista CLÁSICO que juega la web publicada,
+// con una dimensión de features totalmente distinta (ver featuresFull.ts).
+// HABITAT_FILTER no aplica todavía a la completa (sin especialistas de
+// hábitat/tipo propios de momento), así que se ignora si RL_EDITION=full.
+const WEIGHTS_FILE =
+  RL_EDITION === 'full'
+    ? HABITAT_FILTER
+      ? `weights-full-${HABITAT_FILTER}.json`
+      : 'weights-full.json'
+    : HABITAT_FILTER
+      ? `weights-${HABITAT_FILTER}.json`
+      : 'weights.json';
 const WEIGHTS_PATH = fileURLToPath(new URL(`../../src/bots/rl/${WEIGHTS_FILE}`, import.meta.url));
 // El crítico vive AQUÍ (scripts/rl/), no en src/bots/rl/ junto a los pesos
 // de política: nunca lo usa el bot de verdad (solo sirve durante el
 // entrenamiento, para calcular la ventaja), así que no tiene sentido que
 // esté en la carpeta que sí importa apps/web — así queda claro que es un
 // artefacto de entrenamiento, nunca "enviable".
-const CRITIC_FILE = HABITAT_FILTER ? `critic-${HABITAT_FILTER}.json` : 'critic.json';
+const CRITIC_FILE =
+  RL_EDITION === 'full'
+    ? HABITAT_FILTER
+      ? `critic-full-${HABITAT_FILTER}.json`
+      : 'critic-full.json'
+    : HABITAT_FILTER
+      ? `critic-${HABITAT_FILTER}.json`
+      : 'critic.json';
 const CRITIC_PATH = fileURLToPath(new URL(`./${CRITIC_FILE}`, import.meta.url));
 
 // Paralelización de la simulación de partidas (2026-09-14): las
@@ -253,7 +274,7 @@ function evaluate(weights: RlWeights, opponent: Bot, games: number): number {
     ];
     if (i % 2 !== 0) configs.reverse();
 
-    const state = createGame(configs, { maxRounds: randomMaxRounds() });
+    const state = createGame(configs, { maxRounds: randomMaxRounds(), edition: RL_EDITION });
 
     let guard = 0;
     while (!state.gameOver && guard < MAX_ACTIONS_PER_GAME) {
@@ -281,8 +302,8 @@ function evaluate(weights: RlWeights, opponent: Bot, games: number): number {
 }
 
 async function main(): Promise<void> {
-  const weights = loadOrInitWeights(WEIGHTS_PATH, FEATURE_DIM, HIDDEN_SIZE);
-  const criticWeights = loadOrInitWeights(CRITIC_PATH, CRITIC_FEATURE_DIM, CRITIC_HIDDEN_SIZE);
+  const weights = loadOrInitWeights(WEIGHTS_PATH, ACTIVE_FEATURE_DIM, HIDDEN_SIZE);
+  const criticWeights = loadOrInitWeights(CRITIC_PATH, ACTIVE_CRITIC_FEATURE_DIM, CRITIC_HIDDEN_SIZE);
   // Estado de Adam (ver train.ts): vive solo en memoria de este proceso, no
   // se guarda en weights*.json — cada invocación de train:rl arranca sus
   // medias móviles desde cero aunque continúe unos pesos ya entrenados.
@@ -318,8 +339,12 @@ async function main(): Promise<void> {
   }
 
   // RL_SKIP_RECALIBRATE=1: para pruebas cortas (humo/ablaciones) en las que
-  // no interesa esperar las ~600 partidas de la recalibración.
-  if (process.env.RL_SKIP_RECALIBRATE !== '1') await recalibrateScalerValues();
+  // no interesa esperar las ~600 partidas de la recalibración. La edición
+  // completa siempre se salta este paso: calibrateScalerValues.ts es
+  // enteramente de la clásica (sus 4 variantes, su createGame sin edition),
+  // y SCALER_CALIBRATION ya vale {} a propósito para 'full' (ver
+  // trainCore.ts) — no hay nada que este paso pudiera mejorar todavía.
+  if (RL_EDITION !== 'full' && process.env.RL_SKIP_RECALIBRATE !== '1') await recalibrateScalerValues();
 }
 
 // Norma pedida explícitamente por el usuario (2026-09-16): recalcular

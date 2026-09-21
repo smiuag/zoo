@@ -60,7 +60,7 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
       numPlayers: state.players.length,
       roundLimit: state.maxRounds,
       position: computePosition(scores, seatId),
-      deck: summarizeCollection([...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn]),
+      deck: summarizeCollection([...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn, ...(player.table ?? [])]),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state?.gameOver]);
@@ -139,7 +139,17 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
       // canRestartTurn={false} arriba), así que este contador nunca cambia.
       turnRestartCount={0}
       doAction={sendAction}
-      replay={{ mode: 'online', status: replayStatus, viewerSeatId: seatId, onPropose: proposeReplay, onRespond: respondReplay }}
+      replay={{
+        mode: 'online',
+        status: replayStatus,
+        viewerSeatId: seatId,
+        // El invitado no ve la presencia de los demás (eso solo lo sabe el
+        // host, ver useHostRoom.ts): el botón se deja habilitado y es el host
+        // quien de verdad aplica el bloqueo si alguien está desconectado.
+        allGuestsConnected: true,
+        onPropose: proposeReplay,
+        onRespond: respondReplay,
+      }}
     />
   );
 }

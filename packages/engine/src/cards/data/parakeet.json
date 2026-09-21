@@ -7,5 +7,8 @@
   "victoryPoints": 1,
   "text": "Cuenta como 2 animales voladores.",
   "effects": [],
-  "habitats": ["bird"]
+  "habitats": [
+    "bird",
+    "pet"
+  ]
 }

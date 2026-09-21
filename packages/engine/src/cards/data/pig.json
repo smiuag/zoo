@@ -1,0 +1,24 @@
+{
+  "id": "pig",
+  "name": "Cerdo",
+  "type": "animal",
+  "species": "pig",
+  "edition": "full",
+  "marketCost": 4,
+  "victoryPoints": 3,
+  "text": "Descarta una moneda de tu mano de valor 2 o más para robar una carta.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "discardCoinMinValueToDrawCards",
+      "params": {
+        "minValue": 2,
+        "drawAmount": 1
+      }
+    }
+  ],
+  "habitats": [
+    "land",
+    "pet"
+  ]
+}

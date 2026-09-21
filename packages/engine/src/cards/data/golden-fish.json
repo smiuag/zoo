@@ -1,0 +1,23 @@
+{
+  "id": "golden-fish",
+  "name": "Pez Dorado",
+  "type": "animal",
+  "species": "golden-fish",
+  "edition": "full",
+  "marketCost": 4,
+  "victoryPoints": 3,
+  "text": "Cambia una moneda de tu mano por una moneda dorada (Oro, Valor 3).",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "exchangeCoinForFixed",
+      "params": {
+        "targetCoinId": "coin-3"
+      }
+    }
+  ],
+  "habitats": [
+    "aquatic",
+    "pet"
+  ]
+}

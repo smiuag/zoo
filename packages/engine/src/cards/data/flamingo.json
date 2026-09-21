@@ -15,5 +15,5 @@
       }
     }
   ],
-  "habitats": ["bird", "aquatic"]
+  "habitats": ["bird", "aquatic", "dinosaur"]
 }

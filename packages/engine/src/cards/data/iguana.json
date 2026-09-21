@@ -1,0 +1,25 @@
+{
+  "id": "iguana",
+  "name": "Iguana",
+  "type": "animal",
+  "species": "iguana",
+  "edition": "full",
+  "marketCost": 3,
+  "victoryPoints": 2,
+  "text": "Roba una carta.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "drawCards",
+      "params": {
+        "amount": 1
+      }
+    }
+  ],
+  "habitats": [
+    "land",
+    "aquatic",
+    "pet",
+    "dinosaur"
+  ]
+}

@@ -8,14 +8,30 @@ from card_text_es_print import CARD_TEXT_ES_PRINT
 
 DATA_DIR = r"C:\proyectos\Claude\zoo\packages\engine\src\cards\data"
 IMG_DIR = r"C:\proyectos\Claude\zoo\img"
-OUT_DIR = r"C:\proyectos\Claude\zoo\img\cards"
+# Edicion que se compone. "classic" (por defecto) es la OFICIAL: las cartas de
+# siempre con sus 3 habitats, lo unico que va a img/cards y a los PDFs. "full"
+# anade mascotas y dinosaurios (cartas con "edition": "full" y tipos extra
+# pet/dinosaur); es de pruebas y va a carpetas aparte, nunca a los PDFs:
+#   ZOO_EDITION=full /c/Python310/python img/_work/compose_all.py
+EDITION = os.environ.get("ZOO_EDITION", "classic")
+OUT_DIR = r"C:\proyectos\Claude\zoo\img\cards" if EDITION == "classic" else r"C:\proyectos\Claude\zoo\img\cards_completa"
 os.makedirs(OUT_DIR, exist_ok=True)
 
-HABITAT_ES = {"land": "Terrestre", "aquatic": "Acu\u00e1tico", "bird": "Volador"}
+HABITAT_ES = {"land": "Terrestre", "aquatic": "Acu\u00e1tico", "bird": "Volador", "pet": "Mascota", "dinosaur": "Dinosaurio"}
 # Mismo orden que apps/web/src/lib/cardVisuals.ts (habitatLabel): tierra,
 # aire, agua. Los animales con varios h\u00e1bitats a la vez (Ping\u00fcino,
 # Hipop\u00f3tamo, Cocodrilo) muestran los que tengan, unidos con " - ".
 HABITAT_ORDER = ["land", "bird", "aquatic"]
+# Tipos extra (2026-09-20): van en la misma lista "habitats" de la carta pero no
+# son habitat: no deciden la plantilla y se escriben detras de los habitats.
+EXTRA_TYPE_ORDER = ["pet", "dinosaur"]
+
+
+def type_label_for(habitats, names, all_terrain):
+    """Etiqueta de tipo de una carta: habitats (o `all_terrain` si tiene los 3) + tipos extra."""
+    base = [h for h in HABITAT_ORDER if h in habitats]
+    parts = [all_terrain] if all_terrain and len(base) == len(HABITAT_ORDER) else [names[h] for h in base]
+    return " - ".join(parts + [names[h] for h in EXTRA_TYPE_ORDER if h in habitats])
 
 SPECIES_PHOTO = {
     "monkey": "monos.jpg",
@@ -52,6 +68,26 @@ SPECIES_PHOTO = {
     "toucan": "tucan.jpg",
     "squirrel": "ardillas.jpg",
     "raven": "cuevos.jpg",
+    # Mascotas y dinosaurios (2026-09-20). OJO: los archivos del tiranosaurio y el
+    # triceratops llegaron con el nombre cruzado: tiranosaurios.jpg muestra un
+    # triceratops y triceratops.jpg muestra el tiranosaurio, asi que se usa este.
+    "dog": "perros.jpg",
+    "cat": "gatos.jpg",
+    "diplodocus": "diplodocus.jpg",
+    "tyrannosaurus": "triceratops.jpg",
+    "pterodactyl": "terodactilo.jpg",
+    "mosasaurus": "mosasaurus.jpg",
+    # Segunda tanda de la edicion completa (2026-09-21)
+    "chicken": "gallina.jpg",
+    "golden-fish": "pezdorado.jpg",
+    "hamster": "hamsters.jpg",
+    "hummingbird": "colibri.jpg",
+    "iguana": "iguanas.jpg",
+    "ostrich": "avestruz.jpg",
+    "otter": "nutrias.jpg",
+    "pig": "cerdos.jpg",
+    "plesiosaurus": "plesiosaurio.jpg",
+    "pteranodon": "ptenarodon.jpg",
 }
 COIN_PHOTO = {
     "coin-1": "moneda1.jpg",
@@ -76,7 +112,12 @@ def load_cards():
     cards = []
     for path in sorted(glob.glob(os.path.join(DATA_DIR, "*.json"))):
         with open(path, encoding="utf-8") as f:
-            cards.append(json.load(f))
+            card = json.load(f)
+        if EDITION == "classic":
+            if card.get("edition", "classic") != "classic":
+                continue                                    # carta solo de la edicion completa
+            card["habitats"] = [h for h in card.get("habitats", []) if h in HABITAT_ORDER]   # sin tipos extra
+        cards.append(card)
     return cards
 
 
@@ -86,7 +127,7 @@ def load_cards():
 def template_key_for_card(card):
     if card["type"] == "coin":
         return "coin"
-    habitats = frozenset(card.get("habitats", []))
+    habitats = frozenset(h for h in card.get("habitats", []) if h in HABITAT_ORDER)   # los tipos extra no deciden plantilla
     key = {
         frozenset(["land"]): "land",
         frozenset(["aquatic"]): "aquatic",
@@ -147,12 +188,11 @@ def main():
             photo = os.path.join(IMG_DIR, SPECIES_PHOTO[card["species"]])
             name = card["name"]
             # Un animal con los 3 hábitats a la vez se etiqueta "Todoterreno"
-            # en vez de listar los 3 por separado (ninguna especie actual
-            # los tiene los tres a la vez).
-            if len(card["habitats"]) == len(HABITAT_ORDER):
-                type_label = "Todoterreno"
-            else:
-                type_label = " - ".join(HABITAT_ES[h] for h in HABITAT_ORDER if h in card["habitats"])
+            # en vez de listar los 3 por separado. Excepción explícita del
+            # usuario (2026-09-21): el Albatros SÍ tiene los 3 a la vez, pero
+            # se listan por separado en vez de colapsarlos.
+            all_terrain_label = None if cid == "albatross" else "Todoterreno"
+            type_label = type_label_for(card["habitats"], HABITAT_ES, all_terrain_label)
             cost = card["marketCost"]
             pv = card["victoryPoints"]
             text = CARD_TEXT_ES_PRINT.get(cid, card["text"])
@@ -167,12 +207,11 @@ def main():
         else:
             continue
 
-        out_path = os.path.join(OUT_DIR, f"{cid}.png")
-        compose_generic(
-            photo, name, type_label, cost, pv, text, out_path,
-            template_key_for_card(card), is_coin=(ctype == "coin"),
-            body_max_size=BODY_MAX_SIZE_OVERRIDE.get(cid, 26),
-        )
+        # Diseno oficial desde 2026-09-20: iconos de tipo (ver compose_card_iconos.py). compose_generic, mas
+        # arriba, es el diseno anterior (texto de tipo y tablon de color) y ya no se usa. Import aqui dentro
+        # porque ese modulo importa a su vez este.
+        import compose_card_iconos
+        out_path = compose_card_iconos.compose_official(card, "es", OUT_DIR)
         generated.append(out_path)
         print("generated", cid)
 

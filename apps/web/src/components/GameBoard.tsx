@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   getActivePlayer,
   getCard,
+  hasCoinAtLeast,
   hasUpgradableCoin,
   scoreCardContributions,
   type Action,
@@ -22,6 +23,7 @@ import {
 } from '../lib/actionQuery';
 import { BOT_ALGORITHM_OPTIONS, displayName } from '../lib/botAlgorithms';
 import { buildTargetChoice, type PendingChoice } from '../lib/pendingChoice';
+import { currencyLabel, useArtStyle } from '../lib/artStyle';
 import type { BotAlgorithm } from '../lib/gameConfig';
 import type { ReplayStatus } from '../online/protocol';
 
@@ -44,6 +46,11 @@ export type ReplayProps =
       mode: 'online';
       status: ReplayStatus | null;
       viewerSeatId: string;
+      // false si algún invitado humano ha cerrado la pestaña o perdido la
+      // conexión (ver useHostRoom.ts) — proponer o aceptar repetir con
+      // alguien desconectado no serviría de nada, así que el botón lo refleja
+      // en vez de fallar en silencio al pulsarlo.
+      allGuestsConnected: boolean;
       onPropose: () => void;
       onRespond: (accept: boolean) => void;
     };
@@ -272,6 +279,10 @@ export function GameBoard({
     (a, b) => (a.marketCost ?? 0) - (b.marketCost ?? 0) || a.name.localeCompare(b.name)
   );
 
+  // Solo para decidir si los menús de elección y el resumen final dicen
+  // "bellota" o "moneda" (ver currencyLabel/bellotaText.ts) — puramente de
+  // presentación, no afecta a ninguna acción real.
+  const [artStyle] = useArtStyle();
   const [pendingChoice, setPendingChoice] = useState<PendingChoice | null>(null);
   const [viewedPlayerId, setViewedPlayerId] = useState<string | null>(null);
   const [confirmEndTurn, setConfirmEndTurn] = useState(false);
@@ -289,15 +300,27 @@ export function GameBoard({
   //   suman a la colección/PV, sin acción alguna al jugarlos) nunca cuenta
   //   como "pendiente" — jugarlo o no antes de terminar el turno da igual.
   // - La Tortuga (único efecto: subir de nivel una moneda) tampoco cuenta si
-  //   no hay ninguna moneda subible en la mano: jugarla no haría nada.
+  //   no hay ninguna moneda subible en la mano: jugarla no haría nada. Mismo
+  //   trato para el Cerdo/Nutria (descartan una moneda de cierto valor
+  //   mínimo) y el Pez Dorado (descarta cualquiera): sin ninguna moneda que
+  //   llegue al mínimo exigido, jugarlas no hace nada.
   // - Las monedas en mano solo cuentan si con lo que hay ahora mismo se
   //   podría comprar algo de verdad (mirando legalActions): si no llegan
   //   para nada, avisar no sirve de nada — ese dinero se pierde igual al
   //   pasar el turno, se avise o no.
+  const COIN_GATED_EFFECT_TYPES = new Set([
+    'discardCoinMinValueToDrawCards',
+    'discardCoinMinValueToPeekAndKeep',
+    'exchangeCoinForFixed',
+  ]);
   function isUselessToPlay(card: CardInstance): boolean {
     if (card.type !== 'animal') return false;
     if (card.effects.length === 0) return true;
     if (card.effects.length === 1 && card.effects[0].type === 'upgradeCoin') return !hasUpgradableCoin(human);
+    if (card.effects.length === 1 && COIN_GATED_EFFECT_TYPES.has(card.effects[0].type)) {
+      const minValue = typeof card.effects[0].params?.minValue === 'number' ? card.effects[0].params.minValue : 0;
+      return !hasCoinAtLeast(human, minValue);
+    }
     return false;
   }
   const hasUnplayedAnimals = human.hand.some((c) => c.type === 'animal' && !isUselessToPlay(c));
@@ -367,7 +390,7 @@ export function GameBoard({
       runAction(acts[0]);
       return;
     }
-    setPendingChoice(buildTargetChoice(acts, state, human, card));
+    setPendingChoice(buildTargetChoice(acts, state, human, card, artStyle));
   }
 
   // Serpiente: elegir uno de los animales recién descartados por "cada
@@ -384,7 +407,7 @@ export function GameBoard({
       runAction(acts[0]);
       return;
     }
-    setPendingChoice(buildTargetChoice(acts, state, human, card));
+    setPendingChoice(buildTargetChoice(acts, state, human, card, artStyle));
   }
 
   function isHandCardClickable(card: CardInstance): boolean {
@@ -412,7 +435,7 @@ export function GameBoard({
   function groupedCollection(
     player: (typeof state.players)[number]
   ): { card: CardInstance; count: number; perCardPoints: number[] }[] {
-    const all = [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn];
+    const all = [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn, ...(player.table ?? [])];
     const contributions = scoreCardContributions(player);
     const byId = new Map<string, { card: CardInstance; count: number; perCardPoints: number[] }>();
     for (const card of all) {
@@ -451,7 +474,7 @@ export function GameBoard({
   }
 
   function habitatCounts(player: (typeof state.players)[number]): { land: number; bird: number; aquatic: number } {
-    const all = [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn].filter(
+    const all = [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn, ...(player.table ?? [])].filter(
       (c) => c.type === 'animal'
     );
     return {
@@ -462,7 +485,7 @@ export function GameBoard({
   }
 
   function deckValue(player: (typeof state.players)[number]): number {
-    return [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn].reduce(
+    return [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn, ...(player.table ?? [])].reduce(
       (sum, c) => sum + (c.marketCost ?? 0),
       0
     );
@@ -539,7 +562,7 @@ export function GameBoard({
                         <td>{habitats.aquatic}</td>
                         <td>
                           {p.richestTurn
-                            ? `Ronda ${p.richestTurn.round} · ${p.richestTurn.amount} moneda${p.richestTurn.amount === 1 ? '' : 's'}`
+                            ? `Ronda ${p.richestTurn.round} · ${p.richestTurn.amount} ${currencyLabel(artStyle, p.richestTurn.amount)}`
                             : '—'}
                         </td>
                         <td>
@@ -579,9 +602,19 @@ export function GameBoard({
                   </button>
                 )
               ) : replay.status === null ? (
-                <button className="btn btn--primary" onClick={replay.onPropose}>
-                  🔁 Repetir partida
-                </button>
+                <div className="replay-pending">
+                  <button
+                    className="btn btn--primary"
+                    disabled={!replay.allGuestsConnected}
+                    title={replay.allGuestsConnected ? undefined : 'Algún invitado se ha desconectado'}
+                    onClick={replay.onPropose}
+                  >
+                    🔁 Repetir partida
+                  </button>
+                  {!replay.allGuestsConnected && (
+                    <span className="setup-hint">Algún invitado se ha desconectado</span>
+                  )}
+                </div>
               ) : replay.status.acceptedSeatIds.includes(replay.viewerSeatId) ? (
                 <div className="replay-pending">
                   <span className="setup-hint">
@@ -690,6 +723,7 @@ export function GameBoard({
                 <h2>Tu mano</h2>
                 <span className="panel__hint">
                   🂠 {human.deck.length} en el mazo · 🗑️ {human.discard.length} en el descarte
+                  {(human.table?.length ?? 0) > 0 ? ` · 🐕 ${human.table.length} sobre la mesa` : ''}
                 </span>
               </div>
               <div className="card-row card-row--hand">
@@ -815,10 +849,11 @@ export function GameBoard({
           {bots.map((bot) => (
             <span key={bot.id} className="chip">
               <strong>{bot.name}</strong> · mano: {bot.hand.length} · descarte: {bot.discard.length}
+              {(bot.table?.length ?? 0) > 0 ? ` · mesa: ${bot.table.length}` : ''}
               {onSetBotAlgorithm ? (
                 <select
                   className="bot-algorithm-select"
-                  value={botAlgorithms[bot.id] ?? 'rl'}
+                  value={botAlgorithms[bot.id] ?? 'general'}
                   onChange={(e) => onSetBotAlgorithm(bot.id, e.target.value as BotAlgorithm)}
                 >
                   {BOT_ALGORITHM_OPTIONS.map((opt) => (

@@ -111,7 +111,7 @@ const MAX_OPPONENTS = 3;
 // descarte de verdad (sigue "en el limbo" hasta terminar el turno, ver
 // playCard/endTurn en engine.ts), pero sigue siendo del jugador.
 function fullCollection(player: Player): CardInstance[] {
-  return [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn];
+  return [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn, ...(player.table ?? [])];
 }
 
 function habitatCounts(cards: CardInstance[]): number[] {

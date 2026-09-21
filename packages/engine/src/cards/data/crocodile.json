@@ -6,12 +6,14 @@
   "marketCost": 5,
   "victoryPoints": 7,
   "text": "Roba 1 carta.\nAl final de la partida, antes de la puntuación, elimina de tu colección una carta de animal no volador.",
+  "fullEditionText": "Elige: roba una carta, o devuélvelo a su reserva para conseguir gratis, del mercado, un Mosasaurio.\nAl final de la partida, antes de la puntuación, elimina de tu colección una carta de animal no volador.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "drawCards",
+      "type": "drawOrReturnSelfForSpecies",
       "params": {
-        "amount": 1
+        "drawAmount": 1,
+        "speciesOptions": ["mosasaurus"]
       }
     },
     {
@@ -21,6 +23,7 @@
   ],
   "habitats": [
     "land",
-    "aquatic"
+    "aquatic",
+    "dinosaur"
   ]
 }

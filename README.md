@@ -55,3 +55,10 @@ configuración especial.
 2. Si la carta necesita un efecto nuevo (no cubierto por los handlers en
    `packages/engine/src/effects/registry.ts`), añade un handler ahí.
 3. Añade o actualiza tests en `packages/engine/tests/`.
+
+## Ediciones y cartas impresas
+
+El juego tiene dos ediciones: la **clásica** (oficial: es lo único que se imprime y lo único que ofrece la
+web publicada) y la **completa**, con mascotas y dinosaurios, que solo se puede elegir con la app en
+`localhost`. La cadena que genera las cartas y los PDFs, el diseño con iconos de tipo, las cartas de moneda
+y las reglas de la edición completa están documentados en [img/_work/README.md](img/_work/README.md).

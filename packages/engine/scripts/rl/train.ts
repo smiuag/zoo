@@ -206,6 +206,19 @@ export function applyGradAdam(weights: RlWeights, grad: Gradient, adam: AdamStat
 // cada paso de SGD que "estira" la red se proyecta de vuelta: sigue
 // aprendiendo direcciones, no escala. Devuelve los factores aplicados (1 si
 // no hubo que tocar nada). 0 en cualquiera de los topes lo desactiva.
+// Tolerancia relativa para el propio tope: sin esto, una norma que YA quedó
+// exactamente en maxW por una llamada anterior a esta misma función puede
+// recalcularse una pizca por encima (ruido de redondeo de coma flotante en
+// la división/multiplicación por la norma, p. ej. 2.0000000000000004 en vez
+// de 2), y el siguiente clamp la "reescala" por un factor ínfimo pero
+// distinto de 1 (0.9999999999999999) en vez de no tocar nada — hallado como
+// un test intermitente (clampWeightNorms.test.ts) que solo fallaba corriendo
+// la suite entera, nunca en solitario, exactamente por este motivo. 1e-9 es
+// muchísimo más pequeño que cualquier norma real que le importe a esta
+// función (pesos de una red pequeña), así que nunca deja pasar un caso que
+// de verdad necesite recortarse.
+const NORM_CLAMP_RELATIVE_EPSILON = 1e-9;
+
 export function clampWeightNorms(weights: RlWeights, maxW1: number, maxW2: number): { w1Factor: number; w2Factor: number } {
   let w1Factor = 1;
   let w2Factor = 1;
@@ -213,7 +226,7 @@ export function clampWeightNorms(weights: RlWeights, maxW1: number, maxW2: numbe
     let sq = 0;
     for (const row of weights.w1) for (let i = 0; i < row.length; i++) sq += row[i] * row[i];
     const norm = Math.sqrt(sq);
-    if (norm > maxW1) {
+    if (norm > maxW1 * (1 + NORM_CLAMP_RELATIVE_EPSILON)) {
       w1Factor = maxW1 / norm;
       for (const row of weights.w1) for (let i = 0; i < row.length; i++) row[i] *= w1Factor;
       for (let j = 0; j < weights.b1.length; j++) weights.b1[j] *= w1Factor;
@@ -223,7 +236,7 @@ export function clampWeightNorms(weights: RlWeights, maxW1: number, maxW2: numbe
     let sq = 0;
     for (let j = 0; j < weights.w2.length; j++) sq += weights.w2[j] * weights.w2[j];
     const norm = Math.sqrt(sq);
-    if (norm > maxW2) {
+    if (norm > maxW2 * (1 + NORM_CLAMP_RELATIVE_EPSILON)) {
       w2Factor = maxW2 / norm;
       for (let j = 0; j < weights.w2.length; j++) weights.w2[j] *= w2Factor;
     }

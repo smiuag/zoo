@@ -788,6 +788,17 @@ body {
   color: var(--muted-dark);
 }
 
+/* Cartas con 3-4 tipos a la vez (Gallina, Tortuga...), ver footerLines en
+   CardView.tsx: cada línea ya viene partida en grupos de 2 tipos, así que
+   aquí solo hace falta permitir que el pie crezca a varias líneas en vez de
+   recortar la única línea de siempre con "…" (ver .card__footer arriba). */
+.card__footer--wrap {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.25;
+}
+
 .card__gender {
   font-weight: 700;
 }
@@ -1391,9 +1402,17 @@ body {
   color: var(--ink);
 }
 
+/* Alto fijo de 2 líneas (pedido explícito del usuario 2026-09-21): antes
+   cada pista tenía el alto de SU propio texto, así que la fila entera
+   saltaba de alto al cambiar de opción (p. ej. Edición: Clásica/Aprendizaje/
+   Completa tienen pistas de longitud distinta). Con min-height fijo a 2
+   líneas (y el propio line-height explícito, para que el cálculo sea
+   exacto) la fila mide siempre lo mismo, tenga la pista 1 línea o 2. */
 .setup-hint {
   flex-basis: 100%;
   font-size: 0.78rem;
+  line-height: 1.3;
+  min-height: 2.6em;
   color: var(--muted);
 }
 
@@ -1434,6 +1453,17 @@ body {
   flex: 1;
   text-align: center;
 }
+
+/* Filas de acciones arriba del formulario (Empezar partida/Crear partida
+   online, Marcador final/Ranking, ver GameSetup.tsx): sin ningún <label>
+   al lado con el que repartirse el ancho de .setup-row (justify-content:
+   space-between la dejaría a su tamaño natural en vez de ocupar toda la
+   fila), así que aquí sí se estira a las 2 columnas iguales pedidas por el
+   usuario. */
+.setup-round-options--full {
+  width: 100%;
+}
+
 
 .setup-error {
   color: var(--danger);

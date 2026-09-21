@@ -8,6 +8,7 @@
   "text": "Cuenta como 2 animales acuáticos.",
   "effects": [],
   "habitats": [
-    "aquatic"
+    "aquatic",
+    "pet"
   ]
 }

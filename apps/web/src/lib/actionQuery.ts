@@ -1,5 +1,6 @@
 import type { Action, GameState, Player } from '@zoo/engine';
 import { findAnywhere } from './actionLabels';
+import { currencyLabel, type ArtStyle } from './artStyle';
 
 // Helpers para agrupar `getLegalActions(...)` por la carta/casilla que el
 // jugador pulsó. Todo se deriva de las acciones legales reales (nunca se
@@ -52,11 +53,11 @@ export function useDiscardedAnimalAbilityActionsFor(legalActions: Action[], card
 
 // Etiqueta corta para un objetivo (carta del mazo/mano/descarte/mercado),
 // usada en el panel contextual de elección (Elefante, Araña).
-export function targetLabel(state: GameState, player: Player, targetInstanceId: string): string {
+export function targetLabel(state: GameState, player: Player, targetInstanceId: string, artStyle: ArtStyle): string {
   const card = findAnywhere(state, player, targetInstanceId);
   if (!card) return '?';
   const bits = [card.name];
   if (card.type === 'animal') bits.push(`${card.victoryPoints}PV`);
-  if (card.marketCost) bits.push(`${card.marketCost} monedas`);
+  if (card.marketCost) bits.push(`${card.marketCost} ${currencyLabel(artStyle, card.marketCost)}`);
   return bits.join(' · ');
 }

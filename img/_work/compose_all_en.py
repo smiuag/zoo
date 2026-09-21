@@ -6,7 +6,7 @@ import compose_all as ca
 from card_text_en import CARD_TEXT_EN, HABITAT_EN
 
 IMG_DIR = r"C:\proyectos\Claude\zoo\img"
-OUT_DIR = r"C:\proyectos\Claude\zoo\img\cards_en"
+OUT_DIR = r"C:\proyectos\Claude\zoo\img\cards_en" if ca.EDITION == "classic" else r"C:\proyectos\Claude\zoo\img\cards_completa_en"   # ver ca.EDITION
 os.makedirs(OUT_DIR, exist_ok=True)
 
 
@@ -20,7 +20,7 @@ def main():
 
         if ctype == "animal":
             photo = os.path.join(IMG_DIR, ca.SPECIES_PHOTO[card["species"]])
-            type_label = " - ".join(HABITAT_EN[h] for h in ca.HABITAT_ORDER if h in card["habitats"])
+            type_label = ca.type_label_for(card["habitats"], HABITAT_EN, None)   # en ingles nunca hubo "todoterreno": se listan los 3
             cost = card["marketCost"]
             pv = card["victoryPoints"]
         elif ctype == "coin":
@@ -36,12 +36,8 @@ def main():
         else:
             continue
 
-        out_path = os.path.join(OUT_DIR, f"{cid}.png")
-        ca.compose_generic(
-            photo, name, type_label, cost, pv, text, out_path,
-            ca.template_key_for_card(card), is_coin=(ctype == "coin"),
-            body_max_size=ca.BODY_MAX_SIZE_OVERRIDE.get(cid, 26),
-        )
+        import compose_card_iconos                      # diseno oficial con iconos, ver compose_all.py
+        out_path = compose_card_iconos.compose_official(card, "en", OUT_DIR)
         generated.append(out_path)
         print("generated", cid)
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { LEARNING_EDITION_MAX_COST } from '@zoo/engine';
 import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
 import { useArtStyle } from '../lib/artStyle';
 import {
@@ -20,6 +21,7 @@ import {
   type RoundLimit,
 } from '../lib/gameConfig';
 import { isOnlineAvailable } from '../online/supabaseClient';
+import { isFullEditionAvailable, loadSavedEdition, saveEdition } from '../lib/edition';
 
 interface GameSetupProps {
   onStart: (config: GameConfig) => void;
@@ -48,9 +50,11 @@ interface GameSetupProps {
 // Alarga o recorta la lista de algoritmos al nuevo nº de bots, conservando
 // lo ya elegido para los huecos que se mantienen (solo se pierde/genera lo
 // que cambia), en vez de resetear todo el formulario cada vez que se toca
-// el número de bots. Los huecos nuevos siempre arrancan con el algoritmo
-// genérico (ver DEFAULT_BOT_ALGORITHM): el usuario decide luego si le da
-// preferencia de hábitat a alguno.
+// el número de bots. Los huecos nuevos arrancan con el genérico
+// (DEFAULT_BOT_ALGORITHM): el usuario decide luego si le da preferencia de
+// hábitat a alguno. Los 4 algoritmos son edición-agnósticos (ver
+// botAlgorithms.ts: resolveBot decide qué bot de verdad usar según la
+// edición de la partida), así que no hace falta ningún caso especial aquí.
 function resizeBotAlgorithms(current: BotAlgorithm[], count: number): BotAlgorithm[] {
   if (count <= current.length) return current.slice(0, count);
   const extra = Array.from({ length: count - current.length }, () => DEFAULT_BOT_ALGORITHM);
@@ -84,6 +88,8 @@ export function GameSetup({
   // aunque el jugador cambie de opinión y no llegue a empezar la partida, y
   // nunca viaja por el protocolo online (cada jugador ve el suyo).
   const [artStyle, setArtStyle] = useArtStyle();
+  // Solo en local (ver lib/edition.ts): fuera de localhost esto es siempre 'classic' y no hay selector.
+  const [edition, setEdition] = useState(loadSavedEdition);
 
   const totalPlayers = numHumans + botAlgorithms.length;
   const canStart = totalPlayers >= MIN_TOTAL_PLAYERS;
@@ -109,7 +115,11 @@ export function GameSetup({
     // de empezar (no al teclear/tocar cada campo).
     saveNick(cleanNick);
     saveSetupPrefs({ numHumans, botAlgorithms, roundLimit, animationsEnabled });
-    return { numHumans, nick: cleanNick, botAlgorithms, roundLimit, animationsEnabled };
+    // 'learning' se guarda siempre (disponible en cualquier sitio); 'full'
+    // solo en local — loadSavedEdition ya protege de leer 'full' fuera de
+    // local aunque quedara guardado de una sesión anterior en local.
+    saveEdition(edition);
+    return { numHumans, nick: cleanNick, botAlgorithms, roundLimit, animationsEnabled, edition };
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -147,6 +157,38 @@ export function GameSetup({
       <form className="panel setup-panel" onSubmit={handleSubmit}>
         <div className="panel__header">
           <h2>Nueva partida</h2>
+        </div>
+
+        <div className="setup-row">
+          <div className="setup-round-options setup-round-options--full">
+            <button className="btn btn--primary" type="submit" disabled={!canStart}>
+              Empezar partida
+            </button>
+            {onCreateOnlineRoom && (
+              <button className="btn btn--ghost" type="button" disabled={!canGoOnline} onClick={handleCreateOnlineRoom}>
+                🌐 Crear partida online
+              </button>
+            )}
+          </div>
+          {!canStart && (
+            <p className="setup-error">
+              Con 1 solo jugador humano hace falta al menos 1 bot rival: sube el número de bots o de jugadores.
+            </p>
+          )}
+          {onCreateOnlineRoom && !isOnlineAvailable && (
+            <p className="setup-hint">No configurada en este despliegue (falta VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY).</p>
+          )}
+        </div>
+
+        <div className="setup-row">
+          <div className="setup-round-options setup-round-options--full">
+            <button className="btn btn--ghost" type="button" onClick={onOpenScoreCalculator}>
+              🌰 Marcador final (sin partida)
+            </button>
+            <button className="btn btn--ghost" type="button" onClick={onOpenRanking}>
+              🏆 Ranking
+            </button>
+          </div>
         </div>
 
         <div className="setup-row">
@@ -224,25 +266,7 @@ export function GameSetup({
         )}
 
         <div className="setup-row">
-          <label>Duración</label>
-          <div className="setup-round-options">
-            {ROUND_LIMIT_OPTIONS.map((rounds) => (
-              <button
-                key={rounds}
-                type="button"
-                className={`btn ${roundLimit === rounds ? 'btn--primary' : 'btn--ghost'}`}
-                aria-pressed={roundLimit === rounds}
-                onClick={() => setRoundLimit(rounds)}
-              >
-                {rounds} rondas
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="setup-row">
-          <label>Estilo de cartas</label>
-          <div className="setup-round-options">
+          <div className="setup-round-options setup-round-options--full">
             <button
               type="button"
               className={`btn ${artStyle === 'imagen' ? 'btn--primary' : 'btn--ghost'}`}
@@ -260,55 +284,82 @@ export function GameSetup({
               🐯 Emoji
             </button>
           </div>
-          <span className="setup-hint">Se recuerda en este dispositivo. Cada jugador puede elegir el suyo sin afectar a los demás.</span>
         </div>
 
         <div className="setup-row">
-          <label htmlFor="setup-animations">Animaciones</label>
-          <input
-            id="setup-animations"
-            type="checkbox"
-            checked={animationsEnabled}
-            onChange={(e) => setAnimationsEnabled(e.target.checked)}
-          />
-          <span className="setup-hint">
-            Ritmo de 1s entre acciones de los bots y la carta comprada volando al descarte. Se decide una vez, para
-            toda la partida.
-          </span>
+          <div className="setup-round-options setup-round-options--full">
+            <button
+              type="button"
+              className={`btn ${animationsEnabled ? 'btn--primary' : 'btn--ghost'}`}
+              aria-pressed={animationsEnabled}
+              onClick={() => setAnimationsEnabled(true)}
+            >
+              Con animaciones
+            </button>
+            <button
+              type="button"
+              className={`btn ${!animationsEnabled ? 'btn--primary' : 'btn--ghost'}`}
+              aria-pressed={!animationsEnabled}
+              onClick={() => setAnimationsEnabled(false)}
+            >
+              Sin animaciones
+            </button>
+          </div>
         </div>
 
-        {!canStart && (
-          <p className="setup-error">
-            Con 1 solo jugador humano hace falta al menos 1 bot rival: sube el número de bots o de jugadores.
-          </p>
-        )}
+        <div className="setup-row">
+          <div className="setup-round-options setup-round-options--full">
+            {ROUND_LIMIT_OPTIONS.map((rounds) => (
+              <button
+                key={rounds}
+                type="button"
+                className={`btn ${roundLimit === rounds ? 'btn--primary' : 'btn--ghost'}`}
+                aria-pressed={roundLimit === rounds}
+                onClick={() => setRoundLimit(rounds)}
+              >
+                {rounds} rondas
+              </button>
+            ))}
+          </div>
+        </div>
 
-        <button className="btn btn--primary" type="submit" disabled={!canStart}>
-          Empezar partida
-        </button>
-
-        {onCreateOnlineRoom && (
-          <>
-            <button className="btn btn--ghost" type="button" disabled={!canGoOnline} onClick={handleCreateOnlineRoom}>
-              🌐 Crear partida online
+        <div className="setup-row">
+          <div className="setup-round-options setup-round-options--full">
+            <button
+              type="button"
+              className={`btn ${edition === 'learning' ? 'btn--primary' : 'btn--ghost'}`}
+              aria-pressed={edition === 'learning'}
+              onClick={() => setEdition('learning')}
+            >
+              Aprendizaje
             </button>
-            {!isOnlineAvailable && (
-              <p className="setup-hint">
-                No configurada en este despliegue (falta VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY).
-              </p>
+            <button
+              type="button"
+              className={`btn ${edition === 'classic' ? 'btn--primary' : 'btn--ghost'}`}
+              aria-pressed={edition === 'classic'}
+              onClick={() => setEdition('classic')}
+            >
+              Clásica
+            </button>
+            {isFullEditionAvailable && (
+              <button
+                type="button"
+                className={`btn ${edition === 'full' ? 'btn--primary' : 'btn--ghost'}`}
+                aria-pressed={edition === 'full'}
+                onClick={() => setEdition('full')}
+              >
+                Completa
+              </button>
             )}
-            {isOnlineAvailable && numHumans < 2 && (
-              <p className="setup-hint">Sube "Jugadores humanos" a 2 o más para poder invitar a alguien.</p>
-            )}
-          </>
-        )}
-
-        <button className="btn btn--ghost" type="button" onClick={onOpenScoreCalculator}>
-          🌰 Marcador final (sin partida)
-        </button>
-        <button className="btn btn--ghost" type="button" onClick={onOpenRanking}>
-          🏆 Ranking
-        </button>
+          </div>
+          <p className="setup-hint">
+            {edition === 'learning'
+              ? `Mismo mazo clásico de siempre, pero el mercado solo ofrece animales de coste ${LEARNING_EDITION_MAX_COST} o menos: partidas más sencillas y rápidas para aprender.`
+              : edition === 'full'
+                ? 'La completa añade mascotas y dinosaurios. Este selector no existe en la web publicada: allí siempre se juega la clásica o la de aprendizaje.'
+                : 'La oficial: 33 especies, sin restricciones.'}
+          </p>
+        </div>
       </form>
     </div>
   );

@@ -46,6 +46,40 @@ const SPECIES_ICONS: Record<string, string> = {
   rabbit: '🐇',
   shark: '🦈',
   squirrel: '🐿️',
+  // Mascotas y dinosaurios (2026-09-20). Unicode solo tiene 2 dinosaurios
+  // (saurópodo y T-Rex): terodáctilo y mosasaurio usan los dos dragones
+  // como aproximación distinguible (mismo criterio que vulture/toucan).
+  dog: '🐕',
+  cat: '🐈',
+  diplodocus: '🦕',
+  tyrannosaurus: '🦖',
+  pterodactyl: '🐉',
+  mosasaurus: '🐲',
+  // Especies añadidas 2026-09-21 (aún sin ilustración real, ver
+  // game-editions-classic-vs-full): iguana/hámster/cerdo/gallina/nutria
+  // tienen emoji real; Pez Dorado (pez existente 🐠 ya usado por goldfish)
+  // usa 🐡 para distinguirse. Colibrí no tiene emoji propio: reutiliza el
+  // 🐦 genérico, igual que el periquito.
+  iguana: '🦎',
+  hamster: '🐹',
+  pig: '🐷',
+  chicken: '🐔',
+  otter: '🦦',
+  'golden-fish': '🐡',
+  hummingbird: '🐦',
+  // Oca: emoji real de ganso (Unicode 14.0, 2021), pero sin respaldo SVG de
+  // Twemoji 14.0.2 (probado: 404) — mismo trato que el cuervo más abajo,
+  // fuera de fetch-twemoji.mjs, solo se ve si el sistema lo soporta
+  // nativamente (supportsEmojiNatively).
+  goose: '🪿',
+  // Avestruz/Plesiosaurio/Pteranodon: Unicode no tiene ninguno de los tres
+  // (ni un reptil marino de cuello largo, ni uno volador), así que son
+  // aproximaciones visuales elegidas por el usuario (2026-09-21) en vez del
+  // 🐾 genérico — ninguna se parece de verdad, pero distinguen la carta de
+  // un vistazo mejor que la pata genérica.
+  ostrich: '🦃',
+  plesiosaurus: '🦑',
+  pteranodon: '🦋',
   // Unicode no tiene un emoji de tucán: se usa el 🦤 (dodo) como
   // aproximación distinguible (mismo criterio que vulture: 🦴 más arriba),
   // en vez de caer en el 🐾 genérico y confundirse con el ornitorrinco
@@ -166,12 +200,31 @@ const HABITAT_LABELS: Array<{ key: 'land' | 'bird' | 'aquatic'; label: string }>
   { key: 'bird', label: 'Volador' },
   { key: 'aquatic', label: 'Acuático' },
 ];
+// Tipos extra (no son hábitat ni deciden el color de la carta): se añaden
+// detrás de los hábitats en la etiqueta.
+const EXTRA_TYPE_LABELS: Array<{ key: 'pet' | 'dinosaur'; label: string }> = [
+  { key: 'pet', label: 'Mascota' },
+  { key: 'dinosaur', label: 'Dinosaurio' },
+];
 
-export function habitatLabel(card: CardInstance): string {
+// Partes sueltas de la etiqueta de tipo, SIN unir — la usa CardView.tsx para
+// partirla en líneas de 2 en 2 (una carta con 3-4 tipos a la vez, p. ej. la
+// Gallina o la Tortuga, no cabía en una sola línea del pie de la carta y se
+// recortaba con "…", ver .card__footer en styles.css — pedido explícito del
+// usuario 2026-09-21). habitatLabel (más abajo) sigue devolviendo el string
+// unido de siempre para cualquier otro uso.
+export function habitatLabelParts(card: CardInstance): string[] {
   const matched = HABITAT_LABELS.filter(({ key }) => card.habitats?.includes(key));
   // Un animal con los 3 hábitats a la vez se etiquetaría "Todoterreno" en
-  // vez de listarlos por separado (ninguna especie actual los tiene los
-  // tres a la vez, pero se deja listo por si se añade una en el futuro).
-  if (matched.length === HABITAT_LABELS.length) return 'Todoterreno';
-  return matched.map(({ label }) => label).join(' - ');
+  // vez de listarlos por separado. Excepción explícita del usuario
+  // (2026-09-21): el Albatros SÍ tiene los 3 a la vez, pero se listan sus 3
+  // tipos básicos por separado en vez de colapsarlos en "Todoterreno".
+  const extras = EXTRA_TYPE_LABELS.filter(({ key }) => card.habitats?.includes(key)).map(({ label }) => label);
+  const collapseToAllTerrain = matched.length === HABITAT_LABELS.length && card.id !== 'albatross';
+  const base = collapseToAllTerrain ? ['Todoterreno'] : matched.map(({ label }) => label);
+  return [...base, ...extras];
+}
+
+export function habitatLabel(card: CardInstance): string {
+  return habitatLabelParts(card).join(' - ');
 }

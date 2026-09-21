@@ -5,19 +5,51 @@
 // solo que cada uno simula una fracción de las EPISODES_PER_BATCH partidas
 // de un batch en paralelo en vez de un único proceso jugándolas todas
 // secuencialmente. Nunca importado desde src/index.ts ni desde apps/web.
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { aquaticRlBot, birdRlBot, landRlBot, rlBot } from '../../src/bots/rlBot';
-import { encodeActionsForPlayer, encodePlayerContext } from '../../src/bots/rl/features';
-import { forward, type RlWeights } from '../../src/bots/rl/network';
+import { createRlBotFull, rlBotFull } from '../../src/bots/rlBotFull';
+import { heuristicBot } from '../../src/bots/heuristicBot';
+import * as classicFeatures from '../../src/bots/rl/features';
+import * as fullFeatures from '../../src/bots/rl/featuresFull';
+import { deserializeWeights, forward, type RlWeights } from '../../src/bots/rl/network';
 import type { Bot } from '../../src/bots/types';
 import { getCard } from '../../src/cards/registry';
 import type { Card } from '../../src/cards/schema';
 import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer, type Action } from '../../src/engine';
 import { filterActionsByHabitat, filterUpgradeChoicesForRl, legalActionsForBot } from '../../src/bots/actionPriority';
-import type { GameState } from '../../src/model/state';
+import type { GameEdition, GameState, Player } from '../../src/model/state';
 import { scoreGame, scorePlayer, type PlayerScore } from '../../src/scoring';
 import { accumulateGrad, softmax, zeroGrad, type Gradient } from './train';
 import { computeReturn } from './reward';
 import scalerCalibrationData from './scalerCalibration.json';
+
+// Edición para la que se entrena (2026-09-21): 'full' usa el codificador de
+// features de la edición completa (ver featuresFull.ts, dimensión propia,
+// nunca comparte pesos con la clásica) y crea las partidas con
+// edition:'full' (mascotas/dinosaurios en el mercado). Por defecto 'classic'
+// — sin la variable, CERO cambio de comportamiento respecto a antes de que
+// existiera la edición completa.
+export const RL_EDITION: GameEdition = process.env.RL_EDITION === 'full' ? 'full' : 'classic';
+
+// Ambos codificadores son funciones puras sin estado ni importaciones
+// circulares entre sí: se importan los 2 módulos siempre y se elige aquí, en
+// tiempo de ejecución, cuál llamar — así no hace falta un import() dinámico
+// para algo que se decide una única vez al arrancar el proceso (ver
+// RL_EDITION arriba).
+export const ACTIVE_FEATURE_DIM = RL_EDITION === 'full' ? fullFeatures.FEATURE_DIM_FULL : classicFeatures.FEATURE_DIM;
+export const ACTIVE_CRITIC_FEATURE_DIM =
+  RL_EDITION === 'full' ? fullFeatures.CRITIC_FEATURE_DIM_FULL : classicFeatures.CRITIC_FEATURE_DIM;
+
+function encodeActionsForPlayer(state: GameState, playerId: string, actions: Action[]): number[][] {
+  return RL_EDITION === 'full'
+    ? fullFeatures.encodeActionsForPlayer(state, playerId, actions)
+    : classicFeatures.encodeActionsForPlayer(state, playerId, actions);
+}
+
+function encodePlayerContext(state: GameState, player: Player): number[] {
+  return RL_EDITION === 'full' ? fullFeatures.encodePlayerContext(state, player) : classicFeatures.encodePlayerContext(state, player);
+}
 
 export const TRAIN_TEMPERATURE = 1;
 export const MAX_ACTIONS_PER_GAME = 400;
@@ -103,9 +135,48 @@ export const RL_VARIANT_BOTS: Record<'general' | 'land' | 'bird' | 'aquatic', Bo
   aquatic: aquaticRlBot,
 };
 export const CURRENT_VARIANT = (HABITAT_FILTER as 'land' | 'bird' | 'aquatic' | undefined) ?? 'general';
-export const RL_CURRICULUM_OPPONENTS = Object.entries(RL_VARIANT_BOTS)
-  .filter(([variant]) => variant !== CURRENT_VARIANT)
-  .map(([, bot]) => bot);
+
+const FULL_WEIGHTS_DIR = fileURLToPath(new URL('../../src/bots/rl/', import.meta.url));
+const FULL_HABITATS = ['land', 'bird', 'aquatic'] as const;
+
+// Especialista de hábitat de la edición completa cuyos pesos ya existen en
+// disco AL ARRANCAR este proceso (congelados durante todo este
+// entrenamiento, igual que RL_VARIANT_BOTS para la clásica) — o null si
+// todavía no se ha entrenado ninguno (primera tanda de los 3 especialistas,
+// lanzados a la vez: ninguno ve todavía a los otros 2, solo al generalista).
+// Entrenar uno más tarde (p. ej. "más batches para tierra" una vez ya
+// existan bird/aquatic) sí los vería, sin cambiar nada de este código.
+function loadFullSpecialistIfExists(habitat: (typeof FULL_HABITATS)[number]): Bot | null {
+  const path = `${FULL_WEIGHTS_DIR}weights-full-${habitat}.json`;
+  if (!existsSync(path)) return null;
+  try {
+    const weights = deserializeWeights(readFileSync(path, 'utf-8'));
+    if (weights.featureDim !== fullFeatures.FEATURE_DIM_FULL) return null;
+    return createRlBotFull({ weights, habitatFilter: habitat });
+  } catch {
+    return null;
+  }
+}
+
+// Edición completa (2026-09-21): todavía no hay hermanos RL con solera (ver
+// rlBotFull.ts) — mismo punto de partida que tuvo que tener el primer bot
+// clásico alguna vez. El generalista ('weights-full.json', ya entrenado y
+// evaluado: 99% de victorias contra el heurístico en 200 partidas) SIEMPRE
+// es uno de los 3 oponentes; los otros 2 son los especialistas HERMANOS
+// (nunca el mismo que se está entrenando) si ya existen en disco, o el
+// heurístico si no. Sin HABITAT_FILTER (entrenando el generalista de nuevo),
+// se mantienen los 3 heurísticos de siempre.
+export const RL_CURRICULUM_OPPONENTS =
+  RL_EDITION === 'full'
+    ? HABITAT_FILTER
+      ? [
+          rlBotFull,
+          ...FULL_HABITATS.filter((h) => h !== HABITAT_FILTER).map((h) => loadFullSpecialistIfExists(h) ?? heuristicBot),
+        ]
+      : [heuristicBot, heuristicBot, heuristicBot]
+    : Object.entries(RL_VARIANT_BOTS)
+        .filter(([variant]) => variant !== CURRENT_VARIANT)
+        .map(([, bot]) => bot);
 
 // Pedido explícito del usuario (2026-09-14): las cartas con un efecto
 // onScore "acumulativo" (Águila/Orca/Oso polar: scorePerHabitatCount;
@@ -125,9 +196,17 @@ export const RL_CURRICULUM_OPPONENTS = Object.entries(RL_VARIANT_BOTS)
 // animales acuáticos de media). Se regenera a mano cuando cambien estas
 // cartas o el balance general del mazo — no en cada batch de
 // entrenamiento, sería demasiado caro.
-export const SCALER_CALIBRATION: Record<string, number> = (
-  scalerCalibrationData as Record<string, Record<string, number>>
-)[CURRENT_VARIANT] ?? {};
+// Edición completa: sin calibración propia todavía (scalerCalibration.json
+// solo tiene entradas de la clásica) — shapedPurchaseValue ya maneja
+// calibrated===undefined cayendo al delta en vivo sin más, así que esto
+// simplemente empieza "sin calibrar" en vez de mezclar valores calculados
+// para otro mazo. Se puede generar la suya propia más adelante con
+// calibrateScalerValues.ts una vez haya un bot ya entrenado con el que jugar
+// esas partidas.
+export const SCALER_CALIBRATION: Record<string, number> =
+  RL_EDITION === 'full'
+    ? {}
+    : ((scalerCalibrationData as Record<string, Record<string, number>>)[CURRENT_VARIANT] ?? {});
 
 // Valor de shaping de una compra (2026-09-16, sustituye a "la constante
 // calibrada entera" para las cartas acumulativas): `liveDelta` es lo que la
@@ -220,7 +299,7 @@ export interface Step {
 // evaluate() en selfPlay.ts).
 export function playOneGame(weights: RlWeights): { trajectories: Map<string, Step[]>; finalScores: PlayerScore[] } {
   const playerConfigs = Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, deck: buildStarterDeck() }));
-  const state = createGame(playerConfigs, { maxRounds: randomMaxRounds() });
+  const state = createGame(playerConfigs, { maxRounds: randomMaxRounds(), edition: RL_EDITION });
 
   const fixedOpponents = new Map<string, Bot>();
   for (let i = 1; i < playerConfigs.length; i++) {

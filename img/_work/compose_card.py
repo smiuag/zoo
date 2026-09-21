@@ -223,6 +223,11 @@ def _build_template_alpha(template_key):
     return template_rgba
 
 
+# Ilustraciones que traen un marco de papel pintado alrededor (los dinosaurios,
+# 2026-09-20): px que se recortan por cada lado antes de encajarlas en la ventana.
+PHOTO_INSET = {"diplodocus.jpg": 34, "mosasaurus.jpg": 34, "terodactilo.jpg": 34}
+
+
 def build_card_base(photo_path, template_key):
     """Compone la carta pegando la foto PRIMERO y el marco (con la ventana
     ya recortada como transparencia real) ENCIMA — así cualquier imprecisión
@@ -235,6 +240,9 @@ def build_card_base(photo_path, template_key):
     bw, bh = x1 - x0, y1 - y0
 
     photo = Image.open(photo_path).convert("RGB")
+    inset = PHOTO_INSET.get(os.path.basename(photo_path).lower(), 0)
+    if inset:
+        photo = photo.crop((inset, inset, photo.width - inset, photo.height - inset))
     w, h = photo.size
     # Zoom in (80% of the shorter side) and bias the crop toward the top,
     # since the subject is usually drawn in the upper-middle area and the
@@ -244,7 +252,9 @@ def build_card_base(photo_path, template_key):
     crop_h = int(min(h, w / aspect) * 1.0)
     crop_w = int(crop_h * aspect)
     left = (w - crop_w) // 2
-    top = int(h * 0.03)
+    # Nunca por debajo del borde inferior: en una foto apaisada (crop_h == h)
+    # ese 3% de sesgo se salia de la imagen y dejaba una franja negra abajo.
+    top = min(int(h * 0.03), h - crop_h)
     photo = photo.crop((left, top, left + crop_w, top + crop_h))
     photo = photo.resize((bw, bh), Image.LANCZOS)
 
@@ -275,7 +285,8 @@ def draw_centered(draw, box_or_point, text, font, fill=INK):
 # respecto a los extremos (arco tipo "sonrisa" ⌢, parabólico); el ángulo de
 # cada carácter sigue la derivada de esa misma parábola, así que el propio
 # glifo se inclina siguiendo la tangente del arco en su posición.
-def draw_curved_text(card, box, text, font, fill=HEADING_INK, curve_height=12, max_angle=16):
+def draw_curved_text(card, box, text, font, fill=HEADING_INK, curve_height=12, max_angle=16, stroke_width=0, stroke_fill=None):
+    # stroke_width/stroke_fill: contorno opcional de cada letra (titulo blanco de la prueba de iconos); 0 = como siempre.
     x0, y0, x1, y1 = box
     box_w = x1 - x0
     cx = (x0 + x1) / 2
@@ -295,8 +306,9 @@ def draw_curved_text(card, box, text, font, fill=HEADING_INK, curve_height=12, m
         y_offset = -curve_height * (1 - t * t)
         angle_deg = -t * max_angle
 
-        glyph = Image.new("RGBA", (int(w) + 8, char_h + 8), (0, 0, 0, 0))
-        ImageDraw.Draw(glyph).text((4, 4), ch, font=font, fill=fill)
+        pad = 4 + stroke_width
+        glyph = Image.new("RGBA", (int(w) + 2 * pad, char_h + 2 * pad), (0, 0, 0, 0))
+        ImageDraw.Draw(glyph).text((pad, pad), ch, font=font, fill=fill, stroke_width=stroke_width, stroke_fill=stroke_fill)
         rotated = glyph.rotate(angle_deg, resample=Image.BICUBIC, expand=True)
 
         paste_x = int(char_center_x - rotated.width / 2)

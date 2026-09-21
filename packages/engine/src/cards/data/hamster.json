@@ -1,0 +1,30 @@
+{
+  "id": "hamster",
+  "name": "Hámster",
+  "type": "animal",
+  "species": "hamster",
+  "edition": "full",
+  "marketCost": 2,
+  "victoryPoints": 1,
+  "text": "Al jugarlo, devuelve a tu mano todos los hámsteres de tu descarte.\nAñade 1 a tu valor de captura.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "returnAllFromDiscard",
+      "params": {
+        "species": "hamster"
+      }
+    },
+    {
+      "trigger": "onPlay",
+      "type": "gainFlatBonusPurchasingPower",
+      "params": {
+        "amount": 1
+      }
+    }
+  ],
+  "habitats": [
+    "land",
+    "pet"
+  ]
+}

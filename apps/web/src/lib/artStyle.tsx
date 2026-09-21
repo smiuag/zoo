@@ -49,3 +49,15 @@ export function useArtStyle(): [ArtStyle, (style: ArtStyle) => void] {
   if (!ctx) throw new Error('useArtStyle debe usarse dentro de <ArtStyleProvider>');
   return ctx;
 }
+
+// Nombre de la moneda del juego, según el estilo de carta elegido: "bellota"
+// en modo imagen (las ilustraciones reales llevan ese tema, igual que el
+// mazo impreso — ver img/_work/card_text_es_print.py) o "moneda" en modo
+// emoji (el 🪙 de toda la vida no se parece a una bellota). Pedido explícito
+// del usuario 2026-09-21. Usado en cualquier sitio de la UI que mencione la
+// moneda FUERA del texto de habilidad de una carta (ver bellotaText.ts para
+// ese caso, que necesita frases completas, no solo esta palabra suelta).
+export function currencyLabel(artStyle: ArtStyle, amount: number): string {
+  const singular = artStyle === 'imagen' ? 'bellota' : 'moneda';
+  return amount === 1 ? singular : `${singular}s`;
+}

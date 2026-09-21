@@ -1,0 +1,33 @@
+{
+  "id": "pterodactyl",
+  "name": "Terodáctilo",
+  "type": "animal",
+  "species": "pterodactyl",
+  "edition": "full",
+  "marketCost": 10,
+  "costReductionPerDinosaurPlayedThisTurn": 1,
+  "victoryPoints": 10,
+  "text": "Cuesta 1 moneda menos por cada dinosaurio que hayas jugado este turno.\nAñade 4 a tu valor de captura.\nCada oponente elimina un animal volador de su mano.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainFlatBonusPurchasingPower",
+      "params": {
+        "amount": 4
+      }
+    },
+    {
+      "trigger": "onPlay",
+      "type": "eachOpponentDestroysAnimalFromHand",
+      "params": {
+        "habitat": [
+          "bird"
+        ]
+      }
+    }
+  ],
+  "habitats": [
+    "bird",
+    "dinosaur"
+  ]
+}

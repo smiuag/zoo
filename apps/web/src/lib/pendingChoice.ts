@@ -2,6 +2,7 @@ import type { Action, CardInstance, GameState, Player } from '@zoo/engine';
 import { targetLabel } from './actionQuery';
 import { findAnywhere } from './actionLabels';
 import { cardAccentClass } from './cardVisuals';
+import type { ArtStyle } from './artStyle';
 
 // Menú contextual genérico: un título + opciones. Cada opción o bien
 // aplica una acción directamente, o bien (si trae `next`) abre un segundo
@@ -43,11 +44,34 @@ function costOf(state: GameState, player: Player, targetInstanceId: string): num
 // forma de campos de objetivo (target(Instance|Player)Id/
 // secondaryTargetInstanceId), y aquí nunca importa cuál de las dos es, solo
 // qué objetivo(s) elegir.
-export function buildTargetChoice(actions: Action[], state: GameState, player: Player, card: CardInstance): PendingChoice {
+export function buildTargetChoice(
+  actions: Action[],
+  state: GameState,
+  player: Player,
+  card: CardInstance,
+  artStyle: ArtStyle
+): PendingChoice {
   const playActions = actions.filter(
     (a): a is Extract<Action, { type: 'playCard' | 'useDiscardedAnimalAbility' }> =>
       a.type === 'playCard' || a.type === 'useDiscardedAnimalAbility'
   );
+
+  const hasKeepOnTableVariant = playActions.some((a) => a.type === 'playCard' && a.keepOnTable);
+  const hasRealTargeting = playActions.some((a) => a.targetInstanceId || a.targetPlayerId);
+
+  // Perro/Colibrí: la única elección es dónde acaba la carta al terminar el
+  // turno (sobre la mesa o al descarte); no hay ningún otro objetivo que
+  // elegir. La Gallina SÍ combina ambas cosas (objetivo real + quedarse en
+  // la mesa) — para ella se sigue el flujo normal de abajo, que resuelve esa
+  // combinación con leafChoice.
+  if (hasKeepOnTableVariant && !hasRealTargeting) {
+    const options: ChoiceOption[] = playActions.map((a) => ({
+      label: a.type === 'playCard' && a.keepOnTable ? 'Dejarlo sobre la mesa' : 'Enviarlo al descarte',
+      action: a,
+    }));
+    options.sort((a, b) => Number(b.label === 'Dejarlo sobre la mesa') - Number(a.label === 'Dejarlo sobre la mesa'));
+    return { title: `${card.name}: ¿dónde lo dejas?`, options };
+  }
 
   // Pato: elige un JUGADOR, no una carta. Una opción por rival, sin segundo
   // menú encadenado.
@@ -88,31 +112,78 @@ export function buildTargetChoice(actions: Action[], state: GameState, player: P
     }
   }
 
+  // Avestruz/Cocodrilo (drawOrReturnSelfForSpecies): la opción de "no
+  // transformarse" siempre viaja como un targetInstanceId vacío (sourceId
+  // ''), que targetLabel no sabe etiquetar (target no encontrado, cae al
+  // '?' genérico) — se le da aquí una etiqueta legible a partir del propio
+  // efecto de la carta en vez de eso.
+  const drawOrReturnEffect = card.effects.find((e) => e.type === 'drawOrReturnSelfForSpecies');
+  const drawAmount =
+    drawOrReturnEffect && typeof drawOrReturnEffect.params?.drawAmount === 'number' ? drawOrReturnEffect.params.drawAmount : 1;
+
   const options: ChoiceOption[] = [...representativeSourceBySpecies.values()]
     .sort((a, b) => costOf(state, player, a) - costOf(state, player, b))
     .map((sourceId) => {
       const group = bySource.get(sourceId)!;
-      const label = targetLabel(state, player, sourceId);
+      const label =
+        sourceId === '' && drawOrReturnEffect
+          ? `Robar ${drawAmount} carta${drawAmount === 1 ? '' : 's'} (no transformarla)`
+          : targetLabel(state, player, sourceId, artStyle);
       const accentClassName = accentClassFor(state, player, sourceId);
       const hasSecondaryChoice = group.some((a) => a.secondaryTargetInstanceId);
       if (!hasSecondaryChoice) {
-        return { label, action: group[0], accentClassName };
+        return { label, accentClassName, ...leafChoice(card.name, group) };
+      }
+      // Gallina (discardCoinToCapture) combina esta segunda elección con la
+      // de quedarse en la mesa o no: cada animal del mercado puede tener 1
+      // (sin mayStayOnTable) o 2 (con ella) acciones agrupadas aquí — ver
+      // leafChoice, que resuelve esa combinación con un tercer menú.
+      const bySecondary = new Map<string, PlayOrUseAbilityAction[]>();
+      for (const a of group) {
+        const key = a.secondaryTargetInstanceId ?? '';
+        const existing = bySecondary.get(key);
+        if (existing) existing.push(a);
+        else bySecondary.set(key, [a]);
       }
       return {
         label: `${label} →`,
         accentClassName,
         next: {
           title: `¿Qué animal coges a cambio de ${label}?`,
-          options: [...group]
-            .sort((x, y) => costOf(state, player, x.secondaryTargetInstanceId ?? '') - costOf(state, player, y.secondaryTargetInstanceId ?? ''))
-            .map((a) => ({
-              label: targetLabel(state, player, a.secondaryTargetInstanceId ?? ''),
-              action: a,
-              accentClassName: accentClassFor(state, player, a.secondaryTargetInstanceId ?? ''),
+          options: [...bySecondary.keys()]
+            .sort((x, y) => costOf(state, player, x) - costOf(state, player, y))
+            .map((secondaryId) => ({
+              label: targetLabel(state, player, secondaryId, artStyle),
+              accentClassName: accentClassFor(state, player, secondaryId),
+              ...leafChoice(card.name, bySecondary.get(secondaryId)!),
             })),
         },
       };
     });
 
   return { title: `${card.name}: elige el objetivo`, options };
+}
+
+type PlayOrUseAbilityAction = Extract<Action, { type: 'playCard' | 'useDiscardedAnimalAbility' }>;
+
+// Resuelve, para un mismo objetivo (o combinación de objetivos) ya elegido,
+// si además hay que decidir dónde acaba la carta (Gallina: mayStayOnTable
+// combinado con un objetivo real) — 2 acciones para el mismo objetivo,
+// una con keepOnTable y otra sin. Con una sola acción (el caso normal, toda
+// carta sin mayStayOnTable) no añade ningún menú extra: comportamiento
+// idéntico al de antes de que existiera la Gallina.
+function leafChoice(cardName: string, group: PlayOrUseAbilityAction[]): { action?: Action; next?: PendingChoice } {
+  if (group.length === 1) return { action: group[0] };
+  const tableAction = group.find((a) => a.type === 'playCard' && a.keepOnTable);
+  const discardAction = group.find((a) => !(a.type === 'playCard' && a.keepOnTable));
+  if (!tableAction || !discardAction) return { action: group[0] };
+  return {
+    next: {
+      title: `${cardName}: ¿dónde lo dejas?`,
+      options: [
+        { label: 'Dejarlo sobre la mesa', action: tableAction },
+        { label: 'Enviarlo al descarte', action: discardAction },
+      ],
+    },
+  };
 }

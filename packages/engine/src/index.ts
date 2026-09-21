@@ -8,6 +8,7 @@ export {
   resolveScoreEffect,
   pickDefaultDiscard,
   hasUpgradableCoin,
+  hasCoinAtLeast,
 } from './effects/registry';
 export type { EffectHandler, ScoreEffectHandler } from './effects/registry';
 export * from './engine';
@@ -19,3 +20,5 @@ export { heuristicBot } from './bots/heuristicBot';
 export { expensiveFirstBot } from './bots/expensiveFirstBot';
 export { rlBot, createRlBot, landRlBot, birdRlBot, aquaticRlBot } from './bots/rlBot';
 export type { RlBotOptions } from './bots/rlBot';
+export { rlBotFull, fullLandRlBot, fullBirdRlBot, fullAquaticRlBot, createRlBotFull } from './bots/rlBotFull';
+export type { RlBotFullOptions } from './bots/rlBotFull';

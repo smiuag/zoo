@@ -1,0 +1,25 @@
+{
+  "id": "ostrich",
+  "name": "Avestruz",
+  "type": "animal",
+  "species": "ostrich",
+  "edition": "full",
+  "marketCost": 5,
+  "victoryPoints": 7,
+  "text": "Elige: roba una carta, o devuélvela a su reserva para conseguir gratis, del mercado, un Tiranosaurio o un Terodáctilo.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "drawOrReturnSelfForSpecies",
+      "params": {
+        "drawAmount": 1,
+        "speciesOptions": ["tyrannosaurus", "pterodactyl"]
+      }
+    }
+  ],
+  "habitats": [
+    "land",
+    "bird",
+    "dinosaur"
+  ]
+}

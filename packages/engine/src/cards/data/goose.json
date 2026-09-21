@@ -1,0 +1,31 @@
+{
+  "id": "goose",
+  "name": "Oca",
+  "type": "animal",
+  "species": "goose",
+  "edition": "full",
+  "marketCost": 4,
+  "victoryPoints": 0,
+  "text": "Añade 1 a tu valor de captura.\nAl final de la partida, +1PV por cada animal doméstico distinto que tengas en toda tu colección.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "gainFlatBonusPurchasingPower",
+      "params": {
+        "amount": 1
+      }
+    },
+    {
+      "trigger": "onScore",
+      "type": "scorePerDistinctSpeciesWithHabitat",
+      "params": {
+        "habitat": "pet"
+      }
+    }
+  ],
+  "habitats": [
+    "bird",
+    "pet",
+    "dinosaur"
+  ]
+}

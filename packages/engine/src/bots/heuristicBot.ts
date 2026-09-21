@@ -67,6 +67,15 @@ function effectBonus(card: CardInstance): number {
         bonus += amount * 0.7;
         break;
       }
+      case 'gainDinosaurOnlyBonusPurchasingPower': {
+        // Igual que gainAquaticOnlyBonusPurchasingPower (Delfín) pero
+        // restringido a dinosaurios (Diplodocus): en la edición completa hay
+        // menos dinosaurios en el mercado que acuáticos, así que vale algo
+        // menos todavía.
+        const amount = typeof effect.params?.amount === 'number' ? effect.params.amount : 2;
+        bonus += amount * 0.5;
+        break;
+      }
       case 'discardFromEachOpponent':
       case 'chooseDiscardFromEachOpponent':
         bonus += 1.5;

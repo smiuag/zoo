@@ -14,6 +14,13 @@ import twemoji from 'twemoji';
 // cardVisuals.ts, más los 3 genéricos (moneda/sin-icono/desconocido) que usa
 // cardIcon(). Si se añade una especie nueva ahí, añadir aquí su emoji.
 const EMOJIS = [
+  // Mascotas y dinosaurios (2026-09-20)
+  '🐕',
+  '🐈',
+  '🦕',
+  '🦖',
+  '🐉',
+  '🐲',
   '🐒',
   '🐧',
   '🦚',
@@ -47,6 +54,19 @@ const EMOJIS = [
   '🐿️',
   '🦤',
   '🪶',
+  // Segunda tanda de la edición completa (2026-09-21)
+  '🦎',
+  '🐹',
+  '🐷',
+  '🐔',
+  '🦦',
+  '🐡',
+  // 🪿 (ganso/Oca) queda FUERA a propósito, mismo motivo que el cuervo más
+  // abajo: Twemoji 14.0.2 no lo tiene descargable (probado, 404) aunque sea
+  // de Unicode 14.0 — solo se ve como glifo nativo, sin respaldo SVG.
+  '🦃',
+  '🦑',
+  '🦋',
   // 🐦‍⬛ (cuervo/raven) queda FUERA de esta lista a propósito: es un emoji
   // demasiado reciente (Unicode 15.0, 2022) y Twemoji (el respaldo fijado
   // arriba, congelado en la v14.0.2) no lo tiene descargable — se decidió

@@ -40,8 +40,10 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
 describe('card registry', () => {
   it('carga y valida todos los ficheros de datos de cartas', () => {
     const cards = getAllCards();
-    // 33 especies de mercado + 1 Perezoso (solo de mazo inicial) + 4 monedas = 38.
-    expect(cards.length).toBe(38);
+    // 50 especies de mercado (33 clásicas + 17 solo de la edición completa,
+    // ver FULL_EDITION_EXTRA_SPECIES) + 1 Perezoso (solo de mazo inicial) +
+    // 4 monedas = 55.
+    expect(cards.length).toBe(55);
   });
 
   it('el Perezoso es terrestre, no cuesta ni da nada, y no está en el mercado de animales', () => {
@@ -130,8 +132,8 @@ describe('card registry', () => {
     expect(getCard('shark').effects[1]).toMatchObject({ trigger: 'onScore', type: 'scorePerCoinCard' });
     expect(getCard('crocodile').effects[0]).toMatchObject({
       trigger: 'onPlay',
-      type: 'drawCards',
-      params: { amount: 1 },
+      type: 'drawOrReturnSelfForSpecies',
+      params: { drawAmount: 1, speciesOptions: ['mosasaurus'] },
     });
     expect(getCard('crocodile').effects[1]).toMatchObject({
       trigger: 'onScore',

@@ -36,6 +36,11 @@ export interface EffectContext {
   // saber qué especie buscar en el descarte sin tener que codificarla en
   // params. El resto de efectos lo ignora.
   sourceSpecies?: string;
+  // instanceId de la carta que lleva este efecto (engine.ts lo rellena desde
+  // `card.instanceId` al jugarla o al usar su habilidad vía Serpiente): solo
+  // lo usa drawOrReturnSelfForSpecies (Avestruz/Cocodrilo), para devolverse a
+  // sí misma a su mazo compartido. El resto de efectos lo ignora.
+  sourceInstanceId?: string;
 }
 
 export type EffectHandler = (state: GameState, player: Player, effect: Effect, context: EffectContext) => void;
@@ -139,6 +144,7 @@ function beginPendingDiscard(
     sourceCardName: string;
     bonusDrawPerCoin?: boolean;
     kind?: PendingDiscardDecision['kind'];
+    requiredHabitats?: string[];
     bonusPurchasingPowerPerAnimal?: number;
     collectDiscardedForAbilityChoice?: boolean;
   }
@@ -146,6 +152,7 @@ function beginPendingDiscard(
   if (Object.keys(owed).length === 0) return;
   state.pendingDecision = {
     kind: opts.kind ?? 'discard',
+    requiredHabitats: opts.requiredHabitats,
     sourceCardName: opts.sourceCardName,
     sourcePlayerId: activePlayer.id,
     bonusDrawPerCoin: opts.bonusDrawPerCoin ?? false,
@@ -245,6 +252,14 @@ registerEffect('gainAquaticOnlyBonusPurchasingPower', (_state, player, effect) =
   player.aquaticBonusPurchasingPowerThisTurn += amount;
 });
 
+// Diplodocus (2026-09-21): igual que gainAquaticOnlyBonusPurchasingPower
+// (Delfín) pero restringida a animales DINOSAURIO — ver
+// dinosaurBonusPurchasingPowerThisTurn en model/state.ts.
+registerEffect('gainDinosaurOnlyBonusPurchasingPower', (_state, player, effect) => {
+  const amount = typeof effect.params?.amount === 'number' ? effect.params.amount : 2;
+  player.dinosaurBonusPurchasingPowerThisTurn += amount;
+});
+
 // Tigre: roba `drawAmount` cartas (por defecto 2) y luego deja 1 de la
 // mano (context.targetInstanceId, elegida por el jugador entre TODA la
 // mano resultante tras robar — ver drawThenTopdeckActions en engine.ts,
@@ -308,6 +323,15 @@ export const COIN_UPGRADE_TARGET: Record<number, string> = { 1: 'coin-2', 2: 'co
 // (ver GameBoard.tsx, aviso de "terminar turno con animales sin jugar").
 export function hasUpgradableCoin(player: Player): boolean {
   return player.hand.some((c) => c.type === 'coin' && typeof c.value === 'number' && COIN_UPGRADE_TARGET[c.value] !== undefined);
+}
+
+// Cerdo/Nutria/Pez Dorado: si no tienes ninguna moneda que llegue a
+// `minValue` (por defecto 0: cualquiera) en la mano, jugarla no hace nada —
+// mismo criterio que hasUpgradableCoin para la Tortuga, usado por
+// isUselessToPlay en GameBoard.tsx para no avisar de "turno sin terminar"
+// por una carta que de todos modos no haría nada.
+export function hasCoinAtLeast(player: Player, minValue = 0): boolean {
+  return player.hand.some((c) => c.type === 'coin' && typeof c.value === 'number' && c.value >= minValue);
 }
 
 registerEffect('upgradeCoin', (state, player, _effect, context) => {
@@ -468,6 +492,37 @@ registerEffect('returnAnimalFromEachOpponent', (state, player, effect, context) 
   });
 });
 
+// Tiranosaurio/Terodáctilo/Mosasaurio: cada OPONENTE (nunca quien lo juega:
+// corrección del usuario 2026-09-20) elimina de su mano un animal que tenga params.habitat entre sus hábitats
+// (["land"]/["bird"]/["aquatic"], basta con uno). Quien no tenga ninguno
+// elegible no pierde nada. Cada carta eliminada va a player.destroyedCards de quien
+// jugó el dinosaurio (misma pila que el resto de 'destroy', fuera de toda
+// colección: no puntúa para nadie). Gato: si lo exigido es un terrestre, su
+// dueño puede entregar el Gato y va al descarte en vez de eliminarse — ver
+// requiredHabitats en resolveDiscard (engine.ts).
+registerEffect('eachOpponentDestroysAnimalFromHand', (state, player, effect, context) => {
+  const habitats = matchHabitatList(effect.params?.habitat);
+  const owed: PendingDiscardDecision['owed'] = {};
+  for (const affected of otherPlayers(state, player)) {
+    const eligible = affected.hand.filter(
+      (c) => c.type === 'animal' && (habitats.length === 0 || ((c.habitats as string[]) ?? []).some((h) => habitats.includes(h)))
+    );
+    if (eligible.length === 0) continue;
+    owed[affected.id] = { amount: 1, eligibleInstanceIds: eligible.map((c) => c.instanceId) };
+  }
+  beginPendingDiscard(state, player, owed, {
+    sourceCardName: context.sourceCardName ?? 'efecto',
+    kind: 'destroy',
+    requiredHabitats: habitats,
+  });
+});
+
+// Perro: no hace nada al resolverse. Es solo la marca que mira el motor
+// (ver getLegalActions/playCard en engine.ts) para ofrecer la variante
+// keepOnTable: dejarlo sobre la mesa en vez de mandarlo al descarte.
+export const STAY_ON_TABLE_EFFECT_TYPE = 'mayStayOnTable';
+registerEffect(STAY_ON_TABLE_EFFECT_TYPE, () => {});
+
 // Pato: el jugador que elijas (context.targetPlayerId, ver
 // getLegalActions en engine.ts: una variante de la acción por cada rival
 // posible) te da 1 moneda de su mano — el AFECTADO elige libremente cuál
@@ -573,24 +628,9 @@ registerEffect('returnAnimalForUpgrade', (state, player, effect, context) => {
   // de arriba, así que esto también es un no-op — se deja igualmente por si
   // algún día deja de usarse zone.splice() directamente sobre esa lista.
   removeFromPlayedThisTurn(player, returned.instanceId);
-  const deck = state.sharedDecks[returned.species ?? ''];
   // La carta devuelta debe quedar comprable YA MISMO, no esperando su turno
-  // en el mazo compartido. Si el hueco de mercado de su especie ya está
-  // ocupado (el caso normal), la devuelta ocupa ese hueco de inmediato y la
-  // que estaba ahí pasa al mazo compartido en su lugar. Si el hueco estaba
-  // vacío (mazo Y hueco agotados a la vez), se repone directamente con ella
-  // vía refillHook (sin esto se quedaría esperando en la pila sin que nada
-  // volviera a sacarla de ahí: refillAnimalMarket no se llama solo por dejar
-  // algo en sharedDecks, solo la comprueba en momentos concretos, como al
-  // comprar esa especie).
-  const marketIdx = state.animalTrack.findIndex((c) => c.species === returned.species);
-  if (marketIdx !== -1) {
-    const [displaced] = state.animalTrack.splice(marketIdx, 1, returned);
-    if (deck) deck.push(displaced);
-  } else {
-    if (deck) deck.push(returned);
-    refillHook?.(state, returned.species);
-  }
+  // en el mazo compartido — ver returnToMarketImmediately.
+  returnToMarketImmediately(state, returned);
 
   if (foundInHand) {
     for (const e of returned.effects.filter((e) => e.trigger === 'onPlay')) {
@@ -633,6 +673,82 @@ let refillHook: ((state: GameState, species: string | undefined) => void) | null
 export function setRefillHook(hook: (state: GameState, species: string | undefined) => void): void {
   refillHook = hook;
 }
+
+// Devuelve `card` a la circulación de su propia especie de forma que quede
+// comprable YA MISMO, no esperando su turno en el fondo del mazo
+// compartido: si el hueco de mercado de su especie ya está ocupado (el caso
+// normal), la devuelta ocupa ese hueco de inmediato y la que estaba ahí pasa
+// al mazo compartido en su lugar; si el hueco estaba vacío (mazo Y hueco
+// agotados a la vez), se repone directamente con ella vía refillHook. Usado
+// por returnAnimalForUpgrade (Flamenco) y drawOrReturnSelfForSpecies
+// (Avestruz/Cocodrilo).
+function returnToMarketImmediately(state: GameState, card: CardInstance): void {
+  const deck = state.sharedDecks[card.species ?? ''];
+  const marketIdx = state.animalTrack.findIndex((c) => c.species === card.species);
+  if (marketIdx !== -1) {
+    const [displaced] = state.animalTrack.splice(marketIdx, 1, card);
+    if (deck) deck.push(displaced);
+  } else {
+    if (deck) deck.push(card);
+    refillHook?.(state, card.species);
+  }
+}
+
+// Busca `instanceId` primero en lo jugado este turno por CUALQUIER jugador
+// (el caso normal: la propia carta que dispara el efecto, recién sacada de
+// su mano por playCard) y, si no está ahí, en el descarte de cualquier
+// jugador (caso raro: la Serpiente tomó prestada esta habilidad de una
+// carta que sigue en el descarte de OTRO jugador, nunca llegó a
+// playedThisTurn de quien la usa) — quita y devuelve la carta de donde la
+// encuentre. Usado solo por drawOrReturnSelfForSpecies para devolver la
+// propia carta a su mazo compartido.
+function removeSelfFromWherever(state: GameState, instanceId: string): CardInstance | undefined {
+  for (const p of state.players) {
+    const idx = p.playedThisTurn.findIndex((c) => c.instanceId === instanceId);
+    if (idx !== -1) return p.playedThisTurn.splice(idx, 1)[0];
+  }
+  for (const p of state.players) {
+    const idx = p.discard.findIndex((c) => c.instanceId === instanceId);
+    if (idx !== -1) return p.discard.splice(idx, 1)[0];
+  }
+  return undefined;
+}
+
+// Avestruz/Cocodrilo: al jugarla, ELIGE entre robar `drawAmount` cartas (sin
+// elegir ningún objetivo, context.targetInstanceId vacío) o devolverse ELLA
+// MISMA a su propio mazo compartido (vuelve a circular, comprable de
+// inmediato — ver returnToMarketImmediately) para conseguir gratis, del
+// mercado, una copia de alguna de las especies en effect.params.speciesOptions
+// (context.targetInstanceId identifica cuál de esas especies del mercado se
+// captura — ver drawOrReturnSelfForSpeciesTargetSpecs en engine.ts). A
+// diferencia del resto de efectos con objetivo "forzoso si es posible"
+// (Tortuga, Cerdo...), aquí SIEMPRE se ofrece la opción de robar aunque haya
+// alguna especie capturable: es una elección real, no un mínimo.
+registerEffect('drawOrReturnSelfForSpecies', (state, player, effect, context) => {
+  const drawAmount = typeof effect.params?.drawAmount === 'number' ? effect.params.drawAmount : 1;
+  if (!context.targetInstanceId) {
+    drawCards(player, drawAmount);
+    return;
+  }
+  const speciesOptions = Array.isArray(effect.params?.speciesOptions)
+    ? (effect.params.speciesOptions as unknown[]).filter((s): s is string => typeof s === 'string')
+    : [];
+  const trackIdx = state.animalTrack.findIndex(
+    (c) => c.instanceId === context.targetInstanceId && speciesOptions.includes(c.species ?? '')
+  );
+  if (trackIdx === -1) {
+    drawCards(player, drawAmount);
+    return;
+  }
+  const [captured] = state.animalTrack.splice(trackIdx, 1);
+  player.discard.push(captured);
+  refillHook?.(state, captured.species);
+
+  if (context.sourceInstanceId) {
+    const self = removeSelfFromWherever(state, context.sourceInstanceId);
+    if (self) returnToMarketImmediately(state, self);
+  }
+});
 
 // `sourceCard` es la carta que lleva el efecto (p. ej. la instancia
 // concreta del Cocodrilo que lo dispara), para que un efecto pueda excluirse
@@ -696,6 +812,20 @@ registerScoreEffect('scorePerDistinctSpecies', (_player, _effect, allCards) => {
   return species.size;
 });
 
+// Oca (2026-09-21): igual que scorePerDistinctSpecies (Pingüino) pero solo
+// cuenta especies distintas que tengan effect.params.habitat entre sus
+// hábitats — de momento solo la usa la Oca con "pet" (doméstico).
+registerScoreEffect('scorePerDistinctSpeciesWithHabitat', (_player, effect, allCards) => {
+  const habitat = effect.params?.habitat;
+  if (typeof habitat !== 'string') {
+    throw new Error('El efecto "scorePerDistinctSpeciesWithHabitat" requiere params: { habitat: string }');
+  }
+  const species = new Set(
+    allCards.filter((c) => c.type === 'animal' && (c.habitats as string[])?.includes(habitat)).map((c) => c.species)
+  );
+  return species.size;
+});
+
 // Tiburón (rediseño 2026-09-15): al final de la partida, +1PV por cada
 // CARTA de moneda que tengas en toda tu colección (mazo + mano + descarte),
 // sin importar su valor — una moneda de Oro cuenta igual que una de Bronce.
@@ -734,6 +864,7 @@ export const DESTRUCTIVE_SCORE_EFFECT_TYPES = new Set(['destroyWeakestNonFlyingO
 export const COMPOUNDING_SCORE_EFFECT_TYPES = new Set([
   'scorePerHabitatCount',
   'scorePerDistinctSpecies',
+  'scorePerDistinctSpeciesWithHabitat',
   'scorePerCostAtLeast',
   'scorePerCoinCard',
 ]);
@@ -792,6 +923,116 @@ function weakestNonFlyingCard(
   }
   return bestZone && bestIdx !== -1 ? { zone: bestZone, idx: bestIdx } : null;
 }
+
+// Hámster: onPlay, devuelve a tu mano TODAS las copias de params.species
+// (siempre su propia especie) que tengas en tu descarte de golpe —
+// distinto de returnFromDiscardEachTurn (Ardilla: automático cada turno,
+// solo devuelve 1 copia por vez).
+registerEffect('returnAllFromDiscard', (_state, player, effect) => {
+  const species = effect.params?.species;
+  if (typeof species !== 'string') {
+    throw new Error('El efecto "returnAllFromDiscard" requiere params: { species: string }');
+  }
+  const matching = player.discard.filter((c) => c.species === species);
+  if (matching.length === 0) return;
+  player.discard = player.discard.filter((c) => c.species !== species);
+  player.hand.push(...matching);
+});
+
+// Cerdo: descarta una moneda de tu mano de valor `minValue` o más
+// (context.targetInstanceId, ver discardCoinCandidates en engine.ts) para
+// robar `drawAmount` cartas. Sin ninguna moneda que llegue a ese valor, no
+// hay nada que elegir y el efecto no hace nada (mismo patrón "forzoso si es
+// posible" que la Tortuga con upgradeCoin: si hay alguna elegible hay que
+// elegir una, no hay opción de "no pagar").
+registerEffect('discardCoinMinValueToDrawCards', (_state, player, effect, context) => {
+  const minValue = typeof effect.params?.minValue === 'number' ? effect.params.minValue : 0;
+  const drawAmount = typeof effect.params?.drawAmount === 'number' ? effect.params.drawAmount : 1;
+  if (!context.targetInstanceId) return;
+  const idx = player.hand.findIndex(
+    (c) => c.instanceId === context.targetInstanceId && c.type === 'coin' && typeof c.value === 'number' && c.value >= minValue
+  );
+  if (idx === -1) return;
+  const [coin] = player.hand.splice(idx, 1);
+  player.discard.push(coin);
+  drawCards(player, drawAmount);
+});
+
+// Nutria: descarta una moneda de valor `minValue` o más (context.
+// targetInstanceId) para mirar las `peekCount` cartas superiores de tu
+// propio mazo (robándolas de verdad: si hace falta reponer el mazo desde el
+// descarte a mitad, se hace igual que un robo normal), quedarte con la que
+// elijas (context.secondaryTargetInstanceId, ver discardCoinToPeekTargetSpecs
+// en engine.ts) y descartar el resto.
+registerEffect('discardCoinMinValueToPeekAndKeep', (_state, player, effect, context) => {
+  const minValue = typeof effect.params?.minValue === 'number' ? effect.params.minValue : 0;
+  const peekCount = typeof effect.params?.peekCount === 'number' ? effect.params.peekCount : 3;
+  if (!context.targetInstanceId) return;
+  const coinIdx = player.hand.findIndex(
+    (c) => c.instanceId === context.targetInstanceId && c.type === 'coin' && typeof c.value === 'number' && c.value >= minValue
+  );
+  if (coinIdx === -1) return;
+  const [coin] = player.hand.splice(coinIdx, 1);
+  player.discard.push(coin);
+
+  const before = player.hand.length;
+  drawCards(player, peekCount);
+  const drawn = player.hand.slice(before);
+  if (drawn.length === 0) return;
+  const keepId = context.secondaryTargetInstanceId ?? drawn[0].instanceId;
+  for (const card of drawn) {
+    if (card.instanceId === keepId) continue;
+    const idx = player.hand.findIndex((c) => c.instanceId === card.instanceId);
+    if (idx !== -1) {
+      const [discarded] = player.hand.splice(idx, 1);
+      player.discard.push(discarded);
+    }
+  }
+});
+
+// Gallina: descarta una moneda de tu mano de valor `minValue` o más (por
+// defecto 0: cualquiera, ver context.targetInstanceId) para capturar GRATIS,
+// de la reserva de animales, uno con alguno de `habitat` y coste como mucho
+// `maxCost` (context.secondaryTargetInstanceId, ver
+// discardCoinToCaptureTargetSpecs en engine.ts) — ambos objetivos se eligen
+// a la vez, igual que el Flamenco. Repone el hueco de mercado como
+// cualquier captura gratis.
+registerEffect('discardCoinToCapture', (state, player, effect, context) => {
+  const minValue = typeof effect.params?.minValue === 'number' ? effect.params.minValue : 0;
+  const maxCost = typeof effect.params?.maxCost === 'number' ? effect.params.maxCost : Infinity;
+  const habitats = matchHabitatList(effect.params?.habitat);
+  if (!context.targetInstanceId || !context.secondaryTargetInstanceId) return;
+  const coinIdx = player.hand.findIndex(
+    (c) => c.instanceId === context.targetInstanceId && c.type === 'coin' && typeof c.value === 'number' && c.value >= minValue
+  );
+  if (coinIdx === -1) return;
+  const trackIdx = state.animalTrack.findIndex(
+    (c) =>
+      c.instanceId === context.secondaryTargetInstanceId &&
+      (c.marketCost ?? 0) <= maxCost &&
+      (habitats.length === 0 || habitats.some((h) => (c.habitats as string[])?.includes(h)))
+  );
+  if (trackIdx === -1) return;
+  const [coin] = player.hand.splice(coinIdx, 1);
+  player.discard.push(coin);
+  const [captured] = state.animalTrack.splice(trackIdx, 1);
+  player.discard.push(captured);
+  refillHook?.(state, captured.species);
+});
+
+// Pez Dorado: cambia CUALQUIER moneda de tu mano (context.targetInstanceId,
+// sin importar su valor) por una copia de la moneda fija params.targetCoinId
+// ("Oro" / bellota dorada, valor 3 — pedido explícito del usuario
+// 2026-09-21). A diferencia de upgradeCoin (Tortuga), el destino no depende
+// del valor de la que entregas: siempre es la misma carta.
+registerEffect('exchangeCoinForFixed', (state, player, effect, context) => {
+  const targetCoinId = effect.params?.targetCoinId;
+  if (typeof targetCoinId !== 'string' || !context.targetInstanceId) return;
+  const idx = player.hand.findIndex((c) => c.instanceId === context.targetInstanceId && c.type === 'coin');
+  if (idx === -1) return;
+  player.hand.splice(idx, 1);
+  player.hand.push(mintInstance(state, getCard(targetCoinId)));
+});
 
 // Cocodrilo: al final de la partida, ANTES de puntuar, elimina de tu
 // colección (mazo, mano o descarte, esté donde esté) una carta de animal no

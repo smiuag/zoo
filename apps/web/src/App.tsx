@@ -166,7 +166,7 @@ function HostOrLocalApp() {
         numPlayers: state.players.length,
         roundLimit: state.maxRounds,
         position: computePosition(scores, humanId),
-        deck: summarizeCollection([...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn]),
+        deck: summarizeCollection([...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn, ...(player.table ?? [])]),
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

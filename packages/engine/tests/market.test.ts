@@ -344,7 +344,12 @@ describe('estadísticas para el resumen final: purchasesCount y richestTurn', ()
   });
 });
 
-function currentAmount(player: { hand: CardInstance[]; bonusPurchasingPowerThisTurn: number; aquaticBonusPurchasingPowerThisTurn: number }): number {
+function currentAmount(player: {
+  hand: CardInstance[];
+  bonusPurchasingPowerThisTurn: number;
+  aquaticBonusPurchasingPowerThisTurn: number;
+  dinosaurBonusPurchasingPowerThisTurn: number;
+}): number {
   const coins = player.hand.filter((c) => c.type === 'coin').reduce((sum, c) => sum + (c.value ?? 0), 0);
-  return coins + player.bonusPurchasingPowerThisTurn + player.aquaticBonusPurchasingPowerThisTurn;
+  return coins + player.bonusPurchasingPowerThisTurn + player.aquaticBonusPurchasingPowerThisTurn + player.dinosaurBonusPurchasingPowerThisTurn;
 }

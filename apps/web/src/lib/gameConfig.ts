@@ -1,19 +1,19 @@
-// Los 8 algoritmos de IA disponibles para cada hueco de bot: rl es el
-// generalista sin restricciones entrenado por self-play (packages/engine/
-// scripts/rl), rlLand/rlBird/rlAquatic son especialistas entrenados con la
-// misma red pero restringidos a comprar solo animales de un hábitat, y el
-// resto son los bots heurísticos/aleatorios ya existentes. Vive aquí (no en
+import type { GameEdition } from '@zoo/engine';
+// Los 4 algoritmos de IA disponibles para cada hueco de bot (pedido
+// explícito del usuario 2026-09-21: solo estos 4, nunca los heurísticos/
+// aleatorio como opción visible): 'general' sin restricción de hábitat,
+// 'land'/'bird'/'aquatic' especialistas restringidos a comprar solo ese
+// hábitat. Son EDICIÓN-AGNÓSTICOS a propósito: el mismo valor 'land' se
+// resuelve a un bot RL distinto según la edición de la partida (ver
+// resolveBot en botAlgorithms.ts) — clásico/aprendizaje usan siempre los
+// bots clásicos (aprendizaje no tiene entrenamiento propio, ver
+// bots/rlBot.ts), completa usa los suyos si ya están entrenados o cae en el
+// heurístico si no (nunca en pesos sin entrenar) — así elegir "Terrestre" y
+// cambiar de edición no requiere ningún remapeo: el bot de verdad cambia
+// solo, sin que el jugador tenga que volver a elegir nada. Vive aquí (no en
 // useGame.ts) para que este archivo y useGame.ts puedan importarse el uno
 // al otro sin ciclo.
-export type BotAlgorithm =
-  | 'rl'
-  | 'rlLand'
-  | 'rlBird'
-  | 'rlAquatic'
-  | 'heuristic'
-  | 'random'
-  | 'expensiveFirst'
-  | 'animalBuyer';
+export type BotAlgorithm = 'general' | 'land' | 'bird' | 'aquatic';
 
 // Límites razonables para el formulario de creación de partida: el motor no
 // impone ningún máximo de jugadores, pero el mercado tiene copias limitadas
@@ -29,12 +29,11 @@ export const MAX_BOTS = 7;
 export const MIN_TOTAL_PLAYERS = 2;
 
 // Todo bot nuevo (al crear la partida o al subir "Número de bots" en el
-// formulario) arranca con el algoritmo genérico sin restricción de hábitat
-// ('rl', "ES"): el usuario decide luego, hueco a hueco, si le da preferencia
-// de hábitat a alguno o prueba uno de los heurísticos. También el fallback
-// en useGame.ts si por lo que sea un asiento de bot no tiene algoritmo
-// asignado.
-export const DEFAULT_BOT_ALGORITHM: BotAlgorithm = 'rl';
+// formulario) arranca con el algoritmo genérico sin restricción de hábitat:
+// el usuario decide luego, hueco a hueco, si le da preferencia de hábitat a
+// alguno. También el fallback en useGame.ts si por lo que sea un asiento de
+// bot no tiene algoritmo asignado.
+export const DEFAULT_BOT_ALGORITHM: BotAlgorithm = 'general';
 
 // Duraciones de partida seleccionables (en rondas: 1 turno de cada
 // jugador). No hay opción "sin límite" a propósito: con una duración
@@ -71,18 +70,11 @@ export function saveNick(nick: string): void {
 
 // Todos los valores posibles de BotAlgorithm, para validar lo leído de
 // localStorage (ver loadSavedSetupPrefs): un valor corrupto o de una
-// versión antigua del formulario no debe colar un algoritmo desconocido
-// que luego reviente BOT_REGISTRY[algorithm] en useGame.ts.
-const ALL_BOT_ALGORITHMS: readonly BotAlgorithm[] = [
-  'rl',
-  'rlLand',
-  'rlBird',
-  'rlAquatic',
-  'heuristic',
-  'random',
-  'expensiveFirst',
-  'animalBuyer',
-];
+// versión antigua del formulario (p. ej. 'heuristic'/'rlFull' de antes de
+// este rediseño) no debe colar un algoritmo desconocido que luego reviente
+// resolveBot en botAlgorithms.ts — simplemente se descarta como inválido y
+// GameSetup cae a sus valores por defecto de siempre.
+const ALL_BOT_ALGORITHMS: readonly BotAlgorithm[] = ['general', 'land', 'bird', 'aquatic'];
 
 export interface SetupPrefs {
   numHumans: number;
@@ -154,6 +146,9 @@ export interface GameConfig {
   // defecto "J2"/"J3" (ver humanName en useGame.ts), sin campo para
   // elegirlo. Las claves son el seatId ("human-1", no el índice).
   guestNicks?: Record<string, string>;
+  // Edición de la baraja. Solo se puede pedir 'full' con la app en local (ver
+  // lib/edition.ts); ausente = 'classic', la oficial.
+  edition?: GameEdition;
 }
 
 export function defaultGameConfig(): GameConfig {

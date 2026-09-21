@@ -1,0 +1,24 @@
+{
+  "id": "otter",
+  "name": "Nutria",
+  "type": "animal",
+  "species": "otter",
+  "edition": "full",
+  "marketCost": 3,
+  "victoryPoints": 2,
+  "text": "Descarta una moneda de tu mano de valor 2 o más para mirar las 3 cartas superiores de tu mazo: quédate una y descarta el resto.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "discardCoinMinValueToPeekAndKeep",
+      "params": {
+        "minValue": 2,
+        "peekCount": 3
+      }
+    }
+  ],
+  "habitats": [
+    "aquatic",
+    "pet"
+  ]
+}

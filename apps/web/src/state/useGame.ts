@@ -1,40 +1,13 @@
+import { effectiveEdition } from '../lib/edition';
 import { useEffect, useRef, useState } from 'react';
-import {
-  animalBuyerBot,
-  applyAction,
-  aquaticRlBot,
-  birdRlBot,
-  createGame,
-  expensiveFirstBot,
-  getActivePlayer,
-  heuristicBot,
-  landRlBot,
-  pickDefaultDiscard,
-  randomBot,
-  rlBot,
-  scoreGame,
-  type Action,
-  type Bot,
-  type GameState,
-  type PlayerScore,
-} from '@zoo/engine';
+import { applyAction, createGame, getActivePlayer, pickDefaultDiscard, scoreGame, type Action, type GameState, type PlayerScore } from '@zoo/engine';
+import { resolveBot } from '../lib/botAlgorithms';
 import { FLIGHT_TOTAL_MS } from '../components/FlyingCard';
 import { buildStarterDeck } from '../lib/starterDeck';
 import { DEFAULT_BOT_ALGORITHM, MAX_NICK_LENGTH, defaultGameConfig, type BotAlgorithm, type GameConfig } from '../lib/gameConfig';
 
 export type { BotAlgorithm, GameConfig, RoundLimit } from '../lib/gameConfig';
 export { DEFAULT_BOT_ALGORITHM, DEFAULT_ROUND_LIMIT, MAX_BOTS, MAX_HUMANS, MIN_BOTS, MIN_HUMANS, MIN_TOTAL_PLAYERS, ROUND_LIMIT_OPTIONS } from '../lib/gameConfig';
-
-const BOT_REGISTRY: Record<BotAlgorithm, Bot> = {
-  rl: rlBot,
-  rlLand: landRlBot,
-  rlBird: birdRlBot,
-  rlAquatic: aquaticRlBot,
-  heuristic: heuristicBot,
-  random: randomBot,
-  expensiveFirst: expensiveFirstBot,
-  animalBuyer: animalBuyerBot,
-};
 
 // Red de seguridad: un bot mal entrenado puede quedarse atrapado en un
 // bucle que no da PV de más (p. ej. jugar una y otra vez el mismo animal ya
@@ -126,7 +99,7 @@ function newGame(config: GameConfig): GameState {
     name: `B${i + 1}`,
     deck: buildStarterDeck(),
   }));
-  return createGame(shuffled([...humans, ...bots]), { maxRounds: config.roundLimit });
+  return createGame(shuffled([...humans, ...bots]), { maxRounds: config.roundLimit, edition: effectiveEdition(config.edition) });
 }
 
 export interface UseGame {
@@ -324,7 +297,7 @@ export function useGame(): UseGame {
         postGameLog([`T${turnBeforeAction} | ${bot.name} (${algorithm}) | !! ${warning}`]);
         action = { type: 'endTurn' };
       } else {
-        action = BOT_REGISTRY[algorithm].chooseAction(state, bot.id);
+        action = resolveBot(algorithm, state.edition).chooseAction(state, bot.id);
       }
 
       // Justo tras comprar un animal, terminar turno espera además lo que

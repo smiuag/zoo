@@ -76,6 +76,12 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
   latestRef.current = params;
   const replayStatusRef = useRef(replayStatus);
   replayStatusRef.current = replayStatus;
+  // Para que proposeReplay/respondReplay (llamados también desde el closure
+  // desactualizado de handleActionsMessage, fijado una sola vez por roomCode)
+  // vean siempre quién está conectado AHORA, no en el momento en que se
+  // registró el listener.
+  const connectedSeatIdsRef = useRef(connectedSeatIds);
+  connectedSeatIdsRef.current = connectedSeatIds;
 
   const seatChannelsRef = useRef<Map<string, ReturnType<NonNullable<typeof supabase>['channel']>>>(new Map());
 
@@ -104,8 +110,21 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
     for (const seat of seats) broadcastToSeat(seat.seatId);
   }
 
+  // Un invitado humano (nunca el host, que no pasa por presencia — ver
+  // createHostRoom.ts) cuenta como "conectado" solo si sigue en la sala AHORA
+  // MISMO. Repetir con alguien que ha cerrado la ventana no tiene sentido: ni
+  // podría llegar a aceptar, ni queremos dejar una propuesta colgada
+  // indefinidamente (ver el efecto de más abajo, que la cancela si alguien se
+  // va a media votación).
+  function allHumanGuestsConnected(): boolean {
+    return seats
+      .filter((seat) => latestRef.current.humanIds.includes(seat.seatId))
+      .every((seat) => connectedSeatIdsRef.current.has(seat.seatId));
+  }
+
   function proposeReplay(bySeatId: string, byName: string) {
     if (replayStatusRef.current) return; // ya hay una propuesta en curso: una a la vez
+    if (!allHumanGuestsConnected()) return;
     const status: ReplayStatus = {
       proposedBySeatId: bySeatId,
       proposedByName: byName,
@@ -121,6 +140,7 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
       setReplayStatus(null);
       return;
     }
+    if (!allHumanGuestsConnected()) return;
     const current = replayStatusRef.current;
     const acceptedSeatIds = current.acceptedSeatIds.includes(seatId)
       ? current.acceptedSeatIds
@@ -141,6 +161,24 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
     broadcastToAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replayStatus]);
+
+  // Si alguien se desconecta (cierra la pestaña, pierde la red...) mientras
+  // hay una propuesta de repetir en curso, se cancela para todos en vez de
+  // dejarla esperando para siempre a alguien que ya no va a responder.
+  useEffect(() => {
+    if (replayStatusRef.current && !allHumanGuestsConnected()) setReplayStatus(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connectedSeatIds]);
+
+  // Una propuesta que quedó pendiente en una sala/partida anterior no debe
+  // colar en la siguiente: se pulsó "Nueva partida" (crea una sala con otro
+  // roomCode, ver App.tsx) sin resolver la propuesta de antes, así que aquí
+  // arranca limpio. Sin esto, un invitado podía ver y aceptar el "repetir" de
+  // la partida YA TERMINADA anterior en medio de una partida distinta.
+  useEffect(() => {
+    setReplayStatus(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomCode]);
 
   useEffect(() => {
     const client = supabase;

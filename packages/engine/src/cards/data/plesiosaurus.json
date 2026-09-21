@@ -1,0 +1,31 @@
+{
+  "id": "plesiosaurus",
+  "name": "Plesiosaurio",
+  "type": "animal",
+  "species": "plesiosaurus",
+  "edition": "full",
+  "marketCost": 15,
+  "costReductionPerDinosaurPlayedThisTurn": 2,
+  "victoryPoints": 0,
+  "text": "Cuesta 2 monedas menos por cada dinosaurio que hayas jugado este turno.\nAl jugarlo, roba 2 cartas.\nAl final de la partida, +1PV por cada dinosaurio que tengas en toda tu colección.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "drawCards",
+      "params": {
+        "amount": 2
+      }
+    },
+    {
+      "trigger": "onScore",
+      "type": "scorePerHabitatCount",
+      "params": {
+        "habitat": "dinosaur"
+      }
+    }
+  ],
+  "habitats": [
+    "aquatic",
+    "dinosaur"
+  ]
+}

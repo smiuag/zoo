@@ -21,6 +21,12 @@ export interface Player {
   // otro hábitat. Se gasta primero que la genérica cuando aplica (ver
   // payCoins en engine.ts), porque no sirve para nada más.
   aquaticBonusPurchasingPowerThisTurn: number;
+  // Igual que aquaticBonusPurchasingPowerThisTurn, pero restringida a
+  // animales DINOSAURIO (Diplodocus, 2026-09-21): solo sirve para pagar
+  // animales con el tipo extra "dinosaur", nunca monedas ni animales de
+  // otro tipo. Se gasta antes que la genérica, mismo criterio que la
+  // acuática.
+  dinosaurBonusPurchasingPowerThisTurn: number;
   // Especies de las que ya se ha comprado un animal del mercado ESTE TURNO
   // (buyAnimal, no efectos de captura gratis): como mucho 1 compra por
   // especie y turno (no puedes comprar 2 copias del mismo animal seguidas,
@@ -33,6 +39,20 @@ export interface Player {
   // cuenta a sí misma, y también cuentan las que ya hayas jugado antes este
   // mismo turno. Ver effectiveHand().
   playedThisTurn: CardInstance[];
+  // Perro/Gallina/Colibrí (efecto mayStayOnTable): cartas que su dueño ha
+  // decidido dejar SOBRE LA MESA al jugarlas, en vez de mandarlas al
+  // descarte. Siguen siendo suyas y puntúan al final como cualquier otra
+  // (ver collectAllCards en scoring.ts), y mientras están aquí no las
+  // alcanza ningún efecto que mire la mano ni el descarte. Llegan aquí en
+  // endTurn (ver stayingOnTableIds); vuelven al descarte (y por tanto
+  // circulan de nuevo) en cuanto el propio mazo del jugador se reponga
+  // barajando su descarte — "se queda en la mesa hasta que barajes",
+  // pedido explícito del usuario 2026-09-21 — ver reshuffleDiscardIntoDeck.
+  table: CardInstance[];
+  // instanceIds de cartas jugadas ESTE turno con keepOnTable: siguen en
+  // playedThisTurn (cuentan para effectiveHand el resto del turno) y
+  // endTurn las pasa a `table` en vez de al descarte.
+  stayingOnTableIds: string[];
   // Nº total de compras hechas en TODA la partida (buyAnimal + buyCoin).
   // No cuenta capturas gratis de efectos (Elefante/Araña/Flamenco): esas no
   // pasan por buyAnimal/buyCoin. Solo para el resumen final de la partida.
@@ -73,6 +93,11 @@ export interface PendingDiscardDecision {
   // monedas entrega, en vez de dársela el motor automáticamente) — ver
   // resolveDiscard en engine.ts.
   kind: 'discard' | 'destroy' | 'giveToPlayer';
+  // Solo 'destroy': hábitat(s) que se exigía al animal a eliminar (los
+  // dinosaurios: ["land"]/["bird"]/["aquatic"]). Lo usa el Gato: cuando lo
+  // que hay que eliminar es un animal TERRESTRE, se puede entregar el Gato
+  // y va al descarte en vez de eliminarse — ver resolveDiscard en engine.ts.
+  requiredHabitats?: string[];
   sourceCardName: string;
   // Quién jugó la carta que disparó esto: a quien beneficia bonusDrawPerCoin
   // y bonusPurchasingPowerPerAnimal (y, para 'destroy', quien recibe la
@@ -117,6 +142,9 @@ export interface PendingAnimalAbilityChoice {
 }
 
 export interface GameState {
+  // Edición con la que se creó la partida (ver GameEdition). Ausente en
+  // partidas guardadas antiguas = 'classic'.
+  edition?: GameEdition;
   players: Player[];
   activePlayerIndex: number;
   turn: number;
@@ -165,10 +193,27 @@ export interface GameState {
 // Acuña una nueva instancia de carta con un instanceId único dentro de la
 // partida. Vive aquí (no en engine.ts) para que tanto el motor como los
 // handlers de efectos puedan usarla sin crear una dependencia circular.
+// 'classic': la baraja OFICIAL — 33 especies y solo los 3 hábitats de
+// siempre; es lo único que se imprime y lo único que ofrece la web fuera de
+// localhost. 'full': añade mascotas y dinosaurios (6 especies más y los tipos
+// extra 'pet'/'dinosaur'); de momento solo para probar en local. 'learning'
+// (2026-09-21, pedido explícito del usuario): mismo mazo clásico de siempre
+// (mismos 3 hábitats, sin mascotas/dinosaurios) pero el mercado solo ofrece
+// las especies de coste 4 o menos (21 de las 33) — pensado para partidas más
+// sencillas, sin las cartas caras/complejas; disponible también fuera de
+// localhost, a diferencia de 'full'. Ver marketSpeciesFor en engine.ts.
+export type GameEdition = 'classic' | 'full' | 'learning';
+
+const EXTRA_TYPES = ['pet', 'dinosaur'];
+
+// En la edición clásica las cartas pierden los tipos extra al entrar en la
+// partida (el Pez de colores vuelve a ser solo acuático, etc.): así ni la
+// etiqueta de la carta ni ningún efecto ven nada de la edición completa.
 export function mintInstance(state: GameState, card: Card): CardInstance {
   const instanceId = `${card.id}#${state.nextInstanceId}`;
   state.nextInstanceId += 1;
-  return { ...card, instanceId };
+  if (state.edition === 'full') return { ...card, text: card.fullEditionText ?? card.text, instanceId };
+  return { ...card, habitats: card.habitats.filter((h) => !EXTRA_TYPES.includes(h)), instanceId };
 }
 
 export function shuffle<T>(items: T[]): T[] {
@@ -226,10 +271,17 @@ function seededShuffle<T>(items: T[], seed: number): T[] {
 // siguiente porque el propio descarte a barajar ya es distinto cada vez
 // (más cartas, otra composición), no porque el PRNG cambie de seed por las
 // buenas.
+// Perro/Gallina/Colibrí dejados sobre la mesa (player.table) vuelven a
+// circular aquí: se suman al descarte antes de barajar, así que pasan al
+// mazo con todo lo demás — "hasta que barajes" (pedido explícito del
+// usuario 2026-09-21). Antes de este cambio se quedaban en la mesa para
+// siempre; ahora solo mientras el mazo del jugador no necesite reponerse.
 function reshuffleDiscardIntoDeck(player: Player): void {
-  const seed = player.purchasesCount * 97 + player.discard.length * 31 + player.deck.length * 13 + 1;
-  player.deck = seededShuffle(player.discard, seed);
+  const source = [...player.discard, ...(player.table ?? [])];
+  const seed = player.purchasesCount * 97 + source.length * 31 + player.deck.length * 13 + 1;
+  player.deck = seededShuffle(source, seed);
   player.discard = [];
+  player.table = [];
 }
 
 // El "final" del mazo (índice más alto) es la cima: robar hace pop(),

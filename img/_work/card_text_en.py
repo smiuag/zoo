@@ -4,9 +4,25 @@
 # app) — this is a separate overlay used only when composing the English
 # print deck.
 
-HABITAT_EN = {"land": "Land", "aquatic": "Aquatic", "bird": "Flying"}
+HABITAT_EN = {"land": "Land", "aquatic": "Aquatic", "bird": "Flying", "pet": "Pet", "dinosaur": "Dinosaur"}
 
 CARD_TEXT_EN = {
+    "dog": ("Dogs", "When you play it, you may leave it on the table instead of sending it to your discard pile, until you shuffle your deck.\n+1 acorn."),
+    "diplodocus": ("Diplodocus", "Costs 1 acorn less for each dinosaur you have played this turn."),
+    "tyrannosaurus": ("Tyrannosaurus", "Costs 1 acorn less for each dinosaur you have played this turn.\n+4 acorns.\nEach opponent removes a LAND animal from their hand."),
+    "pterodactyl": ("Pterodactyls", "Costs 1 acorn less for each dinosaur you have played this turn.\n+4 acorns.\nEach opponent removes a FLYING animal from their hand."),
+    "mosasaurus": ("Mosasaurs", "Costs 1 acorn less for each dinosaur you have played this turn.\n+4 acorns.\nEach opponent removes an AQUATIC animal from their hand."),
+    "chicken": ("Chickens", "When you play it, you may leave it on the table instead of sending it to your discard pile, until you shuffle your deck.\nDiscard an acorn from your hand to capture, from the supply, a LAND or AQUATIC animal costing 2 or less, and put it in your discard pile."),
+    "golden-fish": ("Golden Fish", "Swap an acorn from your hand for a gold acorn (value 3)."),
+    "hamster": ("Hamsters", "When you play it, return all Hamsters from your discard pile to your hand.\n+1 acorn."),
+    "hummingbird": ("Hummingbirds", "When you play it, you may leave it on the table instead of sending it to your discard pile, until you shuffle your deck."),
+    "iguana": ("Iguanas", "Draw 1 card."),
+    "ostrich": ("Ostriches", "Choose: draw 1 card, or return it to its supply to get a Tyrannosaurus or a Pterodactyl from the market for free."),
+    "otter": ("Otters", "Discard an acorn of value 2 or more from your hand to look at the top 3 cards of your deck: keep one and discard the rest."),
+    "pig": ("Pigs", "Discard an acorn of value 2 or more from your hand to draw 1 card."),
+    "plesiosaurus": ("Plesiosaurs", "Costs 2 acorns less for each dinosaur you have played this turn.\nWhen you play it, draw 2 cards.\nAt the end of the game, +1 VP for each dinosaur in your whole collection."),
+    "pteranodon": ("Pteranodons", "Costs 1 acorn less for each dinosaur you have played this turn.\nWhen you play it, choose a dinosaur from the supply costing less than 8 and put it in your discard pile."),
+    "cat": ("Cats", "When you have to remove a LAND animal, you may discard the Cat instead of removing it."),
     "albatross": (
         "Albatross",
         "+1 acorn.\n+1 VP for each distinct animal in your deck.",

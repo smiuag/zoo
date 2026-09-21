@@ -18,11 +18,19 @@ import compose_card as cc
 
 PAGE_W, PAGE_H = 2480, 3508  # A4 @ 300dpi
 
-CROP_MARK_GAP = 8     # separación entre el corte real y el inicio de la marca
-CROP_MARK_LEN = 22    # longitud de cada trazo
-CROP_MARK_WIDTH = 2
-CROP_MARK_COLOR = (255, 0, 255)  # magenta vivo: se distingue tanto sobre el sangrado oscuro del frente como sobre el pastel del reverso
-
+# Marcas de corte (rediseñadas 2026-09-20 a petición del usuario): una cruz en cada esquina del corte real,
+# SIN hueco, que sale hacia el sangrado y además ENTRA un poco en la carta. Antes eran solo trazos por fuera,
+# en el sangrado: al dar el primer corte desaparecían y las cartas de enmedio se quedaban sin referencia. La
+# parte que entra cae dentro de la zona que luego se redondea (la esquina se corta con radio ~46 px a este
+# tamaño, y el tramo de borde a menos de ese radio de la esquina desaparece entero), así que no se ve en la
+# carta terminada. Trazo negro con alma blanca: contrasta sobre el sangrado marrón oscuro, sobre el marco y
+# sobre el reverso claro, cosa que el magenta de antes no conseguía sobre el marrón.
+CROP_MARK_OUT = 34    # px hacia fuera, por el sangrado (el sangrado mide ~37)
+CROP_MARK_IN = 26     # px hacia dentro de la carta, siempre menos que el radio de la esquina redondeada
+CROP_MARK_WIDTH = 3           # alma clara
+CROP_MARK_OUTLINE_WIDTH = 7   # borde oscuro
+CROP_MARK_COLOR = (255, 255, 255)
+CROP_MARK_OUTLINE_COLOR = (0, 0, 0)
 
 class Grid:
     """cols/rows: cuántas imágenes caben por página, a su tamaño nativo
@@ -66,15 +74,23 @@ def build_grid_for(sample_image_path):
         return Grid(*im.size)
 
 
-def draw_crop_marks(draw, grid, r, c):
+def _crop_mark_segments(grid, r, c):
     x0, y0, x1, y1 = grid.cut_bounds(r, c)
-    for x, dx in ((x0, -1), (x1, 1)):
+    for x, dx in ((x0, -1), (x1, 1)):          # dx/dy apuntan hacia FUERA de la carta
         for y, dy in ((y0, -1), (y1, 1)):
-            hx0, hx1 = x + dx * CROP_MARK_GAP, x + dx * (CROP_MARK_GAP + CROP_MARK_LEN)
-            draw.line([(hx0, y), (hx1, y)], fill=CROP_MARK_COLOR, width=CROP_MARK_WIDTH)
-            vy0, vy1 = y + dy * CROP_MARK_GAP, y + dy * (CROP_MARK_GAP + CROP_MARK_LEN)
-            draw.line([(x, vy0), (x, vy1)], fill=CROP_MARK_COLOR, width=CROP_MARK_WIDTH)
+            yield [(x + dx * CROP_MARK_OUT, y), (x - dx * CROP_MARK_IN, y)]
+            yield [(x, y + dy * CROP_MARK_OUT), (x, y - dy * CROP_MARK_IN)]
 
+
+def draw_crop_marks(draw, grid, r, c, layer="both"):
+    """layer: "outline" solo el borde oscuro, "core" solo el alma clara, "both" las dos."""
+    segments = list(_crop_mark_segments(grid, r, c))
+    if layer in ("outline", "both"):
+        for seg in segments:
+            draw.line(seg, fill=CROP_MARK_OUTLINE_COLOR, width=CROP_MARK_OUTLINE_WIDTH)
+    if layer in ("core", "both"):
+        for seg in segments:
+            draw.line(seg, fill=CROP_MARK_COLOR, width=CROP_MARK_WIDTH)
 
 def make_page(grid, images_or_paths):
     """Pega cada imagen ENTERA a su tamaño nativo (grid.tile_w x tile_h),
@@ -89,9 +105,12 @@ def make_page(grid, images_or_paths):
         page.paste(img, grid.cell_origin(r, c))
 
     draw = ImageDraw.Draw(page)
-    for i in range(n):
-        r, c = divmod(i, grid.cols)
-        draw_crop_marks(draw, grid, r, c)
+    # Dos pasadas (todos los bordes oscuros y luego todas las almas claras): las marcas de cartas vecinas se
+    # tocan en el sangrado, y asi el borde de una nunca pisa el alma de otra.
+    for layer in ("outline", "core"):
+        for i in range(n):
+            r, c = divmod(i, grid.cols)
+            draw_crop_marks(draw, grid, r, c, layer)
     return page
 
 

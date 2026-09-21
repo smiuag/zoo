@@ -2,15 +2,27 @@ import { useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { CardInstance } from '@zoo/engine';
 import { useArtStyle } from '../lib/artStyle';
+import { BELLOTA_TEXT } from '../lib/bellotaText';
 import {
   cardAccentClass,
   cardIcon,
   cardIconScale,
   cardImageUrl,
-  habitatLabel,
+  habitatLabelParts,
   supportsEmojiNatively,
   twemojiUrl,
 } from '../lib/cardVisuals';
+
+// Parte `parts` (las palabras sueltas del tipo: "Volador", "Dinosaurio"...)
+// en líneas de como mucho `size` cada una, ya unidas con " - ". Con 3-4
+// tipos a la vez (Gallina, Tortuga...) una sola línea no cabía en el pie de
+// la carta y se recortaba con "…" — pedido explícito del usuario
+// (2026-09-21): 2 tipos por línea.
+function chunkPairs(parts: string[], size = 2): string[] {
+  const lines: string[] = [];
+  for (let i = 0; i < parts.length; i += size) lines.push(parts.slice(i, i + size).join(' - '));
+  return lines;
+}
 
 // PRUEBA: si ESTE sistema ya tiene un glifo de verdad para el emoji (ver
 // supportsEmojiNatively), se usa el carácter nativo tal cual — cada uno ve
@@ -107,8 +119,11 @@ export function CardView({
   const [artStyle] = useArtStyle();
   const clickable = Boolean(onClick) && !disabled && !destroyed;
   const isEmoji = artStyle === 'emoji';
+  // Tipo (hábitats + mascota/dinosaurio) partido en líneas de 2 en 2 (ver
+  // chunkPairs arriba): con 3-4 tipos a la vez una sola línea no cabía y se
+  // recortaba con "…" (ver .card__footer en styles.css).
+  const footerLines = card.type === 'animal' ? chunkPairs(habitatLabelParts(card)) : [];
   const bits: string[] = [];
-  if (card.type === 'animal') bits.push(habitatLabel(card));
   // El "+N" dorado (ver .card__coin-value) es una ayuda pensada para las
   // ilustraciones nuevas, que ya no llevan el número grabado encima; en
   // emoji, el 🪙 de siempre nunca lo necesitó — se vuelve al texto "vale N"
@@ -179,8 +194,14 @@ export function CardView({
           que en modo imagen el valor real de captura se repite aquí,
           grande y en el color de acento dorado (ver .card__coin-value); en
           emoji ya va como texto "vale N" dentro de bits (ver arriba). */}
-      <div className={`card__footer${isEmoji ? '' : ' card__footer--muted-dark'}`}>
-        {!isEmoji && card.type === 'coin' && card.value ? <span className="card__coin-value">+{card.value}</span> : bits.join(' · ')}
+      <div className={`card__footer${isEmoji ? '' : ' card__footer--muted-dark'}${footerLines.length > 0 ? ' card__footer--wrap' : ''}`}>
+        {!isEmoji && card.type === 'coin' && card.value ? (
+          <span className="card__coin-value">+{card.value}</span>
+        ) : footerLines.length > 0 ? (
+          footerLines.map((line, i) => <div key={i}>{line}</div>)
+        ) : (
+          bits.join(' · ')
+        )}
       </div>
       {remainingLabel !== undefined && (
         <span className="card__badge">
@@ -196,10 +217,13 @@ export function CardView({
       {card.text && (
         // Al pasar el ratio: qué hace la carta, más grande y claro que el
         // texto minúsculo de la propia carta (sustituye al `title` nativo,
-        // que es pequeño, lento en aparecer y no se puede dar estilo).
+        // que es pequeño, lento en aparecer y no se puede dar estilo). En
+        // modo imagen se habla de "bellota" en vez de "moneda" (ver
+        // bellotaText.ts, mismo tema que las ilustraciones reales y el
+        // mazo impreso); en emoji se queda el texto de siempre.
         <div ref={tooltipRef} className="card__tooltip">
           <div className="card__tooltip-name">{card.name}</div>
-          <div className="card__tooltip-text">{card.text}</div>
+          <div className="card__tooltip-text">{isEmoji ? card.text : (BELLOTA_TEXT[card.id] ?? card.text)}</div>
         </div>
       )}
     </div>

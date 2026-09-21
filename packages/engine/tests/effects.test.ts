@@ -307,7 +307,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
     const target = state.animalTrack.find((c) => (c.habitats as string[])?.includes('aquatic') && (c.marketCost ?? 0) <= 3)!;
 
-    expect(canAffordMarket(player, target.marketCost ?? 0, true)).toBe(true);
+    expect(canAffordMarket(player, target.marketCost ?? 0, ['aquatic'])).toBe(true);
     buyAnimal(state, player.id, target.instanceId);
 
     expect(player.discard.some((c) => c.instanceId === target.instanceId)).toBe(true);
@@ -325,7 +325,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     )!;
 
     // Sin monedas físicas de por medio: si contara para esto, sería pagable.
-    expect(canAffordMarket(player, landOrBird.marketCost ?? 0, false)).toBe(false);
+    expect(canAffordMarket(player, landOrBird.marketCost ?? 0, [])).toBe(false);
     expect(() => buyAnimal(state, player.id, landOrBird.instanceId)).toThrow();
     expect(canAffordMarket(player, getCard('coin-2').marketCost ?? 0)).toBe(false);
   });

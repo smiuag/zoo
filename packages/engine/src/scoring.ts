@@ -7,11 +7,11 @@ import type { CardInstance, GameState, Player } from './model/state';
 // llama al terminar la partida como si es el marcador en vivo de la web a
 // mitad del turno de alguien.
 function collectAllCards(player: Player): CardInstance[] {
-  return [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn];
+  return [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn, ...(player.table ?? [])];
 }
 
 function isStillInCollection(player: Player, instanceId: string): boolean {
-  return [player.deck, player.hand, player.discard, player.playedThisTurn].some((zone) =>
+  return [player.deck, player.hand, player.discard, player.playedThisTurn, player.table ?? []].some((zone) =>
     zone.some((c) => c.instanceId === instanceId)
   );
 }

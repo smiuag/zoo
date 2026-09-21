@@ -12,6 +12,7 @@ function hiddenCard(index: number): CardInstance {
     instanceId: `hidden-${index}`,
     name: '',
     type: 'animal',
+    edition: 'classic',
     habitats: [],
     marketCost: 0,
     victoryPoints: 0,
