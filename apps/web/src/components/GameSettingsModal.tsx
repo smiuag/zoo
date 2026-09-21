@@ -21,6 +21,7 @@ const REDUCED_EXCLUDED_SPECIES = new Set([
   'elephant',
   'squirrel',
   'duck',
+  'tiger',
 ]);
 
 // Agrupa por COSTE (en vez de por hábitat, como al principio): con varios
@@ -82,6 +83,13 @@ interface GameSettingsModalProps {
 // principal, no aquí; este editor siempre está disponible para dejarlo
 // listo de antemano. Componente controlado: todo el estado vive en
 // GameSetup, este archivo solo renderiza los controles.
+//
+// NO es un popup/overlay (rechazado explícitamente por el usuario
+// 2026-09-21: "que no sea un popup, que sea como la del ranking") — es una
+// sección de pantalla completa que SUSTITUYE al formulario de creación de
+// partida mientras está abierta, mismo patrón que Ranking.tsx
+// (`.app.app--setup` > `.panel.setup-panel` con `.panel__header` + "✕
+// cerrar"), no un `.modal-backdrop`/`.modal` flotante encima.
 export function GameSettingsModal({
   animationsEnabled,
   onAnimationsEnabledChange,
@@ -115,8 +123,8 @@ export function GameSettingsModal({
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal settings-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="app app--setup">
+      <div className="panel setup-panel setup-panel--settings">
         <div className="panel__header">
           <h2>⚙️ Configuración</h2>
           <button type="button" className="btn btn--ghost" onClick={onClose}>
@@ -254,3 +262,4 @@ export function GameSettingsModal({
     </div>
   );
 }
+

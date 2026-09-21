@@ -158,6 +158,23 @@ export function GameSetup({
     onCreateOnlineRoom(buildConfig());
   }
 
+  // Sección de pantalla completa, no un popup encima del formulario (ver
+  // GameSettingsModal.tsx) — mismo patrón que Ranking.tsx en App.tsx: un
+  // return anticipado que sustituye toda la pantalla mientras está abierta.
+  if (settingsOpen) {
+    return (
+      <GameSettingsModal
+        animationsEnabled={animationsEnabled}
+        onAnimationsEnabledChange={setAnimationsEnabled}
+        customSpecies={customSpecies}
+        onCustomSpeciesChange={setCustomSpecies}
+        customCopyDeltas={customCopyDeltas}
+        onCustomCopyDeltasChange={setCustomCopyDeltas}
+        onClose={() => setSettingsOpen(false)}
+      />
+    );
+  }
+
   return (
     <div className="app app--setup">
       {resumableOnlineRoomCode && (
@@ -355,17 +372,6 @@ export function GameSetup({
           </p>
         </div>
       </form>
-      {settingsOpen && (
-        <GameSettingsModal
-          animationsEnabled={animationsEnabled}
-          onAnimationsEnabledChange={setAnimationsEnabled}
-          customSpecies={customSpecies}
-          onCustomSpeciesChange={setCustomSpecies}
-          customCopyDeltas={customCopyDeltas}
-          onCustomCopyDeltasChange={setCustomCopyDeltas}
-          onClose={() => setSettingsOpen(false)}
-        />
-      )}
     </div>
   );
 }

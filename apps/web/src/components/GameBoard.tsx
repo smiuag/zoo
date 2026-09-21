@@ -300,6 +300,20 @@ export function GameBoard({
   // esta confirmación de un solo paso (nadie más que confirmar, ver
   // ReplayProps arriba) antes de llamar a replay.onReplay().
   const [confirmLocalReplay, setConfirmLocalReplay] = useState(false);
+  // Misma frontera que ".bottom-bar" en styles.css (@media max-width:860px):
+  // decide en JS (no solo CSS) qué contenido monta la barra inferior, para
+  // no duplicar el botón "Terminar turno" (mismo endTurnButtonRef) dos veces
+  // en el DOM a la vez — pedido explícito del usuario 2026-09-21: en
+  // pantalla grande la barra reúne también el marcador y la ronda
+  // (eliminando el panel de arriba que los mostraba aparte); en móvil se
+  // queda tal cual estaba.
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 861px)').matches);
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 861px)');
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
   const choiceRef = useRef<HTMLDivElement>(null);
   const viewedPlayer = state.players.find((p) => p.id === viewedPlayerId) ?? null;
   // Terminar turno "a lo tonto" (con animales por jugar o monedas por
@@ -501,53 +515,177 @@ export function GameBoard({
     );
   }
 
+  // Compartido entre el panel de arriba (móvil) y la barra inferior
+  // (escritorio, ver el comentario junto a isDesktop más arriba) — misma
+  // lógica, dos sitios distintos donde puede aparecer.
+  function renderStatusPill() {
+    if (state.gameOver) {
+      return <span className="status-pill status-pill--over">Partida terminada</span>;
+    }
+    if (owedDiscard) {
+      return (
+        <span className="status-pill status-pill--discard">
+          {discardVerb} {owedDiscard.amount} carta{owedDiscard.amount === 1 ? '' : 's'} — {state.pendingDecision!.sourceCardName}
+        </span>
+      );
+    }
+    return (
+      <span className="status-pill">
+        {/* Recta final: el contador de ronda pasa a rojo en las 5 últimas
+            rondas, para que se vea de un vistazo que la partida se acaba (y
+            compense ya comprar PV en vez de economía). */}
+        <span
+          className={
+            state.maxRounds != null && state.round > state.maxRounds - FINAL_ROUNDS_WARNING
+              ? 'status-pill__round status-pill__round--final'
+              : 'status-pill__round'
+          }
+        >
+          Ronda {state.round}/{state.maxRounds ?? '∞'}
+        </span>{' '}
+        {canAct && ` — turno de ${displayName(activePlayer, humanIds, botAlgorithms)}`}
+      </span>
+    );
+  }
+
+  function renderScoreboard() {
+    return (
+      <ul className="scoreboard">
+        {state.players.map((p) => {
+          const clickable = canViewPlayer(p);
+          return (
+            <li
+              key={p.id}
+              className={[
+                p.id === viewerPlayerId && 'scoreboard__me',
+                p.id === activePlayer.id && 'scoreboard__active-turn',
+                clickable && 'scoreboard__clickable',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={clickable ? () => setViewedPlayerId(p.id) : undefined}
+              title={`${p.name}${humanIds.includes(p.id) ? '' : ` (${BOT_ALGORITHM_OPTIONS.find((o) => o.value === botAlgorithms[p.id])?.label ?? ''})`}: ${scoreFor(p.id)} PV${clickable ? ' · ver mazo' : ' · mazo privado hasta que termine la partida'}`}
+            >
+              <strong>{scoreboardName(p)}</strong>
+              <span className="scoreboard__pv">
+                {scoreFor(p.id)}
+                <small>PV</small>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+
   return (
     <div className="app">
-      {!state.gameOver && (
-        // Barra inferior: en escritorio es un panel normal más, en su sitio
-        // de siempre en el flujo de la página; en móvil (ver .bottom-bar en
-        // styles.css) pasa a position:fixed pegada abajo del todo — pedido
-        // explícito del usuario 2026-09-21: "los botones de pasar turno,
-        // reiniciar turno, el dinero... y el turno en el que estás,
-        // aparezcan siempre en pantalla, abajo, que sea lo demás lo que se
-        // mueve". Sustituye al antiguo .money-float (badge flotante en la
-        // esquina) y al panel de turn-controls (vivía aparte, más abajo en
-        // el layout, donde antes se veía "Terminar turno").
-        <div className="bottom-bar">
-          <span className="bottom-bar__turn">
-            Ronda {state.round}/{state.maxRounds ?? '∞'}
-            {!isOwnTurn && ` · turno de ${displayName(activePlayer, humanIds, botAlgorithms)}`}
-          </span>
-          <span
-            className="bottom-bar__money"
-            title={`Valor de compra de ${displayName(activePlayer, humanIds, botAlgorithms)}: ${purchasingPower} disponibles de ${purchasingPowerPeak} que ha llegado a tener este turno`}
-          >
-            💰 {purchasingPower}/{purchasingPowerPeak}
-          </span>
-          {isOwnTurn && (
-            <div className="bottom-bar__actions">
-              <button
-                ref={endTurnButtonRef}
-                className="btn btn--primary"
-                disabled={!legalActions.some((a) => a.type === 'endTurn')}
-                onClick={() => {
-                  if (hasUnusedTurnActions) {
-                    setConfirmEndTurn(true);
-                    return;
-                  }
-                  runAction(legalActions.find((a) => a.type === 'endTurn'));
-                }}
+      {isDesktop ? (
+        // En pantalla grande la barra reúne TODO lo de arriba a la vez
+        // (acciones de turno, marcador y ronda) y sustituye por completo al
+        // panel de más abajo que antes los mostraba aparte — pedido
+        // explícito del usuario 2026-09-21: "terminar turno a la izquierda
+        // del todo, a su derecha reiniciar turno y el dinero, en medio los
+        // marcadores y a la derecha del todo la ronda (solo en pantalla
+        // grande)". Por eso, a diferencia de la versión móvil de abajo, se
+        // muestra SIEMPRE (incluso con la partida terminada): si no, el
+        // marcador/ronda desaparecerían del todo en vez de quedarse en su
+        // sitio de siempre.
+        <div className="bottom-bar bottom-bar--desktop">
+          {/* Misma plantilla de columnas que ".layout" de más abajo (ver
+              styles.css), a propósito: pedido explícito del usuario
+              2026-09-21, "que ocupen tanto como la zona de la izquierda de
+              la mesa" — Terminar/Reiniciar turno se reparten a partes
+              iguales TODO el ancho de esa columna, cuyo borde derecho coincide
+              con el del panel de la mesa de debajo (ver --bar-inset en
+              styles.css). */}
+          <div className="bottom-bar__left">
+            {!state.gameOver && isOwnTurn && (
+              <>
+                <button
+                  ref={endTurnButtonRef}
+                  className="btn btn--primary"
+                  disabled={!legalActions.some((a) => a.type === 'endTurn')}
+                  onClick={() => {
+                    if (hasUnusedTurnActions) {
+                      setConfirmEndTurn(true);
+                      return;
+                    }
+                    runAction(legalActions.find((a) => a.type === 'endTurn'));
+                  }}
+                >
+                  Terminar turno
+                </button>
+                {onRestartTurn && (
+                  <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
+                    ↺ Reiniciar turno
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+          <div className="bottom-bar__mid">
+            {!state.gameOver && (
+              <span
+                className="bottom-bar__money"
+                title={`Valor de compra de ${displayName(activePlayer, humanIds, botAlgorithms)}: ${purchasingPower} disponibles de ${purchasingPowerPeak} que ha llegado a tener este turno`}
               >
-                Terminar turno
-              </button>
-              {onRestartTurn && (
-                <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
-                  ↺ Reiniciar turno
+                💰 {purchasingPower}/{purchasingPowerPeak}
+              </span>
+            )}
+            <div className="bottom-bar__scoreboard">{renderScoreboard()}</div>
+            <div className="bottom-bar__right">
+              {renderStatusPill()}
+              {onNewGame && (
+                <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title="Nueva partida">
+                  ↺ <span className="btn__label">Nueva partida</span>
                 </button>
               )}
             </div>
-          )}
+          </div>
         </div>
+      ) : (
+        !state.gameOver && (
+          // Móvil: sin cambios respecto a como estaba — position:fixed
+          // pegada abajo del todo (ver .bottom-bar en styles.css), solo con
+          // turno/dinero/acciones. El marcador y la ronda se quedan en el
+          // panel de siempre, más abajo en el layout.
+          <div className="bottom-bar">
+            <span className="bottom-bar__turn">
+              Ronda {state.round}/{state.maxRounds ?? '∞'}
+              {!isOwnTurn && ` · turno de ${displayName(activePlayer, humanIds, botAlgorithms)}`}
+            </span>
+            <span
+              className="bottom-bar__money"
+              title={`Valor de compra de ${displayName(activePlayer, humanIds, botAlgorithms)}: ${purchasingPower} disponibles de ${purchasingPowerPeak} que ha llegado a tener este turno`}
+            >
+              💰 {purchasingPower}/{purchasingPowerPeak}
+            </span>
+            {isOwnTurn && (
+              <div className="bottom-bar__actions">
+                <button
+                  ref={endTurnButtonRef}
+                  className="btn btn--primary"
+                  disabled={!legalActions.some((a) => a.type === 'endTurn')}
+                  onClick={() => {
+                    if (hasUnusedTurnActions) {
+                      setConfirmEndTurn(true);
+                      return;
+                    }
+                    runAction(legalActions.find((a) => a.type === 'endTurn'));
+                  }}
+                >
+                  Terminar turno
+                </button>
+                {onRestartTurn && (
+                  <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
+                    ↺ Reiniciar turno
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )
       )}
       {state.gameOver && (
         <div className="panel">
@@ -689,65 +827,23 @@ export function GameBoard({
 
       <div className="layout">
         <div className="layout__left">
-          <div className="panel">
-            <div className="status-row">
-              {state.gameOver ? (
-                <span className="status-pill status-pill--over">Partida terminada</span>
-              ) : owedDiscard ? (
-                <span className="status-pill status-pill--discard">
-                  {discardVerb} {owedDiscard.amount} carta{owedDiscard.amount === 1 ? '' : 's'} — {state.pendingDecision!.sourceCardName}
-                </span>
-              ) : (
-                <span className="status-pill">
-                  {/* Recta final: el contador de ronda pasa a rojo en las 5
-                      últimas rondas, para que se vea de un vistazo que la
-                      partida se acaba (y compense ya comprar PV en vez de
-                      economía). */}
-                  <span
-                    className={
-                      state.maxRounds != null && state.round > state.maxRounds - FINAL_ROUNDS_WARNING
-                        ? 'status-pill__round status-pill__round--final'
-                        : 'status-pill__round'
-                    }
-                  >
-                    Ronda {state.round}/{state.maxRounds ?? '∞'}
-                  </span>{' '}
-                  {canAct && ` — turno de ${displayName(activePlayer, humanIds, botAlgorithms)}`}
-                </span>
-              )}
-              {onNewGame && (
-                <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title="Nueva partida">
-                  ↺ <span className="btn__label">Nueva partida</span>
-                </button>
-              )}
-            </div>
+          {!isDesktop && (
+            // En escritorio esto vive ahora en la barra de arriba (ver
+            // isDesktop más arriba) — aquí se queda solo para móvil, igual
+            // que siempre.
+            <div className="panel">
+              <div className="status-row">
+                {renderStatusPill()}
+                {onNewGame && (
+                  <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title="Nueva partida">
+                    ↺ <span className="btn__label">Nueva partida</span>
+                  </button>
+                )}
+              </div>
 
-            <ul className="scoreboard">
-              {state.players.map((p) => {
-                const clickable = canViewPlayer(p);
-                return (
-                  <li
-                    key={p.id}
-                    className={[
-                      p.id === viewerPlayerId && 'scoreboard__me',
-                      p.id === activePlayer.id && 'scoreboard__active-turn',
-                      clickable && 'scoreboard__clickable',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={clickable ? () => setViewedPlayerId(p.id) : undefined}
-                    title={`${p.name}${humanIds.includes(p.id) ? '' : ` (${BOT_ALGORITHM_OPTIONS.find((o) => o.value === botAlgorithms[p.id])?.label ?? ''})`}: ${scoreFor(p.id)} PV${clickable ? ' · ver mazo' : ' · mazo privado hasta que termine la partida'}`}
-                  >
-                    <strong>{scoreboardName(p)}</strong>
-                    <span className="scoreboard__pv">
-                      {scoreFor(p.id)}
-                      <small>PV</small>
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+              {renderScoreboard()}
+            </div>
+          )}
 
           <ActivePlayerBoard
             state={state}
