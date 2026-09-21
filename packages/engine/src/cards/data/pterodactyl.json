@@ -4,7 +4,7 @@
   "type": "animal",
   "species": "pterodactyl",
   "edition": "full",
-  "marketCost": 8,
+  "marketCost": 7,
   "costReductionPerDinosaurPlayedThisTurn": 1,
   "victoryPoints": 10,
   "text": "Cuesta 1 moneda menos por cada dinosaurio que hayas jugado este turno.\nAl jugarlo, elige un dinosaurio de la reserva de coste inferior a 8 y ponlo en tu descarte.",

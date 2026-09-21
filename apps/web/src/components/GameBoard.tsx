@@ -687,7 +687,7 @@ export function GameBoard({
             </span>
             <span
               className="bottom-bar__money"
-              title={`Valor de compra de ${displayName(activePlayer, humanIds, botAlgorithms)}: ${purchasingPower} disponibles de ${purchasingPowerPeak} que ha llegado a tener este turno`}
+              title={`Valor de compra de ${displayName(activePlayer, humanIds, botAlgorithms)}: ${purchasingPower} disponibles; ${purchasingPowerPeak} en total este turno contando lo ya gastado`}
             >
               💰 {purchasingPower}/{purchasingPowerPeak}
             </span>

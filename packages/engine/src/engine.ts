@@ -340,9 +340,14 @@ function payCoins(player: Player, cost: number, habitats: readonly string[] = []
   const fromBonus = Math.min(remaining, player.bonusPurchasingPowerThisTurn);
   player.bonusPurchasingPowerThisTurn -= fromBonus;
   remaining -= fromBonus;
-  if (remaining <= 0) return;
+  if (remaining <= 0) {
+    player.spentThisTurn = (player.spentThisTurn ?? 0) + cost;
+    return;
+  }
   const toSpend = pickCoinsToPay(player, remaining);
   if (!toSpend) throw new Error('No hay monedas suficientes para pagar');
+  // Solo cuenta como gastado si el pago llega a completarse (ver spentThisTurn en model/state.ts).
+  player.spentThisTurn = (player.spentThisTurn ?? 0) + cost;
 
   for (const coin of toSpend) {
     const idx = player.hand.findIndex((c) => c.instanceId === coin.instanceId);
@@ -467,6 +472,7 @@ function beginPlayerTurn(state: GameState, player: Player): void {
   player.bonusPurchasingPowerThisTurn = 0;
   player.aquaticBonusPurchasingPowerThisTurn = 0;
   player.dinosaurBonusPurchasingPowerThisTurn = 0;
+  player.spentThisTurn = 0;
   player.boughtSpeciesThisTurn = [];
   player.playedThisTurn = [];
   player.stayingOnTableIds = [];
@@ -550,6 +556,7 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
       bonusPurchasingPowerThisTurn: 0,
       aquaticBonusPurchasingPowerThisTurn: 0,
       dinosaurBonusPurchasingPowerThisTurn: 0,
+      spentThisTurn: 0,
       boughtSpeciesThisTurn: [],
       playedThisTurn: [],
       table: [],
@@ -1368,35 +1375,25 @@ export function useDiscardedAnimalAbility(
 // "normales": desde que el Perezoso puede sustituir cualquier descarte
 // entero por sí solo, SIEMPRE hay una elección real que hacer (¿sacrifico el
 // Perezoso o las cartas pedidas?), así que el jugador afectado siempre debe
-// decidir explícitamente. Mismo razonamiento para 'destroy'
-// (Tiburón/Halcón/León) cuando el afectado tiene un Murciélago en mano:
-// puede sacrificarlo para protegerse, así que tampoco se auto-resuelve para
-// ÉL (otros afectados sin Murciélago sí se auto-resuelven con normalidad).
+// decidir explícitamente.
+// 'destroy' (Tiranosaurio/Mosasaurio/Pteranodon) TAMPOCO se auto-resuelve
+// nunca, ni siquiera con una sola elegible y sin Gato/Murciélago de por
+// medio — pedido explícito del usuario 2026-09-21: "las eliminaciones que
+// funcionen como los descartes en el sentido de que siempre veas y elijas
+// lo que descartas, aunque solo tengas una opción" (perder una carta de
+// verdad, a diferencia de un descarte al mazo compartido, siempre merece
+// una confirmación explícita del afectado, no un silencioso "ya está").
+// Solo 'giveToPlayer' (Pato) sigue auto-resolviéndose con normalidad: no
+// destruye nada, y el afectado no tiene ningún Gato/Murciélago que jugar
+// aquí.
 function autoResolveForcedDiscards(state: GameState): void {
-  if (!state.pendingDecision || state.pendingDecision.kind === 'discard') return;
+  if (!state.pendingDecision || state.pendingDecision.kind === 'discard' || state.pendingDecision.kind === 'destroy') return;
   for (const playerId of Object.keys(state.pendingDecision.owed)) {
     // Se recalcula en cada vuelta: resolveDiscard puede vaciar `owed` (y
     // hasta poner pendingDecision a null) según va resolviendo.
     while (state.pendingDecision?.owed[playerId]) {
       const owed = state.pendingDecision.owed[playerId];
       const player = state.players.find((p) => p.id === playerId);
-      if (state.pendingDecision.kind === 'destroy' && player?.hand.some((c) => c.id === 'bat')) break;
-      // Gato: mismo motivo que el Murciélago justo arriba — si puede
-      // protegerse sacrificándolo, eso es una elección real que hacer, no
-      // se auto-resuelve por él. Solo hace falta este chequeo aparte cuando
-      // el Gato NO es ya una de las elegibles "normales" (destroy de
-      // volador/acuático: el Gato es terrestre) — si ya lo es (destroy de
-      // terrestre), el chequeo de "eligible.length > owed.amount" de más
-      // abajo ya cubre el caso (y si el Gato es la única elegible, auto-
-      // resolverlo A ÉL directamente sigue siendo protegerse, no hace falta
-      // pausar). Solo aplica al 'destroy' con requiredHabitats (ver
-      // isCatSubstitute en resolveDiscard).
-      if (
-        state.pendingDecision.kind === 'destroy' &&
-        state.pendingDecision.requiredHabitats !== undefined &&
-        player?.hand.some((c) => c.id === 'cat' && !(owed.eligibleInstanceIds ?? []).includes(c.instanceId))
-      )
-        break;
       const eligible = owed.eligibleInstanceIds ?? player?.hand.map((c) => c.instanceId) ?? [];
       if (eligible.length > owed.amount) break; // hay elección real: se deja pendiente
       const instanceId = eligible[0];

@@ -144,7 +144,11 @@ describe('dinosaurios: cada oponente elimina un animal de su mano', () => {
     playCard(state, player.id, rex.instanceId);
 
     expect(player.bonusPurchasingPowerThisTurn).toBe(4);
-    // El oponente solo tenía un terrestre elegible: se resuelve solo.
+    // El oponente solo tenía un terrestre elegible, pero una eliminación
+    // NUNCA se auto-resuelve (ni con una sola opción): sigue pendiente
+    // hasta que el afectado la confirma explícitamente.
+    expect(state.pendingDecision?.kind).toBe('destroy');
+    resolveDiscard(state, opponent.id, oppMonkey.instanceId);
     expect(state.pendingDecision).toBeNull();
     expect(player.hand.map((c) => c.instanceId)).toEqual([ownLion.instanceId]);
     expect(opponent.hand.some((c) => c.instanceId === oppMonkey.instanceId)).toBe(false);
@@ -156,20 +160,20 @@ describe('dinosaurios: cada oponente elimina un animal de su mano', () => {
     const { state, player, opponent } = setupClean();
     const ptero = freshInstance('pteranodon', 'test');
     const owl = freshInstance('owl', 'opp');
-    const eagle = freshInstance('eagle', 'opp');
+    const parrot = freshInstance('parrot', 'opp'); // coste 3: también elegible (águila, coste 7, ya no lo sería)
     player.hand = [ptero];
-    opponent.hand = [owl, eagle, freshInstance('lion', 'opp')];
+    opponent.hand = [owl, parrot, freshInstance('lion', 'opp')];
 
     playCard(state, player.id, ptero.instanceId);
 
     expect(state.pendingDecision?.kind).toBe('destroy');
     const options = getLegalActions(state, opponent.id);
     expect(options.map((a) => (a.type === 'resolveDiscard' ? a.instanceId : '')).sort()).toEqual(
-      [owl.instanceId, eagle.instanceId].sort()
+      [owl.instanceId, parrot.instanceId].sort()
     );
     resolveDiscard(state, opponent.id, owl.instanceId);
     expect(state.pendingDecision).toBeNull();
-    expect(opponent.hand.map((c) => c.instanceId)).toContain(eagle.instanceId);
+    expect(opponent.hand.map((c) => c.instanceId)).toContain(parrot.instanceId);
   });
 
   it('quien no tiene ningún animal de ese tipo no pierde nada', () => {
@@ -193,10 +197,47 @@ describe('dinosaurios: cada oponente elimina un animal de su mano', () => {
     opponent.hand = [freshInstance('coin-1', 'opp')]; // nada volador en mano
     opponent.table = [keptOwl]; // sí en mesa, de un turno anterior
     playCard(state, player.id, ptero.instanceId);
-    // Un solo elegible (en mesa): se resuelve solo, sin decisión pendiente.
+    // Un solo elegible (en mesa), pero sigue pendiente hasta confirmar —
+    // una eliminación nunca se auto-resuelve, ni con una sola opción.
+    expect(state.pendingDecision?.kind).toBe('destroy');
+    resolveDiscard(state, opponent.id, keptOwl.instanceId);
     expect(state.pendingDecision).toBeNull();
     expect(opponent.table.some((c) => c.instanceId === keptOwl.instanceId)).toBe(false);
     expect(player.destroyedCards.map((c) => c.instanceId)).toEqual([keptOwl.instanceId]);
+  });
+
+  it('nunca elimina un animal de coste 5 o más (ni siquiera otro Tiranosaurio)', () => {
+    const { state, player, opponent } = setupClean();
+    const rex = freshInstance('tyrannosaurus', 'test');
+    const oppRex = freshInstance('tyrannosaurus', 'opp');
+    const oppLion = freshInstance('lion', 'opp'); // coste 5: también queda fuera
+    const oppTiger = freshInstance('tiger', 'opp'); // coste 4: el único elegible
+    player.hand = [rex];
+    opponent.hand = [oppRex, oppLion, oppTiger];
+
+    playCard(state, player.id, rex.instanceId);
+
+    // Un solo elegible (Tiranosaurio y León quedan fuera por su coste),
+    // pero sigue pendiente hasta confirmar.
+    expect(state.pendingDecision?.kind).toBe('destroy');
+    resolveDiscard(state, opponent.id, oppTiger.instanceId);
+    expect(state.pendingDecision).toBeNull();
+    expect(opponent.hand.map((c) => c.instanceId).sort()).toEqual([oppRex.instanceId, oppLion.instanceId].sort());
+    expect(player.destroyedCards.map((c) => c.instanceId)).toEqual([oppTiger.instanceId]);
+  });
+
+  it('si el oponente solo tiene animales de coste 5 o más, no pierde nada', () => {
+    const { state, player, opponent } = setupClean();
+    const mosa = freshInstance('mosasaurus', 'test');
+    const oppMosa = freshInstance('mosasaurus', 'opp');
+    player.hand = [mosa];
+    opponent.hand = [oppMosa];
+
+    playCard(state, player.id, mosa.instanceId);
+
+    expect(state.pendingDecision).toBeNull();
+    expect(opponent.hand.map((c) => c.instanceId)).toEqual([oppMosa.instanceId]);
+    expect(player.destroyedCards).toHaveLength(0);
   });
 });
 
@@ -226,6 +267,8 @@ describe('gato: se descarta en vez de eliminar un terrestre', () => {
     player.hand = [rex];
     opponent.hand = [cat];
     playCard(state, player.id, rex.instanceId);
+    expect(state.pendingDecision?.kind).toBe('destroy');
+    resolveDiscard(state, opponent.id, cat.instanceId);
     expect(opponent.discard.map((c) => c.instanceId)).toEqual([cat.instanceId]);
     expect(player.destroyedCards).toHaveLength(0);
   });
@@ -255,6 +298,8 @@ describe('gato: se descarta en vez de eliminar un terrestre', () => {
     player.hand = [mosa];
     opponent.hand = [seal];
     playCard(state, player.id, mosa.instanceId);
+    expect(state.pendingDecision?.kind).toBe('destroy');
+    resolveDiscard(state, opponent.id, seal.instanceId);
     expect(player.destroyedCards.map((c) => c.instanceId)).toEqual([seal.instanceId]);
   });
 });

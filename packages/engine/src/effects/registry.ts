@@ -507,12 +507,22 @@ registerEffect('returnAnimalFromEachOpponent', (state, player, effect, context) 
 // si lo exigido es un terrestre, su dueño puede entregar el Gato (siempre
 // desde la mano) y va al descarte en vez de eliminarse — ver
 // requiredHabitats en resolveDiscard (engine.ts).
+// params.maxCost opcional (pedido explícito del usuario 2026-09-21, "los que
+// eliminan que eliminen de coste inferior a 10"): excluye de lo elegible
+// cualquier carta de coste >= ese valor — así Tiranosaurio/Mosasaurio/
+// Pteranodon (los 3 cuestan 10) no pueden hacerse eliminar unos a otros
+// (ni a sí mismos si el afectado tuviera otra copia), solo a animales más
+// baratos de su mismo hábitat.
 registerEffect('eachOpponentDestroysAnimalFromHand', (state, player, effect, context) => {
   const habitats = matchHabitatList(effect.params?.habitat);
+  const maxCost = typeof effect.params?.maxCost === 'number' ? effect.params.maxCost : undefined;
   const owed: PendingDiscardDecision['owed'] = {};
   for (const affected of otherPlayers(state, player)) {
     const eligible = [...affected.hand, ...affected.table].filter(
-      (c) => c.type === 'animal' && (habitats.length === 0 || ((c.habitats as string[]) ?? []).some((h) => habitats.includes(h)))
+      (c) =>
+        c.type === 'animal' &&
+        (habitats.length === 0 || ((c.habitats as string[]) ?? []).some((h) => habitats.includes(h))) &&
+        (maxCost === undefined || (c.marketCost ?? 0) < maxCost)
     );
     if (eligible.length === 0) continue;
     owed[affected.id] = { amount: 1, eligibleInstanceIds: eligible.map((c) => c.instanceId) };

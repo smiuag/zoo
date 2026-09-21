@@ -6,13 +6,13 @@
   "edition": "full",
   "marketCost": 3,
   "victoryPoints": 2,
-  "text": "Descarta una moneda de tu mano de valor 2 o más para mirar las 3 cartas superiores de tu mazo: quédate una y descarta el resto.",
+  "text": "Descarta una moneda de tu mano para mirar las 3 cartas superiores de tu mazo: quédate una y descarta el resto.",
   "effects": [
     {
       "trigger": "onPlay",
       "type": "discardCoinMinValueToPeekAndKeep",
       "params": {
-        "minValue": 2,
+        "minValue": 0,
         "peekCount": 3
       }
     }

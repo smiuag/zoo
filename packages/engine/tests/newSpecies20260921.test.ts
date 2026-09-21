@@ -29,10 +29,10 @@ describe('coste dinámico por dinosaurios jugados este turno', () => {
   it('el Diplodocus cuesta 1 menos por cada dinosaurio ya jugado este turno, sin bajar de 0', () => {
     const { state, player } = setupClean();
     const diplodocus = state.animalTrack.find((c) => c.species === 'diplodocus')!;
-    expect(effectiveMarketCost(player, diplodocus)).toBe(12);
+    expect(effectiveMarketCost(player, diplodocus)).toBe(11);
 
     player.playedThisTurn.push(freshInstance('iguana', 'd1')); // dinosaurio (land/aquatic/pet/dinosaur)
-    expect(effectiveMarketCost(player, diplodocus)).toBe(11);
+    expect(effectiveMarketCost(player, diplodocus)).toBe(10);
 
     for (let i = 0; i < 20; i++) player.playedThisTurn.push(freshInstance('iguana', `bulk${i}`));
     expect(effectiveMarketCost(player, diplodocus)).toBe(0);
@@ -44,10 +44,10 @@ describe('coste dinámico por dinosaurios jugados este turno', () => {
     // Colibrí en player.table (mayStayOnTable, jugado un turno anterior, ya
     // no está en playedThisTurn): sigue siendo dinosaurio y debe contar.
     player.table.push(freshInstance('hummingbird', 'kept'));
-    expect(effectiveMarketCost(player, diplodocus)).toBe(11); // 12 - 1
+    expect(effectiveMarketCost(player, diplodocus)).toBe(10); // 11 - 1
 
     player.playedThisTurn.push(freshInstance('iguana', 'd1'));
-    expect(effectiveMarketCost(player, diplodocus)).toBe(10); // 12 - 1(mesa) - 1(jugado este turno)
+    expect(effectiveMarketCost(player, diplodocus)).toBe(9); // 11 - 1(mesa) - 1(jugado este turno)
   });
 
   it('comprarlo de verdad paga el coste reducido, no el de catálogo', () => {
@@ -56,8 +56,8 @@ describe('coste dinámico por dinosaurios jugados este turno', () => {
     player.hand.push(freshInstance('coin-5', 'pay1'), freshInstance('coin-5', 'pay2'));
     const diplodocus = state.animalTrack.find((c) => c.species === 'diplodocus')!;
     buyAnimal(state, player.id, diplodocus.instanceId);
-    // 12 - 2*1 = 10, pagado con 2 Platino (10): no debería sobrar cambio.
-    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
+    // 11 - 2*1 = 9, pagado con 2 Platino (10): sobra 1 de cambio.
+    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
     expect(player.discard.some((c) => c.species === 'diplodocus')).toBe(true);
   });
 });
@@ -188,7 +188,7 @@ describe('Cerdo: descarta cualquier moneda para robar tantas cartas como su valo
   });
 });
 
-describe('Nutria: descarta moneda 2+ para mirar 3 y quedarte 1', () => {
+describe('Nutria: descarta cualquier moneda para mirar 3 y quedarte 1', () => {
   it('descarta la moneda, roba 3 y descarta las 2 que no elige', () => {
     const { state, player } = setupClean();
     const otter = freshInstance('otter', 'x');
@@ -200,6 +200,18 @@ describe('Nutria: descarta moneda 2+ para mirar 3 y quedarte 1', () => {
     expect(player.hand.map((c) => c.instanceId)).toEqual(['tiger#b']);
     expect(player.discard.map((c) => c.instanceId).sort()).toEqual(['coin-2#silver', 'lion#a', 'monkey#c'].sort());
     expect(player.deck).toHaveLength(0);
+  });
+
+  it('funciona incluso con solo un Bronce (valor 1) en la mano', () => {
+    const { state, player } = setupClean();
+    const otter = freshInstance('otter', 'x');
+    const bronze = freshInstance('coin-1', 'small');
+    player.hand = [otter, bronze];
+    const top3 = [freshInstance('lion', 'a'), freshInstance('tiger', 'b'), freshInstance('monkey', 'c')];
+    player.deck = [...top3];
+    playCard(state, player.id, otter.instanceId, bronze.instanceId, 'tiger#b');
+    expect(player.hand.map((c) => c.instanceId)).toEqual(['tiger#b']);
+    expect(player.discard.map((c) => c.instanceId).sort()).toEqual(['coin-1#small', 'lion#a', 'monkey#c'].sort());
   });
 });
 

@@ -27,6 +27,16 @@ export interface Player {
   // otro tipo. Se gasta antes que la genérica, mismo criterio que la
   // acuática.
   dinosaurBonusPurchasingPowerThisTurn: number;
+  // Cuánto valor de compra ha PAGADO ya este turno en compras (buyAnimal/
+  // buyCoin, ver payCoins en engine.ts), al coste real cobrado — con el
+  // descuento por dinosaurio ya aplicado, y sin contar el cambio, que vuelve
+  // como bonus. Solo para mostrarlo: la web enseña "disponible / total", con
+  // total = disponible + esto. Deducirlo desde fuera comparando el valor de
+  // compra entre una jugada y la siguiente no es fiable: hay cartas que lo
+  // bajan sin comprar nada (el Cerdo o la Nutria descartan una moneda, el Pez
+  // Dorado la cambia por otra) o lo suben al robar monedas. Opcional: los
+  // estados guardados antes de existir no lo traen (equivale a 0).
+  spentThisTurn?: number;
   // Especies de las que ya se ha comprado un animal del mercado ESTE TURNO
   // (buyAnimal, no efectos de captura gratis): como mucho 1 compra por
   // especie y turno (no puedes comprar 2 copias del mismo animal seguidas,

@@ -66,7 +66,7 @@ describe('rl/featuresFull (edición completa)', () => {
     // acción(4) + [PV, COSTE, valor...].
     const costIndex = CRITIC_FEATURE_DIM_FULL + 4 + 1;
     expect(after[costIndex]).toBeLessThan(before[costIndex]);
-    expect(after[costIndex]).toBeCloseTo((12 - 2) / 10, 6);
+    expect(after[costIndex]).toBeCloseTo((11 - 2) / 10, 6);
   });
 
   it('el hábitat "dinosaur" se ve en el bloque de carta (no solo los 3 básicos)', () => {

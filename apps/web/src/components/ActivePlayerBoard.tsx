@@ -1,4 +1,4 @@
-import { useRef, type RefObject } from 'react';
+import type { RefObject } from 'react';
 import { currentPurchasingPower, getActivePlayer, type CardInstance, type GameState } from '@zoo/engine';
 import { CardView } from './CardView';
 import { DeckPile, DiscardPile } from './PlayerPiles';
@@ -33,45 +33,30 @@ function groupByCard(cards: CardInstance[]): { card: CardInstance; count: number
   return [...byId.values()];
 }
 
-// "Disponible/general de este turno" del jugador activo. El "general" NO es
-// el máximo instantáneo que ha llegado a tener (eso lo confundía con
-// richestTurn, ver abajo): es la suma de TODO lo que ha ganado este turno,
-// aunque ya se haya gastado parte — pedido explícito del usuario: con 6/8 y
-// ganas 2 más, el actual sube a 8 y el general a 10 (nunca se queda en 8/8),
-// y así con cualquier ganancia. Por eso se compara contra el valor del
-// render ANTERIOR (prev), no contra el propio pico: solo un aumento cuenta
-// como "ganancia" y suma al general; un descenso (gastar) nunca lo baja ni
-// lo toca. Distinto del richestTurn que guarda el motor para el resumen
-// final de la partida (ese sí es un máximo instantáneo de verdad, ver
-// recordRichestTurn en engine.ts — no se toca aquí). Se recalcula en cada
-// render leyendo/actualizando la misma ref, igual que lastHumanIdRef en
-// App.tsx — no hace falta un useEffect para esto. Extraído a un hook propio
-// (antes vivía solo dentro de ActivePlayerBoard) para que GameBoard.tsx
-// pueda mostrar la misma cifra en un badge flotante en móvil, sin duplicar
-// el cálculo ni arriesgarse a que las dos copias diverjan.
+// "Disponible / total de este turno" del jugador activo — definición explícita
+// del usuario (2026-09-21): a la izquierda lo que tiene disponible AHORA, y el
+// total es ese disponible MÁS lo que ya ha gastado en compras este turno. Sin
+// haber comprado nada, los dos números son siempre iguales.
 //
-// turnRestartCount (ver useGame.ts): "reiniciar turno" restaura el GameState
-// de la foto de inicio de turno, pero NO cambia state.turn (sigue siendo el
-// mismo turno, deshecho) — sin esto, el general se quedaba con lo acumulado
-// del intento descartado y seguía sumando desde ahí en vez de volver a
-// arrancar desde el valor real de inicio de turno.
-export function useActivePlayerMoney(state: GameState, turnRestartCount: number) {
+// Lo gastado lo lleva el motor (player.spentThisTurn, ver payCoins en
+// engine.ts): antes se deducía aquí sumando cada SUBIDA del valor de compra
+// entre un render y el siguiente, y eso fallaba con cualquier carta que lo
+// mueve sin comprar — las que descartan una moneda (Cerdo, Nutria, Gallina),
+// la que la cambia por otra (Pez Dorado), las que roban monedas o las que
+// devuelven cartas al mazo: salía un "7/12" sin haber gastado nada. Distinto
+// del richestTurn del motor, que es un máximo instantáneo para el resumen
+// final de la partida.
+//
+// Extraído a un hook propio para que GameBoard.tsx muestre la misma cifra en
+// la barra de móvil sin duplicar el cálculo. "Reiniciar turno" restaura el
+// GameState entero, spentThisTurn incluido, así que ya no hace falta ningún
+// contador aparte para eso: turnRestartCount se conserva en la firma solo para
+// no tocar a quienes llaman.
+export function useActivePlayerMoney(state: GameState, _turnRestartCount?: number) {
   const activePlayer = getActivePlayer(state);
   const purchasingPower = currentPurchasingPower(activePlayer);
-  const key = `${state.turn}:${turnRestartCount}`;
-  const turnRef = useRef<{ key: string; peak: number; prev: number }>({
-    key,
-    peak: purchasingPower,
-    prev: purchasingPower,
-  });
-  if (turnRef.current.key !== key) {
-    turnRef.current = { key, peak: purchasingPower, prev: purchasingPower };
-  } else {
-    const gained = purchasingPower - turnRef.current.prev;
-    if (gained > 0) turnRef.current.peak += gained;
-    turnRef.current.prev = purchasingPower;
-  }
-  return { activePlayer, purchasingPower, peak: turnRef.current.peak };
+  const peak = purchasingPower + (activePlayer.spentThisTurn ?? 0);
+  return { activePlayer, purchasingPower, peak };
 }
 
 // Zona pública de mesa de quien tenga el turno ahora mismo (humano o bot,
@@ -108,7 +93,7 @@ export function ActivePlayerBoard({
           <h2>Mesa de {activePlayerName}</h2>
           <p
             className="active-player-money"
-            title={`Valor de compra de ${activePlayerName}: ${purchasingPower} disponibles de ${peak} que ha llegado a tener este turno`}
+            title={`Valor de compra de ${activePlayerName}: ${purchasingPower} disponibles; ${peak} en total este turno contando lo ya gastado`}
           >
             💰 Valor de compra: {purchasingPower}/{peak}
           </p>

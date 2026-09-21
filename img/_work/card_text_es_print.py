@@ -6,17 +6,17 @@
 # hace falta una entrada aquí para las cartas donde el texto difiere del
 # JSON — el resto de compose_all.py sigue leyendo card["text"] tal cual.
 CARD_TEXT_ES_PRINT = {
-    "tyrannosaurus": "Cuesta 1 bellota menos por cada dinosaurio que hayas jugado este turno.\n+4 bellotas.\nCada oponente elimina un animal terrestre de su mano.",
+    "tyrannosaurus": "Cuesta 1 bellota menos por cada dinosaurio que hayas jugado este turno.\n+4 bellotas.\nCada oponente elimina un animal terrestre de coste 4 o menos de su mano.",
     "pterodactyl": "Cuesta 1 bellota menos por cada dinosaurio que hayas jugado este turno.\nAl jugarlo, elige: roba una carta, o descarta una bellota de Oro (o mejor) y devuélvelo a su reserva para conseguir, del mercado, un Tiranosaurio o un Pterodáctilo.",
-    "mosasaurus": "Cuesta 1 bellota menos por cada dinosaurio que hayas jugado este turno.\n+4 bellotas.\nCada oponente elimina un animal acuático de su mano.",
+    "mosasaurus": "Cuesta 1 bellota menos por cada dinosaurio que hayas jugado este turno.\n+4 bellotas.\nCada oponente elimina un animal acuático de coste 4 o menos de su mano.",
     "diplodocus": "Cuesta 1 bellota menos por cada dinosaurio que hayas jugado este turno.\n+5 bellotas, pero solo puedes usarlas para comprar dinosaurios.",
     "plesiosaurus": "Cuesta 2 bellotas menos por cada dinosaurio que hayas jugado este turno.\nAl jugarlo, roba 2 cartas.\nAl final de la partida, +1PV por cada dinosaurio que tengas en toda tu colección.",
-    "pteranodon": "Cuesta 1 bellota menos por cada dinosaurio que hayas jugado este turno.\n+4 bellotas.\nCada oponente elimina un animal volador de su mano.",
+    "pteranodon": "Cuesta 1 bellota menos por cada dinosaurio que hayas jugado este turno.\n+4 bellotas.\nCada oponente elimina un animal volador de coste 4 o menos de su mano.",
     "dog": "Al jugarlo, puedes dejarlo sobre la mesa en vez de enviarlo al descarte, hasta que barajes tu mazo: mientras esté ahí, cada turno vuelve a jugarse y repite su habilidad.\n+1 bellota.",
     "hamster": "Al jugarlo, devuelve a tu mano todos los hámsteres de tu descarte.\n+1 bellota.",
     "chicken": "Descarta una bellota de tu mano para capturar, de la reserva, un animal terrestre o acuático de coste 2 o menos y ponlo en tu descarte.",
     "golden-fish": "Cambia una bellota de tu mano por una bellota de oro (valor 3).",
-    "otter": "Descarta una bellota de tu mano de valor 2 o más para mirar las 3 cartas superiores de tu mazo: quédate una y descarta el resto.",
+    "otter": "Descarta una bellota de tu mano para mirar las 3 cartas superiores de tu mazo: quédate una y descarta el resto.",
     "pig": "Descarta una bellota de tu mano para robar tantas cartas como su valor.",
     "goose": "Añade 1 bellota.\nAl final de la partida, +1PV por cada animal doméstico distinto que tengas en toda tu colección.",
     "ostrich": "Elige: roba una carta, o descarta una bellota de Oro (o mejor) y devuélvela a su reserva para conseguir, del mercado, un Tiranosaurio o un Pterodáctilo.",
