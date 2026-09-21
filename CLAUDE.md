@@ -204,7 +204,12 @@ con scripts sueltos en `packages/engine/scripts/rl/`, nunca vía UI.
 - `lib/artStyle.tsx` — estilo de ilustración de carta (imagen real vs emoji),
   guardado por dispositivo.
 - `online/` — multijugador vía Supabase Realtime (Broadcast + Presence, sin
-  tablas ni autenticación). `supabaseClient.ts` lee `VITE_SUPABASE_URL` /
+  tablas ni autenticación). Incluye un chat entre los miembros de la partida
+  (`online/useRoomChat.ts` + `components/RoomChat.tsx`): canal compartido
+  `room:CODE:chat` al que se suscriben anfitrión e invitados por igual, sin
+  pasar por el anfitrión; texto y reacciones rápidas, SIN historial (quien
+  entra tarde o recarga no ve lo anterior), sin moderación y solo online —
+  decisiones explícitas del usuario, no carencias. `supabaseClient.ts` lee `VITE_SUPABASE_URL` /
   `VITE_SUPABASE_ANON_KEY` de variables de entorno; si faltan,
   `isOnlineAvailable` es `false` y la app funciona igual en modo local (pase
   y juega + bots), simplemente ocultando "Crear partida online". Ver

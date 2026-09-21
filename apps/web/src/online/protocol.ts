@@ -30,6 +30,12 @@ export function actionsChannelName(roomCode: string): string {
   return `room:${roomCode}:actions`;
 }
 
+// Chat de la partida (ver useRoomChat.ts): canal COMPARTIDO de la sala, igual de poco secreto que
+// el de acciones. Nada del juego viaja por aquí, solo texto y reacciones entre jugadores.
+export function chatChannelName(roomCode: string): string {
+  return `room:${roomCode}:chat`;
+}
+
 export function seatChannelName(roomCode: string, seatKey: string): string {
   return `room:${roomCode}:seat:${seatKey}`;
 }

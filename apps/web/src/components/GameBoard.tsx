@@ -201,9 +201,12 @@ export function GameBoard({
   // debajo de la mesa/mano y es muy vertical: pedido explícito del usuario,
   // justo después de comprar (nunca de jugar una carta) la pantalla sube
   // sola hasta el mercado para seguir comprando sin buscar dónde estaba, o
-  // hasta "Terminar turno" si ya no queda nada que puedas pagar. En
-  // escritorio (todo visible a la vez) scrollIntoView con block:'nearest'
-  // no hace nada si ya está a la vista, así que esto no molesta ahí.
+  // hasta "Terminar turno" si ya no queda nada que puedas pagar. SOLO en
+  // móvil (ver isDesktop): en pantalla grande el mercado es más alto que la
+  // ventana, así que block:'nearest' SÍ movía el scroll (al borde superior o
+  // inferior del mercado, o arriba del todo hasta "Terminar turno") y te
+  // sacaba de donde estabas mirando — quitado a petición del usuario
+  // 2026-09-21: "que no intente colocarte el scroll arriba o abajo".
   const marketPanelRef = useRef<HTMLDivElement>(null);
   const endTurnButtonRef = useRef<HTMLButtonElement>(null);
   const scrollAfterBuyRef = useRef(false);
@@ -370,10 +373,11 @@ export function GameBoard({
   useEffect(() => {
     if (!scrollAfterBuyRef.current) return;
     scrollAfterBuyRef.current = false;
+    if (isDesktop) return;
     const canBuyMore = legalActions.some((a) => a.type === 'buyAnimal' || a.type === 'buyCoin');
     const target = canBuyMore ? marketPanelRef.current : endTurnButtonRef.current;
     target?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [legalActions]);
+  }, [legalActions, isDesktop]);
 
   function runAction(action: Action | undefined) {
     if (!action) return;

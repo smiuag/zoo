@@ -2157,3 +2157,229 @@ body {
     width: 2.8em;
   }
 }
+
+/* ---------- Chat de la partida online (RoomChat.tsx) ---------- */
+
+/* Por encima de la barra fija de móvil (z-index:40) y por debajo de los modales y del tooltip
+   táctil de las cartas (200). El contenedor no ocupa sitio: sus hijos son todos position:fixed. */
+.room-chat__fab,
+.room-chat__toast,
+.room-chat__panel {
+  position: fixed;
+  right: 1rem;
+  z-index: 45;
+}
+
+.room-chat__fab {
+  bottom: 1rem;
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 50%;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  font-size: 1.45rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+}
+
+.room-chat__badge {
+  position: absolute;
+  top: -0.3rem;
+  right: -0.3rem;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: #c0392b;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Aviso de un mensaje ajeno con el chat cerrado: asoma a la izquierda del botón. */
+.room-chat__toast {
+  bottom: 1.35rem;
+  right: 4.9rem;
+  max-width: min(260px, 60vw);
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--ink);
+  color: #fff;
+  font: inherit;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-chat__toast .room-chat__author {
+  color: #cfe6d5;
+}
+
+.room-chat__toast-reaction {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.room-chat__panel {
+  bottom: 1rem;
+  width: min(340px, calc(100vw - 2rem));
+  height: min(460px, calc(100dvh - 2rem));
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.room-chat__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.room-chat__close {
+  border: 0;
+  background: transparent;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0.2rem 0.4rem;
+}
+
+.room-chat__messages {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.7rem 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.room-chat__empty {
+  margin: auto 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.room-chat__msg {
+  align-self: flex-start;
+  max-width: 85%;
+  padding: 0.4rem 0.6rem;
+  border-radius: 12px 12px 12px 4px;
+  background: #ece8dc;
+  font-size: 0.92rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.room-chat__msg--mine {
+  align-self: flex-end;
+  border-radius: 12px 12px 4px 12px;
+  background: #2d6a4f;
+  color: #fff;
+}
+
+.room-chat__author {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* Una reacción es un mensaje más, pero sin globo y en grande. */
+.room-chat__msg--reaction,
+.room-chat__msg--reaction.room-chat__msg--mine {
+  background: transparent;
+  color: inherit;
+  padding: 0 0.2rem;
+}
+
+.room-chat__msg--reaction .room-chat__text {
+  font-size: 1.7rem;
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.room-chat__reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.5rem 0.8rem 0;
+  border-top: 1px solid var(--panel-border);
+}
+
+.room-chat__reaction {
+  border: 1px solid var(--panel-border);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.room-chat__reaction:active {
+  transform: scale(0.92);
+}
+
+.room-chat__form {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.6rem 0.8rem 0.8rem;
+}
+
+.room-chat__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  padding: 0.5rem 0.8rem;
+  font: inherit;
+  /* 16px como mínimo: con menos, Safari en iPhone hace zoom a la página al enfocar el campo. */
+  font-size: 16px;
+  background: #fff;
+}
+
+.room-chat__send {
+  flex: 0 0 auto;
+}
+
+/* Móvil: la barra de turno es fija abajo del todo, así que botón y aviso se suben por encima de
+   ella, y el panel pasa a ser una hoja inferior a todo lo ancho. */
+@media (max-width: 860px) {
+  .room-chat__fab {
+    bottom: 5.4rem;
+    right: 0.8rem;
+  }
+  .room-chat__toast {
+    bottom: 5.75rem;
+    right: 4.6rem;
+  }
+  .room-chat__panel {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: min(70dvh, 520px);
+    border-radius: var(--radius) var(--radius) 0 0;
+    z-index: 50;
+  }
+}

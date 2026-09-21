@@ -10,14 +10,15 @@ import {
 
 // Reducido (uno de los 3 presets del picker, ver abajo): todo marcado salvo
 // estas especies — pedido explícito del usuario 2026-09-21 (ampliado el mismo
-// día con elefante/ardilla/pato), mismos ids verificados contra ANIMAL_SPECIES.
+// día con elefante/ardilla/pato; el mono VUELVE a estar incluido, también a
+// petición suya: "que el reducido no excluya el mono"), mismos ids verificados
+// contra ANIMAL_SPECIES.
 const REDUCED_EXCLUDED_SPECIES = new Set([
   'polar-bear',
   'orca',
   'eagle',
   'albatross',
   'toucan',
-  'monkey',
   'seal',
   'raven',
   'rabbit',

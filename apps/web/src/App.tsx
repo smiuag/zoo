@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getLegalActions } from '@zoo/engine';
 import { GameBoard, type ReplayProps } from './components/GameBoard';
+import { RoomChat } from './components/RoomChat';
 import { GameSetup } from './components/GameSetup';
 import { GuestApp } from './components/GuestApp';
 import { OnlineWaitingRoom } from './components/OnlineWaitingRoom';
@@ -306,6 +307,13 @@ function HostOrLocalApp() {
           su enlace de invitación, que ya lleva sala, asiento y clave — y solo
           ocupaba una línea entera encima del tablero. Sigue viéndose en la
           sala de espera (OnlineWaitingRoom / GuestApp). */}
+      {isOnlineHost && (
+        <RoomChat
+          roomCode={onlineRoom.roomCode}
+          seatId="human-0"
+          name={state.players.find((p) => p.id === 'human-0')?.name ?? 'Host'}
+        />
+      )}
       <GameBoard
         state={state}
         humanIds={humanIds}

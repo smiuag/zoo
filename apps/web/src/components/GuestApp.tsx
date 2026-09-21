@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { RoomChat } from './RoomChat';
 import { GameBoard } from './GameBoard';
 import { useGuestRoom } from '../online/useGuestRoom';
 import { loadSavedNick, saveNick, MAX_NICK_LENGTH } from '../lib/gameConfig';
@@ -126,6 +127,8 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
   }
 
   return (
+    <>
+    <RoomChat roomCode={roomCode} seatId={seatId} name={state.players.find((p) => p.id === seatId)?.name ?? joinedNick} />
     <GameBoard
       state={state}
       humanIds={humanIds}
@@ -151,5 +154,6 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
         onRespond: respondReplay,
       }}
     />
+    </>
   );
 }
