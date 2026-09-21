@@ -133,7 +133,7 @@ describe('card registry', () => {
     expect(getCard('crocodile').effects[0]).toMatchObject({
       trigger: 'onPlay',
       type: 'drawOrReturnSelfForSpecies',
-      params: { drawAmount: 1, speciesOptions: ['mosasaurus'] },
+      params: { drawAmount: 1, speciesOptions: ['mosasaurus', 'plesiosaurus'] },
     });
     expect(getCard('crocodile').effects[1]).toMatchObject({
       trigger: 'onScore',

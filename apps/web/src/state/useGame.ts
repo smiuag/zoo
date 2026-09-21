@@ -99,7 +99,13 @@ function newGame(config: GameConfig): GameState {
     name: `B${i + 1}`,
     deck: buildStarterDeck(),
   }));
-  return createGame(shuffled([...humans, ...bots]), { maxRounds: config.roundLimit, edition: effectiveEdition(config.edition) });
+  const edition = effectiveEdition(config.edition);
+  return createGame(shuffled([...humans, ...bots]), {
+    maxRounds: config.roundLimit,
+    edition,
+    customSpecies: edition === 'custom' ? config.customSpecies : undefined,
+    customCopyDeltas: edition === 'custom' ? config.customCopyDeltas : undefined,
+  });
 }
 
 export interface UseGame {

@@ -20,7 +20,7 @@ CARD_TEXT_EN = {
     "iguana": ("Iguanas", "Draw 1 card."),
     "ostrich": ("Ostriches", "Choose: draw 1 card, or discard a Gold acorn (or better) and return it to its supply to get a Tyrannosaurus or a Pterodactyl from the market."),
     "otter": ("Otters", "Discard an acorn of value 2 or more from your hand to look at the top 3 cards of your deck: keep one and discard the rest."),
-    "pig": ("Pigs", "Discard an acorn of value 2 or more from your hand to draw 1 card."),
+    "pig": ("Pigs", "Discard an acorn from your hand to draw 1 card."),
     "plesiosaurus": ("Plesiosaurs", "Costs 2 acorns less for each dinosaur you have played this turn.\nWhen you play it, draw 2 cards.\nAt the end of the game, +1 VP for each dinosaur in your whole collection."),
     "pteranodon": ("Pteranodons", "Costs 1 acorn less for each dinosaur you have played this turn.\n+4 acorns.\nEach opponent removes a FLYING animal from their hand."),
     "cat": ("Cats", "When you have to remove an animal (of any type), you may discard the Cat instead of removing it."),

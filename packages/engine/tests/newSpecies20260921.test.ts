@@ -153,26 +153,26 @@ describe('Hámster: devuelve todas las copias de su descarte a la vez', () => {
   });
 });
 
-describe('Cerdo: descarta una moneda de valor 2+ para robar una carta', () => {
-  it('sin ninguna moneda que llegue a 2, no hace nada', () => {
+describe('Cerdo: descarta cualquier moneda para robar una carta', () => {
+  it('sin ninguna moneda en la mano, no hace nada', () => {
     const { state, player } = setupClean();
     const pig = freshInstance('pig', 'x');
-    player.hand = [pig, freshInstance('coin-1', 'small')];
+    player.hand = [pig];
     player.deck = [freshInstance('coin-1', 'top')];
     playCard(state, player.id, pig.instanceId);
-    expect(player.hand.map((c) => c.instanceId)).toEqual(['coin-1#small']);
+    expect(player.hand).toHaveLength(0);
     expect(player.deck).toHaveLength(1);
   });
 
-  it('con una moneda de valor 2+, la descarta y roba', () => {
+  it('incluso con solo un Bronce (valor 1), la descarta y roba', () => {
     const { state, player } = setupClean();
     const pig = freshInstance('pig', 'x');
-    const silver = freshInstance('coin-2', 'silver');
-    player.hand = [pig, silver];
+    const bronze = freshInstance('coin-1', 'small');
+    player.hand = [pig, bronze];
     player.deck = [freshInstance('coin-1', 'top')];
-    playCard(state, player.id, pig.instanceId, silver.instanceId);
+    playCard(state, player.id, pig.instanceId, bronze.instanceId);
     expect(player.hand.map((c) => c.id)).toEqual(['coin-1']);
-    expect(player.discard.some((c) => c.instanceId === silver.instanceId)).toBe(true);
+    expect(player.discard.some((c) => c.instanceId === bronze.instanceId)).toBe(true);
   });
 });
 
@@ -272,7 +272,7 @@ describe('Avestruz: elige robar o evolucionar a Tiranosaurio/Pterodáctilo', () 
   });
 });
 
-describe('Cocodrilo: misma elección, pero solo hacia Mosasaurio', () => {
+describe('Cocodrilo: misma elección, pero hacia cualquiera de los 2 dinosaurios acuáticos', () => {
   it('edición completa: descartando un Oro puede evolucionar a Mosasaurio y usa el texto alternativo', () => {
     const { state, player } = setupClean();
     expect(getCard('crocodile').fullEditionText).toContain('Mosasaurio');
@@ -282,6 +282,19 @@ describe('Cocodrilo: misma elección, pero solo hacia Mosasaurio', () => {
     const mosa = state.animalTrack.find((c) => c.species === 'mosasaurus')!;
     playCard(state, player.id, croc.instanceId, mosa.instanceId, gold.instanceId);
     expect(player.discard.some((c) => c.instanceId === mosa.instanceId)).toBe(true);
+    expect(player.discard.some((c) => c.instanceId === gold.instanceId)).toBe(true);
+    expect(player.discard.some((c) => c.id === 'crocodile')).toBe(false);
+  });
+
+  it('edición completa: o, igual de bien, a Plesiosaurio (el otro dinosaurio acuático)', () => {
+    const { state, player } = setupClean();
+    expect(getCard('crocodile').fullEditionText).toContain('Plesiosaurio');
+    const croc = freshInstance('crocodile', 'x');
+    const gold = freshInstance('coin-3', 'gold');
+    player.hand = [croc, gold];
+    const plesio = state.animalTrack.find((c) => c.species === 'plesiosaurus')!;
+    playCard(state, player.id, croc.instanceId, plesio.instanceId, gold.instanceId);
+    expect(player.discard.some((c) => c.instanceId === plesio.instanceId)).toBe(true);
     expect(player.discard.some((c) => c.instanceId === gold.instanceId)).toBe(true);
     expect(player.discard.some((c) => c.id === 'crocodile')).toBe(false);
   });

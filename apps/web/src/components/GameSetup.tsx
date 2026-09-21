@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { LEARNING_EDITION_MAX_COST } from '@zoo/engine';
 import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
-import { useArtStyle } from '../lib/artStyle';
+import { GameSettingsModal } from './GameSettingsModal';
 import {
+  CUSTOM_PICKABLE_SPECIES,
   DEFAULT_BOT_ALGORITHM,
+  DEFAULT_CUSTOM_COPY_DELTAS,
   DEFAULT_ROUND_LIMIT,
   MAX_BOTS,
   MAX_NICK_LENGTH,
@@ -17,6 +19,7 @@ import {
   MIN_TOTAL_PLAYERS,
   ROUND_LIMIT_OPTIONS,
   type BotAlgorithm,
+  type CustomCopyDeltas,
   type GameConfig,
   type RoundLimit,
 } from '../lib/gameConfig';
@@ -83,15 +86,25 @@ export function GameSetup({
   );
   const [roundLimit, setRoundLimit] = useState<RoundLimit>(savedSetupPrefs?.roundLimit ?? DEFAULT_ROUND_LIMIT);
   const [animationsEnabled, setAnimationsEnabled] = useState(savedSetupPrefs?.animationsEnabled ?? true);
-  // Puramente local (ver lib/artStyle.tsx): se guarda solo en pulsar el
-  // botón, no en buildConfig como el resto del formulario — así se recuerda
-  // aunque el jugador cambie de opinión y no llegue a empezar la partida, y
-  // nunca viaja por el protocolo online (cada jugador ve el suyo).
-  const [artStyle, setArtStyle] = useArtStyle();
   const [edition, setEdition] = useState(loadSavedEdition);
+  // Solo tienen efecto con edition === 'custom' (ver GameSettingsModal.tsx).
+  // Por defecto, si nunca se ha usado "Personalizado" en este dispositivo,
+  // arranca con TODO marcado (mismo mercado que tenía antes "Completa").
+  const [customSpecies, setCustomSpecies] = useState<Set<string>>(
+    new Set(savedSetupPrefs?.customSpecies ?? CUSTOM_PICKABLE_SPECIES)
+  );
+  const [customCopyDeltas, setCustomCopyDeltas] = useState<CustomCopyDeltas>(
+    savedSetupPrefs?.customCopyDeltas ?? DEFAULT_CUSTOM_COPY_DELTAS
+  );
+  // Panel de configuración (ver GameSettingsModal.tsx): engranaje junto al
+  // título "Nueva partida" — pedido explícito del usuario 2026-09-21.
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const totalPlayers = numHumans + botAlgorithms.length;
-  const canStart = totalPlayers >= MIN_TOTAL_PLAYERS;
+  // 'custom' sin ninguna especie marcada daría un mercado vacío (createGame
+  // no revienta, pero la partida sería injugable: nunca habría nada que
+  // comprar) — se bloquea aquí, no en el motor.
+  const canStart = totalPlayers >= MIN_TOTAL_PLAYERS && (edition !== 'custom' || customSpecies.size > 0);
   // Online hace falta al menos 1 hueco humano más aparte del propio host, si
   // no no hay a quién invitar.
   const canGoOnline = isOnlineAvailable && Boolean(onCreateOnlineRoom) && numHumans >= 2 && canStart;
@@ -113,9 +126,25 @@ export function GameSetup({
     // Se recuerda para la próxima partida en este dispositivo en el momento
     // de empezar (no al teclear/tocar cada campo).
     saveNick(cleanNick);
-    saveSetupPrefs({ numHumans, botAlgorithms, roundLimit, animationsEnabled });
+    const customSpeciesArray = [...customSpecies];
+    saveSetupPrefs({
+      numHumans,
+      botAlgorithms,
+      roundLimit,
+      animationsEnabled,
+      customSpecies: customSpeciesArray,
+      customCopyDeltas,
+    });
     saveEdition(edition);
-    return { numHumans, nick: cleanNick, botAlgorithms, roundLimit, animationsEnabled, edition };
+    return {
+      numHumans,
+      nick: cleanNick,
+      botAlgorithms,
+      roundLimit,
+      animationsEnabled,
+      edition,
+      ...(edition === 'custom' ? { customSpecies: customSpeciesArray, customCopyDeltas } : {}),
+    };
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -153,6 +182,14 @@ export function GameSetup({
       <form className="panel setup-panel" onSubmit={handleSubmit}>
         <div className="panel__header">
           <h2>Nueva partida</h2>
+          <button
+            type="button"
+            className="btn btn--ghost btn--settings-gear"
+            title="Configuración de la partida"
+            onClick={() => setSettingsOpen(true)}
+          >
+            ⚙️<span className="btn__label"> Configuración</span>
+          </button>
         </div>
 
         <div className="setup-row">
@@ -166,9 +203,14 @@ export function GameSetup({
               </button>
             )}
           </div>
-          {!canStart && (
+          {totalPlayers < MIN_TOTAL_PLAYERS && (
             <p className="setup-error">
               Con 1 solo jugador humano hace falta al menos 1 bot rival: sube el número de bots o de jugadores.
+            </p>
+          )}
+          {edition === 'custom' && customSpecies.size === 0 && (
+            <p className="setup-error">
+              Elige al menos una especie en Configuración → Personalizado antes de empezar.
             </p>
           )}
           {onCreateOnlineRoom && !isOnlineAvailable && (
@@ -263,48 +305,6 @@ export function GameSetup({
 
         <div className="setup-row">
           <div className="setup-round-options setup-round-options--full">
-            <button
-              type="button"
-              className={`btn ${artStyle === 'imagen' ? 'btn--primary' : 'btn--ghost'}`}
-              aria-pressed={artStyle === 'imagen'}
-              onClick={() => setArtStyle('imagen')}
-            >
-              🖼️ Imagen
-            </button>
-            <button
-              type="button"
-              className={`btn ${artStyle === 'emoji' ? 'btn--primary' : 'btn--ghost'}`}
-              aria-pressed={artStyle === 'emoji'}
-              onClick={() => setArtStyle('emoji')}
-            >
-              🐯 Emoji
-            </button>
-          </div>
-        </div>
-
-        <div className="setup-row">
-          <div className="setup-round-options setup-round-options--full">
-            <button
-              type="button"
-              className={`btn ${animationsEnabled ? 'btn--primary' : 'btn--ghost'}`}
-              aria-pressed={animationsEnabled}
-              onClick={() => setAnimationsEnabled(true)}
-            >
-              Con animaciones
-            </button>
-            <button
-              type="button"
-              className={`btn ${!animationsEnabled ? 'btn--primary' : 'btn--ghost'}`}
-              aria-pressed={!animationsEnabled}
-              onClick={() => setAnimationsEnabled(false)}
-            >
-              Sin animaciones
-            </button>
-          </div>
-        </div>
-
-        <div className="setup-row">
-          <div className="setup-round-options setup-round-options--full">
             {ROUND_LIMIT_OPTIONS.map((rounds) => (
               <button
                 key={rounds}
@@ -339,22 +339,33 @@ export function GameSetup({
             </button>
             <button
               type="button"
-              className={`btn ${edition === 'full' ? 'btn--primary' : 'btn--ghost'}`}
-              aria-pressed={edition === 'full'}
-              onClick={() => setEdition('full')}
+              className={`btn ${edition === 'custom' ? 'btn--primary' : 'btn--ghost'}`}
+              aria-pressed={edition === 'custom'}
+              onClick={() => setEdition('custom')}
             >
-              Completa
+              Personalizado
             </button>
           </div>
           <p className="setup-hint">
             {edition === 'learning'
               ? `Mismo mazo clásico de siempre, pero el mercado solo ofrece animales de coste ${LEARNING_EDITION_MAX_COST} o menos: partidas más sencillas y rápidas para aprender.`
-              : edition === 'full'
-                ? 'La completa añade mascotas y dinosaurios a las 33 especies clásicas.'
+              : edition === 'custom'
+                ? 'Elige tú qué especies entran en el mercado y cuántas copias hay de cada una, desde ⚙️ Configuración.'
                 : 'La oficial: 33 especies, sin restricciones.'}
           </p>
         </div>
       </form>
+      {settingsOpen && (
+        <GameSettingsModal
+          animationsEnabled={animationsEnabled}
+          onAnimationsEnabledChange={setAnimationsEnabled}
+          customSpecies={customSpecies}
+          onCustomSpeciesChange={setCustomSpecies}
+          customCopyDeltas={customCopyDeltas}
+          onCustomCopyDeltasChange={setCustomCopyDeltas}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
     </div>
   );
 }

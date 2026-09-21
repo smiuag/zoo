@@ -5,7 +5,7 @@
   "species": "ostrich",
   "edition": "full",
   "marketCost": 5,
-  "victoryPoints": 7,
+  "victoryPoints": 5,
   "text": "Elige: roba una carta, o descarta una moneda de Oro (o mejor) y devuélvela a su reserva para conseguir, del mercado, un Tiranosaurio o un Pterodáctilo.",
   "effects": [
     {

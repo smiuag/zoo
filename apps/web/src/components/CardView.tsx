@@ -72,6 +72,22 @@ interface CardViewProps {
   // el ratón), como "N*PV" en vez de solo "NPV" — el asterisco marca que
   // es un valor calculado ahora mismo, no el PV fijo de la carta.
   livePoints?: number;
+  // Mismo criterio que livePoints, pero para el coste (card__cost): cuánto
+  // costaría comprarla YA MISMO, tras el descuento de
+  // costReductionPerDinosaurPlayedThisTurn (Diplodocus/Plesiosaurio/
+  // Pteranodon/Tiranosaurio/Pterodáctilo/Mosasaurio, ver effectiveMarketCost
+  // en el motor) — pedido explícito del usuario 2026-09-21: "que salgan
+  // como los PV, ya calculados y con el *". Solo tiene sentido en el
+  // mercado (igual que livePoints), nunca en mano/mesa.
+  liveCost?: number;
+  // Modo selección múltiple (picker de cartas de la edición Personalizado,
+  // ver GameSettingsModal.tsx): true añade una marca ✓ (.card__check, ya
+  // existía en la hoja de estilos sin usar); false atenúa la carta (sigue
+  // siendo clicable, para poder volver a marcarla). undefined (el resto de
+  // sitios, mano/mercado/mesa/colección) no toca nada de esto — pedido
+  // explícito del usuario 2026-09-21: "las cartas que salgan con su imagen
+  // ... como el mercado pero con el check".
+  selected?: boolean;
 }
 
 // El tooltip nace centrado bajo la carta (ver .card__tooltip en
@@ -83,7 +99,13 @@ interface CardViewProps {
 // y se corrige con un desplazamiento horizontal (--tooltip-shift-x, una
 // custom property que la hoja de estilos ya incorpora a su transform, en
 // vez de pisar el transform desde aquí y romper la transición de
-// aparición) y, si no cabe debajo, se pasa a mostrar por ARRIBA
+// aparición) — en móvil (≤860px, ver styles.css) esta corrección deja de
+// notarse: el tooltip pasa a position:fixed centrado en la pantalla
+// entera pase lo que pase (pedido explícito del usuario 2026-09-21, "que
+// salga siempre en el centro de la pantalla... ahora se acaba cortando
+// siempre"), así que este cálculo se sigue ejecutando pero el CSS de ese
+// breakpoint lo pisa entero; se deja tal cual porque sigue haciendo falta
+// en escritorio. Y, si no cabe debajo, se pasa a mostrar por ARRIBA
 // (card__tooltip--above).
 const TOOLTIP_VIEWPORT_MARGIN = 8;
 
@@ -118,7 +140,9 @@ export function CardView({
   badgePrefix = '×',
   destroyed,
   livePoints,
+  liveCost,
   hideType,
+  selected,
 }: CardViewProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -141,6 +165,7 @@ export function CardView({
   if (destroyed) classNames.push('card--destroyed');
   if (clickable) classNames.push('card--clickable');
   if (compact) classNames.push('card--compact');
+  if (selected === false) classNames.push('card--unselected');
 
   // "N*PV" siempre visible (nunca hace falta pasar el ratón) para las
   // cartas de PV variable (cualquiera con un efecto onScore: Águila, Orca,
@@ -157,6 +182,13 @@ export function CardView({
   const showPvBadge = card.victoryPoints !== 0 || showLiveBonus;
   const pvLabel = showLiveBonus ? `${livePoints}*` : card.victoryPoints !== 0 ? `${card.victoryPoints}` : '';
 
+  // Mismo criterio que el PV en vivo, para el coste (ver liveCost arriba):
+  // asterisco siempre que la carta lleve el descuento por dinosaurio (haya
+  // cambiado o no TODAVÍA el coste real), nunca solo cuando ya ha cambiado.
+  const hasDinosaurCostReduction = Boolean(card.costReductionPerDinosaurPlayedThisTurn);
+  const showLiveCost = liveCost !== undefined && (hasDinosaurCostReduction || liveCost !== card.marketCost);
+  const costLabel = showLiveCost ? `${liveCost}*` : card.marketCost ? `${card.marketCost}` : '';
+
   return (
     <div
       ref={cardRef}
@@ -169,7 +201,7 @@ export function CardView({
       tabIndex={clickable ? 0 : undefined}
     >
       <div className="card__top">
-        {card.marketCost ? <span className="card__cost">{card.marketCost}</span> : <span />}
+        {card.marketCost ? <span className="card__cost">{costLabel}</span> : <span />}
         {showPvBadge && (
           <span className={['card__pv', card.victoryPoints < 0 && 'card__pv--negative'].filter(Boolean).join(' ')}>
             {pvLabel}PV
@@ -218,6 +250,11 @@ export function CardView({
       {destroyed && (
         <span className="card__destroyed-mark" aria-label="Eliminada por el Cocodrilo">
           ✕
+        </span>
+      )}
+      {selected === true && (
+        <span className="card__check" aria-label="Incluida">
+          ✓
         </span>
       )}
       {card.text && (

@@ -3,9 +3,11 @@ import { initialMarketCopies, marketSpeciesFor } from '../../engine';
 import type { GameState } from '../../model/state';
 
 // Mismo cálculo que marketScarcity.ts (ver ese archivo para el porqué), pero
-// para la edición completa: recorre TODAS las especies de mercado de esa
-// edición (marketSpeciesFor('full'), 50 especies en vez de las 33 clásicas
-// de ANIMAL_SPECIES) y con los 5 tipos (3 hábitats base + mascota +
+// para la edición completa (o una personalizada, que se comporta igual para
+// esto): recorre TODAS las especies de mercado de esa edición
+// (marketSpeciesFor(state), 50 especies en vez de las 33 clásicas de
+// ANIMAL_SPECIES, o las que se hayan elegido en 'custom') y con los 5 tipos
+// (3 hábitats base + mascota +
 // dinosaurio, no solo los 3 de siempre) — imprescindible para que la red
 // pueda distinguir "casi no quedan dinosaurios en el mercado" de "está lleno
 // de mascotas sin comprar". Vive en un fichero aparte (no parametriza
@@ -25,10 +27,10 @@ export function computeMarketScarcityFull(state: GameState): { habitat: number[]
   const costTierRemaining = [0, 0, 0];
   const costTierTotal = [0, 0, 0];
 
-  for (const species of marketSpeciesFor(state.edition)) {
+  for (const species of marketSpeciesFor(state)) {
     const card = getCard(species);
     const cost = card.marketCost ?? 0;
-    const total = initialMarketCopies(cost, state.players.length);
+    const total = initialMarketCopies(cost, state.players.length, state.customCopyDeltas);
     const remaining = remainingCopies(state, species);
 
     HABITATS_FULL.forEach((h, i) => {

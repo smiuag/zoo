@@ -5,7 +5,7 @@ import { buildStarterDeck } from './helpers';
 
 describe('edición "Aprendizaje"', () => {
   it('marketSpeciesFor recorta la baraja clásica a coste 4 o menos (21 de las 33)', () => {
-    const species = marketSpeciesFor('learning');
+    const species = marketSpeciesFor({ edition: 'learning' });
     expect(species.length).toBe(21);
     for (const s of species) expect(getCard(s).marketCost).toBeLessThanOrEqual(LEARNING_EDITION_MAX_COST);
     // Ninguna especie cara se cuela, y son todas especies clásicas de siempre.

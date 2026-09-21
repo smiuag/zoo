@@ -17,7 +17,7 @@ CARD_TEXT_ES_PRINT = {
     "chicken": "Descarta una bellota de tu mano para capturar, de la reserva, un animal terrestre o acuático de coste 2 o menos y ponlo en tu descarte.",
     "golden-fish": "Cambia una bellota de tu mano por una bellota de oro (valor 3).",
     "otter": "Descarta una bellota de tu mano de valor 2 o más para mirar las 3 cartas superiores de tu mazo: quédate una y descarta el resto.",
-    "pig": "Descarta una bellota de tu mano de valor 2 o más para robar una carta.",
+    "pig": "Descarta una bellota de tu mano para robar una carta.",
     "goose": "Añade 1 bellota.\nAl final de la partida, +1PV por cada animal doméstico distinto que tengas en toda tu colección.",
     "ostrich": "Elige: roba una carta, o descarta una bellota de Oro (o mejor) y devuélvela a su reserva para conseguir, del mercado, un Tiranosaurio o un Pterodáctilo.",
     "albatross": "+1 bellota.\n+1PV por cada especie distinta que tengas en todo tu mazo.",

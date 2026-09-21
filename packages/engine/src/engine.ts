@@ -90,9 +90,16 @@ export const FULL_EDITION_EXTRA_SPECIES = [
 // especies tienen hueco de mercado — ver marketSpeciesFor.
 export const LEARNING_EDITION_MAX_COST = 4;
 
-export function marketSpeciesFor(edition: GameEdition | undefined): readonly string[] {
-  if (edition === 'full') return [...ANIMAL_SPECIES, ...FULL_EDITION_EXTRA_SPECIES];
-  if (edition === 'learning') {
+// Recibe el estado (o un subconjunto con edition/customSpeciesList) en vez
+// del valor de edición suelto: 'custom' no se puede resolver solo con el
+// enum, necesita la lista elegida por el jugador — y todo llamante ya tiene
+// `state` a mano, así que no cuesta nada pasarlo entero.
+export function marketSpeciesFor(
+  state: Pick<GameState, 'edition' | 'customSpeciesList'> | undefined
+): readonly string[] {
+  if (state?.edition === 'custom') return state.customSpeciesList ?? [];
+  if (state?.edition === 'full') return [...ANIMAL_SPECIES, ...FULL_EDITION_EXTRA_SPECIES];
+  if (state?.edition === 'learning') {
     return ANIMAL_SPECIES.filter((species) => (getCard(species).marketCost ?? 0) <= LEARNING_EDITION_MAX_COST);
   }
   return ANIMAL_SPECIES;
@@ -101,9 +108,19 @@ export function marketSpeciesFor(edition: GameEdition | undefined): readonly str
 // Copias iniciales de una especie en su sharedDecks, según su coste y el
 // nº de jugadores (ver createGame más abajo). Exportada para que
 // bots/rl/marketScarcity.ts pueda recalcular el total inicial de cada
-// especie sin duplicar esta fórmula.
-export function initialMarketCopies(marketCost: number, numPlayers: number): number {
-  return marketCost >= 5 ? numPlayers : numPlayers + 2;
+// especie sin duplicar esta fórmula. `customDeltas` (edición 'custom', ver
+// GameState.customCopyDeltas) ajusta ese resultado por tramo de coste;
+// Math.max(1, ...) evita que una especie ya elegida se quede sin ninguna
+// copia por un delta agresivo (p. ej. -2 en una cara a 2 jugadores).
+export function initialMarketCopies(
+  marketCost: number,
+  numPlayers: number,
+  customDeltas?: { cheap: number; expensive: number }
+): number {
+  const base = marketCost >= 5 ? numPlayers : numPlayers + 2;
+  if (!customDeltas) return base;
+  const delta = marketCost >= 5 ? customDeltas.expensive : customDeltas.cheap;
+  return Math.max(1, base + delta);
 }
 
 // La partida entra en la ronda final en cuanto este número de mazos
@@ -128,6 +145,14 @@ export interface CreateGameOptions {
   maxRounds?: number | null;
   // Edición de la baraja (ver GameEdition). Por defecto 'classic', la oficial.
   edition?: GameEdition;
+  // Solo se usa con edition === 'custom': especies a incluir en el mercado
+  // de esta partida (ver GameState.customSpeciesList). Vacío/ausente con
+  // 'custom' -> mercado vacío; evitarlo es responsabilidad de quien llama
+  // (la web nunca deja arrancar una partida personalizada sin nada elegido).
+  customSpecies?: string[];
+  // Solo se usa con edition === 'custom': deltas de copias iniciales por
+  // tramo de coste (ver initialMarketCopies).
+  customCopyDeltas?: { cheap: number; expensive: number };
 }
 
 export type Action =
@@ -345,7 +370,7 @@ function checkFinalRoundTrigger(state: GameState): void {
   // clave no está en ANIMAL_SPECIES), así que agotarla no debería adelantar
   // el fin de la partida. El Conejo SÍ es una especie de mercado normal, así
   // que a ese sí le aplica el criterio normal.
-  const emptyDecks = marketSpeciesFor(state.edition).filter((species) => state.sharedDecks[species]?.length === 0).length;
+  const emptyDecks = marketSpeciesFor(state).filter((species) => state.sharedDecks[species]?.length === 0).length;
   if (emptyDecks >= FINAL_ROUND_EMPTY_DECK_THRESHOLD) {
     state.finalRoundTriggerPlayerIndex = state.activePlayerIndex;
     state.log.push(`Se han agotado ${emptyDecks} mazos compartidos: última ronda.`);
@@ -365,11 +390,11 @@ function checkFinalRoundTrigger(state: GameState): void {
 // de "sloth" se "repondría" igualmente, colando un Perezoso comprable gratis
 // en el mercado.
 function isMarketSpecies(state: GameState, species: string): boolean {
-  return marketSpeciesFor(state.edition).includes(species);
+  return marketSpeciesFor(state).includes(species);
 }
 
 function refillAnimalMarket(state: GameState, onlySpecies?: string): void {
-  const speciesToFill = onlySpecies ? [onlySpecies].filter((s) => isMarketSpecies(state, s)) : [...marketSpeciesFor(state.edition)];
+  const speciesToFill = onlySpecies ? [onlySpecies].filter((s) => isMarketSpecies(state, s)) : [...marketSpeciesFor(state)];
   for (const species of speciesToFill) {
     if (state.animalTrack.some((c) => c.species === species)) continue;
     const deck = state.sharedDecks[species];
@@ -492,6 +517,8 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
     turn: 1,
     round: 1,
     edition: options.edition ?? 'classic',
+    customSpeciesList: options.edition === 'custom' ? (options.customSpecies ?? []) : undefined,
+    customCopyDeltas: options.edition === 'custom' ? options.customCopyDeltas : undefined,
     maxRounds: options.maxRounds ?? null,
     log: [],
     nextInstanceId: 0,
@@ -530,9 +557,9 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
   // PV/mejores habilidades, y con menos copias en juego se agotan antes,
   // dándoles algo de escasez real —, nº de jugadores + 2 para el resto.
   const numPlayers = playerConfigs.length;
-  for (const species of marketSpeciesFor(state.edition)) {
+  for (const species of marketSpeciesFor(state)) {
     const speciesCard = getCard(species);
-    const copiesPerSpecies = initialMarketCopies(speciesCard.marketCost ?? 0, numPlayers);
+    const copiesPerSpecies = initialMarketCopies(speciesCard.marketCost ?? 0, numPlayers, state.customCopyDeltas);
     state.sharedDecks[species] = shuffle(
       Array.from({ length: copiesPerSpecies }, () => mintInstance(state, speciesCard))
     );

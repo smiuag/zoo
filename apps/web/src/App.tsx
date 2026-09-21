@@ -224,7 +224,14 @@ function HostOrLocalApp() {
   // GameBoard.tsx): un solo clic ya vale (pedido explícito del usuario,
   // todos los humanos están delante de la misma pantalla), así que aquí
   // solo hace falta reconstruir una config equivalente a la que se usó —
-  // mismos humanos/bots/duración — y arrancar directamente.
+  // mismos humanos/bots/duración/edición — y arrancar directamente. La
+  // edición (y, si era 'custom', las especies/deltas elegidas) se lee
+  // directamente de `state`, no de lo que hubiera en el formulario: es lo
+  // que la partida REALMENTE usó (createGame lo deja en state.edition/
+  // customSpeciesList/customCopyDeltas al crearla, ver engine.ts) — antes
+  // esto faltaba aquí y "Repetir partida" siempre volvía a la clásica sin
+  // importar con qué edición se había jugado, pedido explícito del usuario
+  // corregirlo.
   function handleLocalReplay() {
     const nick = state.players.find((p) => p.id === 'human-0')?.name ?? '';
     const botSeatIds = Object.keys(botAlgorithms).sort(
@@ -236,6 +243,9 @@ function HostOrLocalApp() {
       botAlgorithms: botSeatIds.map((id) => botAlgorithms[id]),
       roundLimit: (state.maxRounds as RoundLimit | null) ?? DEFAULT_ROUND_LIMIT,
       animationsEnabled,
+      edition: state.edition,
+      customSpecies: state.customSpeciesList,
+      customCopyDeltas: state.customCopyDeltas,
     };
     startGame(config);
   }

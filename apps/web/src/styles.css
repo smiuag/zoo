@@ -166,37 +166,6 @@ body {
   white-space: nowrap;
 }
 
-/* Badge flotante con el mismo dinero (ver GameBoard.tsx, useActivePlayerMoney):
-   oculto en escritorio (".active-player-money" de arriba ya está siempre a
-   la vista ahí, junto al mercado) — solo se muestra en el breakpoint de
-   abajo, donde ".layout" pasa a una sola columna y el mercado queda muy
-   por debajo de "Mesa de X". position:fixed a propósito, no sticky: sigue
-   visible pase lo que pase por donde se haya scrolleado, sin depender de
-   dentro de qué contenedor viva en el DOM. */
-.money-float {
-  display: none;
-  margin: 0;
-}
-
-@media (max-width: 860px) {
-  .money-float {
-    display: inline-flex;
-    align-items: center;
-    position: fixed;
-    top: 0.5rem;
-    right: 0.5rem;
-    z-index: 40;
-    background: var(--panel-bg);
-    border: 1px solid var(--panel-border);
-    border-radius: 999px;
-    padding: 0.3rem 0.7rem;
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: #8a6d1f;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-  }
-}
-
 .panel__hint {
   font-size: 0.78rem;
   color: var(--muted);
@@ -358,20 +327,46 @@ body {
   animation: card-appear 0.18s ease-out;
 }
 
-/* ---------- Controles de turno (carrito, terminar/reiniciar turno) ---------- */
+/* ---------- Barra inferior (ronda/turno, dinero, terminar/reiniciar turno) ----------
+   En escritorio es un panel normal más, en su sitio de siempre en el flujo
+   de la página. En móvil (ver el breakpoint de @media más abajo) pasa a
+   position:fixed pegada abajo del todo, siempre visible, con el resto de
+   la página desplazándose por debajo — pedido explícito del usuario
+   2026-09-21: "que aparezcan siempre en pantalla, abajo, que sea lo demás
+   lo que se mueve". Sustituye al antiguo .money-float (badge flotante solo
+   en la esquina) y a .turn-controls (vivía en su propio panel aparte). */
 
-.turn-controls {
+.bottom-bar {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.5rem;
-  flex: 0 0 auto;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.9rem;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 1rem;
 }
 
-.turn-controls__info {
+.bottom-bar__turn {
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bottom-bar__money {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #8a6d1f;
   white-space: nowrap;
+}
+
+.bottom-bar__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex: 0 0 auto;
 }
 
 .pile {
@@ -899,6 +894,15 @@ body {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
+/* Carta NO marcada en el picker de la edición Personalizado (ver
+   GameSettingsModal.tsx, prop `selected` de CardView) — atenuada pero
+   igual de clicable, para que se distinga de un vistazo cuáles están
+   dentro del mazo elegido sin dejar de poder volver a marcarlas. */
+.card--unselected {
+  opacity: 0.4;
+  filter: grayscale(0.5);
+}
+
 .card--empty {
   display: flex;
   align-items: center;
@@ -926,7 +930,80 @@ body {
   }
 
   .app {
-    padding: 0.75rem 0.6rem 2rem;
+    /* El hueco de abajo reserva sitio para .bottom-bar, que aquí pasa a
+       position:fixed (ver la regla más abajo) y dejaría de "empujar" el
+       resto del contenido si no fuera por este padding — sin él, la mano y
+       el mercado quedarían tapados detrás de la barra al hacer scroll
+       hasta el final. env(safe-area-inset-bottom) añade el hueco del
+       "home indicator" en iPhones con notch. */
+    padding: 0.75rem 0.6rem calc(5.5rem + env(safe-area-inset-bottom));
+  }
+
+  /* Pegada abajo del todo, siempre visible — ver el comentario junto a
+     .bottom-bar más arriba. Sale del flujo normal (position:fixed), así
+     que el resto de ".app" (mano, mercado...) se desplaza libremente por
+     detrás/debajo sin que la barra se mueva con él. */
+  .bottom-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    margin-bottom: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding: 0.6rem 0.75rem calc(0.6rem + env(safe-area-inset-bottom));
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.18);
+  }
+
+  .bottom-bar__turn {
+    font-size: 0.72rem;
+  }
+
+  .bottom-bar__money {
+    font-size: 0.78rem;
+  }
+
+  .bottom-bar__actions .btn {
+    padding: 0.45rem 0.7rem;
+    font-size: 0.85rem;
+  }
+
+  /* Ver .pair-row más arriba: en móvil cada pareja cae en su propia fila. */
+  .pair-row {
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  /* Tooltip SIEMPRE centrado en la pantalla (no ya anclado a la carta):
+     pedido explícito del usuario 2026-09-21, "intentar que el tooltip
+     salga siempre en el centro de la pantalla, aunque la carta esté en un
+     lado. Ahora se acaba cortando siempre" — con la carta pegada a
+     cualquier borde (columnas del mercado, mano de 5 en fila...) el
+     recorte por los lados era constante pese al desplazamiento de
+     clampTooltipPosition (CardView.tsx: sigue corriendo, pero aquí se
+     ignora top/left/transform con la misma especificidad, ver el orden de
+     este bloque respecto a la regla base de .card__tooltip). position:
+     fixed además de centrarlo lo desacopla del scroll: no hace falta que
+     la carta sea visible para que el tooltip lo sea. */
+  .card__tooltip,
+  .card__tooltip--above {
+    position: fixed;
+    top: 50%;
+    bottom: auto;
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, -55%);
+    max-width: min(320px, 88vw);
+    width: max-content;
+    /* Por encima de .bottom-bar (z-index:40, también fixed): centrado en
+       pantalla puede caer parcialmente sobre ella en pantallas bajas. */
+    z-index: 60;
+  }
+  .card:hover .card__tooltip {
+    transform: translate(-50%, -50%);
   }
 
   /* El resto de tamaños de fuente de la carta son fijos en rem: sin esto,
@@ -965,7 +1042,9 @@ body {
   }
 
   .app {
-    padding: 0.5rem 0.4rem 1.5rem;
+    /* Ver el comentario del breakpoint de 860px: mismo motivo, hueco para
+       .bottom-bar fija abajo. */
+    padding: 0.5rem 0.4rem calc(5rem + env(safe-area-inset-bottom));
   }
 
   .card-row--hand {
@@ -1098,6 +1177,62 @@ body {
     padding: 0.3rem 0.7rem;
     font-size: 0.82rem;
   }
+}
+
+/* Engranaje de configuración, junto a "Nueva partida" (ver GameSetup.tsx) —
+   pedido explícito del usuario 2026-09-21. Mismo criterio que .btn--new-game
+   de arriba (icono + etiqueta que se pliega en móvil), pero en su propia
+   clase: son dos controles sin relación entre sí (uno abre el panel de
+   configuración de ESTA pantalla, el otro abandona/reinicia una partida en
+   curso), no deben acoplarse visualmente compartiendo la misma clase. */
+.btn--settings-gear {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .btn--settings-gear .btn__label {
+    display: none;
+  }
+}
+
+/* ---------- Configuración: modal más ancho + secciones ---------- */
+/* Ver GameSettingsModal.tsx. El picker de cartas necesita más sitio que el
+   resto de popups (.modal ya es max-width:1400px, de sobra), pero conviene
+   separar visualmente sus secciones (estilo/animaciones vs. Personalizado)
+   con algo más que un simple .setup-row suelto. */
+
+.settings-modal__section {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--panel-border);
+}
+
+.settings-modal__section h3 {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+  color: var(--accent);
+}
+
+/* ---------- Picker de cartas de la edición "Personalizado" ---------- */
+/* Ver GameSettingsModal.tsx. Un grupo por hábitat, cada uno con las cartas
+   REALES (CardView, con imagen/emoji igual que en el mercado) en vez de una
+   lista de texto — pedido explícito del usuario 2026-09-21: "las cartas que
+   salgan con su imagen... como el mercado pero con el check". El check
+   (marcada/no marcada) lo pinta el propio CardView (prop `selected`, ver
+   .card__check/.card--unselected). */
+
+.card-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-top: 0.6rem;
+}
+
+.card-picker__habitat-group h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 /* Las tres reglas de resaltado van con ".scoreboard li." delante a propósito:
@@ -1393,6 +1528,14 @@ body {
   font-weight: 600;
 }
 
+/* Un poco más de aire ANTES de esta fila que el resto (ver GameSettingsModal.tsx:
+   pedido explícito del usuario 2026-09-21, separar un poco los presets
+   Random/Completo/Reducido de las cajas de copias extra justo encima, que
+   quedaban demasiado pegadas). */
+.setup-row--spaced {
+  margin-top: 0.6rem;
+}
+
 .setup-row select {
   font: inherit;
   border: 1px solid var(--panel-border);
@@ -1464,6 +1607,123 @@ body {
   width: 100%;
 }
 
+/* Dos parejas de toggles en una sola fila (estilo de carta + animaciones,
+   ver GameSettingsModal.tsx) — pedido explícito del usuario 2026-09-21:
+   "pon las 4 en una fila pero que se vea claro que son 2 parejas y en 2
+   filas en dispositivo móvil". El hueco GRANDE entre .pair-row__group
+   separa visualmente las parejas; el PEQUEÑO de dentro de cada grupo
+   mantiene unidos sus 2 botones. En el breakpoint móvil (más abajo)
+   .pair-row pasa a columna: cada grupo, ya de por sí una fila de 2, cae
+   uno debajo del otro sin ningún cambio de estructura. */
+.pair-row {
+  display: flex;
+  gap: 1.1rem;
+  width: 100%;
+}
+
+.pair-row__group {
+  display: flex;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.pair-row__group .btn {
+  flex: 1;
+  text-align: center;
+}
+
+/* Las dos filas de delta de copias (coste<5 / coste>=5, ver
+   GameSettingsModal.tsx) — pedido explícito del usuario 2026-09-21: "en
+   normal, lo de copias <5 y >=5 en la misma línea, y que quede mejor, el
+   título en negrita, como más agrupado". Cada tramo es su propia "caja"
+   (fondo + borde) con la etiqueta en negrita encima de sus 5 botones; las
+   dos cajas van lado a lado si hay sitio (flex-wrap) y se apilan solas en
+   pantallas estrechas, sin necesitar ningún breakpoint aparte. */
+.delta-groups__heading {
+  display: block;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--ink);
+  margin-bottom: 0.5rem;
+}
+
+.delta-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  width: 100%;
+}
+
+.delta-group {
+  flex: 1 1 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.7rem;
+}
+
+.delta-group__label {
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.delta-group .setup-round-options .btn {
+  flex: 1;
+  text-align: center;
+}
+
+/* Botones de preset del picker (Random/Completo/Reducido) — pedido
+   explícito del usuario 2026-09-21: "tampoco quedan bien, hazlo mejor".
+   Icono + nombre + una pista corta de qué hace cada uno, en vez de 3
+   botones de texto plano estirados a la misma anchura. */
+.preset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.preset-btn {
+  flex: 1 1 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.6rem 0.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+}
+
+.preset-btn:hover {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+
+.preset-btn__icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.preset-btn__label {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+
+.preset-btn__hint {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
 
 .setup-error {
   color: var(--danger);

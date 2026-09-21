@@ -31,13 +31,19 @@ export const BOT_ALGORITHM_OPTIONS: { value: BotAlgorithm; label: string; shortL
 // jugador tenga que volver a elegir nada al cambiar de edición. 'learning'
 // usa siempre los bots clásicos (no hay entrenamiento propio para ella, ni
 // se va a entrenar uno — mismo mazo, solo el mercado recortado por coste).
-// 'full': si el especialista de ese hábitat todavía no está entrenado
+// 'full' Y 'custom' (2026-09-21: "Personalizado" sustituye al botón
+// "Completa" en la web, pero a nivel de motor sigue siendo edition==='custom',
+// distinto de 'full') usan los mismos bots de la completa: son los únicos
+// entrenados con el codificador FEATURE_DIM_FULL, el único que no es ciego a
+// ninguna especie/hábitat/efecto que una partida personalizada pueda incluir
+// (clásicas + extra de la completa, cualquier subconjunto). Si el
+// especialista de ese hábitat todavía no está entrenado
 // (fullLandRlBot/fullBirdRlBot/fullAquaticRlBot/rlBotFull ya caen solos en
 // heuristicBot cuando su weights*.json no es válido, ver rlBotFull.ts),
 // esto simplemente devuelve ese mismo heurístico — nunca unos pesos sin
 // entrenar jugando al azar.
 export function resolveBot(algorithm: BotAlgorithm, edition: GameEdition | undefined): Bot {
-  if (edition === 'full') {
+  if (edition === 'full' || edition === 'custom') {
     switch (algorithm) {
       case 'land':
         return fullLandRlBot;

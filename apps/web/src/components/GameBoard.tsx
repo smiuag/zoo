@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
+  effectiveMarketCost,
   getActivePlayer,
   getCard,
   hasCoinAtLeast,
@@ -107,8 +108,8 @@ export function GameBoard({
 }: GameBoardProps) {
   const activePlayer = getActivePlayer(state);
   // Mismo cálculo que ActivePlayerBoard (comparten el hook): aquí solo hace
-  // falta la cifra, para el badge flotante de móvil de más abajo — ver
-  // .money-float en styles.css.
+  // falta la cifra, para la barra inferior de más abajo — ver .bottom-bar
+  // en styles.css.
   const { purchasingPower, peak: purchasingPowerPeak } = useActivePlayerMoney(state, turnRestartCount);
   const human = state.players.find((p) => p.id === viewerPlayerId) ?? state.players[0];
   const bots = state.players.filter((p) => !humanIds.includes(p.id));
@@ -120,6 +121,15 @@ export function GameBoard({
   function marketCardPreviewPoints(card: CardInstance): number {
     const preview = { ...human, hand: [...human.hand, card] };
     return scoreCardContributions(preview).get(card.instanceId) ?? card.victoryPoints;
+  }
+  // Coste real de comprarla YA MISMO (ver effectiveMarketCost en el motor):
+  // a diferencia de marketCardPreviewPoints (que mira TU propia colección,
+  // tenga sentido o no en un momento dado), el descuento por dinosaurio
+  // solo lo puede gastar quien de verdad puede comprar ahora mismo — así
+  // que se calcula para activePlayer (de quien es el turno), no para
+  // human (quien mira la pantalla).
+  function marketCardLiveCost(card: CardInstance): number {
+    return effectiveMarketCost(activePlayer, card);
   }
   const scoreFor = (playerId: string) => scores.find((s) => s.playerId === playerId)?.score ?? 0;
   // En el marcador de arriba, un bot se identifica por el código corto de su
@@ -494,17 +504,50 @@ export function GameBoard({
   return (
     <div className="app">
       {!state.gameOver && (
-        // Solo visible en móvil (ver .money-float en styles.css): en
-        // pantalla ancha "Mesa de X" ya se ve a la vez que el mercado, pero
-        // en una columna sola el mercado queda muy por debajo — pedido
-        // explícito del usuario, poder ver el dinero disponible sin tener
-        // que volver a subir hasta la mesa mientras compras.
-        <p
-          className="money-float"
-          title={`Valor de compra de ${displayName(activePlayer, humanIds, botAlgorithms)}: ${purchasingPower} disponibles de ${purchasingPowerPeak} que ha llegado a tener este turno`}
-        >
-          💰 {purchasingPower}/{purchasingPowerPeak}
-        </p>
+        // Barra inferior: en escritorio es un panel normal más, en su sitio
+        // de siempre en el flujo de la página; en móvil (ver .bottom-bar en
+        // styles.css) pasa a position:fixed pegada abajo del todo — pedido
+        // explícito del usuario 2026-09-21: "los botones de pasar turno,
+        // reiniciar turno, el dinero... y el turno en el que estás,
+        // aparezcan siempre en pantalla, abajo, que sea lo demás lo que se
+        // mueve". Sustituye al antiguo .money-float (badge flotante en la
+        // esquina) y al panel de turn-controls (vivía aparte, más abajo en
+        // el layout, donde antes se veía "Terminar turno").
+        <div className="bottom-bar">
+          <span className="bottom-bar__turn">
+            Ronda {state.round}/{state.maxRounds ?? '∞'}
+            {!isOwnTurn && ` · turno de ${displayName(activePlayer, humanIds, botAlgorithms)}`}
+          </span>
+          <span
+            className="bottom-bar__money"
+            title={`Valor de compra de ${displayName(activePlayer, humanIds, botAlgorithms)}: ${purchasingPower} disponibles de ${purchasingPowerPeak} que ha llegado a tener este turno`}
+          >
+            💰 {purchasingPower}/{purchasingPowerPeak}
+          </span>
+          {isOwnTurn && (
+            <div className="bottom-bar__actions">
+              <button
+                ref={endTurnButtonRef}
+                className="btn btn--primary"
+                disabled={!legalActions.some((a) => a.type === 'endTurn')}
+                onClick={() => {
+                  if (hasUnusedTurnActions) {
+                    setConfirmEndTurn(true);
+                    return;
+                  }
+                  runAction(legalActions.find((a) => a.type === 'endTurn'));
+                }}
+              >
+                Terminar turno
+              </button>
+              {onRestartTurn && (
+                <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
+                  ↺ Reiniciar turno
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       )}
       {state.gameOver && (
         <div className="panel">
@@ -751,32 +794,6 @@ export function GameBoard({
             </div>
           )}
 
-          {isOwnTurn && (
-            <div className="panel">
-              <div className="turn-controls">
-                <button
-                  ref={endTurnButtonRef}
-                  className="btn btn--primary"
-                  disabled={!legalActions.some((a) => a.type === 'endTurn')}
-                  onClick={() => {
-                    if (hasUnusedTurnActions) {
-                      setConfirmEndTurn(true);
-                      return;
-                    }
-                    runAction(legalActions.find((a) => a.type === 'endTurn'));
-                  }}
-                >
-                  Terminar turno
-                </button>
-                {onRestartTurn && (
-                  <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
-                    ↺ Reiniciar turno
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
           {pendingChoice && (
             <div className="panel panel--choice" ref={choiceRef}>
               <div className="panel__header">
@@ -817,6 +834,7 @@ export function GameBoard({
                     disabled={!isMarketCardClickable(card)}
                     remainingLabel={String((state.sharedDecks[card.species ?? ''] ?? []).length + 1)}
                     livePoints={marketCardPreviewPoints(card)}
+                    liveCost={marketCardLiveCost(card)}
                   />
                 </div>
               ))}

@@ -1,4 +1,22 @@
-import type { GameEdition } from '@zoo/engine';
+import { ANIMAL_SPECIES, FULL_EDITION_EXTRA_SPECIES, type GameEdition } from '@zoo/engine';
+
+// Todas las especies elegibles en el picker de la edición "Personalizado"
+// (clásicas + las extra de la completa) — ni el Perezoso ni las monedas
+// entran aquí, no son especies de mercado (ver marketSpeciesFor en el
+// motor).
+export const CUSTOM_PICKABLE_SPECIES: readonly string[] = [...ANIMAL_SPECIES, ...FULL_EDITION_EXTRA_SPECIES];
+
+// Delta de copias iniciales por tramo de coste (ver initialMarketCopies en
+// el motor), solo para edition === 'custom'. Rango fijo -2..+2 (pedido
+// explícito del usuario: botones discretos, no un campo numérico libre).
+export interface CustomCopyDeltas {
+  cheap: number;
+  expensive: number;
+}
+export const CUSTOM_COPY_DELTA_OPTIONS = [-2, -1, 0, 1, 2] as const;
+// Por defecto +2 en baratas (coste<5) y 0 en caras (coste>=5) — pedido
+// explícito del usuario 2026-09-21, no 0/0.
+export const DEFAULT_CUSTOM_COPY_DELTAS: CustomCopyDeltas = { cheap: 2, expensive: 0 };
 // Los 4 algoritmos de IA disponibles para cada hueco de bot (pedido
 // explícito del usuario 2026-09-21: solo estos 4, nunca los heurísticos/
 // aleatorio como opción visible): 'general' sin restricción de hábitat,
@@ -81,6 +99,12 @@ export interface SetupPrefs {
   botAlgorithms: BotAlgorithm[];
   roundLimit: RoundLimit;
   animationsEnabled: boolean;
+  // Solo tienen sentido con edition === 'custom' (ver lib/edition.ts, que
+  // guarda la edición por separado): se recuerdan aquí para que el picker de
+  // cartas abra con la última selección del jugador en vez de vacío. Ausentes
+  // si nunca se ha usado "Personalizado" en este dispositivo.
+  customSpecies?: string[];
+  customCopyDeltas?: CustomCopyDeltas;
 }
 
 const SETUP_PREFS_STORAGE_KEY = 'zoo.setupPrefs';
@@ -113,7 +137,29 @@ export function loadSavedSetupPrefs(): SetupPrefs | null {
       ? (Number(parsed.roundLimit) as RoundLimit)
       : DEFAULT_ROUND_LIMIT;
 
-    return { numHumans, botAlgorithms, roundLimit, animationsEnabled: Boolean(parsed.animationsEnabled) };
+    // customSpecies: más tolerante que botAlgorithms a propósito — si una
+    // especie guardada ya no existe (p. ej. tras quitar una carta del
+    // juego), se descarta solo esa, no se invalida todo lo demás recordado.
+    const customSpecies = Array.isArray(parsed.customSpecies)
+      ? parsed.customSpecies.filter((s): s is string => typeof s === 'string' && CUSTOM_PICKABLE_SPECIES.includes(s))
+      : undefined;
+
+    const rawDeltas = parsed.customCopyDeltas;
+    const isValidDelta = (n: unknown): n is number =>
+      typeof n === 'number' && (CUSTOM_COPY_DELTA_OPTIONS as readonly number[]).includes(n);
+    const customCopyDeltas =
+      rawDeltas && typeof rawDeltas === 'object' && isValidDelta(rawDeltas.cheap) && isValidDelta(rawDeltas.expensive)
+        ? { cheap: rawDeltas.cheap, expensive: rawDeltas.expensive }
+        : DEFAULT_CUSTOM_COPY_DELTAS;
+
+    return {
+      numHumans,
+      botAlgorithms,
+      roundLimit,
+      animationsEnabled: Boolean(parsed.animationsEnabled),
+      customSpecies,
+      customCopyDeltas,
+    };
   } catch {
     return null;
   }
@@ -148,6 +194,11 @@ export interface GameConfig {
   guestNicks?: Record<string, string>;
   // Edición de la baraja (ver lib/edition.ts); ausente = 'classic', la oficial.
   edition?: GameEdition;
+  // Solo se usan con edition === 'custom' (ver GameSettingsModal.tsx):
+  // especies elegidas para el mercado de esta partida, y deltas de copias
+  // iniciales por tramo de coste.
+  customSpecies?: string[];
+  customCopyDeltas?: CustomCopyDeltas;
 }
 
 export function defaultGameConfig(): GameConfig {

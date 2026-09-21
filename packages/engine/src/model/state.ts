@@ -152,6 +152,18 @@ export interface GameState {
   // Edición con la que se creó la partida (ver GameEdition). Ausente en
   // partidas guardadas antiguas = 'classic'.
   edition?: GameEdition;
+  // Solo presente con edition === 'custom': especies elegidas para el
+  // mercado de ESTA partida, sustituyendo a ANIMAL_SPECIES/
+  // FULL_EDITION_EXTRA_SPECIES (ver marketSpeciesFor en engine.ts). Se
+  // recuerda aquí, no solo al crear la partida, porque marketSpeciesFor/
+  // isMarketSpecies/checkFinalRoundTrigger se vuelven a llamar durante toda
+  // la partida.
+  customSpeciesList?: string[];
+  // Solo presente con edition === 'custom': deltas aplicados sobre la
+  // fórmula normal de initialMarketCopies (numPlayers+2 para coste<5,
+  // numPlayers para coste>=5), por separado para cada tramo — pedido
+  // explícito del usuario 2026-09-21.
+  customCopyDeltas?: { cheap: number; expensive: number };
   players: Player[];
   activePlayerIndex: number;
   turn: number;
@@ -202,24 +214,38 @@ export interface GameState {
 // handlers de efectos puedan usarla sin crear una dependencia circular.
 // 'classic': la baraja OFICIAL — 33 especies y solo los 3 hábitats de
 // siempre; es lo único que se imprime, pero las 3 ediciones se ofrecen por
-// igual en la web publicada. 'full' (2026-09-21: publicada, antes solo
-// disponible en localhost): añade mascotas y dinosaurios (varias especies más
-// y los tipos extra 'pet'/'dinosaur'). 'learning' (2026-09-21, pedido
-// explícito del usuario): mismo mazo clásico de siempre (mismos 3 hábitats,
-// sin mascotas/dinosaurios) pero el mercado solo ofrece las especies de coste
-// 4 o menos (21 de las 33) — pensado para partidas más sencillas, sin las
-// cartas caras/complejas. Ver marketSpeciesFor en engine.ts.
-export type GameEdition = 'classic' | 'full' | 'learning';
+// igual en la web publicada. 'full': añade mascotas y dinosaurios (varias
+// especies más y los tipos extra 'pet'/'dinosaur') — YA NO tiene botón propio
+// en la web (2026-09-21: sustituido por 'custom', ver abajo), pero sigue
+// siendo un valor válido a nivel de motor (tests, scripts de entrenamiento RL
+// con RL_EDITION=full, y resolveBot en la web siguen usándolo). 'learning'
+// (2026-09-21, pedido explícito del usuario): mismo mazo clásico de siempre
+// (mismos 3 hábitats, sin mascotas/dinosaurios) pero el mercado solo ofrece
+// las especies de coste 4 o menos (21 de las 33) — pensado para partidas más
+// sencillas, sin las cartas caras/complejas. 'custom' (2026-09-21, pedido
+// explícito del usuario, sustituye al botón "Completa" en la web): el
+// jugador elige a mano, desde el panel de configuración, exactamente qué
+// especies (de las clásicas + las extra de la completa) entran en el
+// mercado de ESTA partida (ver GameState.customSpeciesList) y cuántas copias
+// iniciales hay de cada tramo de coste (ver GameState.customCopyDeltas) — se
+// comporta como 'full' para todo lo demás (texto/tipos extra de las cartas,
+// ver mintInstance). Ver marketSpeciesFor en engine.ts.
+export type GameEdition = 'classic' | 'full' | 'learning' | 'custom';
 
 const EXTRA_TYPES = ['pet', 'dinosaur'];
 
 // En la edición clásica las cartas pierden los tipos extra al entrar en la
 // partida (el Pez de colores vuelve a ser solo acuático, etc.): así ni la
 // etiqueta de la carta ni ningún efecto ven nada de la edición completa.
+// 'custom' se trata igual que 'full' aquí: una especie de la completa
+// incluida en una partida personalizada debe conservar su texto alternativo
+// y sus tipos extra tal cual, no los de la clásica.
 export function mintInstance(state: GameState, card: Card): CardInstance {
   const instanceId = `${card.id}#${state.nextInstanceId}`;
   state.nextInstanceId += 1;
-  if (state.edition === 'full') return { ...card, text: card.fullEditionText ?? card.text, instanceId };
+  if (state.edition === 'full' || state.edition === 'custom') {
+    return { ...card, text: card.fullEditionText ?? card.text, instanceId };
+  }
   return { ...card, habitats: card.habitats.filter((h) => !EXTRA_TYPES.includes(h)), instanceId };
 }
 
