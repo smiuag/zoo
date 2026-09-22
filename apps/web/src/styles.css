@@ -2537,10 +2537,10 @@ body {
   margin: 0;
   font-size: 1rem;
   line-height: 1.5;
-  /* Altura reservada para que el tablero de abajo no "salte" arriba y abajo
-     entre pasos de texto corto y largo (solo en escritorio; en móvil el
-     bocadillo es fijo y flota sobre el tablero, ver más abajo). */
-  min-height: 4.5em;
+  /* Altura reservada (4 líneas, el texto más largo) para que el tablero de
+     abajo no "salte" entre pasos de texto corto y largo (solo en
+     escritorio; en móvil el bocadillo es fijo y flota sobre el tablero). */
+  min-height: 6em;
 }
 
 .tutorial__progress {
@@ -2569,12 +2569,35 @@ body {
 
 .tutorial__board {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-content: flex-start;
   gap: 0.6rem;
   /* Escritorio: todas las "diapositivas" con la misma altura, para que los
-     botones de abajo no se muevan de sitio entre pasos (usuario 2026-09-22).
-     En móvil los botones ya son fijos (ver más abajo) y no hace falta. */
-  min-height: 470px;
+     botones de abajo no se muevan de sitio entre pasos (usuario 2026-09-22):
+     la altura del paso más alto (mercado + montones + mano y mesa). En
+     móvil los botones ya son fijos (ver más abajo) y no hace falta. */
+  min-height: 640px;
+}
+
+.tutorial__slot {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+/* Escritorio: mano y "jugado este turno" una al lado de la otra, que si no
+   el paso con las cuatro zonas se hacía altísimo. */
+.tutorial__slot--hand {
+  /* Ancho para 5 cartas en una sola fila. */
+  flex: 1 1 calc(58% - 0.3rem);
+}
+
+.tutorial__slot--played {
+  flex: 1 1 calc(42% - 0.3rem);
+}
+
+.tutorial__slot > * {
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .tutorial__zone,
@@ -2747,6 +2770,7 @@ body {
   display: inline-flex;
   align-items: baseline;
   gap: 0.25rem;
+  margin-top: 0.3rem;
   padding: 0.15rem 0.6rem;
   border-radius: 999px;
   background: var(--accent);
@@ -2919,6 +2943,10 @@ body {
   }
   .tutorial__board {
     min-height: 0;
+  }
+  .tutorial__slot--hand,
+  .tutorial__slot--played {
+    flex-basis: 100%;
   }
   .tutorial__step {
     position: fixed;

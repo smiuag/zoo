@@ -662,17 +662,15 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
             <span className="card__badge">{shown.deck}</span>
           </div>
           {shown.shuffling && <span className="tutorial__shuffle-label">barajando el descarte…</span>}
+          {step.showPv && (
+            <div className="tutorial__pv" key={shown.pv}>
+              ⭐ {shown.pv} <small>PV</small>
+            </div>
+          )}
         </div>
 
         <div className="tutorial__pile tutorial__pile--discard">
-          <h4>
-            Descarte · {shown.discard.length}
-            {step.showPv && (
-              <span className="tutorial__pv" key={shown.pv}>
-                ⭐ {shown.pv} <small>PV</small>
-              </span>
-            )}
-          </h4>
+          <h4>Descarte · {shown.discard.length}</h4>
           <div className="tutorial__discard" ref={discardRef}>
             {topDiscard.length === 0 && <div className="card card--compact card--empty" />}
             {topDiscard.map((id, i) => {
@@ -788,7 +786,7 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
 
         <div className="tutorial__board">
           {step.show.map((zone) => (
-            <div key={zone} className="tutorial__slot">
+            <div key={zone} className={`tutorial__slot tutorial__slot--${zone}`}>
               {zones[zone]()}
             </div>
           ))}
