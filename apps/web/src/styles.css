@@ -2516,7 +2516,11 @@ body {
   font-size: 1.05rem;
 }
 
-.tutorial__step {
+.tutorial {
+  position: relative;
+}
+
+.tutorial__step-inner {
   animation: tutorial-fade 0.35s ease;
 }
 
@@ -2531,7 +2535,8 @@ body {
   font-size: 1rem;
   line-height: 1.5;
   /* Altura reservada para que el tablero de abajo no "salte" arriba y abajo
-     entre pasos de texto corto y largo. */
+     entre pasos de texto corto y largo (solo en escritorio; en móvil el
+     bocadillo es fijo y flota sobre el tablero, ver más abajo). */
   min-height: 4.5em;
 }
 
@@ -2599,6 +2604,12 @@ body {
   min-height: calc(var(--card-compact-h) + 6px);
 }
 
+/* El mercado siempre tiene las mismas 7 cartas: sin "pop" al cambiar de
+   paso (solo cambia cuál se señala / cuáles están apagadas). */
+.tutorial__zone--market .tutorial__card {
+  animation: none;
+}
+
 .tutorial__empty {
   font-size: 0.8rem;
   font-style: italic;
@@ -2612,17 +2623,27 @@ body {
   animation: tutorial-pop 0.45s ease;
 }
 
-.tutorial__card--highlight .card,
-.tutorial__card--bought .card {
+.tutorial__card .card {
+  transition: opacity 0.3s ease;
+}
+
+.tutorial__card--highlight .card {
   box-shadow:
     0 0 0 3px var(--accent),
     0 0 16px 4px rgba(47, 109, 79, 0.45);
 }
 
+/* Mientras la copia "fantasma" vuela hacia el descarte, la del mercado se
+   queda medio transparente: se entiende que es ESA la que se va. */
+.tutorial__card--leaving .card {
+  opacity: 0.35;
+}
+
 .tutorial__piles {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: auto auto 1fr;
   gap: 0.6rem;
+  align-items: start;
 }
 
 .tutorial__pile .card--facedown {
@@ -2660,28 +2681,24 @@ body {
   top: 0;
 }
 
-.tutorial__pile--pv {
-  display: flex;
-  flex-direction: column;
-}
-
+/* Contador de puntos: discreto (una píldora), no un numerote — pedido del
+   usuario 2026-09-22. */
 .tutorial__pv {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.2rem;
-  font-size: 2.4rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 1.05rem;
   font-weight: 800;
-  color: var(--accent);
   animation: tutorial-pop 0.45s ease;
 }
 
 .tutorial__pv small {
-  font-size: 0.9rem;
-  color: var(--muted);
-  align-self: flex-end;
-  margin-bottom: 0.7rem;
+  font-size: 0.7rem;
+  opacity: 0.8;
 }
 
 .tutorial__final {
@@ -2747,6 +2764,85 @@ body {
   }
 }
 
+/* Móvil: el texto del paso es un BOCADILLO fijo arriba y los botones una
+   barra fija abajo; el tablero hace scroll por debajo. Así nunca se tapan el
+   texto y los botones entre sí, que era lo que pasaba con todo en flujo en
+   una pantalla de teléfono — pedido del usuario 2026-09-22. La altura del
+   bocadillo la mide Tutorial.tsx (--tut-bubble-h). */
+@media (max-width: 860px) {
+  .app--setup:has(.tutorial) {
+    align-items: flex-start;
+  }
+  .tutorial {
+    padding-top: calc(var(--tut-bubble-h, 9rem) + 1.1rem);
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+  .tutorial__step {
+    position: fixed;
+    top: 0.5rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    z-index: 60;
+    background: var(--ink);
+    color: #fff;
+    border-radius: 14px;
+    padding: 0.55rem 0.8rem 0.65rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  /* Colita del bocadillo, abajo a la izquierda. */
+  .tutorial__step::after {
+    content: '';
+    position: absolute;
+    left: 1.4rem;
+    bottom: -9px;
+    border-left: 9px solid transparent;
+    border-right: 9px solid transparent;
+    border-top: 10px solid var(--ink);
+  }
+  .tutorial__step h3 {
+    color: #fff;
+    font-size: 1rem;
+    margin: 0.2rem 0 0.2rem;
+  }
+  .tutorial__step p {
+    font-size: 0.88rem;
+    line-height: 1.4;
+    min-height: 0;
+    color: #f1efe8;
+  }
+  .tutorial__progress {
+    color: #d9d5c8;
+    font-size: 0.72rem;
+  }
+  .tutorial__progress-bar {
+    background: rgba(255, 255, 255, 0.25);
+  }
+  .tutorial__progress-bar > span {
+    background: #9fd4b4;
+  }
+  /* Los montones (mazo/descarte/puntos) justo debajo del mercado: así, al
+     comprar, el vuelo de la carta del mercado al descarte se ve entero sin
+     hacer scroll (en escritorio cabe todo y van al final, como en la mesa
+     real). */
+  .tutorial__piles {
+    order: -1;
+  }
+  .tutorial__zone--market {
+    order: -2;
+  }
+  .tutorial__controls {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    padding: 0.5rem 0.6rem calc(0.5rem + env(safe-area-inset-bottom));
+    background: var(--panel-bg);
+    border-top: 1px solid var(--panel-border);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.18);
+  }
+}
+
 @media (max-width: 480px) {
   /* Cartas algo más pequeñas para que la mano de 5 quepa en una sola fila
      en un teléfono estrecho. */
@@ -2763,17 +2859,9 @@ body {
     width: calc(54px + 28px);
   }
   .tutorial__piles {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: auto auto;
   }
   .tutorial__pile--pv {
     grid-column: 1 / -1;
-  }
-  .tutorial__pv {
-    font-size: 2rem;
-    padding: 0.3rem 0;
-  }
-  .tutorial__step p {
-    font-size: 0.95rem;
-    min-height: 6em;
   }
 }

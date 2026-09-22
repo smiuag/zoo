@@ -694,6 +694,22 @@ export function GameBoard({
     </div>
   );
 
+  // Monedas comprables del mercado (Plata/Oro/Platino). En móvil, en orden
+  // inverso igual que los animales (la más cara arriba).
+  const coinIds = isDesktop ? PURCHASABLE_COIN_IDS : [...PURCHASABLE_COIN_IDS].reverse();
+  const coinShop = coinIds.map((coinId) => {
+    const card = { ...getCard(coinId), instanceId: coinId } as CardInstance;
+    return (
+      <CardView
+        key={coinId}
+        card={card}
+        onClick={() => handleBuyCoinClick(coinId)}
+        disabled={!isCoinShopClickable(coinId)}
+        remainingLabel="∞"
+      />
+    );
+  });
+
   return (
     <div className="app">
       {isDesktop ? (
@@ -1007,6 +1023,11 @@ export function GameBoard({
         <div className="layout__right">
           <div className="panel panel--market">
             <div className="card-row card-row--market">
+              {/* Móvil: las monedas comprables van PRIMERO (arriba, junto a
+                  los animales caros, con el mercado invertido) — pedido
+                  explícito del usuario 2026-09-22; en escritorio, al final
+                  como siempre. */}
+              {!isDesktop && coinShop}
               {sortedAnimalTrack.map((card) => (
                 <div
                   key={card.instanceId}
@@ -1024,18 +1045,7 @@ export function GameBoard({
                   />
                 </div>
               ))}
-              {PURCHASABLE_COIN_IDS.map((coinId) => {
-                const card = { ...getCard(coinId), instanceId: coinId } as CardInstance;
-                return (
-                  <CardView
-                    key={coinId}
-                    card={card}
-                    onClick={() => handleBuyCoinClick(coinId)}
-                    disabled={!isCoinShopClickable(coinId)}
-                    remainingLabel="∞"
-                  />
-                );
-              })}
+              {isDesktop && coinShop}
             </div>
           </div>
         </div>
