@@ -2683,7 +2683,8 @@ body {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 0.6rem;
-  align-items: start;
+  /* Las dos cajas (Mazo y Descarte) SIEMPRE con la misma altura. */
+  align-items: stretch;
 }
 
 .tutorial__pile .card--facedown {
