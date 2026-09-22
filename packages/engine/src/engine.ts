@@ -687,7 +687,21 @@ function targetedEffectCandidates(state: GameState, player: Player, card: CardIn
   const discardCoinToDraw = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'discardCoinMinValueToDrawCards');
   if (discardCoinToDraw) return discardCoinCandidates(player, discardCoinToDraw.params?.minValue);
   const exchangeCoin = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'exchangeCoinForFixed');
-  if (exchangeCoin) return discardCoinCandidates(player, 0);
+  if (exchangeCoin) {
+    // Pez Dorado: nunca se ofrece como elegible una moneda de valor IGUAL O
+    // MAYOR que la que se recibe a cambio — pedido explícito del usuario
+    // 2026-09-22, "fixea para que nunca cambie una moneda mejor por un
+    // oro". Antes se ofrecía cualquier moneda (incluida Platino) y solo la
+    // política de la IA decidía cuál, con un margen de puntuación
+    // demasiado pequeño para fiarse (confirmado: 66.28 Bronce vs 65.93
+    // Platino, una diferencia de solo 0.35). Ahora es una regla del propio
+    // efecto, no una preferencia aprendida: un empeoramiento no es una
+    // opción legal, para IA ni para humanos.
+    const targetCoinId = exchangeCoin.params?.targetCoinId;
+    const targetValue = typeof targetCoinId === 'string' ? (getCard(targetCoinId).value ?? 0) : 0;
+    const eligible = player.hand.filter((c) => c.type === 'coin' && typeof c.value === 'number' && c.value < targetValue);
+    return dedupeByKey(eligible, (c) => c.value as number);
+  }
   return null;
 }
 

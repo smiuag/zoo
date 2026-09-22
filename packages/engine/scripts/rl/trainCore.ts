@@ -31,6 +31,7 @@ import { scoreGame, scorePlayer, type PlayerScore } from '../../src/scoring';
 import { accumulateGrad, softmax, zeroGrad, type Gradient } from './train';
 import { computeReturn } from './reward';
 import scalerCalibrationData from './scalerCalibration.json';
+import scalerCalibrationFullData from './scalerCalibrationFull.json';
 
 // Edición para la que se entrena (2026-09-21): 'full' usa el codificador de
 // features de la edición completa (ver featuresFull.ts, dimensión propia,
@@ -87,9 +88,9 @@ export const SHAPING_WEIGHT = Number(process.env.RL_SHAPING_WEIGHT ?? 3);
 // de jugar cartas que roban (Cerdo, ver playOneGame) — pedido explícito del
 // usuario 2026-09-22: "el ajuste no debería ser solo para no penalizar el
 // gasto de la moneda, sino añadir el valor de la acción de alguna manera".
-// Estimación conservadora del PV medio de una carta cualquiera, no
-// calibrada con datos reales (la completa no tiene SCALER_CALIBRATION
-// todavía) — fácil de ajustar si con el tiempo parece muy alta o muy baja.
+// Estimación conservadora del PV medio de una carta cualquiera (no viene de
+// SCALER_CALIBRATION, que solo calibra las cartas "acumulativas" concretas,
+// no esto) — fácil de ajustar si con el tiempo parece muy alta o muy baja.
 export const CARD_DRAW_VALUE = Number(process.env.RL_CARD_DRAW_VALUE ?? 2);
 
 // Exploración epsilon-greedy (2026-09-16): con esta probabilidad, la acción
@@ -213,16 +214,25 @@ export const RL_CURRICULUM_OPPONENTS =
 // animales acuáticos de media). Se regenera a mano cuando cambien estas
 // cartas o el balance general del mazo — no en cada batch de
 // entrenamiento, sería demasiado caro.
-// Edición completa: sin calibración propia todavía (scalerCalibration.json
-// solo tiene entradas de la clásica) — shapedPurchaseValue ya maneja
-// calibrated===undefined cayendo al delta en vivo sin más, así que esto
-// simplemente empieza "sin calibrar" en vez de mezclar valores calculados
-// para otro mazo. Se puede generar la suya propia más adelante con
-// calibrateScalerValues.ts una vez haya un bot ya entrenado con el que jugar
-// esas partidas.
+// Edición completa (2026-09-22, pedido explícito del usuario a raíz del
+// Plesiosaurio y la Oca — ambas quedaban prácticamente muertas sin esto,
+// "es absurdo, son algunas de las cartas que más puntos dan"): calibración
+// propia, generada con calibrateScalerValuesFull.ts contra los bots YA
+// entrenados de la completa — nunca se reutilizan los números de la
+// clásica (scalerCalibration.json), calculados con un mazo distinto (más
+// especies por hábitat en la completa, así que el mismo efecto "+1PV por
+// acuático en tu colección" cuenta de media un número distinto de
+// cartas). A diferencia de la clásica, calibrateScalerValuesFull.ts
+// escanea TODAS las cartas cargadas buscando COMPOUNDING_SCORE_EFFECT_TYPES
+// en vez de una lista de ids a mano (así se cubre automáticamente cualquier
+// carta nueva con ese tipo de efecto, sin tener que acordarse de añadirla
+// aquí) — hoy cubre Águila/Orca/Oso polar/Albatros/Tucán/Oca (heredadas de
+// la clásica o propias) más Tiburón/Plesiosaurio (propias de la completa).
+// Se regenera a mano tras un reentrenamiento grande de la completa (nunca
+// en cada batch): `npx vite-node scripts/rl/calibrateScalerValuesFull.ts`.
 export const SCALER_CALIBRATION: Record<string, number> =
   RL_EDITION === 'full'
-    ? {}
+    ? ((scalerCalibrationFullData as Record<string, Record<string, number>>)[CURRENT_VARIANT] ?? {})
     : ((scalerCalibrationData as Record<string, Record<string, number>>)[CURRENT_VARIANT] ?? {});
 
 // Valor de shaping de una compra (2026-09-16, sustituye a "la constante

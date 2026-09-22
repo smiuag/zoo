@@ -274,6 +274,21 @@ describe('Pez Dorado: cambia una moneda por una bellota dorada (Oro)', () => {
     expect(player.hand.some((c) => c.instanceId === bronze.instanceId)).toBe(false);
     expect(player.hand.some((c) => c.id === 'coin-3')).toBe(true);
   });
+
+  it('nunca ofrece una moneda de valor igual o mayor al Oro que da a cambio (ni Oro ni Platino)', () => {
+    const { state, player } = setupClean();
+    const goldenFish = freshInstance('golden-fish', 'x');
+    const bronze = freshInstance('coin-1', 'bronze');
+    const gold = freshInstance('coin-3', 'gold');
+    const platinum = freshInstance('coin-5', 'platinum');
+    player.hand = [goldenFish, bronze, gold, platinum];
+
+    const targets = getLegalActions(state, player.id)
+      .filter((a) => a.type === 'playCard' && a.instanceId === goldenFish.instanceId)
+      .map((a) => (a.type === 'playCard' ? a.targetInstanceId : undefined));
+
+    expect(targets).toEqual([bronze.instanceId]);
+  });
 });
 
 describe('Pterodáctilo: captura un dinosaurio de coste inferior a 6 al jugarlo', () => {

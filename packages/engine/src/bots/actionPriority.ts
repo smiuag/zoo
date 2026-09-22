@@ -47,23 +47,48 @@ function hasCompoundingScoreEffect(card: CardInstance): boolean {
   return card.effects.some((e) => e.trigger === 'onScore' && COMPOUNDING_SCORE_EFFECT_TYPES.has(e.type));
 }
 
+// Coste a partir del cual un dinosaurio cuenta como "grande" a efectos de
+// esta excepción — pedido explícito del usuario 2026-09-22: hoy en día son
+// Pterodáctilo(7), Tiranosaurio/Mosasaurio/Pteranodon(9), Diplodocus(11) y
+// Plesiosaurio(13, ya exento aparte por acumulativo), o sea todos los
+// dinosaurios reales de la completa — pero se deja como umbral de coste, no
+// una lista de ids, para que un dinosaurio nuevo caro quede cubierto solo.
+const BIG_DINOSAUR_MIN_COST = 7;
+
+// Cartas que cualquier especialista puede comprar aunque no encajen con su
+// hábitat — pedido explícito del usuario 2026-09-22, ampliando la excepción
+// que ya existía para las acumulativas (ver más abajo):
+// - Gato: su utilidad (salvarte de una eliminación forzosa) no depende del
+//   hábitat de quien lo compra, igual que las acumulativas no dependen de
+//   ser tú mismo ese hábitat.
+// - Dinosaurios "grandes" (coste >= BIG_DINOSAUR_MIN_COST): son la
+//   estrategia de remontada más fuerte del juego (ver el salto de PV del
+//   terrestre en el turno 8 al entrar el Tiranosaurio, sesión 2026-09-22) —
+//   vetarlos de raíz a quien no sea de su hábitat le impedía a cualquier
+//   especialista aprender si merece la pena perseguirla de todas formas.
+function isCrossHabitatException(card: CardInstance): boolean {
+  if (hasCompoundingScoreEffect(card)) return true;
+  if (card.id === 'cat') return true;
+  if ((card.habitats as string[] | undefined)?.includes('dinosaur') && (card.marketCost ?? 0) >= BIG_DINOSAUR_MIN_COST) return true;
+  return false;
+}
+
 // Filtra buyAnimal a un solo hábitat (especialistas de RL, ver
-// habitatFilter en rlBot.ts y HABITAT_FILTER en trainCore.ts), con UNA
-// excepción: cartas con un efecto onScore "acumulativo" (Águila/Orca/Oso
-// polar/Albatros/Tucán/Tiburón, ver COMPOUNDING_SCORE_EFFECT_TYPES) se
-// pueden comprar aunque no encajen con el hábitat — pedido explícito del
-// usuario, 2026-09-16: su valor no depende de que la carta en sí sea de tu
-// hábitat (el bonus de la Orca es sobre TUS acuáticos, no sobre si Orca lo
-// es), así que vetarlas de raíz le impedía a cualquier especialista aprender
-// si alguna vez merece la pena hacerse con una de todas formas (por su otro
-// efecto onPlay, o para topear puntuación al final). Antes esta lógica vivía
-// duplicada e idéntica dentro de rlBot.ts; ahora la comparten ambos sitios.
+// habitatFilter en rlBot.ts y HABITAT_FILTER en trainCore.ts), con
+// excepciones (ver isCrossHabitatException) — su valor no depende de que la
+// carta en sí sea de tu hábitat (el bonus de la Orca es sobre TUS
+// acuáticos, no sobre si Orca lo es; el Gato protege pase lo que pase; un
+// dinosaurio grande vale igual de remontada para cualquiera), así que
+// vetarlas de raíz le impedía a cualquier especialista aprender si alguna
+// vez merece la pena hacerse con una de todas formas. Antes esta lógica
+// vivía duplicada e idéntica dentro de rlBot.ts; ahora la comparten ambos
+// sitios.
 export function filterActionsByHabitat(state: GameState, actions: Action[], habitat: string): Action[] {
   return actions.filter((action) => {
     if (action.type !== 'buyAnimal') return true;
     const animal = state.animalTrack.find((c) => c.instanceId === action.trackInstanceId);
     if (!animal) return false;
-    if (hasCompoundingScoreEffect(animal)) return true;
+    if (isCrossHabitatException(animal)) return true;
     return (animal.habitats as string[] | undefined)?.includes(habitat) ?? false;
   });
 }
