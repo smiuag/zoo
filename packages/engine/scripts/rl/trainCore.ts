@@ -83,6 +83,15 @@ export const ADVANTAGE_CLIP = 5;
 // ahora".
 export const SHAPING_WEIGHT = Number(process.env.RL_SHAPING_WEIGHT ?? 3);
 
+// Valor (en PV-equivalentes) de una carta extra en la mano, para el shaping
+// de jugar cartas que roban (Cerdo, ver playOneGame) — pedido explícito del
+// usuario 2026-09-22: "el ajuste no debería ser solo para no penalizar el
+// gasto de la moneda, sino añadir el valor de la acción de alguna manera".
+// Estimación conservadora del PV medio de una carta cualquiera, no
+// calibrada con datos reales (la completa no tiene SCALER_CALIBRATION
+// todavía) — fácil de ajustar si con el tiempo parece muy alta o muy baja.
+export const CARD_DRAW_VALUE = Number(process.env.RL_CARD_DRAW_VALUE ?? 2);
+
 // Exploración epsilon-greedy (2026-09-16): con esta probabilidad, la acción
 // del aprendiz se elige UNIFORME entre las candidatas en vez de muestrear
 // el softmax de sus scores. Motivo: el softmax a temperatura 1 sobre scores
@@ -453,6 +462,9 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
     // mano — el número ya sale más alto solo porque currentPurchasingPower
     // sube más ese turno en concreto.
     const purchasingPowerBefore = chosenAction.type === 'playCard' ? currentPurchasingPower(player) : 0;
+    // Cuántas cartas hay en la mano justo antes de jugar esta (incluida ella
+    // misma) — ver netCardsGained más abajo.
+    const handLengthBefore = chosenAction.type === 'playCard' ? player.hand.length : 0;
     const roundProgress = state.maxRounds !== null ? Math.min(1, state.round / state.maxRounds) : 0;
 
     applyAction(state, player.id, chosenAction);
@@ -462,7 +474,29 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
       const pvDelta = scorePlayer(state, player) - scoreBefore;
       shapingBonus = shapedPurchaseValue(pvDelta + discountRealized, calibratedValue, roundProgress) / 20;
     } else if (chosenAction.type === 'playCard') {
-      shapingBonus = (currentPurchasingPower(player) - purchasingPowerBefore) / 20;
+      // Ajustado (pedido explícito del usuario 2026-09-22, "no solo para no
+      // penalizar el gasto de la moneda, sino añadir el valor de la acción
+      // de alguna manera"): descartar una moneda para conseguir algo que no
+      // es dinero (Cerdo roba cartas, Nutria mira 3 y se queda 1) bajaba
+      // currentPurchasingPower sin que nada compensara esa bajada, así que
+      // el Cerdo puntuaba siempre negativo pese a ser una carta claramente
+      // buena — el acuático, que compra mucho Pez Dorado, lo notaba más.
+      // Dos piezas:
+      // 1. El delta de valor de captura nunca resta (suelo en 0): sigue
+      //    premiando un buen intercambio (Pez Dorado con una moneda floja),
+      //    pero deja de castigar el simple hecho de gastar una moneda en
+      //    algo que no es dinero.
+      // 2. netCardsGained: cuántas cartas de más quedan en la mano, ya
+      //    compensando que la propia carta jugada sale de ella (jugar una
+      //    carta sin ningún robo/descarte da 0, ni premia ni castiga). El
+      //    Cerdo escala solo con esto: Bronce -> 0 extra, Oro -> +2,
+      //    Platino -> +4 — más moneda arriesgada, más cartas, más shaping.
+      //    La Nutria (mira 3, quédate 1) se queda en 0: no cambia cuántas
+      //    cartas tienes, solo CUÁLES — esa parte queda sin resolver todavía,
+      //    limitación conocida, no un intento fallido.
+      const purchasingPowerDelta = currentPurchasingPower(player) - purchasingPowerBefore;
+      const netCardsGained = player.hand.length - handLengthBefore + 1;
+      shapingBonus = (Math.max(0, purchasingPowerDelta) + netCardsGained * CARD_DRAW_VALUE) / 20;
     }
 
     trajectories.get(player.id)?.push({
