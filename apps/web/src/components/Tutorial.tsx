@@ -55,8 +55,10 @@ const OS = 'polar-bear';
 // misma especie, así que aquí la carta comprada simplemente sigue ahí.
 const MARKET = ['goldfish', 'rabbit', PG, MO, HI, LE, OS];
 
-// Mazo inicial "desplegado" (primer paso): 7 Bronce + 3 Perezosos.
-const STARTER_DECK = [B, B, B, B, B, B, B, P, P, P];
+// Mazo inicial "desplegado" (primer paso): 7 Bronce en una fila y 3
+// Perezosos en otra, siempre así sea cual sea el ancho (usuario 2026-09-22).
+const STARTER_BRONZE = [B, B, B, B, B, B, B];
+const STARTER_SLOTHS = [P, P, P];
 
 // Reserva (lo que no es de nadie): las copias de los animales que faltan
 // por salir al mercado y las monedas. De aquí llega la Plata que da el
@@ -570,7 +572,7 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
     else cardRefs.current.delete(key);
   };
 
-  function renderCards(zone: 'hand' | 'played' | 'deck-spread', cards: string[], empty: string, glow?: string[]) {
+  function renderCards(zone: 'hand' | 'played' | 'deck-bronze' | 'deck-sloths', cards: string[], empty: string, glow?: string[]) {
     return (
       <div
         className="tutorial__cards"
@@ -602,7 +604,8 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
     deckSpread: () => (
       <section className="tutorial__zone tutorial__zone--deck-spread">
         <h4>Tu mazo · 10 cartas (antes de barajar)</h4>
-        {renderCards('deck-spread', STARTER_DECK, '')}
+        {renderCards('deck-bronze', STARTER_BRONZE, '')}
+        {renderCards('deck-sloths', STARTER_SLOTHS, '')}
       </section>
     ),
     market: () => (
