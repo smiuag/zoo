@@ -329,12 +329,46 @@ export function GameBoard({
     window.setTimeout(() => {
       window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
     }, 60);
+    // El scroll suave apunta a la altura que tenía la página al empezar; si
+    // crece mientras tanto (bots jugando, muelle cambiando de altura) se
+    // quedaría corto y "pegado al fondo" (ver abajo) no se activaría. Un
+    // ajuste instantáneo al final lo deja exactamente abajo.
+    window.setTimeout(() => {
+      window.scrollTo({ top: document.documentElement.scrollHeight });
+    }, 900);
   }
   useEffect(() => {
     scrollToBottomOnMobile();
     // Solo al montar (empezar la partida); el resto de scrolls van a mano.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Móvil: "pegado al fondo". Si el usuario está abajo del todo (mesa a la
+  // vista) y la página crece (p. ej. "Jugado este turno" al jugar cartas, o
+  // el muelle de abajo al cambiar de altura), el contenido nuevo aparecería
+  // por debajo, escondido; en su lugar se recoloca el scroll al nuevo final,
+  // de modo que la zona crece "hacia arriba" — pedido explícito del usuario
+  // 2026-09-22. Sin riesgo de bucle: mover el scroll no cambia el layout, así
+  // que un cambio de altura provoca como mucho UN scroll, y solo si ya se
+  // estaba abajo (en cuanto el usuario sube, `stick` pasa a false y no se
+  // toca nada hasta que vuelva a bajar del todo por su cuenta).
+  useEffect(() => {
+    if (isDesktop) return;
+    const SLACK = 4;
+    const atBottom = () => window.scrollY >= document.documentElement.scrollHeight - window.innerHeight - SLACK;
+    let stick = atBottom();
+    const onScroll = () => {
+      stick = atBottom();
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    const observer = new ResizeObserver(() => {
+      if (stick && !atBottom()) window.scrollTo({ top: document.documentElement.scrollHeight });
+    });
+    observer.observe(document.body);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      observer.disconnect();
+    };
+  }, [isDesktop]);
   // En móvil el mercado queda justo ENCIMA de la mesa y la mano (ver el
   // orden de paneles en styles.css, @media max-width:860px), y se lee de
   // abajo arriba: las baratas al final, pegadas a la mesa, y las caras
