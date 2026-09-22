@@ -83,13 +83,17 @@ interface Snapshot {
   pv: number;
   // Cartas que acaban de LLEGAR: entran con animación y destello.
   glow?: { hand?: string[]; played?: string[]; discard?: string[] };
+  // El mazo se está barajando (icono y sacudida).
+  shuffling?: boolean;
 }
 
 interface Frame extends Snapshot {
-  // Espera (ms) desde la foto anterior hasta que sale el vuelo.
+  // Espera (ms) desde la foto anterior hasta que sale el vuelo (o hasta
+  // que se pasa a esta foto, si no hay vuelo).
   hold: number;
-  // Carta que vuela para llegar a esta foto.
-  flight: { id: string; from: FlightSource; to: FlightTarget };
+  // Carta que vuela para llegar a esta foto; sin vuelo, la foto cambia sin
+  // más (p. ej. barajar).
+  flight?: { id: string; from: FlightSource; to: FlightTarget };
 }
 
 interface Step extends Snapshot {
@@ -104,7 +108,6 @@ interface Step extends Snapshot {
   // Enseñar la píldora de PV (solo desde que se explican, en compras y al
   // final).
   showPv?: boolean;
-  shuffling?: boolean;
   // Enseñar la reserva junto a mazo y descarte (solo cuando importa).
   reserve?: boolean;
   // Anatomía de la carta: carta grande con foco en una de sus partes.
@@ -257,18 +260,19 @@ const STEPS: Step[] = [
     deck: 2, hand: [MO, B, B, P, P], played: [], discard: D_T3, money: 2, pv: 10,
   },
   {
-    title: 'Juegas el Mono',
-    text: 'El Mono da +1 de valor de compra por cada animal terrestre de tu mano, contándose a sí mismo: Mono + 2 Perezosos = +3. ¡Hasta el Perezoso sirve para algo! Valor de compra: 2 + 3 = 5.',
-    show: ['hand', 'played'],
-    deck: 2, hand: [MO, B, B, P, P], played: [], discard: D_T3, money: 2, pv: 10,
-    frames: [{ hold: 900, flight: { id: MO, from: 'hand', to: 'played' }, ...T4_BASE, glow: { played: [MO] } }],
-  },
-  {
-    title: 'Compras el León',
-    text: 'El León cuesta 5 y vale 4 PV. Llevas 14 PV.',
-    show: ['market', 'piles'],
-    ...T4_BASE, target: LE, showPv: true,
-    frames: [buyFrame(LE, T4_BASE, { discard: [...D_T3, LE], money: 0, pv: 14 })],
+    title: 'Juegas el Mono y compras el León',
+    text: 'El Mono da +1 de valor de compra por cada animal terrestre de tu mano, contándose a sí mismo: Mono + 2 Perezosos = +3. ¡Hasta el Perezoso sirve para algo! Valor de compra: 2 + 3 = 5, lo que cuesta el León (4 PV): lo compras y va al descarte. Llevas 14 PV.',
+    show: ['market', 'piles', 'hand', 'played'],
+    deck: 2, hand: [MO, B, B, P, P], played: [], discard: D_T3, money: 2, pv: 10, target: LE, showPv: true,
+    frames: [
+      { hold: 1100, flight: { id: MO, from: 'hand', to: 'played' }, ...T4_BASE, glow: { played: [MO] } },
+      {
+        hold: 900,
+        flight: { id: LE, from: 'market', to: 'discard' },
+        ...T4_BASE, discard: [...D_T3, LE], money: 0, pv: 14,
+        glow: { discard: [LE] },
+      },
+    ],
   },
   {
     title: 'Fin del turno 4',
@@ -278,15 +282,13 @@ const STEPS: Step[] = [
   },
   {
     title: 'Turno 5 · el mazo se acaba a mitad de robo',
-    text: 'Robas 2 Bronce y el mazo se queda vacío antes de completar la mano de 5…',
+    text: 'Robas 2 Bronce y el mazo se queda vacío antes de completar la mano de 5… así que barajas las 13 del descarte, que pasan a ser tu mazo, y de ahí robas las 3 que faltan.',
     show: ['piles', 'hand'],
     deck: 0, hand: [B, B], played: [], discard: D_T4, pv: 14,
-  },
-  {
-    title: '…así que barajas y sigues robando',
-    text: 'Barajas las 13 del descarte, que pasan a ser tu mazo, y de ahí robas las 3 que faltan.',
-    show: ['piles', 'hand'],
-    deck: 13, hand: [B, B], played: [], discard: [], shuffling: true, pv: 14,
+    frames: [
+      { hold: 1400, deck: 13, hand: [B, B], played: [], discard: [], shuffling: true, pv: 14 },
+      { hold: 1600, ...T5_BASE, glow: { hand: [LE, MO, PL] } },
+    ],
   },
   {
     title: 'Juegas León y Mono, y compras el Oso polar',
@@ -350,7 +352,7 @@ const FLIGHT_FADE_MS = 350;
 const FLIGHT_START_MS = 60;
 
 function stepDurationMs(step: Step): number {
-  return (step.frames ?? []).reduce((sum, f) => sum + f.hold + FLIGHT_START_MS + FLIGHT_MS + FLIGHT_HOLD_MS, 0);
+  return (step.frames ?? []).reduce((sum, f) => sum + f.hold + (f.flight ? FLIGHT_START_MS + FLIGHT_MS + FLIGHT_HOLD_MS : 0), 0);
 }
 
 function inst(id: string, key: string): CardInstance {
@@ -477,6 +479,10 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (!pendingFrame || flight) return;
     const t = window.setTimeout(() => {
+      if (!pendingFrame.flight) {
+        advanceFrame();
+        return;
+      }
       const { id, from, to } = pendingFrame.flight;
       const src =
         from === 'market'
@@ -651,11 +657,11 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
       <div className="tutorial__piles">
         <div className="tutorial__pile">
           <h4>Mazo</h4>
-          <div className={`card card--compact card--facedown${step.shuffling ? ' tutorial__deck--shuffling' : ''}`}>
-            <span className="card__icon">{step.shuffling ? '🔀' : '🂠'}</span>
+          <div className={`card card--compact card--facedown${shown.shuffling ? ' tutorial__deck--shuffling' : ''}`}>
+            <span className="card__icon">{shown.shuffling ? '🔀' : '🂠'}</span>
             <span className="card__badge">{shown.deck}</span>
           </div>
-          {step.shuffling && <span className="tutorial__shuffle-label">barajando el descarte…</span>}
+          {shown.shuffling && <span className="tutorial__shuffle-label">barajando el descarte…</span>}
         </div>
 
         <div className="tutorial__pile tutorial__pile--discard">
