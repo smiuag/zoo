@@ -612,6 +612,68 @@ export function GameBoard({
     );
   }
 
+  // Muelle fijo de móvil (mano + barra de turno, ver el JSX de más abajo):
+  // su altura cambia (mano con 5 o más cartas, barra de una o dos filas,
+  // sin barra al acabar la partida), así que se mide y se publica como
+  // --dock-h en <html>: .app reserva ese hueco abajo (para poder hacer
+  // scroll hasta el final del mercado sin que el muelle lo tape) y
+  // scroll-padding-bottom hace que un scrollIntoView (panel de elección)
+  // no lo deje escondido detrás. En escritorio no hay muelle y se limpia.
+  const dockRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const dock = dockRef.current;
+    if (isDesktop || !dock) {
+      root.style.removeProperty('--dock-h');
+      return;
+    }
+    const apply = () => root.style.setProperty('--dock-h', `${dock.offsetHeight}px`);
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(dock);
+    return () => {
+      observer.disconnect();
+      root.style.removeProperty('--dock-h');
+    };
+  }, [isDesktop]);
+
+  // Panel "Tu mano": en escritorio va en la columna izquierda, debajo de
+  // la mesa; en móvil se monta dentro del muelle fijo de abajo (ver
+  // dockRef / .mobile-dock), justo encima de la barra de turno.
+  const handPanel = human.hand.length > 0 && (
+    <div className="panel">
+      <div className="panel__header">
+        <h2>Tu mano</h2>
+        <span className="panel__hint">
+          🂠 {human.deck.length} en el mazo · 🗑️ {human.discard.length} en el descarte
+          {(human.table?.length ?? 0) > 0 ? ` · 🐕 ${human.table.length} sobre la mesa` : ''}
+        </span>
+      </div>
+      <div className="card-row card-row--hand">
+        {human.hand.map((card) => (
+          <CardView
+            key={card.instanceId}
+            card={card}
+            // Sin nada que hacer ahora mismo (no es tu turno y no
+            // debes ningún descarte), ninguna carta se marca
+            // "disabled": ese aspecto semitransparente es para "esto
+            // en concreto no se puede, aunque otras cosas sí" — no
+            // para "ahora mismo no te toca nada", que no es un estado
+            // roto, solo de espera. Las monedas, aparte, NUNCA se
+            // marcan disabled ni en tu propio turno: no son "carta que
+            // no se puede jugar ahora", son cartas que nunca se juegan
+            // (se gastan solas al pagar) — deben verse normales
+            // aunque no reaccionen al clic, salvo que un descarte
+            // pendiente sí las haga elegibles.
+            onClick={isHandCardClickable(card) ? () => handleHandCardClick(card) : undefined}
+            disabled={canAct && card.type !== 'coin' && !isHandCardClickable(card)}
+            hideType
+          />
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className="app">
       {isDesktop ? (
@@ -674,46 +736,52 @@ export function GameBoard({
           </div>
         </div>
       ) : (
-        !state.gameOver && (
-          // Móvil: sin cambios respecto a como estaba — position:fixed
-          // pegada abajo del todo (ver .bottom-bar en styles.css), solo con
-          // turno/dinero/acciones. El marcador y la ronda se quedan en el
-          // panel de siempre, más abajo en el layout.
-          <div className="bottom-bar">
-            <span className="bottom-bar__turn">
-              Ronda {state.round}/{state.maxRounds ?? '∞'}
-              {!isOwnTurn && ` · turno de ${displayName(activePlayer, humanIds, botAlgorithms)}`}
-            </span>
-            <span
-              className="bottom-bar__money"
-              title={`Valor de compra de ${displayName(activePlayer, humanIds, botAlgorithms)}: ${purchasingPower} disponibles; ${purchasingPowerPeak} en total este turno contando lo ya gastado`}
-            >
-              💰 {purchasingPower}/{purchasingPowerPeak}
-            </span>
-            {isOwnTurn && (
-              <div className="bottom-bar__actions">
-                <button
-                  className="btn btn--primary"
-                  disabled={!legalActions.some((a) => a.type === 'endTurn')}
-                  onClick={() => {
-                    if (hasUnusedTurnActions) {
-                      setConfirmEndTurn(true);
-                      return;
-                    }
-                    runAction(legalActions.find((a) => a.type === 'endTurn'));
-                  }}
-                >
-                  Terminar turno
-                </button>
-                {onRestartTurn && (
-                  <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
-                    ↺ Reiniciar turno
+        // Móvil: "muelle" fijo abajo del todo (.mobile-dock en styles.css)
+        // con la mano justo ENCIMA de la barra de turno/dinero/acciones, de
+        // modo que solo la mesa y el mercado hacen scroll — pedido explícito
+        // del usuario 2026-09-22. Se monta siempre, aunque quede vacío, para
+        // que la medición de su altura (--dock-h, ver dockRef arriba) siga
+        // viva. El marcador y la ronda se quedan en el panel de siempre, más
+        // abajo en el layout.
+        <div className="mobile-dock" ref={dockRef}>
+          {handPanel}
+          {!state.gameOver && (
+            <div className="bottom-bar">
+              <span className="bottom-bar__turn">
+                Ronda {state.round}/{state.maxRounds ?? '∞'}
+                {!isOwnTurn && ` · turno de ${displayName(activePlayer, humanIds, botAlgorithms)}`}
+              </span>
+              <span
+                className="bottom-bar__money"
+                title={`Valor de compra de ${displayName(activePlayer, humanIds, botAlgorithms)}: ${purchasingPower} disponibles; ${purchasingPowerPeak} en total este turno contando lo ya gastado`}
+              >
+                💰 {purchasingPower}/{purchasingPowerPeak}
+              </span>
+              {isOwnTurn && (
+                <div className="bottom-bar__actions">
+                  <button
+                    className="btn btn--primary"
+                    disabled={!legalActions.some((a) => a.type === 'endTurn')}
+                    onClick={() => {
+                      if (hasUnusedTurnActions) {
+                        setConfirmEndTurn(true);
+                        return;
+                      }
+                      runAction(legalActions.find((a) => a.type === 'endTurn'));
+                    }}
+                  >
+                    Terminar turno
                   </button>
-                )}
-              </div>
-            )}
-          </div>
-        )
+                  {onRestartTurn && (
+                    <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
+                      ↺ Reiniciar turno
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
       {state.gameOver && (
         <div className="panel">
@@ -884,39 +952,7 @@ export function GameBoard({
             }
           />
 
-          {human.hand.length > 0 && (
-            <div className="panel">
-              <div className="panel__header">
-                <h2>Tu mano</h2>
-                <span className="panel__hint">
-                  🂠 {human.deck.length} en el mazo · 🗑️ {human.discard.length} en el descarte
-                  {(human.table?.length ?? 0) > 0 ? ` · 🐕 ${human.table.length} sobre la mesa` : ''}
-                </span>
-              </div>
-              <div className="card-row card-row--hand">
-                {human.hand.map((card) => (
-                  <CardView
-                    key={card.instanceId}
-                    card={card}
-                    // Sin nada que hacer ahora mismo (no es tu turno y no
-                    // debes ningún descarte), ninguna carta se marca
-                    // "disabled": ese aspecto semitransparente es para "esto
-                    // en concreto no se puede, aunque otras cosas sí" — no
-                    // para "ahora mismo no te toca nada", que no es un estado
-                    // roto, solo de espera. Las monedas, aparte, NUNCA se
-                    // marcan disabled ni en tu propio turno: no son "carta que
-                    // no se puede jugar ahora", son cartas que nunca se juegan
-                    // (se gastan solas al pagar) — deben verse normales
-                    // aunque no reaccionen al clic, salvo que un descarte
-                    // pendiente sí las haga elegibles.
-                    onClick={isHandCardClickable(card) ? () => handleHandCardClick(card) : undefined}
-                    disabled={canAct && card.type !== 'coin' && !isHandCardClickable(card)}
-                    hideType
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+          {isDesktop && handPanel}
 
           {pendingChoice && (
             <div className="panel panel--choice" ref={choiceRef}>

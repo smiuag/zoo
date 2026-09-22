@@ -46,6 +46,11 @@
 html {
   max-width: 100%;
   overflow-x: hidden;
+  /* Hueco del muelle fijo de móvil (mano + barra de turno, ver .mobile-dock):
+     GameBoard.tsx lo mide y lo publica aquí como --dock-h. Así un
+     scrollIntoView (panel de elección) no deja el destino escondido detrás
+     del muelle. En escritorio no existe la propiedad y vale 0. */
+  scroll-padding-bottom: var(--dock-h, 0px);
 }
 
 body {
@@ -928,6 +933,16 @@ body {
 /* ---------- Tooltip de la carta (qué hace, al pasar el ratón) ---------- */
 
 .card__tooltip {
+  /* Solo existe en el layout con ratón (ver la media query de más abajo,
+     que lo pone en display:block). En táctil se usa .card-press-tooltip y
+     este NO debe ni estar en el layout: aunque esté invisible
+     (visibility:hidden) sigue ocupando sitio, y en las cartas pegadas al
+     borde derecho sobresalía de la pantalla. En un teléfono eso no se
+     recorta: Android/iOS ensanchan el "viewport de layout" hasta el
+     contenido, y con ello la barra fija de abajo se salía de la vista
+     (aparecía solo al bajar del todo) y aparecía scroll horizontal
+     (corregido 2026-09-22). */
+  display: none;
   position: absolute;
   /* Debajo de la carta por defecto (--tooltip-shift-x/card__tooltip--above
      la corrigen en JS, ver clampTooltipPosition en CardView.tsx, para que
@@ -979,6 +994,9 @@ body {
    el tooltip lo abre CardView.tsx mientras dura la pulsación (ver
    .card-press-tooltip más abajo). */
 @media (hover: hover) and (pointer: fine) {
+  .card__tooltip {
+    display: block;
+  }
   .card:hover .card__tooltip {
     opacity: 1;
     visibility: visible;
@@ -1079,32 +1097,56 @@ body {
   }
 
   .app {
-    /* El hueco de abajo reserva sitio para .bottom-bar, que aquí pasa a
-       position:fixed (ver la regla más abajo) y dejaría de "empujar" el
-       resto del contenido si no fuera por este padding — sin él, la mano y
-       el mercado quedarían tapados detrás de la barra al hacer scroll
-       hasta el final. env(safe-area-inset-bottom) añade el hueco del
-       "home indicator" en iPhones con notch. */
-    padding: 0.75rem 0.6rem calc(5.5rem + env(safe-area-inset-bottom));
+    /* El hueco de abajo reserva sitio para el muelle fijo (.mobile-dock:
+       mano + barra de turno), que sale del flujo y dejaría de "empujar" el
+       resto del contenido si no fuera por este padding — sin él, el final
+       del mercado quedaría tapado detrás al hacer scroll hasta abajo. La
+       altura real del muelle la mide GameBoard.tsx (--dock-h); el valor de
+       reserva solo cubre el primer pintado. */
+    padding: 0.75rem 0.6rem calc(var(--dock-h, 12rem) + 0.75rem);
   }
 
-  /* Pegada abajo del todo, siempre visible — ver el comentario junto a
-     .bottom-bar más arriba. Sale del flujo normal (position:fixed), así
-     que el resto de ".app" (mano, mercado...) se desplaza libremente por
-     detrás/debajo sin que la barra se mueva con él. */
-  .bottom-bar {
+  /* Muelle pegado abajo del todo, siempre visible: la mano ("Tu mano") y,
+     debajo, la barra de turno/dinero/acciones. Sale del flujo normal
+     (position:fixed), así que el resto de ".app" (mesa, mercado...) se
+     desplaza libremente por detrás sin que el muelle se mueva con él —
+     pedido explícito del usuario 2026-09-22 ("que solo haga scroll el
+     mercado"). env(safe-area-inset-bottom) añade el hueco del "home
+     indicator" en iPhones con notch. */
+  .mobile-dock {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
     z-index: 40;
+    background: var(--panel-bg);
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.18);
+  }
+
+  /* Dentro del muelle, la mano y la barra pierden el aspecto de tarjeta
+     suelta: sin esquinas ni bordes laterales, pegadas entre sí (el borde
+     superior de cada una hace de separador). */
+  .mobile-dock .panel {
     margin-bottom: 0;
     border-radius: 0;
     border-left: none;
     border-right: none;
     border-bottom: none;
-    padding: 0.6rem 0.75rem calc(0.6rem + env(safe-area-inset-bottom));
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.18);
+    padding: 0.5rem 0.75rem 0.55rem;
+  }
+
+  .mobile-dock .panel__header {
+    margin-bottom: 0.4rem;
+  }
+
+  .bottom-bar {
+    margin-bottom: 0;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    padding: 0.6rem 0.75rem;
   }
 
   .bottom-bar__turn {
@@ -1163,8 +1205,8 @@ body {
 
   .app {
     /* Ver el comentario del breakpoint de 860px: mismo motivo, hueco para
-       .bottom-bar fija abajo. */
-    padding: 0.5rem 0.4rem calc(5rem + env(safe-area-inset-bottom));
+       el muelle fijo de abajo (--dock-h). */
+    padding: 0.5rem 0.4rem calc(var(--dock-h, 12rem) + 0.5rem);
   }
 
   .card-row--hand {
