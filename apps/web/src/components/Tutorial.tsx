@@ -16,11 +16,18 @@ import { CardView } from './CardView';
 // scorePerHabitatCount; el Hipopótamo es terrestre Y acuático; la Plata
 // vale 1 PV). Si cambian esos datos, hay que revisar los números de aquí.
 //
+// Un paso puede llevar una SECUENCIA de fotogramas (`frames`): cada uno es
+// la foto siguiente más el vuelo de una carta que la explica (mano → mesa
+// al jugar, montón → mano al ganar una Plata, mercado → descarte al
+// comprar). El paso empieza en su foto base; tras `hold` ms sale el vuelo,
+// y al aterrizar se pasa a la foto del fotograma. Así "juegas el Pingüino
+// y te llega la Plata" o "juegas León y Mono y compras el Oso polar" son UN
+// solo paso — pedido del usuario 2026-09-22.
+//
 // Cada paso dice qué zonas se enseñan (`show`): solo las que importan en
-// ese momento, nunca todo a la vez — pedido del usuario 2026-09-22. Los PV
-// no aparecen hasta que se explican (anatomía de la carta) y, a partir de
-// ahí, solo en las compras y en el recuento final, como píldora en la
-// cabecera del descarte (sin fila propia).
+// ese momento, nunca todo a la vez. Los PV no aparecen hasta que se
+// explican (anatomía de la carta) y, a partir de ahí, solo en las compras y
+// en el recuento final, como píldora en la cabecera del descarte.
 //
 // Se abre desde la pantalla de inicio SOLO con la edición Aprendizaje
 // seleccionada (botón "Ver tutorial"). Ojo: el guion usa Hipopótamo (5),
@@ -53,32 +60,43 @@ const STARTER_DECK = [B, B, B, B, B, B, B, P, P, P];
 
 type ZoneId = 'deckSpread' | 'market' | 'hand' | 'played' | 'piles' | 'bigcard' | 'final';
 type Focus = 'cost' | 'pv' | 'types' | 'ability';
+type FlightSource = 'hand' | 'deck' | 'market';
+type FlightTarget = 'played' | 'hand' | 'discard';
 
-interface Step {
-  title: string;
-  text: string;
-  // Zonas visibles en este paso, en este orden.
-  show: ZoneId[];
+// Foto de las zonas en un momento dado.
+interface Snapshot {
   deck: number;
   hand: string[];
   played: string[];
   // Orden de llegada: la última es la de arriba del montón.
   discard: string[];
-  // Carta del mercado que se señala en este paso (la que se va a comprar o
-  // se acaba de comprar).
-  target?: string;
   // Valor de compra actual; ausente = no se muestra (fuera de turno).
   money?: number;
   pv: number;
+  // Cartas que acaban de LLEGAR: entran con animación y destello.
+  glow?: { hand?: string[]; played?: string[]; discard?: string[] };
+}
+
+interface Frame extends Snapshot {
+  // Espera (ms) desde la foto anterior hasta que sale el vuelo.
+  hold: number;
+  // Carta que vuela para llegar a esta foto.
+  flight: { id: string; from: FlightSource; to: FlightTarget };
+}
+
+interface Step extends Snapshot {
+  title: string;
+  text: string;
+  // Zonas visibles en este paso, en este orden.
+  show: ZoneId[];
+  // Fotogramas que siguen a la foto base (ver arriba).
+  frames?: Frame[];
+  // Carta del mercado que se señala en este paso.
+  target?: string;
   // Enseñar la píldora de PV (solo desde que se explican, en compras y al
   // final).
   showPv?: boolean;
   shuffling?: boolean;
-  // En este paso se compra `target`: la carta vuela del mercado al descarte.
-  buy?: boolean;
-  // Cartas que LLEGAN en este paso (la Plata que da el Pingüino, el animal
-  // recién jugado…): entran con animación y destello para que se note.
-  glow?: { hand?: string[]; played?: string[] };
   // Anatomía de la carta: carta grande con foco en una de sus partes.
   focus?: Focus;
   // Último paso: desglose del recuento final.
@@ -89,6 +107,24 @@ const D_T1 = [PG, B, B, B, P, P];
 const D_T2 = [...D_T1, MO, B, B, B, B, P];
 const D_T3 = [HI, PG, PL, B, B, B, P];
 const D_T4 = [...D_T3, LE, MO, B, B, P, P];
+
+// Compra sencilla: foto base sin la carta, un fotograma con el vuelo
+// mercado → descarte y la carta ya en el descarte.
+function buyFrame(id: string, base: Snapshot, after: Partial<Snapshot>): Frame {
+  return {
+    ...base,
+    ...after,
+    hold: 350,
+    flight: { id, from: 'market', to: 'discard' },
+    glow: { discard: [id] },
+  };
+}
+
+const T1_BASE: Snapshot = { deck: 5, hand: [B, B, B, P, P], played: [], discard: [], money: 3, pv: 0 };
+const T2_BASE: Snapshot = { deck: 0, hand: [B, B, B, B, P], played: [], discard: D_T1, money: 4, pv: 2 };
+const T3_BASE: Snapshot = { deck: 7, hand: [B, B, B, P, PL], played: [PG], discard: [], money: 5, pv: 6 };
+const T4_BASE: Snapshot = { deck: 2, hand: [B, B, P, P], played: [MO], discard: D_T3, money: 5, pv: 10 };
+const T5_BASE: Snapshot = { deck: 10, hand: [B, B, LE, MO, PL], played: [], discard: [], money: 4, pv: 14 };
 
 const STEPS: Step[] = [
   {
@@ -101,47 +137,44 @@ const STEPS: Step[] = [
     title: 'Turno 1 · robas 5',
     text: 'Robas 5 cartas del mazo. Las monedas de tu mano suman tu VALOR DE COMPRA: 3 Bronce = 3.',
     show: ['piles', 'hand'],
-    deck: 5, hand: [B, B, B, P, P], played: [], discard: [], money: 3, pv: 0,
+    ...T1_BASE,
   },
   {
     title: 'El mercado',
     text: 'Aquí se compran animales. Con 3 de valor de compra, los que cuestan más quedan apagados. El Pingüino cuesta 3: puedes pagarlo. Pero antes, veamos qué pone en una carta.',
     show: ['market', 'hand'],
-    deck: 5, hand: [B, B, B, P, P], played: [], discard: [], target: PG, money: 3, pv: 0,
+    ...T1_BASE, target: PG,
   },
   {
     title: 'Anatomía de una carta: el coste',
     text: 'Arriba a la izquierda: lo que cuesta comprarla en el mercado. Necesitas al menos ese valor de compra en tu turno.',
-    show: ['bigcard'],
-    focus: 'cost',
-    deck: 5, hand: [B, B, B, P, P], played: [], discard: [], target: PG, money: 3, pv: 0,
+    show: ['bigcard'], focus: 'cost',
+    ...T1_BASE, target: PG,
   },
   {
     title: 'Anatomía de una carta: los puntos de victoria',
     text: 'Arriba a la derecha: los PV. Al final de la partida se suman los PV de todas tus cartas, estén en el mazo, en la mano o en el descarte. Quien más tenga, gana.',
-    show: ['bigcard'],
-    focus: 'pv',
-    deck: 5, hand: [B, B, B, P, P], played: [], discard: [], target: PG, money: 3, pv: 0,
+    show: ['bigcard'], focus: 'pv',
+    ...T1_BASE, target: PG,
   },
   {
     title: 'Anatomía de una carta: el tipo',
     text: 'Abajo: su hábitat. Terrestre, volador o acuático (algunos animales tienen dos). Muchas habilidades cuentan animales de un hábitat concreto, así que conviene fijarse.',
-    show: ['bigcard'],
-    focus: 'types',
-    deck: 5, hand: [B, B, B, P, P], played: [], discard: [], target: PG, money: 3, pv: 0,
+    show: ['bigcard'], focus: 'types',
+    ...T1_BASE, target: PG,
   },
   {
     title: 'Anatomía de una carta: la habilidad',
     text: 'Lo que hace al JUGARLA desde tu mano. El Pingüino añade una moneda de Plata a tu mano. En la app, mantén pulsada una carta (o pasa el ratón) para leer su habilidad.',
-    show: ['bigcard'],
-    focus: 'ability',
-    deck: 5, hand: [B, B, B, P, P], played: [], discard: [], target: PG, money: 3, pv: 0,
+    show: ['bigcard'], focus: 'ability',
+    ...T1_BASE, target: PG,
   },
   {
     title: 'Compras el Pingüino',
     text: 'Pagas con las monedas de la mano y la carta nueva va DIRECTA a tu descarte, no a la mano. Sus 2 PV ya cuentan para ti.',
     show: ['market', 'piles'],
-    deck: 5, hand: [B, B, B, P, P], played: [], discard: [PG], target: PG, buy: true, money: 0, pv: 2, showPv: true,
+    ...T1_BASE, target: PG, showPv: true,
+    frames: [buyFrame(PG, T1_BASE, { discard: [PG], money: 0, pv: 2 })],
   },
   {
     title: 'Fin del turno 1',
@@ -153,13 +186,14 @@ const STEPS: Step[] = [
     title: 'Turno 2 · robas 5',
     text: 'Robas las 5 cartas que quedaban: 4 Bronce y 1 Perezoso. El mazo se queda vacío. Valor de compra: 4.',
     show: ['piles', 'hand'],
-    deck: 0, hand: [B, B, B, B, P], played: [], discard: D_T1, money: 4, pv: 2,
+    ...T2_BASE,
   },
   {
     title: 'Compras el Mono',
     text: 'El Mono cuesta 4 y vale 3 PV. Va al descarte con el resto. Llevas 5 PV.',
     show: ['market', 'piles'],
-    deck: 0, hand: [B, B, B, B, P], played: [], discard: [...D_T1, MO], target: MO, buy: true, money: 0, pv: 5, showPv: true,
+    ...T2_BASE, target: MO, showPv: true,
+    frames: [buyFrame(MO, T2_BASE, { discard: [...D_T1, MO], money: 0, pv: 5 })],
   },
   {
     title: 'Fin del turno 2',
@@ -174,23 +208,31 @@ const STEPS: Step[] = [
     deck: 12, hand: [], played: [], discard: [], shuffling: true, pv: 5,
   },
   {
-    title: 'Robas 5',
-    text: 'Esta vez te sale el Pingüino. Los animales de la mano se pueden JUGAR para activar su habilidad.',
-    show: ['piles', 'hand'],
+    title: 'Robas 5 y juegas el Pingüino',
+    text: 'Esta vez te sale el Pingüino. Los animales de la mano se pueden JUGAR: el Pingüino pasa a "Jugado este turno" y su habilidad te trae una moneda de Plata (vale 2) a la mano. Valor de compra: 3 + 2 = 5. La Plata, además, vale 1 PV.',
+    show: ['piles', 'hand', 'played'],
     deck: 7, hand: [PG, B, B, B, P], played: [], discard: [], money: 3, pv: 5,
-  },
-  {
-    title: 'Juegas el Pingüino',
-    text: 'Al jugarlo pasa a "Jugado este turno" y su habilidad añade una moneda de Plata (vale 2) a tu mano. Valor de compra: 3 + 2 = 5. La Plata, además, vale 1 PV.',
-    show: ['hand', 'played'],
-    glow: { hand: [PL], played: [PG] },
-    deck: 7, hand: [B, B, B, P, PL], played: [PG], discard: [], money: 5, pv: 6,
+    frames: [
+      {
+        hold: 1100,
+        flight: { id: PG, from: 'hand', to: 'played' },
+        deck: 7, hand: [B, B, B, P], played: [PG], discard: [], money: 3, pv: 5,
+        glow: { played: [PG] },
+      },
+      {
+        hold: 700,
+        flight: { id: PL, from: 'deck', to: 'hand' },
+        ...T3_BASE,
+        glow: { hand: [PL] },
+      },
+    ],
   },
   {
     title: 'Compras el Hipopótamo',
     text: 'El Hipopótamo cuesta 5 y vale 4 PV. Ya llevas 10 PV.',
     show: ['market', 'piles'],
-    deck: 7, hand: [B, B, B, P, PL], played: [PG], discard: [HI], target: HI, buy: true, money: 0, pv: 10, showPv: true,
+    ...T3_BASE, target: HI, showPv: true,
+    frames: [buyFrame(HI, T3_BASE, { discard: [HI], money: 0, pv: 10 })],
   },
   {
     title: 'Fin del turno 3',
@@ -208,14 +250,15 @@ const STEPS: Step[] = [
     title: 'Juegas el Mono',
     text: 'El Mono da +1 de valor de compra por cada animal terrestre de tu mano, contándose a sí mismo: Mono + 2 Perezosos = +3. ¡Hasta el Perezoso sirve para algo! Valor de compra: 2 + 3 = 5.',
     show: ['hand', 'played'],
-    glow: { played: [MO] },
-    deck: 2, hand: [B, B, P, P], played: [MO], discard: D_T3, money: 5, pv: 10,
+    deck: 2, hand: [MO, B, B, P, P], played: [], discard: D_T3, money: 2, pv: 10,
+    frames: [{ hold: 900, flight: { id: MO, from: 'hand', to: 'played' }, ...T4_BASE, glow: { played: [MO] } }],
   },
   {
     title: 'Compras el León',
     text: 'El León cuesta 5 y vale 4 PV. Llevas 14 PV.',
     show: ['market', 'piles'],
-    deck: 2, hand: [B, B, P, P], played: [MO], discard: [...D_T3, LE], target: LE, buy: true, money: 0, pv: 14, showPv: true,
+    ...T4_BASE, target: LE, showPv: true,
+    frames: [buyFrame(LE, T4_BASE, { discard: [...D_T3, LE], money: 0, pv: 14 })],
   },
   {
     title: 'Fin del turno 4',
@@ -236,30 +279,30 @@ const STEPS: Step[] = [
     deck: 13, hand: [B, B], played: [], discard: [], shuffling: true, pv: 14,
   },
   {
-    title: 'Mano completa',
-    text: 'Te salen el León, el Mono y la Plata. Valor de compra de las monedas: 1 + 1 + 2 = 4.',
-    show: ['piles', 'hand'],
-    deck: 10, hand: [B, B, LE, MO, PL], played: [], discard: [], money: 4, pv: 14,
-  },
-  {
-    title: 'Juegas el León',
-    text: 'El León añade 3 fijos al valor de compra: 4 + 3 = 7.',
-    show: ['hand', 'played'],
-    glow: { played: [LE] },
-    deck: 10, hand: [B, B, MO, PL], played: [LE], discard: [], money: 7, pv: 14,
-  },
-  {
-    title: 'Juegas el Mono',
-    text: 'Terrestres en juego: el propio Mono y el León = +2. Valor de compra: 9. Puedes jugar varios animales en el mismo turno, en el orden que quieras.',
-    show: ['hand', 'played'],
-    glow: { played: [MO] },
-    deck: 10, hand: [B, B, PL], played: [LE, MO], discard: [], money: 9, pv: 14,
-  },
-  {
-    title: 'Compras el Oso polar',
-    text: 'El Oso polar cuesta 7 y tiene 0 PV impresos, pero da +1 PV por cada animal terrestre de TODO tu mazo: 3 Perezosos, Mono, Hipopótamo, León y él mismo = +7. Te sobran 2 de valor de compra: lo que no gastas se pierde al terminar el turno.',
-    show: ['market', 'piles'],
-    deck: 10, hand: [B, B, PL], played: [LE, MO], discard: [OS], target: OS, buy: true, money: 2, pv: 21, showPv: true,
+    title: 'Juegas León y Mono, y compras el Oso polar',
+    text: 'Te salen el León, el Mono y la Plata: 1 + 1 + 2 = 4. Juegas el León (+3 fijos → 7) y el Mono (+2: él y el León → 9), y compras el Oso polar (7). Tiene 0 PV impresos, pero da +1 PV por cada terrestre de TODO tu mazo: 3 Perezosos, Mono, Hipopótamo, León y él mismo = +7. Te sobran 2: lo que no gastas se pierde al terminar el turno.',
+    show: ['market', 'piles', 'hand', 'played'],
+    ...T5_BASE, target: OS, showPv: true,
+    frames: [
+      {
+        hold: 1300,
+        flight: { id: LE, from: 'hand', to: 'played' },
+        deck: 10, hand: [B, B, MO, PL], played: [LE], discard: [], money: 7, pv: 14,
+        glow: { played: [LE] },
+      },
+      {
+        hold: 900,
+        flight: { id: MO, from: 'hand', to: 'played' },
+        deck: 10, hand: [B, B, PL], played: [LE, MO], discard: [], money: 9, pv: 14,
+        glow: { played: [MO] },
+      },
+      {
+        hold: 900,
+        flight: { id: OS, from: 'market', to: 'discard' },
+        deck: 10, hand: [B, B, PL], played: [LE, MO], discard: [OS], money: 2, pv: 21,
+        glow: { discard: [OS] },
+      },
+    ],
   },
   {
     title: 'Fin de la partida: recuento',
@@ -289,28 +332,47 @@ const FOCUS_ROWS: { key: Focus; label: string; value: (c: CardInstance) => strin
 ];
 
 const AUTOPLAY_MS = 5500;
-// Vuelo de la carta comprada, del mercado al descarte: despacio a propósito
-// (pedido del usuario 2026-09-22), bastante más lento que el de la partida.
-const FLIGHT_MS = 1800;
-const FLIGHT_HOLD_MS = 500;
-const FLIGHT_FADE_MS = 400;
-const FLIGHT_DELAY_MS = 350;
+// Vuelo de una carta: despacio a propósito (pedido del usuario 2026-09-22),
+// bastante más lento que el de la partida.
+const FLIGHT_MS = 1600;
+const FLIGHT_HOLD_MS = 450;
+const FLIGHT_FADE_MS = 350;
+const FLIGHT_START_MS = 60;
+
+function stepDurationMs(step: Step): number {
+  return (step.frames ?? []).reduce((sum, f) => sum + f.hold + FLIGHT_START_MS + FLIGHT_MS + FLIGHT_HOLD_MS, 0);
+}
 
 function inst(id: string, key: string): CardInstance {
   return { ...getCard(id), instanceId: `tutorial-${key}` };
 }
 
+interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 interface Flight {
+  key: string;
   id: string;
-  from: { x: number; y: number; w: number; h: number };
-  to: { x: number; y: number; w: number; h: number };
+  from: Rect;
+  to: Rect;
+  source: FlightSource;
 }
 
 function FlightGhost({ flight, onLand, onDone }: { flight: Flight; onLand: () => void; onDone: () => void }) {
   const [phase, setPhase] = useState<'start' | 'flying' | 'holding' | 'fading'>('start');
+  const elRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const t = window.setTimeout(() => setPhase('flying'), FLIGHT_DELAY_MS);
+    // Fuerza el cálculo de estilo/layout con la posición de salida ANTES de
+    // cambiar a la de llegada: sin esto, si el navegador aún no había
+    // pintado el fantasma, la transición no tiene "desde" y la carta salta
+    // al destino en vez de volar.
+    void elRef.current?.getBoundingClientRect();
+    const t = window.setTimeout(() => setPhase('flying'), FLIGHT_START_MS);
     return () => window.clearTimeout(t);
   }, []);
   useEffect(() => {
@@ -335,6 +397,7 @@ function FlightGhost({ flight, onLand, onDone }: { flight: Flight; onLand: () =>
   const at = phase === 'start' ? flight.from : flight.to;
   return (
     <div
+      ref={elRef}
       className={`flying-card${phase === 'flying' || phase === 'holding' ? ' flying-card--glow' : ''}`}
       style={{
         left: at.x,
@@ -350,8 +413,7 @@ function FlightGhost({ flight, onLand, onDone }: { flight: Flight; onLand: () =>
   );
 }
 
-// Valor de compra: en su propia línea bajo el título de la zona (en la
-// cabecera, a la derecha, quedaba raro — usuario 2026-09-22).
+// Valor de compra: en su propia línea bajo el título de la zona.
 function MoneyLine({ money }: { money: number }) {
   return (
     <div className="tutorial__money" key={money}>
@@ -360,76 +422,81 @@ function MoneyLine({ money }: { money: number }) {
   );
 }
 
-function Zone({
-  title,
-  zone,
-  cards,
-  empty,
-  extra,
-  glow,
-}: {
-  title: string;
-  zone: string;
-  cards: string[];
-  empty: string;
-  extra?: ReactNode;
-  glow?: string[];
-}) {
-  return (
-    <section className={`tutorial__zone tutorial__zone--${zone}`}>
-      <h4>{title}</h4>
-      {extra}
-      <div className="tutorial__cards">
-        {cards.length === 0 && <span className="tutorial__empty">{empty}</span>}
-        {cards.map((id, i) => (
-          <div key={`${zone}-${i}-${id}`} className={`tutorial__card${glow?.includes(id) ? ' tutorial__card--arrive' : ''}`}>
-            <CardView card={inst(id, `${zone}-${i}`)} compact hideType />
-          </div>
-        ))}
-      </div>
-    </section>
-  );
+function toRect(r: DOMRect): Rect {
+  return { x: r.left, y: r.top, w: r.width, h: r.height };
 }
 
 export function Tutorial({ onClose }: { onClose: () => void }) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
+  // Fotograma que se muestra (0 = foto base del paso) y vuelo en curso.
+  const [shownFrame, setShownFrame] = useState(0);
   const [flight, setFlight] = useState<Flight | null>(null);
-  const [landed, setLanded] = useState(true);
   const rootRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const discardRef = useRef<HTMLDivElement>(null);
+  const deckRef = useRef<HTMLDivElement>(null);
   const finalRef = useRef<HTMLDivElement>(null);
   const marketRefs = useRef(new Map<string, HTMLDivElement>());
+  const zoneCardsRefs = useRef(new Map<string, HTMLDivElement>());
+  const cardRefs = useRef(new Map<string, HTMLDivElement>());
 
   const step = STEPS[index];
-  const prev = index > 0 ? STEPS[index - 1] : step;
   const isLast = index === STEPS.length - 1;
   const visible = (zone: ZoneId) => step.show.includes(zone);
+  const frames = step.frames ?? [];
+  const shown: Snapshot = shownFrame === 0 ? step : frames[shownFrame - 1];
+  // Siguiente fotograma pendiente (el que traerá el vuelo en curso).
+  const pendingFrame = shownFrame < frames.length ? frames[shownFrame] : null;
 
-  // Al entrar en un paso de compra, la carta señalada vuela del mercado al
-  // descarte; hasta que aterriza, el descarte y los PV siguen mostrando el
-  // estado del paso anterior (así se ve llegar la carta y subir los puntos).
+  // Secuenciador: al entrar en un paso, foto base; tras `hold` del
+  // siguiente fotograma, se mide de dónde sale y a dónde va la carta y se
+  // lanza el vuelo; al aterrizar (onLand) se pasa a esa foto y se encadena
+  // el siguiente. Se reinicia entero al cambiar de paso.
   useLayoutEffect(() => {
-    if (!step.buy || !step.target) {
-      setFlight(null);
-      setLanded(true);
-      return;
-    }
-    const from = marketRefs.current.get(step.target)?.getBoundingClientRect();
-    const to = discardRef.current?.getBoundingClientRect();
-    if (!from || !to) {
-      setFlight(null);
-      setLanded(true);
-      return;
-    }
-    setLanded(false);
-    setFlight({
-      id: step.target,
-      from: { x: from.left, y: from.top, w: from.width, h: from.height },
-      to: { x: to.left, y: to.top, w: from.width, h: from.height },
-    });
+    setShownFrame(0);
+    setFlight(null);
   }, [index]);
+
+  useEffect(() => {
+    if (!pendingFrame || flight) return;
+    const t = window.setTimeout(() => {
+      const { id, from, to } = pendingFrame.flight;
+      const src =
+        from === 'market'
+          ? marketRefs.current.get(id)
+          : from === 'deck'
+            ? deckRef.current
+            : cardRefs.current.get(`hand-${shown.hand.indexOf(id)}`);
+      const srcRect = src?.getBoundingClientRect();
+      if (!srcRect) {
+        setShownFrame((f) => f + 1);
+        return;
+      }
+      const size = { w: srcRect.width, h: srcRect.height };
+      let dest: Rect | null = null;
+      if (to === 'discard') {
+        const d = discardRef.current?.getBoundingClientRect();
+        const stack = Math.min(shown.discard.length, 2);
+        if (d) dest = { x: d.left + stack * 12, y: d.top + stack * 5, ...size };
+      } else {
+        const zoneKey = to === 'played' ? 'played' : 'hand';
+        const cards = zoneCardsRefs.current.get(zoneKey);
+        const count = to === 'played' ? shown.played.length : shown.hand.length;
+        const last = count > 0 ? cardRefs.current.get(`${zoneKey}-${count - 1}`)?.getBoundingClientRect() : null;
+        const zr = cards?.getBoundingClientRect();
+        if (last) dest = { x: last.right + 6, y: last.top, ...size };
+        else if (zr) dest = { x: zr.left, y: zr.top, ...size };
+      }
+      if (!dest) {
+        setShownFrame((f) => f + 1);
+        return;
+      }
+      setFlight({ key: `${index}-${shownFrame}`, id, from: toRect(srcRect), to: dest, source: from });
+    }, pendingFrame.hold);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, shownFrame, flight]);
 
   // Al cambiar de paso, arriba del todo; en el último paso, hasta la tabla
   // del recuento. Solo importa en móvil: en escritorio cabe todo sin scroll.
@@ -445,7 +512,8 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
       setPlaying(false);
       return;
     }
-    const t = window.setTimeout(() => setIndex((i) => Math.min(i + 1, STEPS.length - 1)), AUTOPLAY_MS);
+    const wait = Math.max(AUTOPLAY_MS, stepDurationMs(step) + 2500);
+    const t = window.setTimeout(() => setIndex((i) => Math.min(i + 1, STEPS.length - 1)), wait);
     return () => window.clearTimeout(t);
   }, [playing, index, isLast]);
 
@@ -473,26 +541,66 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
     return () => observer.disconnect();
   }, []);
 
-  const shownDiscard = landed ? step.discard : prev.discard;
-  const shownPv = landed ? step.pv : prev.pv;
-  const topDiscard = shownDiscard.slice(-3);
+  const topDiscard = shown.discard.slice(-3);
+  // Mientras una carta de la mano vuela a la mesa, su hueco se queda medio
+  // transparente (igual que en el mercado al comprar).
+  const leavingHandIndex = flight && flight.source === 'hand' ? shown.hand.indexOf(flight.id) : -1;
   // El valor de compra va en la cabecera del mercado si se ve; si no, en la
   // de la mano (pasos de jugar cartas).
-  const moneyInMarket = step.money !== undefined && visible('market');
-  const moneyInHand = step.money !== undefined && !visible('market') && visible('hand');
+  const moneyInMarket = shown.money !== undefined && visible('market');
+  const moneyInHand = shown.money !== undefined && !visible('market') && visible('hand');
   const bigCard = step.focus ? inst(step.target ?? PG, 'big') : null;
 
+  const setCardRef = (key: string) => (el: HTMLDivElement | null) => {
+    if (el) cardRefs.current.set(key, el);
+    else cardRefs.current.delete(key);
+  };
+
+  function renderCards(zone: 'hand' | 'played' | 'deck-spread', cards: string[], empty: string, glow?: string[]) {
+    return (
+      <div
+        className="tutorial__cards"
+        ref={(el) => {
+          if (el) zoneCardsRefs.current.set(zone, el);
+          else zoneCardsRefs.current.delete(zone);
+        }}
+      >
+        {cards.length === 0 && <span className="tutorial__empty">{empty}</span>}
+        {cards.map((id, i) => (
+          <div
+            // Clave por identidad (n-ésima copia de esa carta), no por
+            // posición: cuando una carta se va de la mano, las demás
+            // conservan su clave y no "reaparecen" con animación.
+            key={`${zone}-${id}-${cards.slice(0, i).filter((c) => c === id).length}`}
+            ref={setCardRef(`${zone}-${i}`)}
+            className={`tutorial__card${glow?.includes(id) ? ' tutorial__card--arrive' : ''}${
+              zone === 'hand' && i === leavingHandIndex ? ' tutorial__card--leaving' : ''
+            }`}
+          >
+            <CardView card={inst(id, `${zone}-${i}`)} compact hideType />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const zones: Record<ZoneId, () => ReactNode> = {
-    deckSpread: () => <Zone title="Tu mazo · 10 cartas (antes de barajar)" zone="deck-spread" cards={STARTER_DECK} empty="" />,
+    deckSpread: () => (
+      <section className="tutorial__zone tutorial__zone--deck-spread">
+        <h4>Tu mazo · 10 cartas (antes de barajar)</h4>
+        {renderCards('deck-spread', STARTER_DECK, '')}
+      </section>
+    ),
     market: () => (
       <section className="tutorial__zone tutorial__zone--market">
         <h4>Mercado</h4>
-        {moneyInMarket && <MoneyLine money={step.money!} />}
+        {moneyInMarket && <MoneyLine money={shown.money!} />}
         <div className="tutorial__cards">
           {MARKET.map((id) => {
             const cost = getCard(id).marketCost ?? 0;
-            const tooExpensive = step.money !== undefined && cost > step.money && id !== step.target;
+            const tooExpensive = shown.money !== undefined && cost > shown.money && id !== step.target;
             const isTarget = id === step.target;
+            const leaving = flight?.source === 'market' && flight.id === id;
             return (
               <div
                 key={`market-${id}`}
@@ -500,9 +608,7 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
                   if (el) marketRefs.current.set(id, el);
                   else marketRefs.current.delete(id);
                 }}
-                className={`tutorial__card${isTarget ? ' tutorial__card--highlight' : ''}${
-                  isTarget && step.buy && !landed ? ' tutorial__card--leaving' : ''
-                }`}
+                className={`tutorial__card${isTarget ? ' tutorial__card--highlight' : ''}${leaving ? ' tutorial__card--leaving' : ''}`}
               >
                 <CardView card={inst(id, `market-${id}`)} compact disabled={tooExpensive} />
               </div>
@@ -512,43 +618,45 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
       </section>
     ),
     hand: () => (
-      <Zone
-        title="Tu mano"
-        zone="hand"
-        cards={step.hand}
-        empty="vacía"
-        extra={moneyInHand ? <MoneyLine money={step.money!} /> : undefined}
-        glow={step.glow?.hand}
-      />
+      <section className="tutorial__zone tutorial__zone--hand">
+        <h4>Tu mano</h4>
+        {moneyInHand && <MoneyLine money={shown.money!} />}
+        {renderCards('hand', shown.hand, 'vacía', shown.glow?.hand)}
+      </section>
     ),
-    played: () => <Zone title="Jugado este turno" zone="played" cards={step.played} empty="nada todavía" glow={step.glow?.played} />,
+    played: () => (
+      <section className="tutorial__zone tutorial__zone--played">
+        <h4>Jugado este turno</h4>
+        {renderCards('played', shown.played, 'nada todavía', shown.glow?.played)}
+      </section>
+    ),
     piles: () => (
       <div className="tutorial__piles">
         <div className="tutorial__pile">
           <h4>Mazo</h4>
-          <div className={`card card--compact card--facedown${step.shuffling ? ' tutorial__deck--shuffling' : ''}`}>
+          <div ref={deckRef} className={`card card--compact card--facedown${step.shuffling ? ' tutorial__deck--shuffling' : ''}`}>
             <span className="card__icon">{step.shuffling ? '🔀' : '🂠'}</span>
-            <span className="card__badge">{step.deck}</span>
+            <span className="card__badge">{shown.deck}</span>
           </div>
           {step.shuffling && <span className="tutorial__shuffle-label">barajando el descarte…</span>}
         </div>
 
         <div className="tutorial__pile tutorial__pile--discard">
           <h4>
-            Descarte · {shownDiscard.length}
+            Descarte · {shown.discard.length}
             {step.showPv && (
-              <span className="tutorial__pv" key={shownPv}>
-                ⭐ {shownPv} <small>PV</small>
+              <span className="tutorial__pv" key={shown.pv}>
+                ⭐ {shown.pv} <small>PV</small>
               </span>
             )}
           </h4>
           <div className="tutorial__discard" ref={discardRef}>
             {topDiscard.length === 0 && <div className="card card--compact card--empty" />}
             {topDiscard.map((id, i) => {
-              const isNew = landed && step.buy && id === step.target && i === topDiscard.length - 1;
+              const isNew = i === topDiscard.length - 1 && shown.glow?.discard?.includes(id);
               return (
                 <div
-                  key={`discard-${shownDiscard.length - topDiscard.length + i}-${id}`}
+                  key={`discard-${shown.discard.length - topDiscard.length + i}-${id}`}
                   className={`tutorial__card tutorial__discard-card${isNew ? ' tutorial__card--highlight' : ''}`}
                   style={{ '--stack-i': i } as CSSProperties}
                 >
@@ -671,10 +779,15 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
 
         {/* Dentro de .tutorial a propósito: así hereda el tamaño de carta
             compacta del tutorial (más pequeña en teléfonos) y el fantasma
-            mide exactamente lo mismo que la carta del mercado de la que
-            sale. position:fixed sigue siendo respecto a la ventana. */}
+            mide exactamente lo mismo que la carta de la que sale.
+            position:fixed sigue siendo respecto a la ventana. */}
         {flight && (
-          <FlightGhost key={`${index}-${flight.id}`} flight={flight} onLand={() => setLanded(true)} onDone={() => setFlight(null)} />
+          <FlightGhost
+            key={flight.key}
+            flight={flight}
+            onLand={() => setShownFrame((f) => f + 1)}
+            onDone={() => setFlight(null)}
+          />
         )}
       </div>
     </div>
