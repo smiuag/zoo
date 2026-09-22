@@ -2641,7 +2641,7 @@ body {
 
 .tutorial__piles {
   display: grid;
-  grid-template-columns: auto auto 1fr;
+  grid-template-columns: auto 1fr;
   gap: 0.6rem;
   align-items: start;
 }
@@ -2681,17 +2681,18 @@ body {
   top: 0;
 }
 
-/* Contador de puntos: discreto (una píldora), no un numerote — pedido del
-   usuario 2026-09-22. */
+/* Contador de puntos: una píldora discreta en la cabecera del descarte (sin
+   fila propia), y solo desde que se explican los PV — pedido del usuario
+   2026-09-22. */
 .tutorial__pv {
   display: inline-flex;
   align-items: baseline;
   gap: 0.25rem;
-  padding: 0.3rem 0.7rem;
+  padding: 0.15rem 0.6rem;
   border-radius: 999px;
   background: var(--accent);
   color: var(--accent-ink);
-  font-size: 1.05rem;
+  font-size: 0.9rem;
   font-weight: 800;
   animation: tutorial-pop 0.45s ease;
 }
@@ -2703,6 +2704,86 @@ body {
 
 .tutorial__final {
   animation: tutorial-fade 0.35s ease;
+}
+
+/* Anatomía de una carta: carta grande (la normal, escalada) + leyenda con
+   coste / PV / tipo / habilidad; en cada paso se resalta una fila de la
+   leyenda y la parte correspondiente de la carta. */
+.tutorial__bigcard {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.tutorial__bigcard-card {
+  flex: 0 0 auto;
+  width: calc(var(--card-w) * var(--tut-big-scale, 1.5));
+  height: calc(var(--card-h) * var(--tut-big-scale, 1.5));
+}
+
+.tutorial__bigcard-card .card {
+  transform: scale(var(--tut-big-scale, 1.5));
+  transform-origin: top left;
+}
+
+.tutorial__legend {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.tutorial__legend-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  opacity: 0.5;
+  transition:
+    opacity 0.3s ease,
+    background 0.3s ease;
+}
+
+.tutorial__legend-row--active {
+  opacity: 1;
+  border-color: var(--accent);
+  background: var(--panel-bg);
+  box-shadow: 0 0 0 2px rgba(47, 109, 79, 0.25);
+}
+
+.tutorial__legend dt {
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.tutorial__legend dd {
+  margin: 0;
+}
+
+.tutorial__bigcard--focus-cost .card__cost,
+.tutorial__bigcard--focus-pv .card__pv,
+.tutorial__bigcard--focus-types .card__footer,
+.tutorial__bigcard--focus-ability .card__icon {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+  animation: tutorial-pulse 1.1s ease infinite;
+}
+
+@keyframes tutorial-pulse {
+  0%,
+  100% {
+    outline-color: var(--accent);
+  }
+  50% {
+    outline-color: rgba(47, 109, 79, 0.15);
+  }
 }
 
 .tutorial__note {
@@ -2820,15 +2901,8 @@ body {
   .tutorial__progress-bar > span {
     background: #9fd4b4;
   }
-  /* Los montones (mazo/descarte/puntos) justo debajo del mercado: así, al
-     comprar, el vuelo de la carta del mercado al descarte se ve entero sin
-     hacer scroll (en escritorio cabe todo y van al final, como en la mesa
-     real). */
-  .tutorial__piles {
-    order: -1;
-  }
-  .tutorial__zone--market {
-    order: -2;
+  .tutorial {
+    --tut-big-scale: 1.7;
   }
   .tutorial__controls {
     position: fixed;
@@ -2858,10 +2932,14 @@ body {
     height: 92px;
     width: calc(54px + 28px);
   }
-  .tutorial__piles {
-    grid-template-columns: auto auto;
+  .tutorial__bigcard {
+    gap: 0.6rem;
   }
-  .tutorial__pile--pv {
-    grid-column: 1 / -1;
+  /* Leyenda en teléfono: etiqueta encima del valor, que al lado de la carta
+     grande no queda ancho para dos columnas. */
+  .tutorial__legend-row {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+    padding: 0.3rem 0.5rem;
   }
 }
