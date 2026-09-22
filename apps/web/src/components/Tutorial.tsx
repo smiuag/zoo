@@ -58,9 +58,15 @@ const MARKET = ['goldfish', 'rabbit', PG, MO, HI, LE, OS];
 // Mazo inicial "desplegado" (primer paso): 7 Bronce + 3 Perezosos.
 const STARTER_DECK = [B, B, B, B, B, B, B, P, P, P];
 
+// Reserva (lo que no es de nadie): las copias de los animales que faltan
+// por salir al mercado y las monedas. De aquí llega la Plata que da el
+// Pingüino — no del mazo del jugador, que era confuso (usuario 2026-09-22)
+// — y de aquí sale también el Hipopótamo que se compra en esa misma viñeta.
+const RESERVE = ['rabbit', HI, PL, 'coin-3', 'coin-5'];
+
 type ZoneId = 'deckSpread' | 'market' | 'hand' | 'played' | 'piles' | 'bigcard' | 'final';
 type Focus = 'cost' | 'pv' | 'types' | 'ability';
-type FlightSource = 'hand' | 'deck' | 'market';
+type FlightSource = 'hand' | 'reserve' | 'market';
 type FlightTarget = 'played' | 'hand' | 'discard';
 
 // Foto de las zonas en un momento dado.
@@ -97,6 +103,8 @@ interface Step extends Snapshot {
   // final).
   showPv?: boolean;
   shuffling?: boolean;
+  // Enseñar la reserva junto a mazo y descarte (solo cuando importa).
+  reserve?: boolean;
   // Anatomía de la carta: carta grande con foco en una de sus partes.
   focus?: Focus;
   // Último paso: desglose del recuento final.
@@ -208,9 +216,10 @@ const STEPS: Step[] = [
     deck: 12, hand: [], played: [], discard: [], shuffling: true, pv: 5,
   },
   {
-    title: 'Robas 5 y juegas el Pingüino',
-    text: 'Esta vez te sale el Pingüino. Los animales de la mano se pueden JUGAR: el Pingüino pasa a "Jugado este turno" y su habilidad te trae una moneda de Plata (vale 2) a la mano. Valor de compra: 3 + 2 = 5. La Plata, además, vale 1 PV.',
+    title: 'Robas 5, juegas el Pingüino y compras el Hipopótamo',
+    text: 'Esta vez te sale el Pingüino. Los animales de la mano se pueden JUGAR: el Pingüino pasa a "Jugado este turno" y su habilidad te trae una moneda de Plata (vale 2) de la reserva a tu mano. Valor de compra: 3 + 2 = 5, justo lo que cuesta el Hipopótamo (4 PV): lo compras y va DIRECTO a tu descarte. La Plata, además, vale 1 PV. Ya llevas 10.',
     show: ['piles', 'hand', 'played'],
+    reserve: true, showPv: true,
     deck: 7, hand: [PG, B, B, B, P], played: [], discard: [], money: 3, pv: 5,
     frames: [
       {
@@ -221,18 +230,17 @@ const STEPS: Step[] = [
       },
       {
         hold: 700,
-        flight: { id: PL, from: 'deck', to: 'hand' },
+        flight: { id: PL, from: 'reserve', to: 'hand' },
         ...T3_BASE,
         glow: { hand: [PL] },
       },
+      {
+        hold: 900,
+        flight: { id: HI, from: 'reserve', to: 'discard' },
+        ...T3_BASE, discard: [HI], money: 0, pv: 10,
+        glow: { discard: [HI] },
+      },
     ],
-  },
-  {
-    title: 'Compras el Hipopótamo',
-    text: 'El Hipopótamo cuesta 5 y vale 4 PV. Ya llevas 10 PV.',
-    show: ['market', 'piles'],
-    ...T3_BASE, target: HI, showPv: true,
-    frames: [buyFrame(HI, T3_BASE, { discard: [HI], money: 0, pv: 10 })],
   },
   {
     title: 'Fin del turno 3',
@@ -429,13 +437,17 @@ function toRect(r: DOMRect): Rect {
 export function Tutorial({ onClose }: { onClose: () => void }) {
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
-  // Fotograma que se muestra (0 = foto base del paso) y vuelo en curso.
-  const [shownFrame, setShownFrame] = useState(0);
+  // Fotograma que se muestra (0 = foto base del paso) y vuelo en curso. El
+  // fotograma va ATADO al índice del paso: si el paso cambia, en ese mismo
+  // render ya cuenta como 0 — sin esto, el primer render del paso nuevo
+  // usaba el fotograma del anterior y, en un paso sin fotogramas, no existía
+  // (pantalla en blanco al pulsar "Siguiente" tras una secuencia terminada).
+  const [frameState, setFrameState] = useState({ index: 0, shown: 0 });
   const [flight, setFlight] = useState<Flight | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const discardRef = useRef<HTMLDivElement>(null);
-  const deckRef = useRef<HTMLDivElement>(null);
+  const reserveRefs = useRef(new Map<string, HTMLDivElement>());
   const finalRef = useRef<HTMLDivElement>(null);
   const marketRefs = useRef(new Map<string, HTMLDivElement>());
   const zoneCardsRefs = useRef(new Map<string, HTMLDivElement>());
@@ -445,7 +457,9 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
   const isLast = index === STEPS.length - 1;
   const visible = (zone: ZoneId) => step.show.includes(zone);
   const frames = step.frames ?? [];
+  const shownFrame = frameState.index === index ? Math.min(frameState.shown, frames.length) : 0;
   const shown: Snapshot = shownFrame === 0 ? step : frames[shownFrame - 1];
+  const advanceFrame = () => setFrameState((s) => ({ index, shown: (s.index === index ? s.shown : 0) + 1 }));
   // Siguiente fotograma pendiente (el que traerá el vuelo en curso).
   const pendingFrame = shownFrame < frames.length ? frames[shownFrame] : null;
 
@@ -454,7 +468,7 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
   // lanza el vuelo; al aterrizar (onLand) se pasa a esa foto y se encadena
   // el siguiente. Se reinicia entero al cambiar de paso.
   useLayoutEffect(() => {
-    setShownFrame(0);
+    setFrameState({ index, shown: 0 });
     setFlight(null);
   }, [index]);
 
@@ -465,12 +479,12 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
       const src =
         from === 'market'
           ? marketRefs.current.get(id)
-          : from === 'deck'
-            ? deckRef.current
+          : from === 'reserve'
+            ? reserveRefs.current.get(id)
             : cardRefs.current.get(`hand-${shown.hand.indexOf(id)}`);
       const srcRect = src?.getBoundingClientRect();
       if (!srcRect) {
-        setShownFrame((f) => f + 1);
+        advanceFrame();
         return;
       }
       const size = { w: srcRect.width, h: srcRect.height };
@@ -489,7 +503,7 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
         else if (zr) dest = { x: zr.left, y: zr.top, ...size };
       }
       if (!dest) {
-        setShownFrame((f) => f + 1);
+        advanceFrame();
         return;
       }
       setFlight({ key: `${index}-${shownFrame}`, id, from: toRect(srcRect), to: dest, source: from });
@@ -634,7 +648,7 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
       <div className="tutorial__piles">
         <div className="tutorial__pile">
           <h4>Mazo</h4>
-          <div ref={deckRef} className={`card card--compact card--facedown${step.shuffling ? ' tutorial__deck--shuffling' : ''}`}>
+          <div className={`card card--compact card--facedown${step.shuffling ? ' tutorial__deck--shuffling' : ''}`}>
             <span className="card__icon">{step.shuffling ? '🔀' : '🂠'}</span>
             <span className="card__badge">{shown.deck}</span>
           </div>
@@ -666,6 +680,29 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
             })}
           </div>
         </div>
+
+        {step.reserve && (
+          <div className="tutorial__pile tutorial__pile--reserve">
+            <h4>Reserva</h4>
+            <div className="tutorial__cards">
+              {RESERVE.map((id) => {
+                const leaving = flight?.source === 'reserve' && flight.id === id;
+                return (
+                  <div
+                    key={`reserve-${id}`}
+                    ref={(el) => {
+                      if (el) reserveRefs.current.set(id, el);
+                      else reserveRefs.current.delete(id);
+                    }}
+                    className={`tutorial__card${leaving ? ' tutorial__card--leaving' : ''}`}
+                  >
+                    <CardView card={inst(id, `reserve-${id}`)} compact hideType remainingLabel="∞" />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     ),
     bigcard: () =>
@@ -785,7 +822,7 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
           <FlightGhost
             key={flight.key}
             flight={flight}
-            onLand={() => setShownFrame((f) => f + 1)}
+            onLand={advanceFrame}
             onDone={() => setFlight(null)}
           />
         )}

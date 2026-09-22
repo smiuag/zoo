@@ -2518,6 +2518,9 @@ body {
 
 .tutorial {
   position: relative;
+  /* Algo más ancho que el resto de pantallas "setup": así Mazo, Descarte y
+     Reserva (5 cartas) caben en una sola fila en escritorio. */
+  max-width: 780px;
 }
 
 .tutorial__step-inner {
@@ -2680,11 +2683,23 @@ body {
 }
 
 .tutorial__piles {
-  display: grid;
-  grid-template-columns: auto 1fr;
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
-  /* Las dos cajas (Mazo y Descarte) SIEMPRE con la misma altura. */
+  /* Las cajas (Mazo, Descarte y, si toca, Reserva) SIEMPRE con la misma
+     altura mientras compartan fila. */
   align-items: stretch;
+}
+
+/* Reserva: a la derecha de Mazo y Descarte (que se quedan a su ancho); en
+   teléfono no cabe y baja a su propia fila. */
+.tutorial__pile--reserve {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.tutorial__pile--reserve .tutorial__cards {
+  min-height: 0;
 }
 
 .tutorial__pile .card--facedown {
