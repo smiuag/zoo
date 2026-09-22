@@ -215,43 +215,6 @@ export function GameSetup({
         </div>
 
         <div className="setup-row">
-          <div className="setup-round-options setup-round-options--full">
-            <button className="btn btn--primary" type="submit" disabled={!canStart}>
-              Empezar partida
-            </button>
-            {onCreateOnlineRoom && (
-              <button className="btn btn--ghost" type="button" disabled={!canGoOnline} onClick={handleCreateOnlineRoom}>
-                🌐 Crear partida online
-              </button>
-            )}
-          </div>
-          {totalPlayers < MIN_TOTAL_PLAYERS && (
-            <p className="setup-error">
-              Con 1 solo jugador humano hace falta al menos 1 bot rival: sube el número de bots o de jugadores.
-            </p>
-          )}
-          {edition === 'custom' && customSpecies.size === 0 && (
-            <p className="setup-error">
-              Elige al menos una especie en Configuración → Personalizado antes de empezar.
-            </p>
-          )}
-          {onCreateOnlineRoom && !isOnlineAvailable && (
-            <p className="setup-hint">No configurada en este despliegue (falta VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY).</p>
-          )}
-        </div>
-
-        <div className="setup-row">
-          <div className="setup-round-options setup-round-options--full">
-            <button className="btn btn--ghost" type="button" onClick={onOpenScoreCalculator}>
-              🌰 Marcador final (sin partida)
-            </button>
-            <button className="btn btn--ghost" type="button" onClick={onOpenRanking}>
-              🏆 Ranking
-            </button>
-          </div>
-        </div>
-
-        <div className="setup-row">
           <label htmlFor="setup-nick">Tu nick</label>
           <input
             id="setup-nick"
@@ -381,6 +344,46 @@ export function GameSetup({
             </button>
           )}
         </div>
+        {/* Acciones (empezar / online / marcador / ranking) al FINAL del
+            formulario, debajo de toda la configuración — pedido explícito
+            del usuario 2026-09-22 (antes iban arriba, justo bajo el título). */}
+        <div className="setup-row">
+          <div className="setup-round-options setup-round-options--full">
+            <button className="btn btn--primary" type="submit" disabled={!canStart}>
+              Empezar partida
+            </button>
+            {onCreateOnlineRoom && (
+              <button className="btn btn--ghost" type="button" disabled={!canGoOnline} onClick={handleCreateOnlineRoom}>
+                🌐 Crear partida online
+              </button>
+            )}
+          </div>
+          {totalPlayers < MIN_TOTAL_PLAYERS && (
+            <p className="setup-error">
+              Con 1 solo jugador humano hace falta al menos 1 bot rival: sube el número de bots o de jugadores.
+            </p>
+          )}
+          {edition === 'custom' && customSpecies.size === 0 && (
+            <p className="setup-error">
+              Elige al menos una especie en Configuración → Personalizado antes de empezar.
+            </p>
+          )}
+          {onCreateOnlineRoom && !isOnlineAvailable && (
+            <p className="setup-hint">No configurada en este despliegue (falta VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY).</p>
+          )}
+        </div>
+
+        <div className="setup-row">
+          <div className="setup-round-options setup-round-options--full">
+            <button className="btn btn--ghost" type="button" onClick={onOpenScoreCalculator}>
+              🌰 Marcador final (sin partida)
+            </button>
+            <button className="btn btn--ghost" type="button" onClick={onOpenRanking}>
+              🏆 Ranking
+            </button>
+          </div>
+        </div>
+
       </form>
     </div>
   );
