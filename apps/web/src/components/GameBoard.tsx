@@ -758,7 +758,18 @@ export function GameBoard({
                 💰 {purchasingPower}/{purchasingPowerPeak}
               </span>
               {isOwnTurn && (
+                // Reiniciar a la izquierda y Terminar a la derecha (al revés
+                // que en la barra de escritorio) — pedido explícito del
+                // usuario 2026-09-22. En vertical los dos botones van solos en
+                // su propia fila, al 50% cada uno (ver .bottom-bar__actions en
+                // styles.css); en horizontal caben con el resto y quedan a su
+                // tamaño natural.
                 <div className="bottom-bar__actions">
+                  {onRestartTurn && (
+                    <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
+                      ↺ Reiniciar turno
+                    </button>
+                  )}
                   <button
                     className="btn btn--primary"
                     disabled={!legalActions.some((a) => a.type === 'endTurn')}
@@ -772,11 +783,6 @@ export function GameBoard({
                   >
                     Terminar turno
                   </button>
-                  {onRestartTurn && (
-                    <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
-                      ↺ Reiniciar turno
-                    </button>
-                  )}
                 </div>
               )}
             </div>

@@ -1140,6 +1140,24 @@ body {
     margin-bottom: 0.4rem;
   }
 
+  /* La mano del muelle no crece con el ancho de la pantalla: las columnas
+     se quedan como mucho al tamaño de la carta pequeña normal (76px) y solo
+     se encogen a partes iguales si no caben (teléfono estrecho en vertical,
+     donde da lo mismo que antes). Sin esto, con el teléfono tumbado la mano
+     ocupaba casi toda la altura de la pantalla. */
+  .mobile-dock .card-row--hand {
+    grid-template-columns: repeat(5, minmax(0, 76px));
+  }
+
+  /* Teléfono tumbado: poca altura, así que la cabecera "Tu mano" (título y
+     recuento de mazo/descarte) desaparece del muelle para dejar sitio al
+     mercado. */
+  @media (orientation: landscape) and (max-height: 500px) {
+    .mobile-dock .panel__header {
+      display: none;
+    }
+  }
+
   .bottom-bar {
     margin-bottom: 0;
     border-radius: 0;
@@ -1160,6 +1178,21 @@ body {
   .bottom-bar__actions .btn {
     padding: 0.45rem 0.7rem;
     font-size: 0.85rem;
+  }
+
+  /* Teléfono en vertical: Reiniciar/Terminar turno van solos en su propia
+     fila y se reparten el ancho a partes iguales (pedido explícito del
+     usuario 2026-09-22). En horizontal caben junto a ronda/dinero y se
+     quedan a su tamaño natural (regla base de .bottom-bar__actions). */
+  @media (orientation: portrait) {
+    .bottom-bar__actions {
+      flex: 1 0 100%;
+    }
+    .bottom-bar__actions .btn {
+      flex: 1 1 0;
+      min-width: 0;
+      white-space: nowrap;
+    }
   }
 
   /* Ver .pair-row más arriba: en móvil cada pareja cae en su propia fila. */
