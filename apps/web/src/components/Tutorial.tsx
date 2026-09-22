@@ -76,6 +76,9 @@ interface Step {
   shuffling?: boolean;
   // En este paso se compra `target`: la carta vuela del mercado al descarte.
   buy?: boolean;
+  // Cartas que LLEGAN en este paso (la Plata que da el Pingüino, el animal
+  // recién jugado…): entran con animación y destello para que se note.
+  glow?: { hand?: string[]; played?: string[] };
   // Anatomía de la carta: carta grande con foco en una de sus partes.
   focus?: Focus;
   // Último paso: desglose del recuento final.
@@ -180,6 +183,7 @@ const STEPS: Step[] = [
     title: 'Juegas el Pingüino',
     text: 'Al jugarlo pasa a "Jugado este turno" y su habilidad añade una moneda de Plata (vale 2) a tu mano. Valor de compra: 3 + 2 = 5. La Plata, además, vale 1 PV.',
     show: ['hand', 'played'],
+    glow: { hand: [PL], played: [PG] },
     deck: 7, hand: [B, B, B, P, PL], played: [PG], discard: [], money: 5, pv: 6,
   },
   {
@@ -204,6 +208,7 @@ const STEPS: Step[] = [
     title: 'Juegas el Mono',
     text: 'El Mono da +1 de valor de compra por cada animal terrestre de tu mano, contándose a sí mismo: Mono + 2 Perezosos = +3. ¡Hasta el Perezoso sirve para algo! Valor de compra: 2 + 3 = 5.',
     show: ['hand', 'played'],
+    glow: { played: [MO] },
     deck: 2, hand: [B, B, P, P], played: [MO], discard: D_T3, money: 5, pv: 10,
   },
   {
@@ -240,12 +245,14 @@ const STEPS: Step[] = [
     title: 'Juegas el León',
     text: 'El León añade 3 fijos al valor de compra: 4 + 3 = 7.',
     show: ['hand', 'played'],
+    glow: { played: [LE] },
     deck: 10, hand: [B, B, MO, PL], played: [LE], discard: [], money: 7, pv: 14,
   },
   {
     title: 'Juegas el Mono',
     text: 'Terrestres en juego: el propio Mono y el León = +2. Valor de compra: 9. Puedes jugar varios animales en el mismo turno, en el orden que quieras.',
     show: ['hand', 'played'],
+    glow: { played: [MO] },
     deck: 10, hand: [B, B, PL], played: [LE, MO], discard: [], money: 9, pv: 14,
   },
   {
@@ -343,25 +350,39 @@ function FlightGhost({ flight, onLand, onDone }: { flight: Flight; onLand: () =>
   );
 }
 
-function MoneyPill({ money }: { money: number }) {
+// Valor de compra: en su propia línea bajo el título de la zona (en la
+// cabecera, a la derecha, quedaba raro — usuario 2026-09-22).
+function MoneyLine({ money }: { money: number }) {
   return (
-    <span className="tutorial__money" key={money}>
+    <div className="tutorial__money" key={money}>
       💰 Valor de compra: {money}
-    </span>
+    </div>
   );
 }
 
-function Zone({ title, zone, cards, empty, extra }: { title: string; zone: string; cards: string[]; empty: string; extra?: ReactNode }) {
+function Zone({
+  title,
+  zone,
+  cards,
+  empty,
+  extra,
+  glow,
+}: {
+  title: string;
+  zone: string;
+  cards: string[];
+  empty: string;
+  extra?: ReactNode;
+  glow?: string[];
+}) {
   return (
     <section className={`tutorial__zone tutorial__zone--${zone}`}>
-      <h4>
-        {title}
-        {extra}
-      </h4>
+      <h4>{title}</h4>
+      {extra}
       <div className="tutorial__cards">
         {cards.length === 0 && <span className="tutorial__empty">{empty}</span>}
         {cards.map((id, i) => (
-          <div key={`${zone}-${i}-${id}`} className="tutorial__card">
+          <div key={`${zone}-${i}-${id}`} className={`tutorial__card${glow?.includes(id) ? ' tutorial__card--arrive' : ''}`}>
             <CardView card={inst(id, `${zone}-${i}`)} compact hideType />
           </div>
         ))}
@@ -465,10 +486,8 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
     deckSpread: () => <Zone title="Tu mazo · 10 cartas (antes de barajar)" zone="deck-spread" cards={STARTER_DECK} empty="" />,
     market: () => (
       <section className="tutorial__zone tutorial__zone--market">
-        <h4>
-          Mercado
-          {moneyInMarket && <MoneyPill money={step.money!} />}
-        </h4>
+        <h4>Mercado</h4>
+        {moneyInMarket && <MoneyLine money={step.money!} />}
         <div className="tutorial__cards">
           {MARKET.map((id) => {
             const cost = getCard(id).marketCost ?? 0;
@@ -493,9 +512,16 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
       </section>
     ),
     hand: () => (
-      <Zone title="Tu mano" zone="hand" cards={step.hand} empty="vacía" extra={moneyInHand ? <MoneyPill money={step.money!} /> : undefined} />
+      <Zone
+        title="Tu mano"
+        zone="hand"
+        cards={step.hand}
+        empty="vacía"
+        extra={moneyInHand ? <MoneyLine money={step.money!} /> : undefined}
+        glow={step.glow?.hand}
+      />
     ),
-    played: () => <Zone title="Jugado este turno" zone="played" cards={step.played} empty="nada todavía" />,
+    played: () => <Zone title="Jugado este turno" zone="played" cards={step.played} empty="nada todavía" glow={step.glow?.played} />,
     piles: () => (
       <div className="tutorial__piles">
         <div className="tutorial__pile">
