@@ -320,6 +320,21 @@ export function GameBoard({
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
   }, []);
+  // Móvil: baja del todo (mesa a la vista, justo encima de la mano fija) un
+  // instante después, para que la página ya tenga su altura nueva. Se usa al
+  // terminar turno y al empezar la partida — pedido explícito del usuario
+  // 2026-09-22 ("que empiece con el scroll abajo como si pasaras turno").
+  function scrollToBottomOnMobile() {
+    if (isDesktop) return;
+    window.setTimeout(() => {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+    }, 60);
+  }
+  useEffect(() => {
+    scrollToBottomOnMobile();
+    // Solo al montar (empezar la partida); el resto de scrolls van a mano.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // En móvil el mercado queda justo ENCIMA de la mesa y la mano (ver el
   // orden de paneles en styles.css, @media max-width:860px), y se lee de
   // abajo arriba: las baratas al final, pegadas a la mesa, y las caras
@@ -383,10 +398,7 @@ export function GameBoard({
   // después de la acción, para que la página ya tenga su altura nueva.
   function endTurn() {
     runAction(legalActions.find((a) => a.type === 'endTurn'));
-    if (isDesktop) return;
-    window.setTimeout(() => {
-      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
-    }, 60);
+    scrollToBottomOnMobile();
   }
 
   function runAction(action: Action | undefined) {
