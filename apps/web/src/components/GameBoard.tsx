@@ -291,7 +291,7 @@ export function GameBoard({
   function canViewPlayer(p: Player): boolean {
     return state.gameOver || p.id === viewerPlayerId;
   }
-  const sortedAnimalTrack = [...state.animalTrack].sort(
+  const sortedByCost = [...state.animalTrack].sort(
     (a, b) => (a.marketCost ?? 0) - (b.marketCost ?? 0) || a.name.localeCompare(b.name)
   );
 
@@ -320,6 +320,13 @@ export function GameBoard({
     mql.addEventListener('change', handler);
     return () => mql.removeEventListener('change', handler);
   }, []);
+  // En móvil el mercado queda justo ENCIMA de la mesa y la mano (ver el
+  // orden de paneles en styles.css, @media max-width:860px), y se lee de
+  // abajo arriba: las baratas al final, pegadas a la mesa, y las caras
+  // arriba — pedido explícito del usuario 2026-09-22 ("el mercado también
+  // cambiado de orden"). En escritorio, de más barata a más cara como
+  // siempre.
+  const sortedAnimalTrack = isDesktop ? sortedByCost : sortedByCost.reverse();
   const choiceRef = useRef<HTMLDivElement>(null);
   const viewedPlayer = state.players.find((p) => p.id === viewedPlayerId) ?? null;
   // Terminar turno "a lo tonto" (con animales por jugar o monedas por
@@ -368,6 +375,19 @@ export function GameBoard({
   useEffect(() => {
     if (pendingChoice) choiceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [pendingChoice]);
+
+  // Terminar turno: en móvil, además, baja del todo para dejar a la vista
+  // la mesa (justo encima de la mano fija) — pedido explícito del usuario
+  // 2026-09-22; es el ÚNICO scroll automático ligado a una acción de
+  // partida (el de después de comprar se quitó ese mismo día). Un instante
+  // después de la acción, para que la página ya tenga su altura nueva.
+  function endTurn() {
+    runAction(legalActions.find((a) => a.type === 'endTurn'));
+    if (isDesktop) return;
+    window.setTimeout(() => {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+    }, 60);
+  }
 
   function runAction(action: Action | undefined) {
     if (!action) return;
@@ -706,7 +726,7 @@ export function GameBoard({
                       setConfirmEndTurn(true);
                       return;
                     }
-                    runAction(legalActions.find((a) => a.type === 'endTurn'));
+                    endTurn();
                   }}
                 >
                   Terminar turno
@@ -778,7 +798,7 @@ export function GameBoard({
                         setConfirmEndTurn(true);
                         return;
                       }
-                      runAction(legalActions.find((a) => a.type === 'endTurn'));
+                      endTurn();
                     }}
                   >
                     Terminar turno
@@ -933,7 +953,7 @@ export function GameBoard({
             // En escritorio esto vive ahora en la barra de arriba (ver
             // isDesktop más arriba) — aquí se queda solo para móvil, igual
             // que siempre.
-            <div className="panel">
+            <div className="panel panel--status">
               <div className="status-row">
                 {renderStatusPill()}
                 {onNewGame && (
@@ -985,7 +1005,7 @@ export function GameBoard({
         </div>
 
         <div className="layout__right">
-          <div className="panel">
+          <div className="panel panel--market">
             <div className="card-row card-row--market">
               {sortedAnimalTrack.map((card) => (
                 <div
@@ -1026,7 +1046,7 @@ export function GameBoard({
         <pre>{state.log.slice(-40).join('\n')}</pre>
       </details>
 
-      <div className="panel">
+      <div className="panel panel--bots">
         <div className="panel__header">
           <h2>Bots</h2>
         </div>
@@ -1157,7 +1177,7 @@ export function GameBoard({
                 className="btn btn--primary"
                 onClick={() => {
                   setConfirmEndTurn(false);
-                  runAction(legalActions.find((a) => a.type === 'endTurn'));
+                  endTurn();
                 }}
               >
                 Sí, terminar turno

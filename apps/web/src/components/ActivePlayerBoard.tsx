@@ -86,7 +86,7 @@ export function ActivePlayerBoard({
   const played = groupByCard(activePlayer.playedThisTurn);
 
   return (
-    <div className="panel">
+    <div className="panel panel--table">
       <div className="panel__header panel__header--with-piles">
         <DeckPile player={activePlayer} />
         <div className="panel__header-center">

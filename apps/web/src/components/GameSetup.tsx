@@ -40,6 +40,10 @@ interface GameSetupProps {
   // Abre el ranking/histórico (ver Ranking.tsx): igual que la calculadora,
   // sin relación con esta partida.
   onOpenRanking: () => void;
+  // Abre el tutorial paso a paso (ver Tutorial.tsx). Solo se ofrece con la
+  // edición Aprendizaje seleccionada — pedido explícito del usuario
+  // 2026-09-22.
+  onOpenTutorial: () => void;
   // Presente solo si hay una sala online guardada en localStorage (ver
   // App.tsx/online/onlineRoomStorage.ts) — normalmente porque el host
   // refrescó por accidente a mitad de partida. Mostrar el aviso ANTES que
@@ -69,6 +73,7 @@ export function GameSetup({
   onCreateOnlineRoom,
   onOpenScoreCalculator,
   onOpenRanking,
+  onOpenTutorial,
   resumableOnlineRoomCode,
   onResumeOnlineRoom,
   onDiscardResumableOnlineRoom,
@@ -370,6 +375,11 @@ export function GameSetup({
                 ? 'Elige tú qué especies entran en el mercado y cuántas copias hay de cada una, desde ⚙️ Configuración.'
                 : 'La oficial: 33 especies, sin restricciones.'}
           </p>
+          {edition === 'learning' && (
+            <button className="btn btn--primary setup-tutorial-btn" type="button" onClick={onOpenTutorial}>
+              🎓 Ver tutorial
+            </button>
+          )}
         </div>
       </form>
     </div>

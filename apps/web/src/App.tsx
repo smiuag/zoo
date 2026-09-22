@@ -7,6 +7,7 @@ import { GuestApp } from './components/GuestApp';
 import { OnlineWaitingRoom } from './components/OnlineWaitingRoom';
 import { Ranking } from './components/Ranking';
 import { ScoreCalculator } from './components/ScoreCalculator';
+import { Tutorial } from './components/Tutorial';
 import { ArtStyleProvider } from './lib/artStyle';
 import { createHostRoom, type CreatedRoom } from './online/createHostRoom';
 import { computePosition, recordGameResult, summarizeCollection, type GameMode } from './online/gameResults';
@@ -75,6 +76,9 @@ function HostOrLocalApp() {
   const [showScoreCalculator, setShowScoreCalculator] = useState(false);
   // Ranking/histórico (ver Ranking.tsx): mismo trato que la calculadora.
   const [showRanking, setShowRanking] = useState(false);
+  // Tutorial paso a paso (ver Tutorial.tsx): mismo trato que la calculadora
+  // y el ranking, pantalla completa independiente de la partida.
+  const [showTutorial, setShowTutorial] = useState(false);
 
   // Mientras juegan los bots, se sigue mostrando el último humano con
   // agencia (pase-y-juega local): nada interactivo depende de esto, solo
@@ -259,6 +263,10 @@ function HostOrLocalApp() {
     return <Ranking onClose={() => setShowRanking(false)} />;
   }
 
+  if (showTutorial) {
+    return <Tutorial onClose={() => setShowTutorial(false)} />;
+  }
+
   if (phase === 'setup') {
     if (onlineRoom) {
       return (
@@ -278,6 +286,7 @@ function HostOrLocalApp() {
         onCreateOnlineRoom={handleCreateOnlineRoom}
         onOpenScoreCalculator={() => setShowScoreCalculator(true)}
         onOpenRanking={() => setShowRanking(true)}
+        onOpenTutorial={() => setShowTutorial(true)}
         resumableOnlineRoomCode={resumableOnlineRoom?.roomCode}
         onResumeOnlineRoom={handleResumeOnlineRoom}
         onDiscardResumableOnlineRoom={handleDiscardResumableOnlineRoom}

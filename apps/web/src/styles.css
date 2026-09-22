@@ -83,8 +83,42 @@ body {
 }
 
 @media (max-width: 860px) {
-  .layout {
-    grid-template-columns: 1fr;
+  /* Móvil: una sola columna, y con el ORDEN cambiado respecto al escritorio
+     — pedido explícito del usuario 2026-09-22: de abajo arriba, la mano
+     (fija en el muelle, ver .mobile-dock), encima la mesa, encima el
+     mercado, encima el log. Los paneles viven en dos columnas distintas
+     (.layout__left/.layout__right) y el log/bots fuera de .layout, así que
+     se "disuelven" esos contenedores (display:contents) para que TODOS sean
+     hijos directos de .app y se puedan ordenar con `order`. */
+  .app {
+    display: flex;
+    flex-direction: column;
+  }
+  .layout,
+  .layout__left,
+  .layout__right {
+    display: contents;
+  }
+  .panel--status {
+    order: 1;
+  }
+  .panel--bots {
+    order: 2;
+  }
+  .log-details {
+    order: 3;
+    margin-bottom: 1rem;
+  }
+  .panel--market {
+    order: 4;
+  }
+  .panel--table {
+    order: 5;
+  }
+  /* El panel de elección (al jugar una carta con opciones) va al final, lo
+     más cerca posible de la mano. */
+  .panel--choice {
+    order: 6;
   }
 }
 
@@ -2471,4 +2505,275 @@ body {
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--muted);
+}
+
+/* ---------- Tutorial paso a paso (ver Tutorial.tsx) ---------- */
+
+.setup-tutorial-btn {
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  font-size: 1.05rem;
+}
+
+.tutorial__step {
+  animation: tutorial-fade 0.35s ease;
+}
+
+.tutorial__step h3 {
+  margin: 0.35rem 0 0.3rem;
+  font-size: 1.15rem;
+  color: var(--accent);
+}
+
+.tutorial__step p {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.5;
+  /* Altura reservada para que el tablero de abajo no "salte" arriba y abajo
+     entre pasos de texto corto y largo. */
+  min-height: 4.5em;
+}
+
+.tutorial__progress {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.tutorial__progress-bar {
+  flex: 1 1 auto;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--panel-border);
+  overflow: hidden;
+}
+
+.tutorial__progress-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.tutorial__board {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.tutorial__zone,
+.tutorial__pile {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.65rem 0.6rem;
+  background: var(--bg);
+}
+
+.tutorial__zone h4,
+.tutorial__pile h4 {
+  margin: 0 0 0.4rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tutorial__money {
+  color: #8a6d1f;
+  font-size: 0.85rem;
+  animation: tutorial-pop 0.4s ease;
+}
+
+.tutorial__cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  min-height: calc(var(--card-compact-h) + 6px);
+}
+
+.tutorial__empty {
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--muted);
+}
+
+/* Cada carta recién aparecida (clave nueva de React) entra con un pequeño
+   "pop": basta para que se note qué acaba de moverse en cada paso. */
+.tutorial__card {
+  position: relative;
+  animation: tutorial-pop 0.45s ease;
+}
+
+.tutorial__card--highlight .card,
+.tutorial__card--bought .card {
+  box-shadow:
+    0 0 0 3px var(--accent),
+    0 0 16px 4px rgba(47, 109, 79, 0.45);
+}
+
+.tutorial__piles {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.6rem;
+}
+
+.tutorial__pile .card--facedown {
+  position: relative;
+}
+
+.tutorial__deck--shuffling {
+  animation: tutorial-shake 0.5s ease infinite;
+}
+
+.tutorial__shuffle-label {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Descarte: las últimas 3 cartas, en abanico ligero, la última encima. */
+.tutorial__discard {
+  position: relative;
+  height: calc(var(--card-compact-h) + 14px);
+  width: calc(72px + 28px);
+}
+
+.tutorial__discard-card {
+  position: absolute;
+  left: calc(var(--stack-i, 0) * 12px);
+  top: calc(var(--stack-i, 0) * 5px);
+}
+
+.tutorial__discard > .card--empty {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.tutorial__pile--pv {
+  display: flex;
+  flex-direction: column;
+}
+
+.tutorial__pv {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--accent);
+  animation: tutorial-pop 0.45s ease;
+}
+
+.tutorial__pv small {
+  font-size: 0.9rem;
+  color: var(--muted);
+  align-self: flex-end;
+  margin-bottom: 0.7rem;
+}
+
+.tutorial__final {
+  animation: tutorial-fade 0.35s ease;
+}
+
+.tutorial__note {
+  color: var(--muted);
+}
+
+.tutorial__total td {
+  font-weight: 800;
+  color: var(--accent);
+  border-top: 2px solid var(--panel-border);
+}
+
+.tutorial__controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tutorial__controls .btn {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+@keyframes tutorial-pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes tutorial-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tutorial-shake {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-6deg) translateX(-2px);
+  }
+  75% {
+    transform: rotate(6deg) translateX(2px);
+  }
+}
+
+@media (max-width: 480px) {
+  /* Cartas algo más pequeñas para que la mano de 5 quepa en una sola fila
+     en un teléfono estrecho. */
+  .tutorial .card--compact {
+    --card-w: 54px;
+    --card-h: 80px;
+  }
+  .tutorial__cards {
+    gap: 0.25rem;
+    min-height: 86px;
+  }
+  .tutorial__discard {
+    height: 92px;
+    width: calc(54px + 28px);
+  }
+  .tutorial__piles {
+    grid-template-columns: 1fr 1fr;
+  }
+  .tutorial__pile--pv {
+    grid-column: 1 / -1;
+  }
+  .tutorial__pv {
+    font-size: 2rem;
+    padding: 0.3rem 0;
+  }
+  .tutorial__step p {
+    font-size: 0.95rem;
+    min-height: 6em;
+  }
 }
