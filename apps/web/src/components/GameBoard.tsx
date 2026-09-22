@@ -206,19 +206,13 @@ export function GameBoard({
   // mapa, justo lo que hace falta para saber "de dónde viene volando".
   const marketRectsRef = useRef<Map<string, DOMRect>>(new Map());
   const discardPileRef = useRef<HTMLDivElement>(null);
-  // En móvil (.layout a una sola columna, ver styles.css) el mercado queda
-  // debajo de la mesa/mano y es muy vertical: pedido explícito del usuario,
-  // justo después de comprar (nunca de jugar una carta) la pantalla sube
-  // sola hasta el mercado para seguir comprando sin buscar dónde estaba, o
-  // hasta "Terminar turno" si ya no queda nada que puedas pagar. SOLO en
-  // móvil (ver isDesktop): en pantalla grande el mercado es más alto que la
-  // ventana, así que block:'nearest' SÍ movía el scroll (al borde superior o
-  // inferior del mercado, o arriba del todo hasta "Terminar turno") y te
-  // sacaba de donde estabas mirando — quitado a petición del usuario
-  // 2026-09-21: "que no intente colocarte el scroll arriba o abajo".
-  const marketPanelRef = useRef<HTMLDivElement>(null);
-  const endTurnButtonRef = useRef<HTMLButtonElement>(null);
-  const scrollAfterBuyRef = useRef(false);
+  // Tras comprar NO se toca el scroll (ni en móvil ni en escritorio): hubo
+  // un scrollIntoView automático al mercado / a "Terminar turno" después de
+  // cada compra y el usuario lo quitó del todo el 2026-09-22 ("se pone a
+  // bailar, sube y baja y redimensiona sin sentido"). El único scroll
+  // automático que queda en la partida es el del panel de elección
+  // (pendingChoice, más abajo), que solo aparece al jugar una carta con
+  // opciones.
   const [flights, setFlights] = useState<FlightSpec[]>([]);
   // Vuelos que ya "han aterrizado" de verdad (ver settleFlight/onSettle más
   // abajo) pero cuyo fantasma sigue en pantalla desvaneciéndose: sin esto,
@@ -314,7 +308,7 @@ export function GameBoard({
   const [confirmLocalReplay, setConfirmLocalReplay] = useState(false);
   // Misma frontera que ".bottom-bar" en styles.css (@media max-width:860px):
   // decide en JS (no solo CSS) qué contenido monta la barra inferior, para
-  // no duplicar el botón "Terminar turno" (mismo endTurnButtonRef) dos veces
+  // no duplicar el botón "Terminar turno" dos veces
   // en el DOM a la vez — pedido explícito del usuario 2026-09-21: en
   // pantalla grande la barra reúne también el marcador y la ronda
   // (eliminando el panel de arriba que los mostraba aparte); en móvil se
@@ -375,22 +369,8 @@ export function GameBoard({
     if (pendingChoice) choiceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [pendingChoice]);
 
-  // `legalActions` ya refleja el estado DESPUÉS de la compra (llega de
-  // App.tsx recalculado en cada render): si scrollAfterBuyRef quedó
-  // marcado por runAction, aquí es donde se sabe de verdad si todavía se
-  // puede pagar algo más o no.
-  useEffect(() => {
-    if (!scrollAfterBuyRef.current) return;
-    scrollAfterBuyRef.current = false;
-    if (isDesktop) return;
-    const canBuyMore = legalActions.some((a) => a.type === 'buyAnimal' || a.type === 'buyCoin');
-    const target = canBuyMore ? marketPanelRef.current : endTurnButtonRef.current;
-    target?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [legalActions, isDesktop]);
-
   function runAction(action: Action | undefined) {
     if (!action) return;
-    if (action.type === 'buyAnimal' || action.type === 'buyCoin') scrollAfterBuyRef.current = true;
     doAction(action);
     setPendingChoice(null);
   }
@@ -586,7 +566,18 @@ export function GameBoard({
       setScoreboardBelow(needed > mid.clientWidth);
     };
     measure();
-    const observer = new ResizeObserver(measure);
+    // Solo se vuelve a medir cuando cambia el ANCHO del hueco (ventana
+    // redimensionada), nunca por un cambio de solo altura: bajar/subir el
+    // marcador cambia la altura de este mismo elemento, y si eso volviera a
+    // disparar la medición se podría entrar en un bucle barra-alta /
+    // barra-baja (la página "bailando" arriba y abajo). Y comparar contra la
+    // última decisión evita re-renders inútiles aunque el ancho sea el mismo.
+    let lastWidth = mid.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (mid.clientWidth === lastWidth) return;
+      lastWidth = mid.clientWidth;
+      measure();
+    });
     observer.observe(mid);
     return () => observer.disconnect();
   });
@@ -646,7 +637,6 @@ export function GameBoard({
             {!state.gameOver && isOwnTurn && (
               <>
                 <button
-                  ref={endTurnButtonRef}
                   className="btn btn--primary"
                   disabled={!legalActions.some((a) => a.type === 'endTurn')}
                   onClick={() => {
@@ -703,7 +693,6 @@ export function GameBoard({
             {isOwnTurn && (
               <div className="bottom-bar__actions">
                 <button
-                  ref={endTurnButtonRef}
                   className="btn btn--primary"
                   disabled={!legalActions.some((a) => a.type === 'endTurn')}
                   onClick={() => {
@@ -954,7 +943,7 @@ export function GameBoard({
         </div>
 
         <div className="layout__right">
-          <div className="panel" ref={marketPanelRef}>
+          <div className="panel">
             <div className="card-row card-row--market">
               {sortedAnimalTrack.map((card) => (
                 <div
