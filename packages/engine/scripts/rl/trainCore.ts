@@ -16,7 +16,15 @@ import { deserializeWeights, forward, type RlWeights } from '../../src/bots/rl/n
 import type { Bot } from '../../src/bots/types';
 import { getCard } from '../../src/cards/registry';
 import type { Card } from '../../src/cards/schema';
-import { applyAction, autoResolvePendingDiscard, createGame, getActivePlayer, type Action } from '../../src/engine';
+import {
+  applyAction,
+  autoResolvePendingDiscard,
+  createGame,
+  currentPurchasingPower,
+  effectiveMarketCost,
+  getActivePlayer,
+  type Action,
+} from '../../src/engine';
 import { filterActionsByHabitat, filterUpgradeChoicesForRl, legalActionsForBot } from '../../src/bots/actionPriority';
 import type { GameEdition, GameState, Player } from '../../src/model/state';
 import { scoreGame, scorePlayer, type PlayerScore } from '../../src/scoring';
@@ -313,9 +321,81 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
 
   let guard = 0;
   while (!state.gameOver && guard < MAX_ACTIONS_PER_GAME) {
-    // Con un descarte pendiente (Buitre/Mono/Hiena/Murciélago), nadie tiene
-    // ninguna acción legal hasta que se resuelva.
-    if (autoResolvePendingDiscard(state)) {
+    // Descarte forzoso pendiente (Buitre/Mono/Hiena/Tiranosaurio...): nadie
+    // más tiene ninguna acción legal hasta que se resuelva. Pedido explícito
+    // del usuario 2026-09-22: si el que debe algo es el propio aprendiz, ya
+    // NO se auto-resuelve con la heurística de siempre — se puntúa/elige/
+    // registra exactamente como cualquier otra decisión suya, para que
+    // pueda aprender a elegir (Gato/Murciélago como sustituto, o la carta
+    // menos valiosa entre varias elegibles) en vez de que esa elección
+    // quede siempre fuera de su control. Los rivales fijos de la partida
+    // siguen auto-resolviéndose con la heurística: no aporta nada
+    // puntuarles esta decisión con su propia red (mucho más caro) para algo
+    // que el aprendiz ni siquiera ve.
+    if (state.pendingDecision) {
+      const owedId = Object.keys(state.pendingDecision.owed)[0];
+      if (!owedId) {
+        state.pendingDecision = null;
+        guard++;
+        continue;
+      }
+      if (!trajectories.has(owedId)) {
+        autoResolvePendingDiscard(state);
+        guard++;
+        continue;
+      }
+
+      const owedPlayer = state.players.find((p) => p.id === owedId)!;
+      const decisionKind = state.pendingDecision.kind;
+      const actions = legalActionsForBot(state, owedId);
+      if (actions.length === 0) {
+        guard++;
+        continue;
+      }
+
+      const allFeatures = encodeActionsForPlayer(state, owedId, actions);
+      const allForward = allFeatures.map((x) => forward(weights, x));
+      const allScores = allForward.map((f) => f.score);
+      const chosenIndex =
+        Math.random() < EPSILON ? Math.floor(Math.random() * actions.length) : sampleIndex(allScores, TRAIN_TEMPERATURE);
+      const chosenAction = actions[chosenIndex] as Extract<Action, { type: 'resolveDiscard' }>;
+      const stateFeatures = encodePlayerContext(state, owedPlayer);
+
+      // Valor evitado (pedido explícito del usuario 2026-09-22): cuánto PV
+      // valía la alternativa más cara de las elegibles, comparado con lo que
+      // de verdad se pierde. Con el Gato/Murciélago/Perezoso como sustituto
+      // no se pierde nada de verdad (la carta va al descarte, sigue siendo
+      // tuya, se puede volver a robar) — se comprueba mirando si
+      // destroyedCards creció de verdad tras resolver, no adivinando qué
+      // sustituto se usó. Solo aplica a 'destroy' (perder una carta para
+      // siempre): 'discard'/'giveToPlayer' no tienen un "más o menos grave"
+      // igual de claro, así que no se tocan.
+      const eligibleCards = [...owedPlayer.hand, ...owedPlayer.table].filter((c) =>
+        actions.some((a) => a.type === 'resolveDiscard' && a.instanceId === c.instanceId)
+      );
+      const chosenCard = eligibleCards.find((c) => c.instanceId === chosenAction.instanceId);
+      const worstCaseValue = eligibleCards.reduce((max, c) => Math.max(max, c.victoryPoints ?? 0), 0);
+      const destroyedCountBefore = owedPlayer.destroyedCards.length;
+
+      applyAction(state, owedId, chosenAction);
+
+      let shapingBonus = 0;
+      if (decisionKind === 'destroy') {
+        const actuallyDestroyed = owedPlayer.destroyedCards.length > destroyedCountBefore;
+        const givenUpValue = actuallyDestroyed ? (chosenCard?.victoryPoints ?? 0) : 0;
+        shapingBonus = (worstCaseValue - givenUpValue) / 20;
+      }
+
+      trajectories.get(owedId)?.push({
+        allFeatures,
+        allHidden: allForward.map((f) => f.hidden),
+        allScores,
+        actionTypes: actions.map((a) => a.type),
+        chosenIndex,
+        stateFeatures,
+        shapingBonus,
+      });
+
       guard++;
       continue;
     }
@@ -344,19 +424,46 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
 
     const chosenAction = actions[chosenIndex];
     const stateFeatures = encodePlayerContext(state, player);
-    const boughtCardId =
-      chosenAction.type === 'buyAnimal'
-        ? state.animalTrack.find((c) => c.instanceId === chosenAction.trackInstanceId)?.id
-        : undefined;
-    const calibratedValue = boughtCardId ? SCALER_CALIBRATION[boughtCardId] : undefined;
+    const boughtCard =
+      chosenAction.type === 'buyAnimal' ? state.animalTrack.find((c) => c.instanceId === chosenAction.trackInstanceId) : undefined;
+    const calibratedValue = boughtCard ? SCALER_CALIBRATION[boughtCard.id] : undefined;
     // scorePlayer a mitad de partida es puro (su fase destructiva solo corre
     // con gameOver && !scoringFinalized, ver scoring.ts).
     const scoreBefore = chosenAction.type === 'buyAnimal' ? scorePlayer(state, player) : 0;
+    // Descuento REAL pagado por dinosaurio comprado (pedido explícito del
+    // usuario 2026-09-22): antes del ajuste, el shaping de una compra solo
+    // miraba el PV ganado, así que un Tiranosaurio a mitad de precio por
+    // haber jugado dinosaurios antes ese turno puntuaba exactamente igual
+    // que comprado a precio de catálogo — el ahorro nunca se veía. Se calcula
+    // ANTES de aplicar la acción (effectiveMarketCost depende de los
+    // dinosaurios ya jugados este turno, no de esta compra) y se suma al
+    // delta de PV como si 1 de ahorro valiera 1 de PV — mismo orden de
+    // magnitud que el resto del shaping, sin pesos nuevos que calibrar a
+    // ciegas. Las cartas sin costReductionPerDinosaurPlayedThisTurn dan
+    // descuento 0, así que esto no cambia nada para el resto del mercado.
+    const discountRealized = boughtCard ? (boughtCard.marketCost ?? 0) - effectiveMarketCost(player, boughtCard) : 0;
+    // Valor de captura ganado al JUGAR una carta (Mono/Ornitorrinco/Delfín/
+    // Loro...), no al comprarla — pedido explícito del usuario 2026-09-22.
+    // Antes esto no recibía NINGÚN shaping (solo buyAnimal lo tenía), así
+    // que el propio acto de jugar estas cartas era invisible para el
+    // entrenamiento salvo por su PV impreso (casi siempre 0). Efecto
+    // colateral buscado: un turno en que el Perro/Hámster ya estén
+    // generando valor de captura extra, jugar Mono/Ornitorrinco ese mismo
+    // turno da un shaping más alto sin necesidad de detectar la sinergia a
+    // mano — el número ya sale más alto solo porque currentPurchasingPower
+    // sube más ese turno en concreto.
+    const purchasingPowerBefore = chosenAction.type === 'playCard' ? currentPurchasingPower(player) : 0;
     const roundProgress = state.maxRounds !== null ? Math.min(1, state.round / state.maxRounds) : 0;
 
     applyAction(state, player.id, chosenAction);
 
-    const shapingBonus = chosenAction.type === 'buyAnimal' ? shapedPurchaseValue(scorePlayer(state, player) - scoreBefore, calibratedValue, roundProgress) / 20 : 0;
+    let shapingBonus = 0;
+    if (chosenAction.type === 'buyAnimal') {
+      const pvDelta = scorePlayer(state, player) - scoreBefore;
+      shapingBonus = shapedPurchaseValue(pvDelta + discountRealized, calibratedValue, roundProgress) / 20;
+    } else if (chosenAction.type === 'playCard') {
+      shapingBonus = (currentPurchasingPower(player) - purchasingPowerBefore) / 20;
+    }
 
     trajectories.get(player.id)?.push({
       allFeatures,
