@@ -142,6 +142,56 @@ body {
   color: var(--danger);
 }
 
+.status-pill__last {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* Aviso de último turno: flotante arriba, no bloquea nada, se cierra solo
+   a los segundos o con la ✕ (usuario 2026-09-23). */
+.turn-toast {
+  position: fixed;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: calc(100vw - 1.5rem);
+  padding: 0.55rem 0.6rem 0.55rem 1rem;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  animation: turn-toast-in 0.35s ease;
+}
+
+.turn-toast__close {
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border-radius: 999px;
+  width: 1.7rem;
+  height: 1.7rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  flex: 0 0 auto;
+}
+
+@keyframes turn-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
 .status-pill--over {
   background: var(--danger);
   color: #fff;

@@ -421,6 +421,35 @@ export function GameBoard({
     setConfirmEndTurn(false);
   }, [state.turn]);
 
+  // Último turno de este jugador: con duración fijada, cualquier turno de
+  // la última ronda; sin ella, cualquier turno una vez disparada la vuelta
+  // final (cada jugador juega exactamente una vez más). Al empezar ese
+  // turno sale un aviso NO bloqueante (se cierra solo o con la ✕) — pedido
+  // explícito del usuario 2026-09-23.
+  const isFinalRound =
+    state.maxRounds != null ? state.round >= state.maxRounds : state.finalRoundTriggerPlayerIndex !== null;
+  const isLastTurn = !state.gameOver && isOwnTurn && isFinalRound;
+  const [lastTurnNotice, setLastTurnNotice] = useState(false);
+  useEffect(() => {
+    if (!isLastTurn) {
+      setLastTurnNotice(false);
+      return;
+    }
+    setLastTurnNotice(true);
+    const t = window.setTimeout(() => setLastTurnNotice(false), 7000);
+    return () => window.clearTimeout(t);
+  }, [state.turn, isLastTurn]);
+
+  // Al terminar la partida, llevar la vista al resumen final (pedido
+  // explícito del usuario 2026-09-23). Un instante después, para que el
+  // panel ya esté montado con su altura.
+  const summaryRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!state.gameOver) return;
+    const t = window.setTimeout(() => summaryRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
+    return () => window.clearTimeout(t);
+  }, [state.gameOver]);
+
   useEffect(() => {
     if (pendingChoice) choiceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [pendingChoice]);
@@ -603,6 +632,7 @@ export function GameBoard({
           Ronda {state.round}/{state.maxRounds ?? '∞'}
         </span>{' '}
         {canAct && ` — turno de ${displayName(activePlayer, humanIds, botAlgorithms)}`}
+        {isLastTurn && <span className="status-pill__last"> · ¡último turno!</span>}
       </span>
     );
   }
@@ -758,6 +788,14 @@ export function GameBoard({
 
   return (
     <div className="app">
+      {lastTurnNotice && (
+        <div className="turn-toast" role="status">
+          <span>🏁 ¡Último turno! Cuando lo termines, se acaba la partida.</span>
+          <button type="button" className="turn-toast__close" aria-label="Cerrar aviso" onClick={() => setLastTurnNotice(false)}>
+            ✕
+          </button>
+        </div>
+      )}
       {isDesktop ? (
         // En pantalla grande la barra reúne TODO lo de arriba a la vez
         // (acciones de turno, marcador y ronda) y sustituye por completo al
@@ -872,7 +910,7 @@ export function GameBoard({
         </div>
       )}
       {state.gameOver && (
-        <div className="panel">
+        <div className="panel" ref={summaryRef}>
           <div className="panel__header">
             <h2>Resumen de la partida</h2>
           </div>
