@@ -59,7 +59,7 @@ function computeReturnSolo(finalScore: number): number {
   return finalScore / 20;
 }
 
-function playOneGameSolo(weights: RlWeights): { steps: Step[]; finalScore: number } {
+function playOneGameSolo(weights: RlWeights): { steps: Step[]; finalScore: number; truncated: boolean } {
   const playerConfig = { id: 'p0', name: 'P0', deck: buildStarterDeck() };
   const state = createGame([playerConfig], { maxRounds: randomMaxRounds() });
   topUpMarketForPlayerCount(state, MARKET_PLAYER_COUNT);
@@ -111,7 +111,8 @@ function playOneGameSolo(weights: RlWeights): { steps: Step[]; finalScore: numbe
     guard++;
   }
 
-  return { steps, finalScore: scoreGame(state)[0].score };
+  const truncated = !state.gameOver && guard >= MAX_ACTIONS_PER_GAME;
+  return { steps, finalScore: scoreGame(state)[0].score, truncated };
 }
 
 export function runEpisodesSolo(weights: RlWeights, criticWeights: RlWeights, episodeCount: number): EpisodeBatchResult {
@@ -121,9 +122,11 @@ export function runEpisodesSolo(weights: RlWeights, criticWeights: RlWeights, ep
   let sumAbsAdvantage = 0;
   let sumReturn = 0;
   let stepCount = 0;
+  let truncatedGames = 0;
 
   for (let e = 0; e < episodeCount; e++) {
-    const { steps, finalScore } = playOneGameSolo(weights);
+    const { steps, finalScore, truncated } = playOneGameSolo(weights);
+    if (truncated) truncatedGames++;
     if (steps.length === 0) continue;
 
     const returnValue = computeReturnSolo(finalScore);
@@ -149,5 +152,5 @@ export function runEpisodesSolo(weights: RlWeights, criticWeights: RlWeights, ep
     episodesUsed++;
   }
 
-  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed };
+  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed, truncatedGames };
 }

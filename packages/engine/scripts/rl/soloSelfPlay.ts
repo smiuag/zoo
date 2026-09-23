@@ -113,6 +113,7 @@ function mergeEpisodeResults(results: EpisodeBatchResult[], weights: RlWeights, 
   let sumAbsAdvantage = 0;
   let sumReturn = 0;
   let stepCount = 0;
+  let truncatedGames = 0;
 
   for (const r of results) {
     addGrad(grad, r.grad);
@@ -121,9 +122,10 @@ function mergeEpisodeResults(results: EpisodeBatchResult[], weights: RlWeights, 
     sumAbsAdvantage += r.sumAbsAdvantage;
     sumReturn += r.sumReturn;
     stepCount += r.stepCount;
+    truncatedGames += r.truncatedGames;
   }
 
-  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed };
+  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed, truncatedGames };
 }
 
 async function trainBatch(

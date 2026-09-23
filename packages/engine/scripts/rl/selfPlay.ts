@@ -25,6 +25,7 @@ import {
   HABITAT_FILTER,
   MAX_ACTIONS_PER_GAME,
   randomMaxRounds,
+  RL_CURRICULUM_OPPONENTS,
   RL_EDITION,
   runEpisodes,
   type EpisodeBatchResult,
@@ -79,6 +80,25 @@ const MAX_NORM_W1 = Number(process.env.RL_MAX_NORM_W1 ?? 16);
 const MAX_NORM_W2 = Number(process.env.RL_MAX_NORM_W2 ?? 16);
 const EVAL_EVERY = Number(process.env.RL_EVAL_EVERY ?? 50);
 const EVAL_GAMES = Number(process.env.RL_EVAL_GAMES ?? 40);
+
+// "Gatekeeper" (pedido explícito del usuario 2026-09-23, mismo patrón que
+// usa AlphaZero para autojuego): cada RL_GATE_EVERY batches, el candidato
+// (los pesos tal como van ahora mismo) se examina contra el MEJOR conocido
+// hasta ahora (bestWeights/bestCriticWeights más abajo, no necesariamente
+// el checkpoint anterior más reciente) jugando cada uno RL_GATE_GAMES
+// partidas de 4 contra el mismo trío de RL_CURRICULUM_OPPONENTS (los
+// rivales precargados de entrenamiento, no una referencia externa — decisión
+// explícita del usuario, con la contrapartida de que hay que ir
+// actualizando esos rivales a mano de vez en cuando). Si el candidato gana
+// más partidas que el mejor, se promueve a nuevo mejor; si no, política +
+// crítico + estado de Adam del crítico se REVIERTEN al mejor conocido antes
+// de seguir entrenando — así una racha que empeora (como el bucle del
+// Tiranosaurio/Diplodocus del 22/09, o la caída de puntos vista en varias
+// comprobaciones manuales de esta sesión) no se queda para siempre en el
+// fichero de pesos ni contamina los batches siguientes. RL_GATE_EVERY=0
+// desactiva el mecanismo entero (comportamiento de antes).
+const GATE_EVERY = Number(process.env.RL_GATE_EVERY ?? 500);
+const GATE_GAMES = Number(process.env.RL_GATE_GAMES ?? 1000);
 
 // Edición completa (2026-09-21): archivo propio (weights-full.json), nunca
 // weights.json — ese es el generalista CLÁSICO que juega la web publicada,
@@ -197,6 +217,7 @@ function mergeEpisodeResults(results: EpisodeBatchResult[], weights: RlWeights, 
   let sumAbsAdvantage = 0;
   let sumReturn = 0;
   let stepCount = 0;
+  let truncatedGames = 0;
 
   for (const r of results) {
     addGrad(grad, r.grad);
@@ -205,9 +226,10 @@ function mergeEpisodeResults(results: EpisodeBatchResult[], weights: RlWeights, 
     sumAbsAdvantage += r.sumAbsAdvantage;
     sumReturn += r.sumReturn;
     stepCount += r.stepCount;
+    truncatedGames += r.truncatedGames;
   }
 
-  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed };
+  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed, truncatedGames };
 }
 
 // Devuelve estadísticas del batch para el log (ver main): la media de
@@ -219,7 +241,7 @@ async function trainBatch(
   criticWeights: RlWeights,
   policyAdam: AdamState,
   criticAdam: AdamState
-): Promise<{ avgAbsAdvantage: number; avgReturn: number }> {
+): Promise<{ avgAbsAdvantage: number; avgReturn: number; truncatedGames: number }> {
   const shares = splitEvenly(EPISODES_PER_BATCH, WORKER_COUNT + 1);
   const serializedWeights = serializeWeights(weights);
   const serializedCriticWeights = serializeWeights(criticWeights);
@@ -259,6 +281,7 @@ async function trainBatch(
   return {
     avgAbsAdvantage: merged.stepCount > 0 ? merged.sumAbsAdvantage / merged.stepCount : 0,
     avgReturn: merged.episodesUsed > 0 ? merged.sumReturn / merged.episodesUsed : 0,
+    truncatedGames: merged.truncatedGames,
   };
 }
 
@@ -301,6 +324,75 @@ function evaluate(weights: RlWeights, opponent: Bot, games: number): number {
   return wins / games;
 }
 
+// Partidas de 4 contra el trío precargado de RL_CURRICULUM_OPPONENTS (no
+// 1 contra 1 como evaluate() de arriba): mide lo mismo que ven las
+// partidas de entrenamiento de verdad, así que es la referencia natural
+// para el gatekeeper. El asiento del candidato rota entre las 4 posiciones
+// para que el orden de turno no sesgue el resultado. Greedy (temperatura
+// 0, igual que evaluate()): decide con la mejor acción según la red, sin
+// aleatoriedad de exploración.
+function evaluateAgainstCurriculum(weights: RlWeights, games: number): { winRate: number; avgScore: number } {
+  let wins = 0;
+  let scoreTotal = 0;
+
+  for (let g = 0; g < games; g++) {
+    const seat = g % 4;
+    const playerConfigs = Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, deck: buildStarterDeck() }));
+    const state = createGame(playerConfigs, { maxRounds: randomMaxRounds(), edition: RL_EDITION });
+    const candidateId = playerConfigs[seat].id;
+    // Asigna a cada asiento que NO es el candidato uno de los 3 rivales
+    // precargados, en orden, saltándose el asiento del candidato.
+    const opponentBySeat = new Map<string, Bot>();
+    let oppIdx = 0;
+    for (let i = 0; i < 4; i++) {
+      if (i === seat) continue;
+      opponentBySeat.set(playerConfigs[i].id, RL_CURRICULUM_OPPONENTS[oppIdx]);
+      oppIdx++;
+    }
+
+    let guard = 0;
+    while (!state.gameOver && guard < MAX_ACTIONS_PER_GAME) {
+      if (autoResolvePendingDiscard(state)) {
+        guard++;
+        continue;
+      }
+      const player = getActivePlayer(state);
+      const action =
+        player.id === candidateId
+          ? chooseLearnerAction(state, player.id, weights)
+          : opponentBySeat.get(player.id)!.chooseAction(state, player.id);
+      applyAction(state, player.id, action);
+      guard++;
+    }
+
+    const scores = scoreGame(state);
+    const candidateScore = scores.find((s) => s.playerId === candidateId)?.score ?? 0;
+    const best = Math.max(...scores.map((s) => s.score));
+    scoreTotal += candidateScore;
+    if (candidateScore >= best) wins += scores.filter((s) => s.score >= best).length > 1 ? 0.5 : 1;
+  }
+
+  return { winRate: wins / games, avgScore: scoreTotal / games };
+}
+
+// Copian el CONTENIDO de src encima de dest sin reasignar la variable
+// externa (weights/criticWeights/criticAdam siguen siendo el mismo objeto
+// que ya tienen capturado trainBatch/los workers) — así un revert del
+// gatekeeper se ve de inmediato en el resto del proceso sin más cambios.
+function restoreWeightsInto(dest: RlWeights, src: RlWeights): void {
+  const clone = structuredClone(src);
+  dest.w1 = clone.w1;
+  dest.b1 = clone.b1;
+  dest.w2 = clone.w2;
+  dest.b2 = clone.b2;
+}
+function restoreAdamInto(dest: AdamState, src: AdamState): void {
+  const clone = structuredClone(src);
+  dest.m = clone.m;
+  dest.v = clone.v;
+  dest.t = clone.t;
+}
+
 async function main(): Promise<void> {
   const weights = loadOrInitWeights(WEIGHTS_PATH, ACTIVE_FEATURE_DIM, HIDDEN_SIZE);
   const criticWeights = loadOrInitWeights(CRITIC_PATH, ACTIVE_CRITIC_FEATURE_DIM, CRITIC_HIDDEN_SIZE);
@@ -310,27 +402,77 @@ async function main(): Promise<void> {
   const policyAdam = createAdamState(weights.featureDim, weights.hiddenSize);
   const criticAdam = createAdamState(criticWeights.featureDim, criticWeights.hiddenSize);
 
+  // Punto de partida de esta invocación = primer "mejor conocido" del
+  // gatekeeper (ver GATE_EVERY arriba). Si GATE_EVERY<=0 nunca se usan.
+  const bestWeights = structuredClone(weights);
+  const bestCriticWeights = structuredClone(criticWeights);
+  const bestCriticAdam = structuredClone(criticAdam);
+  let totalTruncatedGames = 0;
+  let totalEpisodesSoFar = 0;
+
   const habitatLabel = HABITAT_FILTER ? ` (especialista: solo compra ${HABITAT_FILTER})` : '';
   console.log(
-    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, optimizador=${POLICY_OPTIMIZER}, max_norm_w1=${MAX_NORM_W1}, max_norm_w2=${MAX_NORM_W2}, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, epsilon=${EPSILON}, shaping=${SHAPING_WEIGHT}, floor_weight=${FLOOR_WEIGHT}, workers=${WORKER_COUNT}`
+    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, optimizador=${POLICY_OPTIMIZER}, max_norm_w1=${MAX_NORM_W1}, max_norm_w2=${MAX_NORM_W2}, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, epsilon=${EPSILON}, shaping=${SHAPING_WEIGHT}, floor_weight=${FLOOR_WEIGHT}, workers=${WORKER_COUNT}, gate_every=${GATE_EVERY}, gate_games=${GATE_GAMES}`
   );
 
   try {
     for (let batch = 0; batch < TOTAL_BATCHES; batch++) {
-      const { avgAbsAdvantage, avgReturn } = await trainBatch(weights, criticWeights, policyAdam, criticAdam);
+      const { avgAbsAdvantage, avgReturn, truncatedGames } = await trainBatch(weights, criticWeights, policyAdam, criticAdam);
+      totalTruncatedGames += truncatedGames;
+      totalEpisodesSoFar += EPISODES_PER_BATCH;
 
       if (batch % EVAL_EVERY === 0 || batch === TOTAL_BATCHES - 1) {
         const winrateVsHeuristic = evaluate(weights, heuristicBot, EVAL_GAMES);
         const winrateVsRandom = evaluate(weights, randomBot, EVAL_GAMES);
+        // Pedido explícito del usuario 2026-09-23: cuántas partidas de
+        // entrenamiento (desde el arranque de este proceso, no solo este
+        // batch) se cortaron por el tope de seguridad MAX_ACTIONS_PER_GAME
+        // en vez de terminar de verdad — ver playOneGame en trainCore.ts.
+        // Debería quedarse en 0.00% siempre; si empieza a subir, señala
+        // partidas anormalmente largas (posible atasco real, no solo ruido).
+        const truncatedPct = totalEpisodesSoFar > 0 ? (totalTruncatedGames / totalEpisodesSoFar) * 100 : 0;
         console.log(
           `batch=${batch} avg_return=${avgReturn.toFixed(3)} critic_avg_abs_advantage=${avgAbsAdvantage.toFixed(3)} ` +
-            `winrate_vs_heuristic=${winrateVsHeuristic.toFixed(2)} winrate_vs_random=${winrateVsRandom.toFixed(2)}`
+            `winrate_vs_heuristic=${winrateVsHeuristic.toFixed(2)} winrate_vs_random=${winrateVsRandom.toFixed(2)} ` +
+            `truncated_games=${totalTruncatedGames}/${totalEpisodesSoFar} (${truncatedPct.toFixed(2)}%)`
         );
+        await saveWeightsWithRetry(weights, WEIGHTS_PATH);
+        await saveWeightsWithRetry(criticWeights, CRITIC_PATH);
+      }
+
+      if (GATE_EVERY > 0 && batch > 0 && batch % GATE_EVERY === 0) {
+        const candidate = evaluateAgainstCurriculum(weights, GATE_GAMES);
+        const best = evaluateAgainstCurriculum(bestWeights, GATE_GAMES);
+        if (candidate.winRate > best.winRate) {
+          restoreWeightsInto(bestWeights, weights);
+          restoreWeightsInto(bestCriticWeights, criticWeights);
+          restoreAdamInto(bestCriticAdam, criticAdam);
+          console.log(
+            `  [gatekeeper] batch=${batch} candidato ${(candidate.winRate * 100).toFixed(1)}% (PV ${candidate.avgScore.toFixed(1)}) ` +
+              `> mejor ${(best.winRate * 100).toFixed(1)}% (PV ${best.avgScore.toFixed(1)}) — PROMOVIDO a nuevo mejor`
+          );
+        } else {
+          restoreWeightsInto(weights, bestWeights);
+          restoreWeightsInto(criticWeights, bestCriticWeights);
+          restoreAdamInto(criticAdam, bestCriticAdam);
+          console.log(
+            `  [gatekeeper] batch=${batch} candidato ${(candidate.winRate * 100).toFixed(1)}% (PV ${candidate.avgScore.toFixed(1)}) ` +
+              `<= mejor ${(best.winRate * 100).toFixed(1)}% (PV ${best.avgScore.toFixed(1)}) — REVERTIDO al mejor conocido`
+          );
+        }
         await saveWeightsWithRetry(weights, WEIGHTS_PATH);
         await saveWeightsWithRetry(criticWeights, CRITIC_PATH);
       }
     }
 
+    // Al terminar la tanda, el fichero en disco debe reflejar el MEJOR
+    // conocido, no el último candidato en curso (que puede llevar menos de
+    // GATE_EVERY batches sin examinar todavía, o haber sido rechazado en el
+    // último gate y ya estar revertido a esto mismo de todas formas).
+    if (GATE_EVERY > 0) {
+      restoreWeightsInto(weights, bestWeights);
+      restoreWeightsInto(criticWeights, bestCriticWeights);
+    }
     await saveWeightsWithRetry(weights, WEIGHTS_PATH);
     await saveWeightsWithRetry(criticWeights, CRITIC_PATH);
     console.log('Entrenamiento terminado. Pesos guardados en', WEIGHTS_PATH, 'y', CRITIC_PATH);
