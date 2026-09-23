@@ -1582,6 +1582,30 @@ body {
   color: var(--muted);
 }
 
+/* El resumen es un enlace discreto; el <pre> del log solo aparece al
+   abrirlo (el <details> va cerrado por defecto). */
+.log-details > summary {
+  display: inline-block;
+  cursor: pointer;
+  color: var(--accent);
+  text-decoration: underline;
+  font-size: 0.78rem;
+  list-style: none;
+  user-select: none;
+}
+
+.log-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.log-details > summary::before {
+  content: '▸ ';
+}
+
+.log-details[open] > summary::before {
+  content: '▾ ';
+}
+
 /* ---------- Popup "ver mazo" ---------- */
 
 .modal-backdrop {

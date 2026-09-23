@@ -1097,8 +1097,10 @@ export function GameBoard({
         </div>
       </div>
 
-      <details className="log-details" open>
-        <summary>Log de la partida</summary>
+      {/* Cerrado por defecto: el texto del log solo aparece al pulsar el
+          enlace pequeño — pedido explícito del usuario 2026-09-23. */}
+      <details className="log-details">
+        <summary>Ver log de la partida</summary>
         <pre>{state.log.slice(-40).join('\n')}</pre>
       </details>
 
