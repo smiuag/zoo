@@ -4,32 +4,37 @@
 // se importa desde src/index.ts ni desde apps/web.
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { LIVE_DELTA_INDEX } from '../../src/bots/rl/features';
-import { createRandomWeights, deserializeWeights, serializeWeights, type RlWeights } from '../../src/bots/rl/network';
+import {
+  createRandomWeights,
+  deserializeWeights,
+  insertZeroFeatureColumn,
+  serializeWeights,
+  type RlWeights,
+} from '../../src/bots/rl/network';
 
-// Migración 96 -> 97 columnas (2026-09-16, ver FEATURE_DIM en features.ts):
-// la única columna nueva es liveScoreDelta, insertada en LIVE_DELTA_INDEX
-// (en medio del vector, no al final: detrás va el resto de bloques de
-// objetivo, que se desplazan una posición). Con peso 0 en esa columna la
-// red da EXACTAMENTE el mismo score que antes para cualquier acción, así que
-// se conserva todo lo aprendido y el entrenamiento solo tiene que aprender
-// a usar la columna nueva. Cualquier otra discrepancia de dimensión sigue
-// sin migración posible.
-const MIGRATABLE_FROM_DIM = 96;
-const MIGRATABLE_TO_DIM = 97;
+// Migraciones conocidas de featureDim: cada entrada zero-pads UNA columna
+// nueva insertada en `insertIndex` (ver insertZeroFeatureColumn, network.ts)
+// para pasar de fromDim a toDim sin perder lo aprendido — el entrenamiento
+// solo tiene que aprender a partir de ahí a USAR la columna nueva. Cualquier
+// otra discrepancia de dimensión sigue sin migración posible.
+const MIGRATIONS: { fromDim: number; toDim: number; insertIndex: number }[] = [
+  // 2026-09-16 (features.ts, clásica): liveScoreDelta insertada en medio del
+  // vector — el resto de bloques de objetivo se desplazan una posición.
+  { fromDim: 96, toDim: 97, insertIndex: LIVE_DELTA_INDEX },
+  // 2026-09-23 (featuresFull.ts, completa): ownedCopies añadida al final del
+  // bloque de carta, justo donde antes empezaba liveScoreDelta. Mismo índice
+  // numérico (96) que la migración de arriba por coincidencia (el bloque de
+  // carta de la completa es más largo por hábitats/tipos extra, que compensa
+  // el resto del vector) — se deja explícito, no compartido con
+  // LIVE_DELTA_INDEX.
+  { fromDim: 121, toDim: 122, insertIndex: 96 },
+];
 
 export function migrateWeights(weights: RlWeights, expectedFeatureDim: number): RlWeights | null {
   if (weights.featureDim === expectedFeatureDim) return weights;
-  if (weights.featureDim !== MIGRATABLE_FROM_DIM || expectedFeatureDim !== MIGRATABLE_TO_DIM) return null;
-
-  const w1 = weights.w1.map((row) => {
-    const migrated = new Float64Array(MIGRATABLE_TO_DIM);
-    migrated.set(row.subarray(0, LIVE_DELTA_INDEX), 0);
-    migrated[LIVE_DELTA_INDEX] = 0;
-    migrated.set(row.subarray(LIVE_DELTA_INDEX), LIVE_DELTA_INDEX + 1);
-    return migrated;
-  });
-
-  return { ...weights, featureDim: MIGRATABLE_TO_DIM, w1 };
+  const migration = MIGRATIONS.find((m) => m.fromDim === weights.featureDim && m.toDim === expectedFeatureDim);
+  if (!migration) return null;
+  return insertZeroFeatureColumn(weights, migration.insertIndex);
 }
 
 // Generalizada para servir tanto a los pesos de política (FEATURE_DIM,

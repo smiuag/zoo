@@ -13,6 +13,7 @@ import { heuristicBot } from '../../src/bots/heuristicBot';
 import * as classicFeatures from '../../src/bots/rl/features';
 import * as fullFeatures from '../../src/bots/rl/featuresFull';
 import { deserializeWeights, forward, type RlWeights } from '../../src/bots/rl/network';
+import { migrateWeights } from './weightsIo';
 import type { Bot } from '../../src/bots/types';
 import { getCard } from '../../src/cards/registry';
 import type { Card } from '../../src/cards/schema';
@@ -49,6 +50,13 @@ export const RL_EDITION: GameEdition = process.env.RL_EDITION === 'full' ? 'full
 export const ACTIVE_FEATURE_DIM = RL_EDITION === 'full' ? fullFeatures.FEATURE_DIM_FULL : classicFeatures.FEATURE_DIM;
 export const ACTIVE_CRITIC_FEATURE_DIM =
   RL_EDITION === 'full' ? fullFeatures.CRITIC_FEATURE_DIM_FULL : classicFeatures.CRITIC_FEATURE_DIM;
+// Índice, dentro del vector de features de cada candidata, de liveScoreDelta
+// (el PV que sumaría YA comprarla, sin calibración/normalización de coste) —
+// se reutiliza para centrar el shaping de compra por la media de las
+// candidatas (ver shapingBonus en playOneGame): ya está calculado para TODAS
+// las candidatas al construir allFeatures, así que no hace falta volver a
+// previsualizar nada.
+export const ACTIVE_LIVE_DELTA_INDEX = RL_EDITION === 'full' ? fullFeatures.LIVE_DELTA_INDEX_FULL : classicFeatures.LIVE_DELTA_INDEX;
 
 function encodeActionsForPlayer(state: GameState, playerId: string, actions: Action[]): number[][] {
   return RL_EDITION === 'full'
@@ -185,8 +193,9 @@ function loadFullSpecialistIfExists(habitat: (typeof FULL_HABITATS)[number]): Bo
   const path = `${FULL_WEIGHTS_DIR}weights-full-${habitat}.json`;
   if (!existsSync(path)) return null;
   try {
-    const weights = deserializeWeights(readFileSync(path, 'utf-8'));
-    if (weights.featureDim !== fullFeatures.FEATURE_DIM_FULL) return null;
+    const raw = deserializeWeights(readFileSync(path, 'utf-8'));
+    const weights = migrateWeights(raw, fullFeatures.FEATURE_DIM_FULL);
+    if (!weights) return null;
     return createRlBotFull({ weights, habitatFilter: habitat });
   } catch {
     return null;
@@ -309,12 +318,20 @@ export function buildStarterDeck(): Card[] {
   return [...Array.from({ length: 7 }, () => coin1), ...Array.from({ length: 3 }, () => sloth)];
 }
 
-// Duraciones reales que se pueden elegir en la app (ver ROUND_LIMIT_OPTIONS
-// en apps/web/src/lib/gameConfig.ts): entrenar siempre sin límite no
-// representa ninguna partida real, así que cada episodio sortea una.
-const REALISTIC_ROUND_LIMITS = [10, 15, 20] as const;
+// Duración fija a 15 rondas (pedido explícito del usuario 2026-09-23): antes
+// sorteaba entre las duraciones reales de la app (10/15/20, ver
+// ROUND_LIMIT_OPTIONS en apps/web/src/lib/gameConfig.ts) para no entrenar
+// siempre sin límite, pero eso metía ruido extra en las comparaciones
+// manuales entre checkpoints (dos tandas de partidas del MISMO bot podían
+// salir distintas solo por la duración sorteada, no por ningún cambio real).
+// Con una duración fija, esa fuente de ruido desaparece — tanto en el
+// entrenamiento real como en cualquier script de comparación que importe
+// esta misma función (todos lo hacen, ver randomMaxRounds más abajo).
+// Nombre de la función sin cambiar a propósito: la usan 19 ficheros y ya no
+// es literalmente "aleatoria", pero renombrarla no aporta nada aquí.
+// RL_MAX_ROUNDS la sobreescribe si hace falta algo distinto puntualmente.
 export function randomMaxRounds(): number {
-  return REALISTIC_ROUND_LIMITS[Math.floor(Math.random() * REALISTIC_ROUND_LIMITS.length)];
+  return Number(process.env.RL_MAX_ROUNDS ?? 15);
 }
 
 export function sampleIndex(scores: number[], temperature: number): number {
@@ -356,7 +373,9 @@ export interface Step {
 // pesos congelados leídos del disco al arrancar este proceso), una de cada
 // — nunca self-play puro ni bots fijos no-RL (esos quedan solo para
 // evaluate() en selfPlay.ts).
-export function playOneGame(weights: RlWeights): { trajectories: Map<string, Step[]>; finalScores: PlayerScore[] } {
+export function playOneGame(
+  weights: RlWeights
+): { trajectories: Map<string, Step[]>; finalScores: PlayerScore[]; truncated: boolean } {
   const playerConfigs = Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, deck: buildStarterDeck() }));
   const state = createGame(playerConfigs, { maxRounds: randomMaxRounds(), edition: RL_EDITION });
 
@@ -473,6 +492,28 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
     const chosenIndex =
       Math.random() < EPSILON ? Math.floor(Math.random() * actions.length) : sampleIndex(allScores, TRAIN_TEMPERATURE);
 
+    // Media de liveScoreDelta (2026-09-23, pedido explícito del usuario)
+    // entre TODAS las candidatas de COMPRA de esta decisión (solo las que el
+    // jugador puede pagar ahora mismo — getLegalActions ya filtra por
+    // canAffordMarket antes de que lleguen aquí), no solo la elegida. Se
+    // resta del shaping de comprar más abajo para que ese término deje de
+    // tener media positiva: hoy, casi cualquier compra con PV≥0 suma un
+    // shaping ≥0 sin comparar con lo que había disponible, así que el
+    // gradiente de CUALQUIER candidata no elegida (delta_k = -prob_k ·
+    // policyAdvantage) empuja hacia abajo a TODAS las demás con
+    // policyAdvantage casi siempre positivo — incluida una carta que fuera
+    // igual de buena o mejor que la comprada, solo por no haber sido la
+    // elegida esa vez. Centrado por la media, solo se castiga a las
+    // alternativas cuando la compra elegida fue genuinamente mejor que la
+    // media de lo disponible, y una compra mediocre deja de arrastrar hacia
+    // abajo a las demás. Ya está calculado sin coste extra: liveScoreDelta
+    // vive en ACTIVE_LIVE_DELTA_INDEX de cada vector de allFeatures.
+    const buyAnimalLiveDeltas = actions
+      .map((a, i) => (a.type === 'buyAnimal' ? allFeatures[i][ACTIVE_LIVE_DELTA_INDEX] : null))
+      .filter((v): v is number => v !== null);
+    const meanBuyLiveDelta =
+      buyAnimalLiveDeltas.length > 0 ? buyAnimalLiveDeltas.reduce((sum, v) => sum + v, 0) / buyAnimalLiveDeltas.length : 0;
+
     const chosenAction = actions[chosenIndex];
     const stateFeatures = encodePlayerContext(state, player);
     const boughtCard =
@@ -523,7 +564,7 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
     if (chosenAction.type === 'buyAnimal') {
       const pvDelta = scorePlayer(state, player) - scoreBefore;
       const pricePaid = (boughtCard?.marketCost ?? 0) - discountRealized;
-      shapingBonus = shapedPurchaseValue(pvDelta, calibratedValue, roundProgress, pricePaid) / 20;
+      shapingBonus = shapedPurchaseValue(pvDelta, calibratedValue, roundProgress, pricePaid) / 20 - meanBuyLiveDelta;
     } else if (chosenAction.type === 'playCard') {
       // Ajustado (pedido explícito del usuario 2026-09-22, "no solo para no
       // penalizar el gasto de la moneda, sino añadir el valor de la acción
@@ -563,7 +604,15 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
     guard++;
   }
 
-  return { trajectories, finalScores: scoreGame(state) };
+  // Pedido explícito del usuario 2026-09-23 (comprobación de si el tope de
+  // seguridad MAX_ACTIONS_PER_GAME llega a alcanzarse): si el bucle salió
+  // porque se agotó el guard y NO porque la partida terminase de verdad
+  // (state.gameOver), esta partida se cortó en seco a mitad — su
+  // finalScores es el de un estado INCOMPLETO, no el de una partida
+  // jugada hasta el final. Se reporta en selfPlay.ts (truncated_games en
+  // el log de cada batch) para poder detectarlo si empieza a pasar.
+  const truncated = !state.gameOver && guard >= MAX_ACTIONS_PER_GAME;
+  return { trajectories, finalScores: scoreGame(state), truncated };
 }
 
 // Suelo blando (ver FLOOR_WEIGHT): para cada compra de animal candidata
@@ -589,6 +638,11 @@ export interface EpisodeBatchResult {
   sumReturn: number;
   stepCount: number;
   episodesUsed: number;
+  // Cuántas de las partidas de este lote se cortaron por el tope de
+  // seguridad MAX_ACTIONS_PER_GAME en vez de terminar de verdad (ver
+  // playOneGame). Debería ser 0 casi siempre; un valor no nulo sostenido
+  // señala partidas anormalmente largas (posible bucle/atasco real).
+  truncatedGames: number;
 }
 
 // Juega `episodeCount` partidas y acumula el gradiente resultante (política +
@@ -605,9 +659,11 @@ export function runEpisodes(weights: RlWeights, criticWeights: RlWeights, episod
   let sumAbsAdvantage = 0;
   let sumReturn = 0;
   let stepCount = 0;
+  let truncatedGames = 0;
 
   for (let e = 0; e < episodeCount; e++) {
-    const { trajectories, finalScores } = playOneGame(weights);
+    const { trajectories, finalScores, truncated } = playOneGame(weights);
+    if (truncated) truncatedGames++;
 
     for (const [playerId, steps] of trajectories) {
       if (steps.length === 0) continue;
@@ -642,5 +698,5 @@ export function runEpisodes(weights: RlWeights, criticWeights: RlWeights, episod
     }
   }
 
-  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed };
+  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed, truncatedGames };
 }

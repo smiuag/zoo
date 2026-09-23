@@ -15,7 +15,7 @@
 // intenta. Se decide UNA vez, al cargar este módulo, no en cada chooseAction.
 import { filterActionsByHabitat, legalActionsForBot } from './actionPriority';
 import { encodeActionsForPlayer, FEATURE_DIM_FULL } from './rl/featuresFull';
-import { deserializeWeights, forward, type RlWeights } from './rl/network';
+import { deserializeWeights, forward, insertZeroFeatureColumn, type RlWeights } from './rl/network';
 import { heuristicBot } from './heuristicBot';
 import type { Bot } from './types';
 import defaultWeightsJson from './rl/weights-full.json';
@@ -27,9 +27,25 @@ const TIE_EPSILON = 1e-9;
 
 type Habitat = 'land' | 'bird' | 'aquatic';
 
+// 2026-09-23: ownedCopies añadida al final del bloque de carta en
+// featuresFull.ts (FEATURE_DIM_FULL 121 -> 122, insertada justo donde antes
+// empezaba liveScoreDelta). Este archivo no puede importar
+// scripts/rl/weightsIo.ts (ver su cabecera: nunca se usa desde src/ ni
+// apps/web), así que la migración se repite aquí en pequeño con
+// insertZeroFeatureColumn (network.ts) — con peso 0 en la columna nueva da
+// el MISMO score que antes, así que los weights-full*.json ya entrenados
+// (dimensión 121) se siguen usando tal cual en vez de caer a heuristicBot;
+// el entrenamiento futuro es el que tiene que aprender a usar la columna
+// nueva, no falta para recuperar lo ya aprendido.
+const PREVIOUS_FEATURE_DIM_FULL = 121;
+const OWNED_COPIES_INSERT_INDEX = 96;
+
 function tryLoadWeights(json: unknown): RlWeights | null {
   try {
-    const weights = deserializeWeights(json);
+    let weights = deserializeWeights(json);
+    if (weights.featureDim === PREVIOUS_FEATURE_DIM_FULL) {
+      weights = insertZeroFeatureColumn(weights, OWNED_COPIES_INSERT_INDEX);
+    }
     if (weights.featureDim !== FEATURE_DIM_FULL) return null;
     return weights;
   } catch {

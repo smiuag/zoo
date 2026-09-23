@@ -38,8 +38,8 @@ import { computeMarketScarcityFull } from './marketScarcityFull';
 //     mercado: lo necesita la Nutria (discardCoinMinValueToPeekAndKeep),
 //     cuyo objetivo secundario es una de las cartas que se mirarían encima
 //     de tu propio mazo, no un animal del escaparate.
-export const FEATURE_DIM_FULL = 121;
-export const LIVE_DELTA_INDEX_FULL = 96;
+export const FEATURE_DIM_FULL = 122;
+export const LIVE_DELTA_INDEX_FULL = 97;
 export const CRITIC_FEATURE_DIM_FULL = 43;
 
 const HABITATS = ['land', 'bird', 'aquatic', 'pet', 'dinosaur'] as const;
@@ -101,6 +101,18 @@ const MAX_OPPONENTS = 3;
 
 function fullCollection(player: Player): CardInstance[] {
   return [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn, ...(player.table ?? [])];
+}
+
+// Clave de "misma carta" para contar copias ya en posesión: especie para
+// animales, id de catálogo para monedas (que no tienen species).
+function ownershipKey(card: CardInstance): string {
+  return card.species ?? card.id;
+}
+
+function ownedCounts(cards: CardInstance[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const c of cards) counts.set(ownershipKey(c), (counts.get(ownershipKey(c)) ?? 0) + 1);
+  return counts;
 }
 
 function habitatCounts(cards: CardInstance[]): number[] {
@@ -181,7 +193,7 @@ export function encodePlayerContext(state: GameState, player: Player): number[] 
 }
 
 function emptyCardBlock(): number[] {
-  return [0, 0, 0, ...HABITATS.map(() => 0), ...EFFECT_TYPES.map(() => 0)];
+  return [0, 0, 0, ...HABITATS.map(() => 0), ...EFFECT_TYPES.map(() => 0), 0];
 }
 
 // `costOverride`: solo para la carta protagonista de un buyAnimal (ver
@@ -189,7 +201,13 @@ function emptyCardBlock(): number[] {
 // (effectiveMarketCost), no el de catálogo, para los dinosaurios con
 // descuento dinámico. undefined para cualquier otro caso: se usa
 // card.marketCost tal cual, igual que features.ts.
-function encodeCardBlock(card: CardInstance | undefined, costOverride?: number): number[] {
+// `ownedCopies`: cuántas copias de la MISMA especie/moneda tiene ya el
+// jugador (mazo+mano+descarte+jugadas este turno+mesa), pedido explícitamente
+// por el usuario (2026-09-23) tras confirmar que no existía ninguna feature
+// de este tipo — se añade AL FINAL del bloque (tras los efectos) para no
+// desplazar los offsets de coste/hábitat/efectos ya usados en otros sitios
+// (rlFeaturesFull.test.ts, comentarios de este archivo).
+function encodeCardBlock(card: CardInstance | undefined, ownedCopies: number, costOverride?: number): number[] {
   if (!card) return emptyCardBlock();
   const effectTypes = new Set(card.effects.map((e) => e.type));
   return [
@@ -198,6 +216,7 @@ function encodeCardBlock(card: CardInstance | undefined, costOverride?: number):
     (card.value ?? 0) / 3,
     ...HABITATS.map((h) => (card.habitats?.includes(h) ? 1 : 0)),
     ...EFFECT_TYPES.map((t) => (effectTypes.has(t) ? 1 : 0)),
+    ownedCopies / 15,
   ];
 }
 
@@ -265,13 +284,21 @@ function topOfOwnDeck(player: Player): CardInstance | undefined {
 interface DecisionBase {
   context: number[];
   baseScore: number;
+  ownedCounts: Map<string, number>;
 }
 
 function decisionBase(state: GameState, player: Player): DecisionBase {
+  const own = fullCollection(player);
   return {
     context: encodePlayerContext(state, player),
-    baseScore: scoreCollection(player, fullCollection(player)),
+    baseScore: scoreCollection(player, own),
+    ownedCounts: ownedCounts(own),
   };
+}
+
+function ownedCopiesOf(base: DecisionBase, card: CardInstance | undefined): number {
+  if (!card) return 0;
+  return base.ownedCounts.get(ownershipKey(card)) ?? 0;
 }
 
 function liveScoreDelta(base: DecisionBase, state: GameState, player: Player, action: Action): number {
@@ -288,7 +315,7 @@ function finishActionVector(base: DecisionBase, state: GameState, player: Player
   const features = [
     ...base.context,
     ...actionTypeOneHot(action),
-    ...encodeCardBlock(acting, costOverride),
+    ...encodeCardBlock(acting, ownedCopiesOf(base, acting), costOverride),
     liveScoreDelta(base, state, player, action),
     ...encodeTargetBlock(targetCard(state, player, action)),
     ...encodeTargetBlock(secondaryTargetCard(state, player, action)),

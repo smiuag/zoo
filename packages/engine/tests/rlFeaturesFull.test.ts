@@ -66,7 +66,7 @@ describe('rl/featuresFull (edición completa)', () => {
     // acción(4) + [PV, COSTE, valor...].
     const costIndex = CRITIC_FEATURE_DIM_FULL + 4 + 1;
     expect(after[costIndex]).toBeLessThan(before[costIndex]);
-    expect(after[costIndex]).toBeCloseTo((11 - 2) / 10, 6);
+    expect(after[costIndex]).toBeCloseTo((12 - 2) / 10, 6);
   });
 
   it('el hábitat "dinosaur" se ve en el bloque de carta (no solo los 3 básicos)', () => {
@@ -84,6 +84,21 @@ describe('rl/featuresFull (edición completa)', () => {
     expect(features[habitatBase + 4]).toBe(1); // dinosaur
   });
 
+  it('el bloque de carta ve cuántas copias de la misma especie ya tiene el jugador', () => {
+    const { state, player } = setupFull();
+    const lion = state.animalTrack.find((c) => c.species === 'lion')!;
+    const before = encodeAction(state, player.id, { type: 'buyAnimal', trackInstanceId: lion.instanceId });
+
+    player.deck.push(freshInstance('lion', 'owned1'), freshInstance('lion', 'owned2'));
+    const after = encodeAction(state, player.id, { type: 'buyAnimal', trackInstanceId: lion.instanceId });
+
+    // Última columna del bloque de carta: contexto(43) + tipoAcción(4) +
+    // [PV, coste, valor, 5 hábitats, 41 efectos] = 49 columnas antes de ella.
+    const ownedCopiesIndex = CRITIC_FEATURE_DIM_FULL + 4 + 49;
+    expect(before[ownedCopiesIndex]).toBe(0);
+    expect(after[ownedCopiesIndex]).toBeCloseTo(2 / 15, 6);
+  });
+
   it('Nutria: el objetivo secundario (carta en tu propio mazo) se resuelve, no queda en blanco', () => {
     const { state, player } = setupFull();
     const otter = freshInstance('otter', 'x');
@@ -97,10 +112,10 @@ describe('rl/featuresFull (edición completa)', () => {
     expect(actions.length).toBeGreaterThan(0);
     const features = encodeActionsForPlayer(state, player.id, actions)[0];
 
-    // Bloque de carta (49) + liveScoreDelta(1) + bloque de objetivo primario(8)
-    // = donde empieza el bloque de objetivo SECUNDARIO; su primera columna
-    // ("existe") debe ser 1, no 0 (en blanco).
-    const secondaryBase = CRITIC_FEATURE_DIM_FULL + 4 + 49 + 1 + 8;
+    // Bloque de carta (50, incluye ownedCopies) + liveScoreDelta(1) + bloque
+    // de objetivo primario(8) = donde empieza el bloque de objetivo
+    // SECUNDARIO; su primera columna ("existe") debe ser 1, no 0 (en blanco).
+    const secondaryBase = CRITIC_FEATURE_DIM_FULL + 4 + 50 + 1 + 8;
     expect(features[secondaryBase]).toBe(1);
   });
 
@@ -116,7 +131,7 @@ describe('rl/featuresFull (edición completa)', () => {
     expect(actions.length).toBeGreaterThan(0);
     const features = encodeActionsForPlayer(state, player.id, actions)[0];
 
-    const secondaryBase = CRITIC_FEATURE_DIM_FULL + 4 + 49 + 1 + 8;
+    const secondaryBase = CRITIC_FEATURE_DIM_FULL + 4 + 50 + 1 + 8;
     // "existe" = 1 (no en blanco): a diferencia de Nutria (carta del propio
     // mazo), aquí la moneda está en la MANO, no en mazo/descarte/mercado, así
     // que ejercita la rama nueva de secondaryTargetCard (sin ella, la red

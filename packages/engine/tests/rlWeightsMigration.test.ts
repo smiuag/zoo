@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FEATURE_DIM, LIVE_DELTA_INDEX } from '../src/bots/rl/features';
+import { FEATURE_DIM_FULL } from '../src/bots/rl/featuresFull';
 import { createRandomWeights, forward } from '../src/bots/rl/network';
 import { migrateWeights } from '../scripts/rl/weightsIo';
 
@@ -26,5 +27,22 @@ describe('scripts/rl/weightsIo migrateWeights', () => {
     const current = createRandomWeights(FEATURE_DIM, 4);
     expect(migrateWeights(current, FEATURE_DIM)).toBe(current);
     expect(migrateWeights(createRandomWeights(80, 4), FEATURE_DIM)).toBeNull();
+  });
+
+  it('migra pesos de la completa (121 columnas) a 122 insertando ownedCopies a cero, sin cambiar ningún score', () => {
+    const OWNED_COPIES_INSERT_INDEX = 96;
+    const old = createRandomWeights(121, 6);
+    const migrated = migrateWeights(old, FEATURE_DIM_FULL);
+    expect(migrated).not.toBeNull();
+    expect(migrated!.featureDim).toBe(FEATURE_DIM_FULL);
+    expect(migrated!.w1.every((row) => row.length === FEATURE_DIM_FULL)).toBe(true);
+
+    const x121 = Array.from({ length: 121 }, () => Math.random() * 2 - 1);
+    const x122 = [...x121.slice(0, OWNED_COPIES_INSERT_INDEX), 0, ...x121.slice(OWNED_COPIES_INSERT_INDEX)];
+    expect(forward(migrated!, x122).score).toBeCloseTo(forward(old, x121).score, 10);
+
+    const x122on = [...x122];
+    x122on[OWNED_COPIES_INSERT_INDEX] = 0.6;
+    expect(forward(migrated!, x122on).score).toBeCloseTo(forward(old, x121).score, 10);
   });
 });

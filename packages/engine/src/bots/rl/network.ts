@@ -62,6 +62,27 @@ export function forward(weights: RlWeights, x: number[]): { hidden: Float64Array
   return { hidden, score };
 }
 
+// Inserta una columna a cero en `insertIndex` de CADA fila de w1
+// (desplazando el resto una posición), sin tocar b1/w2/b2: con peso 0 en la
+// columna nueva, forward() da EXACTAMENTE el mismo score que antes para
+// cualquier vector que tuviera esa misma columna insertada (con cualquier
+// valor — el peso 0 la ignora). Permite ampliar featureDim en
+// features.ts/featuresFull.ts sin invalidar pesos ya entrenados: solo hace
+// falta reentrenar para que la red APRENDA a usar la columna nueva, no para
+// recuperar lo ya aprendido. Usado por scripts/rl/weightsIo.ts (entrenamiento)
+// y rlBotFull.ts (producción/web, que no puede importar weightsIo.ts).
+export function insertZeroFeatureColumn(weights: RlWeights, insertIndex: number): RlWeights {
+  const featureDim = weights.featureDim + 1;
+  const w1 = weights.w1.map((row) => {
+    const migrated = new Float64Array(featureDim);
+    migrated.set(row.subarray(0, insertIndex), 0);
+    migrated[insertIndex] = 0;
+    migrated.set(row.subarray(insertIndex), insertIndex + 1);
+    return migrated;
+  });
+  return { ...weights, featureDim, w1 };
+}
+
 export function serializeWeights(weights: RlWeights): string {
   return JSON.stringify({
     version: weights.version,
