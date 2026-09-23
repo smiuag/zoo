@@ -29,10 +29,10 @@ describe('coste dinámico por dinosaurios jugados este turno', () => {
   it('el Diplodocus cuesta 1 menos por cada dinosaurio ya jugado este turno, sin bajar de 0', () => {
     const { state, player } = setupClean();
     const diplodocus = state.animalTrack.find((c) => c.species === 'diplodocus')!;
-    expect(effectiveMarketCost(player, diplodocus)).toBe(11);
+    expect(effectiveMarketCost(player, diplodocus)).toBe(12);
 
     player.playedThisTurn.push(freshInstance('iguana', 'd1')); // dinosaurio (land/aquatic/pet/dinosaur)
-    expect(effectiveMarketCost(player, diplodocus)).toBe(10);
+    expect(effectiveMarketCost(player, diplodocus)).toBe(11);
 
     for (let i = 0; i < 20; i++) player.playedThisTurn.push(freshInstance('iguana', `bulk${i}`));
     expect(effectiveMarketCost(player, diplodocus)).toBe(0);
@@ -44,10 +44,10 @@ describe('coste dinámico por dinosaurios jugados este turno', () => {
     // Colibrí en player.table (mayStayOnTable, jugado un turno anterior, ya
     // no está en playedThisTurn): sigue siendo dinosaurio y debe contar.
     player.table.push(freshInstance('hummingbird', 'kept'));
-    expect(effectiveMarketCost(player, diplodocus)).toBe(10); // 11 - 1
+    expect(effectiveMarketCost(player, diplodocus)).toBe(11); // 12 - 1
 
     player.playedThisTurn.push(freshInstance('iguana', 'd1'));
-    expect(effectiveMarketCost(player, diplodocus)).toBe(9); // 11 - 1(mesa) - 1(jugado este turno)
+    expect(effectiveMarketCost(player, diplodocus)).toBe(10); // 12 - 1(mesa) - 1(jugado este turno)
   });
 
   it('comprarlo de verdad paga el coste reducido, no el de catálogo', () => {
@@ -56,8 +56,8 @@ describe('coste dinámico por dinosaurios jugados este turno', () => {
     player.hand.push(freshInstance('coin-5', 'pay1'), freshInstance('coin-5', 'pay2'));
     const diplodocus = state.animalTrack.find((c) => c.species === 'diplodocus')!;
     buyAnimal(state, player.id, diplodocus.instanceId);
-    // 11 - 2*1 = 9, pagado con 2 Platino (10): sobra 1 de cambio.
-    expect(player.bonusPurchasingPowerThisTurn).toBe(1);
+    // 12 - 2*1 = 10, pagado con 2 Platino (10): no sobra cambio.
+    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
     expect(player.discard.some((c) => c.species === 'diplodocus')).toBe(true);
   });
 });
