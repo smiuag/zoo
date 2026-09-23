@@ -85,17 +85,18 @@ function playOneGameSolo(weights: RlWeights): { steps: Step[]; finalScore: numbe
 
     const chosenAction = actions[chosenIndex];
     const stateFeatures = encodePlayerContext(state, player);
-    const boughtCardId =
-      chosenAction.type === 'buyAnimal'
-        ? state.animalTrack.find((c) => c.instanceId === chosenAction.trackInstanceId)?.id
-        : undefined;
-    const calibratedValue = boughtCardId ? SCALER_CALIBRATION[boughtCardId] : undefined;
+    const boughtCard =
+      chosenAction.type === 'buyAnimal' ? state.animalTrack.find((c) => c.instanceId === chosenAction.trackInstanceId) : undefined;
+    const calibratedValue = boughtCard ? SCALER_CALIBRATION[boughtCard.id] : undefined;
     const scoreBefore = chosenAction.type === 'buyAnimal' ? scorePlayer(state, player) : 0;
     const roundProgress = state.maxRounds !== null ? Math.min(1, state.round / state.maxRounds) : 0;
 
     applyAction(state, player.id, chosenAction);
 
-    const shapingBonus = chosenAction.type === 'buyAnimal' ? shapedPurchaseValue(scorePlayer(state, player) - scoreBefore, calibratedValue, roundProgress) / 20 : 0;
+    const shapingBonus =
+      chosenAction.type === 'buyAnimal'
+        ? shapedPurchaseValue(scorePlayer(state, player) - scoreBefore, calibratedValue, roundProgress, boughtCard?.marketCost ?? 0) / 20
+        : 0;
 
     steps.push({
       allFeatures,

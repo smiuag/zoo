@@ -107,15 +107,32 @@ export const CARD_DRAW_VALUE = Number(process.env.RL_CARD_DRAW_VALUE ?? 2);
 // sea su score actual. Off-policy leve, aceptable con epsilon pequeño (la
 // ventaja ya va recortada a ±ADVANTAGE_CLIP).
 //
-// 0.05 para el especialista terrestre (2026-09-17): con 0.1 degeneró dos
-// veces en condiciones idénticas a aves/acuático (scores de todas las
+// 0.05 para el especialista terrestre CLÁSICO (2026-09-17): con 0.1 degeneró
+// dos veces en condiciones idénticas a aves/acuático (scores de todas las
 // compras comprimidos en 2-3 puntos, 20-28% de unidades saturadas, margen
 // -3); con 0.05 completó 8000 batches sano (1% saturación, margen positivo)
 // y ganó el 72% de 200 duelos a su versión de partida. Es el hábitat con
 // más especies candidatas por decisión y el que más compite con el bot
 // general por las mismas cartas, así que sus acciones forzadas son más
 // ruido que señal. RL_EPSILON lo sobreescribe para cualquier variante.
-const DEFAULT_EPSILON = process.env.RL_HABITAT === 'land' ? 0.05 : 0.1;
+//
+// 0 para la EDICIÓN COMPLETA, las 4 variantes (2026-09-23, a raíz del
+// acuático obsesionado con Tiranosaurio/Diplodocus): la excepción de hábitat
+// "dinosaurios de coste >=7" añadida el 22/09 les abrió una compra nueva
+// cuyo valor real (Tucán/Plesiosaurio/Albatros/Orca reaccionando) es alto
+// carta a carta pero pésimo para el resultado final — y el 10% de
+// exploración aleatoria bastaba para que la política la descubriera y
+// se autorreforzara en bucle (softmax sobre su propio score cada vez más
+// alto), sin que tocar el coste normalizado del shaping ni bajar
+// SHAPING_WEIGHT lo arreglara. Con epsilon=0 desaparece el bucle en las 4
+// variantes (probado con partidas reales contra las 3 baselines hermanas:
+// PV medio y % de victorias suben en las 4, no solo en el acuático). El
+// riesgo documentado de epsilon=0 (una carta cae en un pozo del que ya no
+// se muestrea nunca más, ver el bloque de arriba) sigue siendo real — vigilar
+// cartas muertas tras cada entrenamiento largo de la completa igual que
+// siempre, con más atención al no tener ya el paracaídas de la exploración
+// forzada. RL_EPSILON lo sobreescribe igualmente si hace falta.
+const DEFAULT_EPSILON = process.env.RL_EDITION === 'full' ? 0 : process.env.RL_HABITAT === 'land' ? 0.05 : 0.1;
 export const EPSILON = Number(process.env.RL_EPSILON ?? DEFAULT_EPSILON);
 
 // Suelo blando (2026-09-16), DESACTIVADO por defecto: en cada decisión de
@@ -248,9 +265,24 @@ export const SCALER_CALIBRATION: Record<string, number> =
 // delta real, porque la colección solo crece. Antes el Tucán recibía el
 // mismo shaping (5.6) tuviera 0 u 11 animales caros — justo el dato que le
 // diría a la red "aquí vale 12" se tiraba.
-export function shapedPurchaseValue(liveDelta: number, calibrated: number | undefined, roundProgress: number): number {
-  if (calibrated === undefined) return liveDelta;
-  return liveDelta + (1 - roundProgress) * Math.max(0, calibrated - liveDelta);
+// Normalización por coste (pedido explícito del usuario 2026-09-22, a raíz
+// del entrenamiento acuático de 100K roto: el Tiranosaurio/Diplodocus, recién
+// comprables gracias a la excepción de hábitat "dinosaurios de coste >=7",
+// nunca habían recibido gradiente antes, y con PV impreso alto (10) frente a
+// coste alto (9-11) su shaping en bruto competía con la mitad del tope de
+// ventaja terminal — la red se lanzó a comprarlos sin haber aprendido aún
+// que ese oro gastado deja sin monedas la sinergia acuática real, y el PV
+// final se desplomó de 178 a 99 en partidas reales). Solo se normaliza el
+// delta EN VIVO (`liveDelta`, el PV impreso/real de la propia compra) — el
+// valor `calibrated` de las cartas acumulativas (Tucán, Plesiosaurio...) NO
+// se toca: ya es un valor medio realmente aportado en partidas de verdad
+// (ver SCALER_CALIBRATION), no una cifra de catálogo con sesgo de coste, y
+// dividirlo también por coste habría vuelto a hundir justo las cartas caras
+// (Plesiosaurio, coste 13) que se rescataron esta misma sesión.
+export function shapedPurchaseValue(liveDelta: number, calibrated: number | undefined, roundProgress: number, cost: number): number {
+  const normalizedLiveDelta = liveDelta / Math.max(1, cost);
+  if (calibrated === undefined) return normalizedLiveDelta;
+  return normalizedLiveDelta + (1 - roundProgress) * Math.max(0, calibrated - liveDelta);
 }
 
 export function filterActionsForHabitat(state: GameState, actions: Action[]): Action[] {
@@ -450,16 +482,24 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
     // con gameOver && !scoringFinalized, ver scoring.ts).
     const scoreBefore = chosenAction.type === 'buyAnimal' ? scorePlayer(state, player) : 0;
     // Descuento REAL pagado por dinosaurio comprado (pedido explícito del
-    // usuario 2026-09-22): antes del ajuste, el shaping de una compra solo
-    // miraba el PV ganado, así que un Tiranosaurio a mitad de precio por
-    // haber jugado dinosaurios antes ese turno puntuaba exactamente igual
-    // que comprado a precio de catálogo — el ahorro nunca se veía. Se calcula
-    // ANTES de aplicar la acción (effectiveMarketCost depende de los
-    // dinosaurios ya jugados este turno, no de esta compra) y se suma al
-    // delta de PV como si 1 de ahorro valiera 1 de PV — mismo orden de
-    // magnitud que el resto del shaping, sin pesos nuevos que calibrar a
-    // ciegas. Las cartas sin costReductionPerDinosaurPlayedThisTurn dan
-    // descuento 0, así que esto no cambia nada para el resto del mercado.
+    // usuario 2026-09-22). Se calcula ANTES de aplicar la acción
+    // (effectiveMarketCost depende de los dinosaurios ya jugados este turno,
+    // no de esta compra). Las cartas sin costReductionPerDinosaurPlayedThisTurn
+    // dan descuento 0, así que esto no cambia nada para el resto del mercado.
+    //
+    // OJO (bug encontrado y corregido el mismo 2026-09-22, tras un primer
+    // intento roto): este descuento NO se suma al delta de PV en el
+    // numerador. Se probó así al principio ("1 de ahorro vale 1 de PV") y
+    // combinado con la normalización por coste de más abajo (dividir por el
+    // precio YA rebajado) contaba el mismo descuento DOS veces — numerador
+    // más grande y denominador más pequeño a la vez —, así que un
+    // Tiranosaurio muy rebajado por encadenar dinosaurios quedaba con un
+    // shaping MÁS inflado que antes del arreglo de coste, no menos (PV medio
+    // real 165→133, Pez Dorado/Foca muertos otra vez, verificado con 250
+    // partidas reales tras ~2500 batches). El ahorro ya queda reflejado
+    // correctamente y una sola vez al dividir por el precio pagado (más
+    // abajo): un Tiranosaurio a mitad de precio ya sale con el doble de
+    // eficiencia PV/coste sin necesidad de este crédito adicional.
     const discountRealized = boughtCard ? (boughtCard.marketCost ?? 0) - effectiveMarketCost(player, boughtCard) : 0;
     // Valor de captura ganado al JUGAR una carta (Mono/Ornitorrinco/Delfín/
     // Loro...), no al comprarla — pedido explícito del usuario 2026-09-22.
@@ -482,7 +522,8 @@ export function playOneGame(weights: RlWeights): { trajectories: Map<string, Ste
     let shapingBonus = 0;
     if (chosenAction.type === 'buyAnimal') {
       const pvDelta = scorePlayer(state, player) - scoreBefore;
-      shapingBonus = shapedPurchaseValue(pvDelta + discountRealized, calibratedValue, roundProgress) / 20;
+      const pricePaid = (boughtCard?.marketCost ?? 0) - discountRealized;
+      shapingBonus = shapedPurchaseValue(pvDelta, calibratedValue, roundProgress, pricePaid) / 20;
     } else if (chosenAction.type === 'playCard') {
       // Ajustado (pedido explícito del usuario 2026-09-22, "no solo para no
       // penalizar el gasto de la moneda, sino añadir el valor de la acción

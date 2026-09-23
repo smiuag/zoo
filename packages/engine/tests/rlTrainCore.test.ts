@@ -15,20 +15,33 @@ function stepWith(actionTypes: Step['actionTypes'], allScores: number[]): Step {
 }
 
 describe('scripts/rl/trainCore', () => {
-  it('shapedPurchaseValue: carta normal = su delta real, sin importar la ronda', () => {
-    expect(shapedPurchaseValue(4, undefined, 0)).toBe(4);
-    expect(shapedPurchaseValue(4, undefined, 1)).toBe(4);
+  it('shapedPurchaseValue: carta normal = su delta real / coste, sin importar la ronda', () => {
+    expect(shapedPurchaseValue(4, undefined, 0, 1)).toBe(4);
+    expect(shapedPurchaseValue(4, undefined, 1, 1)).toBe(4);
   });
 
-  it('shapedPurchaseValue: carta acumulativa = calibrado al empezar, delta real exacto en el último turno, nunca por debajo del delta real', () => {
-    // Tucán recién comprado sin animales caros (vale 1 hoy), calibrado 8.
-    expect(shapedPurchaseValue(1, 8, 0)).toBe(8);
-    expect(shapedPurchaseValue(1, 8, 1)).toBe(1);
-    expect(shapedPurchaseValue(1, 8, 0.5)).toBeCloseTo(4.5);
-    // Tucán con 11 animales caros en el último turno: 12, no la constante.
-    expect(shapedPurchaseValue(12, 8, 1)).toBe(12);
-    // Y a mitad de partida tampoco baja de lo que ya vale.
-    expect(shapedPurchaseValue(12, 8, 0.5)).toBe(12);
+  it('shapedPurchaseValue: normaliza el delta EN VIVO por el precio pagado (coste alto = shaping proporcionalmente menor)', () => {
+    // Tiranosaurio (10 PV impresos, coste 9): antes del ajuste puntuaba 10 en
+    // bruto, igual que un animal barato con 10 PV reales, pese a costar 9
+    // veces más que él.
+    expect(shapedPurchaseValue(10, undefined, 0.5, 9)).toBeCloseTo(10 / 9);
+    // Coste 0 (dinosaurio gratis por descuento) no debe dividir por 0 ni
+    // disparar el shaping a infinito: se trata como coste 1.
+    expect(shapedPurchaseValue(10, undefined, 0.5, 0)).toBe(10);
+  });
+
+  it('shapedPurchaseValue: carta acumulativa = calibrado (sin normalizar por coste) al empezar, delta real exacto/coste en el último turno, nunca por debajo del delta real normalizado', () => {
+    // Tucán recién comprado sin animales caros (vale 1 hoy, coste 5), calibrado 8.
+    // El valor calibrado NUNCA se divide por coste (ver comentario en
+    // trainCore.ts): ya es un valor medio real medido en partidas, no una
+    // cifra de catálogo con sesgo de coste.
+    expect(shapedPurchaseValue(1, 8, 0, 5)).toBeCloseTo(1 / 5 + (8 - 1));
+    expect(shapedPurchaseValue(1, 8, 1, 5)).toBeCloseTo(1 / 5);
+    expect(shapedPurchaseValue(1, 8, 0.5, 5)).toBeCloseTo(1 / 5 + 0.5 * (8 - 1));
+    // Tucán con 11 animales caros en el último turno: 12/5, no la constante.
+    expect(shapedPurchaseValue(12, 8, 1, 5)).toBeCloseTo(12 / 5);
+    // Y a mitad de partida tampoco baja de lo que ya vale (delta normalizado).
+    expect(shapedPurchaseValue(12, 8, 0.5, 5)).toBeCloseTo(12 / 5);
   });
 
   it('accumulateFloorGrad empuja hacia arriba las compras por debajo de endTurn y no toca las demás', () => {
