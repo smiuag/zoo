@@ -1,0 +1,96 @@
+name: Entrenar RL - terrestre
+
+# Disparo manual únicamente (pedido explícito del usuario 2026-09-23): sin
+# cron/schedule, se lanza a mano desde la pestaña Actions cuando convenga,
+# en tandas de hasta ~6h (límite duro de GitHub Actions por job). Cada
+# ejecución continúa desde los pesos que haya committeados en ese momento en
+# weights-full-land.json/critic-full-land.json — no hace falta encadenar
+# nada manualmente, solo relanzar el workflow cuando se quiera seguir.
+on:
+  workflow_dispatch:
+    inputs:
+      batches:
+        description: 'Batches a entrenar en esta tanda (ajustar según el ritmo real del runner, medido en la primera tanda)'
+        required: false
+        default: '20000'
+      workers:
+        description: 'RL_WORKERS (núcleos del runner - 1 para el proceso principal; ubuntu-latest estándar tiene 4 vCPU)'
+        required: false
+        default: '3'
+      shaping_weight:
+        description: 'RL_SHAPING_WEIGHT (0 = solo resultado final, experimento en curso el 23/09)'
+        required: false
+        default: '0'
+
+permissions:
+  # Necesario para que el commit/push automático de checkpoints funcione:
+  # el permiso por defecto del GITHUB_TOKEN en repos nuevos suele ser
+  # solo lectura, y sin esto el push fallaría con 403.
+  contents: write
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    # Tope duro de GitHub Actions son 6h (360 min); se deja margen para que
+    # el job pueda cerrar limpio (parar el entrenamiento, commit final) antes
+    # de que la plataforma lo mate en seco a los 360.
+    timeout-minutes: 350
+    concurrency:
+      group: train-land
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - name: Entrenar (con commits periódicos de progreso)
+        env:
+          RL_EDITION: full
+          RL_HABITAT: land
+          RL_WORKERS: ${{ inputs.workers }}
+          RL_BATCHES: ${{ inputs.batches }}
+          RL_SHAPING_WEIGHT: ${{ inputs.shaping_weight }}
+        run: |
+          set -e
+          git config user.name "rl-training-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+          WEIGHTS_FILE=packages/engine/src/bots/rl/weights-full-land.json
+          CRITIC_FILE=packages/engine/scripts/rl/critic-full-land.json
+
+          commit_checkpoint() {
+            git add "$WEIGHTS_FILE" "$CRITIC_FILE"
+            if ! git diff --cached --quiet; then
+              git commit -m "Checkpoint automático entrenamiento terrestre (GitHub Actions, $(date -u +%Y-%m-%dT%H:%M:%SZ))"
+              git pull --rebase --autostash
+              git push
+            fi
+          }
+
+          npm run train:rl &
+          TRAIN_PID=$!
+
+          # Mientras el entrenamiento siga vivo, hace commit del progreso
+          # cada 30 min — así un corte por timeout o por fallo solo pierde
+          # como mucho esos 30 min, no la tanda entera.
+          while kill -0 "$TRAIN_PID" 2>/dev/null; do
+            sleep 1800
+            if kill -0 "$TRAIN_PID" 2>/dev/null; then
+              commit_checkpoint
+            fi
+          done
+
+          # No usar `set -e` aquí: si el entrenamiento termina con error,
+          # queremos comittear igualmente el último progreso guardado antes
+          # de propagar el fallo (si no, se perdería sin necesidad).
+          set +e
+          wait "$TRAIN_PID"
+          TRAIN_EXIT=$?
+          set -e
+
+          commit_checkpoint
+          exit $TRAIN_EXIT
