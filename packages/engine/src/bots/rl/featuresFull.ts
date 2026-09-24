@@ -207,6 +207,25 @@ function emptyCardBlock(): number[] {
 // de este tipo — se añade AL FINAL del bloque (tras los efectos) para no
 // desplazar los offsets de coste/hábitat/efectos ya usados en otros sitios
 // (rlFeaturesFull.test.ts, comentarios de este archivo).
+//
+// Los 5 bits de HABITATS de ESTE bloque (la carta protagonista, la que se
+// está valorando comprar/jugar) se dejan SIEMPRE a 0 — no se lee
+// card.habitats aquí — a petición explícita del usuario (2026-09-24), tras
+// diagnosticar que el especialista acuático había hundido el Pez Dorado
+// (-9 puntos de score) por llevar la etiqueta 'pet', pese a ser una copia
+// exacta en coste/PV/efecto del Pez Globo (que no la lleva): con muy pocas
+// especies activando 'pet'/'bird' para ese bot, la red aprendía "esta
+// etiqueta → especie floja de mi hábitat" como atajo barato, en vez de
+// valorar cada carta por su coste/efecto reales (ver petBitAblation.ts,
+// habitatWeightMagnitudes.ts en scripts/rl/ para las mediciones). Esto NO
+// afecta al recuento de hábitats en encodePlayerContext (habitatCounts),
+// que sigue viendo los hábitats reales del jugador — lo necesita el Oso
+// Polar (scorePerHabitatCount) y cualquier efecto similar, que valora la
+// COLECCIÓN ya poseída, no la carta que se está decidiendo comprar. Se deja
+// el hueco a cero (en vez de encoger FEATURE_DIM_FULL) para no invalidar ni
+// desplazar los índices de los pesos ya entrenados de los otros 3
+// especialistas de la completa (land/bird/generalista), que siguen
+// cargando/funcionando igual, solo que esa columna deja de influir.
 function encodeCardBlock(card: CardInstance | undefined, ownedCopies: number, costOverride?: number): number[] {
   if (!card) return emptyCardBlock();
   const effectTypes = new Set(card.effects.map((e) => e.type));
@@ -214,7 +233,7 @@ function encodeCardBlock(card: CardInstance | undefined, ownedCopies: number, co
     card.victoryPoints / 15,
     (costOverride ?? card.marketCost) / 10,
     (card.value ?? 0) / 3,
-    ...HABITATS.map((h) => (card.habitats?.includes(h) ? 1 : 0)),
+    ...HABITATS.map(() => 0),
     ...EFFECT_TYPES.map((t) => (effectTypes.has(t) ? 1 : 0)),
     ownedCopies / 15,
   ];

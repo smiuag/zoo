@@ -69,7 +69,7 @@ describe('rl/featuresFull (edición completa)', () => {
     expect(after[costIndex]).toBeCloseTo((12 - 2) / 10, 6);
   });
 
-  it('el hábitat "dinosaur" se ve en el bloque de carta (no solo los 3 básicos)', () => {
+  it('los 5 bits de hábitat de la carta protagonista están siempre a 0 (2026-09-24: ya no influyen en decidir si se coge una carta)', () => {
     const { state, player } = setupFull();
     const ptera = freshInstance('pteranodon', 'x');
     player.hand = [ptera];
@@ -78,10 +78,12 @@ describe('rl/featuresFull (edición completa)', () => {
     const features = encodeActionsForPlayer(state, player.id, actions)[0];
     // Bloque de carta: contexto(43) + tipoAcción(4) + [PV, coste, valor, land, bird, aquatic, pet, dinosaur, ...efectos]
     const habitatBase = CRITIC_FEATURE_DIM_FULL + 4 + 3;
-    // land=0, bird=1(Pteranodon es volador), aquatic=0, pet=0, dinosaur=1.
-    expect(features[habitatBase + 0]).toBe(0); // land
-    expect(features[habitatBase + 1]).toBe(1); // bird
-    expect(features[habitatBase + 4]).toBe(1); // dinosaur
+    // Pteranodon es bird+dinosaur de catálogo, pero esas 5 columnas se
+    // enmascaran a 0 a propósito (ver comentario de encodeCardBlock en
+    // featuresFull.ts) para que el hábitat de LA CARTA QUE SE DECIDE COMPRAR
+    // no pueda sesgar el score — el recuento de hábitats ya poseídos (para
+    // el Oso Polar y similares) sigue viéndose en encodePlayerContext.
+    for (let i = 0; i < 5; i++) expect(features[habitatBase + i]).toBe(0);
   });
 
   it('el bloque de carta ve cuántas copias de la misma especie ya tiene el jugador', () => {

@@ -69,7 +69,15 @@ function encodePlayerContext(state: GameState, player: Player): number[] {
 }
 
 export const TRAIN_TEMPERATURE = 1;
-export const MAX_ACTIONS_PER_GAME = 400;
+// Subido de 400 a 2000 (2026-09-24, pedido explícito del usuario): al
+// relanzar el entrenamiento del especialista terrestre, ~84% de sus
+// partidas se estaban cortando por este tope sin haber llegado a
+// state.gameOver — comprobado que NO es un bucle real (el turno seguía
+// avanzando turno a turno, sin quedarse atascado en el mismo), solo que con
+// maxRounds alto (ver randomMaxRounds) 400 acciones no bastan para que una
+// partida a 4 jugadores llegue a su fin natural. 2000 da margen de sobra sin
+// dejar de proteger contra un bucle infinito real si apareciera uno.
+export const MAX_ACTIONS_PER_GAME = 2000;
 // Ver el comentario largo original (ahora aquí) sobre por qué hace falta
 // cortar la ventaja: un crítico recién inicializado que predice mal produce
 // una ventaja grande, que a su vez produce un gradiente grande que lo deja
