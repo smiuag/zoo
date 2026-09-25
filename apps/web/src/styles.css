@@ -1469,6 +1469,12 @@ body {
   white-space: nowrap;
 }
 
+/* SVG en vez de emoji (ver GearIcon.tsx): alinearlo con el texto igual que
+   quedaba el emoji ⚙️ al que sustituye. */
+.btn--settings-gear svg {
+  vertical-align: -0.125em;
+}
+
 @media (max-width: 480px) {
   .btn--settings-gear .btn__label {
     display: none;

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { GearIcon } from './icons/GearIcon';
 import { LEARNING_EDITION_MAX_COST } from '@zoo/engine';
 import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
 import { GameSettingsModal } from './GameSettingsModal';
@@ -210,7 +211,7 @@ export function GameSetup({
             title="Configuración de la partida"
             onClick={() => setSettingsOpen(true)}
           >
-            ⚙️<span className="btn__label"> Configuración</span>
+            <GearIcon /><span className="btn__label"> Configuración</span>
           </button>
         </div>
 
@@ -376,7 +377,7 @@ export function GameSetup({
         <div className="setup-row">
           <div className="setup-round-options setup-round-options--full">
             <button className="btn btn--ghost" type="button" onClick={onOpenScoreCalculator}>
-              🌰 Marcador final (sin partida)
+              🌰 Calculadora
             </button>
             <button className="btn btn--ghost" type="button" onClick={onOpenRanking}>
               🏆 Ranking
