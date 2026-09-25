@@ -31,13 +31,25 @@ import { computeMarketScarcity } from './marketScarcity';
 // a aprender porque nunca la muestreaba (ver reviveDeadCards.ts). Esta vez
 // los pesos guardados NO se reinician: loadOrInitWeights (scripts/rl/
 // weightsIo.ts) migra los de 96 columnas insertando la nueva a cero.
-export const FEATURE_DIM = 97;
+// 2026-09-25: subido de 97 a 99 al añadir aquaticBonusPurchasingPowerThisTurn
+// y dinosaurBonusPurchasingPowerThisTurn a encodePlayerContext — ninguna de
+// las dos bolsas de valor de compra restringido (Foca en acuático,
+// Diplodocus en dinosaurio en la completa) era visible para la red aquí,
+// solo el bono genérico (bonusPurchasingPowerThisTurn). El motor sí las
+// gasta bien (ver currentPurchasingPower/canAffordMarket en engine.ts), pero
+// la red nunca podía aprender "ya tengo N de compra solo-acuática reservada,
+// aprovéchala comprando otro acuático este mismo turno" — el mismo punto
+// ciego que featuresFull.ts ya tenía arreglado desde el 21/09 para la
+// completa (ver el comentario de cabecera de ese archivo), nunca portado
+// aquí. Pesos guardados migrados igual que la vez anterior (dos pasos,
+// weightsIo.ts: 97->98->99).
+export const FEATURE_DIM = 99;
 
 // Índice de la columna liveScoreDelta dentro del vector: justo después del
-// bloque de la carta protagonista (37 contexto + 4 tipo de acción + 37
-// bloque de carta). Lo usa la migración de pesos 96->97 (weightsIo.ts) y
+// bloque de la carta protagonista (39 contexto + 4 tipo de acción + 37
+// bloque de carta). Lo usa la migración de pesos 98->99 (weightsIo.ts) y
 // los tests.
-export const LIVE_DELTA_INDEX = 78;
+export const LIVE_DELTA_INDEX = 80;
 
 // Longitud de encodePlayerContext (más abajo) SOLA, sin nada de acción:
 // la usa el "crítico" del entrenamiento (ver scripts/rl/selfPlay.ts) para
@@ -47,7 +59,7 @@ export const LIVE_DELTA_INDEX = 78;
 // carta). Verificado por un test que compara con la longitud real
 // devuelta por encodePlayerContext (ver rlFeatures.test.ts) — si cambia
 // esa función hay que actualizar esto también.
-export const CRITIC_FEATURE_DIM = 37;
+export const CRITIC_FEATURE_DIM = 39;
 
 const HABITATS = ['land', 'bird', 'aquatic'] as const;
 const ACTION_TYPES = ['playCard', 'buyAnimal', 'buyCoin', 'endTurn'] as const;
@@ -198,6 +210,12 @@ export function encodePlayerContext(state: GameState, player: Player): number[] 
     player.deck.length / 40,
     player.discard.length / 40,
     player.bonusPurchasingPowerThisTurn / 5,
+    // Nuevo (2026-09-25): ninguna de las dos bolsas de valor de compra
+    // restringido (Foca en acuático, Diplodocus en dinosaurio en la
+    // completa) era visible para la red hasta ahora — ver el comentario de
+    // FEATURE_DIM arriba.
+    player.aquaticBonusPurchasingPowerThisTurn / 5,
+    player.dinosaurBonusPurchasingPowerThisTurn / 5,
     coinSum / 10,
     rawVictoryPoints / 40,
     ...habitatCounts(own).map((n) => n / 15),

@@ -3,7 +3,6 @@
 // al necesitarlo también el rescate de cartas muertas se saca aquí. Nunca
 // se importa desde src/index.ts ni desde apps/web.
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { LIVE_DELTA_INDEX } from '../../src/bots/rl/features';
 import {
   createRandomWeights,
   deserializeWeights,
@@ -20,7 +19,12 @@ import {
 const MIGRATIONS: { fromDim: number; toDim: number; insertIndex: number }[] = [
   // 2026-09-16 (features.ts, clásica): liveScoreDelta insertada en medio del
   // vector — el resto de bloques de objetivo se desplazan una posición.
-  { fromDim: 96, toDim: 97, insertIndex: LIVE_DELTA_INDEX },
+  // Literal 78 a propósito, NO LIVE_DELTA_INDEX: ese índice se movió (a 80)
+  // con la migración de 2026-09-25 de más abajo, pero esta entrada describe
+  // dónde se insertó la columna EN AQUEL MOMENTO — si se leyera el valor
+  // actual de la constante, un weights.json de 96 columnas migraría a un
+  // índice equivocado.
+  { fromDim: 96, toDim: 97, insertIndex: 78 },
   // 2026-09-23 (featuresFull.ts, completa): ownedCopies añadida al final del
   // bloque de carta, justo donde antes empezaba liveScoreDelta. Mismo índice
   // numérico (96) que la migración de arriba por coincidencia (el bloque de
@@ -28,13 +32,29 @@ const MIGRATIONS: { fromDim: number; toDim: number; insertIndex: number }[] = [
   // el resto del vector) — se deja explícito, no compartido con
   // LIVE_DELTA_INDEX.
   { fromDim: 121, toDim: 122, insertIndex: 96 },
+  // 2026-09-25 (features.ts, clásica): aquaticBonusPurchasingPowerThisTurn y
+  // dinosaurBonusPurchasingPowerThisTurn insertadas justo después del bono
+  // genérico (índice 4) en encodePlayerContext — dos columnas nuevas, dos
+  // pasos de migración encadenados. Mismos índices para el crítico
+  // (37->38->39): encodePlayerContext es la misma función para los dos.
+  { fromDim: 97, toDim: 98, insertIndex: 5 },
+  { fromDim: 98, toDim: 99, insertIndex: 6 },
+  { fromDim: 37, toDim: 38, insertIndex: 5 },
+  { fromDim: 38, toDim: 39, insertIndex: 6 },
 ];
 
+// Encadena migraciones consecutivas (p. ej. 97->98->99): en cada paso solo
+// se sigue una migración cuyo fromDim coincide con la dimensión actual, así
+// que dos migraciones nunca pueden competir por el mismo fromDim ni saltar
+// a un toDim no declarado explícitamente.
 export function migrateWeights(weights: RlWeights, expectedFeatureDim: number): RlWeights | null {
-  if (weights.featureDim === expectedFeatureDim) return weights;
-  const migration = MIGRATIONS.find((m) => m.fromDim === weights.featureDim && m.toDim === expectedFeatureDim);
-  if (!migration) return null;
-  return insertZeroFeatureColumn(weights, migration.insertIndex);
+  let current = weights;
+  while (current.featureDim !== expectedFeatureDim) {
+    const migration = MIGRATIONS.find((m) => m.fromDim === current.featureDim);
+    if (!migration) return null;
+    current = insertZeroFeatureColumn(current, migration.insertIndex);
+  }
+  return current;
 }
 
 // Generalizada para servir tanto a los pesos de política (FEATURE_DIM,
