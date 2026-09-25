@@ -25,7 +25,18 @@ import { scoreGame } from '../../src/scoring';
 import type { Bot } from '../../src/bots/types';
 import { addGrad, applyGrad, applyGradAdam, clampWeightNorms, createAdamState, deserializeGradient, scaleGrad, zeroGrad, type AdamState } from './train';
 import { loadOrInitWeights, saveWeightsWithRetry } from './weightsIo';
-import { buildStarterDeck, chooseLearnerAction, CURRENT_VARIANT, EPSILON, HABITAT_FILTER, MAX_ACTIONS_PER_GAME, randomMaxRounds, SHAPING_WEIGHT, type EpisodeBatchResult } from './trainCore';
+import {
+  buildStarterDeck,
+  chooseLearnerAction,
+  CURRENT_VARIANT,
+  EPSILON,
+  HABITAT_FILTER,
+  MAX_ACTIONS_PER_GAME,
+  randomMaxRounds,
+  RL_CURRICULUM_OPPONENTS,
+  SHAPING_WEIGHT,
+  type EpisodeBatchResult,
+} from './trainCore';
 import { runEpisodesSolo } from './trainCoreSolo';
 
 const HIDDEN_SIZE = 48;
@@ -41,6 +52,19 @@ const EVAL_GAMES = Number(process.env.RL_EVAL_GAMES ?? 40);
 // Pedido explícito del usuario: 10 hilos en paralelo (selfPlay.ts usa 2 por
 // defecto, pensado para correr las 4 variantes de producción a la vez).
 const WORKER_COUNT = Number(process.env.RL_WORKERS ?? 10);
+
+// Gatekeeper (pedido explícito del usuario 2026-09-25, mismo mecanismo que
+// selfPlay.ts): sin él, este script guardaba SIEMPRE, incondicionalmente,
+// aunque el batch fuera peor que el anterior — pasó de verdad entrenando el
+// ave en solitario (subió a 0.548 de winrate contra las 3 committeadas y un
+// batch peor lo dejó en 0.380, sin nada que lo revirtiera). Cada
+// GATE_EVERY batches, el candidato se examina contra el MEJOR conocido
+// jugando cada uno GATE_GAMES partidas de 4 contra RL_CURRICULUM_OPPONENTS
+// (las 3 OTRAS variantes de producción committeadas — la referencia real:
+// lo que de verdad importa no es cuánto puntúa jugando solo, sino si gana
+// partidas de verdad). RL_GATE_EVERY=0 desactiva el mecanismo entero.
+const GATE_EVERY = Number(process.env.RL_GATE_EVERY ?? 500);
+const GATE_GAMES = Number(process.env.RL_GATE_GAMES ?? 1000);
 
 // CURRENT_VARIANT (trainCore.ts) es 'general' cuando no hay RL_HABITAT, y el
 // propio nombre del hábitat si lo hay — así "general" también tiene su
@@ -197,6 +221,70 @@ function evaluate(weights: RlWeights, opponent: Bot, games: number): number {
   return wins / games;
 }
 
+// Partidas de 4 contra el trío precargado de RL_CURRICULUM_OPPONENTS (las 3
+// OTRAS variantes de producción committeadas, no las 3 solitarias): mide lo
+// mismo que verá este bot si algún día se promociona de verdad, así que es
+// la referencia natural para el gatekeeper — ver el comentario de GATE_EVERY
+// más arriba. Idéntica a evaluateAgainstCurriculum en selfPlay.ts.
+function evaluateAgainstCurriculum(weights: RlWeights, games: number): { winRate: number; avgScore: number } {
+  let wins = 0;
+  let scoreTotal = 0;
+
+  for (let g = 0; g < games; g++) {
+    const seat = g % 4;
+    const playerConfigs = Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, deck: buildStarterDeck() }));
+    const state = createGame(playerConfigs, { maxRounds: randomMaxRounds() });
+    const candidateId = playerConfigs[seat].id;
+    const opponentBySeat = new Map<string, Bot>();
+    let oppIdx = 0;
+    for (let i = 0; i < 4; i++) {
+      if (i === seat) continue;
+      opponentBySeat.set(playerConfigs[i].id, RL_CURRICULUM_OPPONENTS[oppIdx]);
+      oppIdx++;
+    }
+
+    let guard = 0;
+    while (!state.gameOver && guard < MAX_ACTIONS_PER_GAME) {
+      if (autoResolvePendingDiscard(state)) {
+        guard++;
+        continue;
+      }
+      const player = getActivePlayer(state);
+      const action =
+        player.id === candidateId
+          ? chooseLearnerAction(state, player.id, weights)
+          : opponentBySeat.get(player.id)!.chooseAction(state, player.id);
+      applyAction(state, player.id, action);
+      guard++;
+    }
+
+    const scores = scoreGame(state);
+    const candidateScore = scores.find((s) => s.playerId === candidateId)?.score ?? 0;
+    const best = Math.max(...scores.map((s) => s.score));
+    scoreTotal += candidateScore;
+    if (candidateScore >= best) wins += scores.filter((s) => s.score >= best).length > 1 ? 0.5 : 1;
+  }
+
+  return { winRate: wins / games, avgScore: scoreTotal / games };
+}
+
+// Copian el CONTENIDO de src encima de dest sin reasignar la variable
+// externa — así un revert del gatekeeper se ve de inmediato en el resto del
+// proceso sin más cambios. Idénticas a las de selfPlay.ts.
+function restoreWeightsInto(dest: RlWeights, src: RlWeights): void {
+  const clone = structuredClone(src);
+  dest.w1 = clone.w1;
+  dest.b1 = clone.b1;
+  dest.w2 = clone.w2;
+  dest.b2 = clone.b2;
+}
+function restoreAdamInto(dest: AdamState, src: AdamState): void {
+  const clone = structuredClone(src);
+  dest.m = clone.m;
+  dest.v = clone.v;
+  dest.t = clone.t;
+}
+
 function weightNorm(weights: RlWeights): { w1: number; w2: number } {
   let sqW1 = 0;
   for (const row of weights.w1) for (let i = 0; i < row.length; i++) sqW1 += row[i] * row[i];
@@ -211,11 +299,18 @@ async function main(): Promise<void> {
   const policyAdam = createAdamState(weights.featureDim, weights.hiddenSize);
   const criticAdam = createAdamState(criticWeights.featureDim, criticWeights.hiddenSize);
 
+  // Punto de partida de esta invocación = primer "mejor conocido" del
+  // gatekeeper, igual que en selfPlay.ts.
+  const bestWeights = structuredClone(weights);
+  const bestCriticWeights = structuredClone(criticWeights);
+  const bestCriticAdam = structuredClone(criticAdam);
+
   const prodFile = HABITAT_FILTER ? `weights-${HABITAT_FILTER}.json` : 'weights.json';
   console.log(
     `Entrenando rlBot EN SOLITARIO (variante: ${CURRENT_VARIANT}): ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas ` +
       `(${TOTAL_BATCHES * EPISODES_PER_BATCH} episodios totales), optimizador=${POLICY_OPTIMIZER}, max_norm_w1=${MAX_NORM_W1}, ` +
-      `max_norm_w2=${MAX_NORM_W2}, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, epsilon=${EPSILON}, shaping=${SHAPING_WEIGHT}, workers=${WORKER_COUNT}\n` +
+      `max_norm_w2=${MAX_NORM_W2}, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, epsilon=${EPSILON}, shaping=${SHAPING_WEIGHT}, workers=${WORKER_COUNT}, ` +
+      `gate_every=${GATE_EVERY}, gate_games=${GATE_GAMES}\n` +
       `Guardando en ${WEIGHTS_PATH} (NUNCA toca el ${prodFile} de producción).`
   );
 
@@ -230,6 +325,38 @@ async function main(): Promise<void> {
         `episodios=${(batch + 1) * EPISODES_PER_BATCH} avg_return=${avgReturn.toFixed(3)} critic_avg_abs_advantage=${avgAbsAdvantage.toFixed(3)} ` +
           `winrate_vs_heuristic=${winrateVsHeuristic.toFixed(2)} winrate_vs_random=${winrateVsRandom.toFixed(2)} |w1|=${norm.w1.toFixed(2)} |w2|=${norm.w2.toFixed(2)}`
       );
+
+      if (GATE_EVERY > 0 && batch > 0 && batch % GATE_EVERY === 0) {
+        const candidate = evaluateAgainstCurriculum(weights, GATE_GAMES);
+        const best = evaluateAgainstCurriculum(bestWeights, GATE_GAMES);
+        if (candidate.winRate > best.winRate) {
+          restoreWeightsInto(bestWeights, weights);
+          restoreWeightsInto(bestCriticWeights, criticWeights);
+          restoreAdamInto(bestCriticAdam, criticAdam);
+          console.log(
+            `  [gatekeeper] episodios=${(batch + 1) * EPISODES_PER_BATCH} candidato ${(candidate.winRate * 100).toFixed(1)}% (PV ${candidate.avgScore.toFixed(1)}) ` +
+              `> mejor ${(best.winRate * 100).toFixed(1)}% (PV ${best.avgScore.toFixed(1)}) — PROMOVIDO a nuevo mejor`
+          );
+        } else {
+          restoreWeightsInto(weights, bestWeights);
+          restoreWeightsInto(criticWeights, bestCriticWeights);
+          restoreAdamInto(criticAdam, bestCriticAdam);
+          console.log(
+            `  [gatekeeper] episodios=${(batch + 1) * EPISODES_PER_BATCH} candidato ${(candidate.winRate * 100).toFixed(1)}% (PV ${candidate.avgScore.toFixed(1)}) ` +
+              `<= mejor ${(best.winRate * 100).toFixed(1)}% (PV ${best.avgScore.toFixed(1)}) — REVERTIDO al mejor conocido`
+          );
+        }
+      }
+
+      await saveWeightsWithRetry(weights, WEIGHTS_PATH);
+      await saveWeightsWithRetry(criticWeights, CRITIC_PATH);
+    }
+
+    // Al terminar, el fichero en disco debe reflejar el MEJOR conocido, no
+    // el último candidato en curso — mismo criterio que selfPlay.ts.
+    if (GATE_EVERY > 0) {
+      restoreWeightsInto(weights, bestWeights);
+      restoreWeightsInto(criticWeights, bestCriticWeights);
       await saveWeightsWithRetry(weights, WEIGHTS_PATH);
       await saveWeightsWithRetry(criticWeights, CRITIC_PATH);
     }

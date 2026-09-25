@@ -105,14 +105,20 @@ const GATE_GAMES = Number(process.env.RL_GATE_GAMES ?? 1000);
 // con una dimensión de features totalmente distinta (ver featuresFull.ts).
 // HABITAT_FILTER no aplica todavía a la completa (sin especialistas de
 // hábitat/tipo propios de momento), así que se ignora si RL_EDITION=full.
+// RL_RUN_TAG (opcional): sufijo para correr varios intentos independientes
+// de la MISMA variante en paralelo sin que se pisen el fichero de pesos —
+// cada uno lee/escribe su propia copia numerada (p. ej.
+// weights-aquatic-r01.json). Vacío por defecto: cero cambio de
+// comportamiento respecto a antes de que existiera esta variable.
+const RUN_TAG = process.env.RL_RUN_TAG ? `-${process.env.RL_RUN_TAG}` : '';
 const WEIGHTS_FILE =
   RL_EDITION === 'full'
     ? HABITAT_FILTER
-      ? `weights-full-${HABITAT_FILTER}.json`
-      : 'weights-full.json'
+      ? `weights-full-${HABITAT_FILTER}${RUN_TAG}.json`
+      : `weights-full${RUN_TAG}.json`
     : HABITAT_FILTER
-      ? `weights-${HABITAT_FILTER}.json`
-      : 'weights.json';
+      ? `weights-${HABITAT_FILTER}${RUN_TAG}.json`
+      : `weights${RUN_TAG}.json`;
 const WEIGHTS_PATH = fileURLToPath(new URL(`../../src/bots/rl/${WEIGHTS_FILE}`, import.meta.url));
 // El crítico vive AQUÍ (scripts/rl/), no en src/bots/rl/ junto a los pesos
 // de política: nunca lo usa el bot de verdad (solo sirve durante el
@@ -122,11 +128,11 @@ const WEIGHTS_PATH = fileURLToPath(new URL(`../../src/bots/rl/${WEIGHTS_FILE}`, 
 const CRITIC_FILE =
   RL_EDITION === 'full'
     ? HABITAT_FILTER
-      ? `critic-full-${HABITAT_FILTER}.json`
-      : 'critic-full.json'
+      ? `critic-full-${HABITAT_FILTER}${RUN_TAG}.json`
+      : `critic-full${RUN_TAG}.json`
     : HABITAT_FILTER
-      ? `critic-${HABITAT_FILTER}.json`
-      : 'critic.json';
+      ? `critic-${HABITAT_FILTER}${RUN_TAG}.json`
+      : `critic${RUN_TAG}.json`;
 const CRITIC_PATH = fileURLToPath(new URL(`./${CRITIC_FILE}`, import.meta.url));
 
 // Paralelización de la simulación de partidas (2026-09-14): las

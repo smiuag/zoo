@@ -911,8 +911,8 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     playCard(state, player.id, hyena.instanceId);
 
     // Solo hay 1 animal "normal" elegible (el más caro), pero las entregas de
-    // tipo 'discard' ya nunca se auto-resuelven (ver autoResolveForcedDiscards
-    // en engine.ts): el rival sigue teniendo que resolverlo explícitamente.
+    // tipo 'discard' nunca se auto-resuelven: el rival sigue teniendo que
+    // resolverlo explícitamente.
     expect(state.pendingDecision).not.toBeNull();
     expect(getLegalActions(state, opponent.id)).toHaveLength(1);
     resolveDiscard(state, opponent.id, costly.instanceId);
@@ -1060,9 +1060,8 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
   it('con un descarte pendiente de verdad (elección real), jugar/comprar/terminar turno es ilegal hasta resolverlo', () => {
     const { state, player, opponent } = setupClean();
-    // 3 cartas para que el Buitre (pide 2) deje una elección real: con
-    // justo 2 se resolvería solo (ver autoResolveForcedDiscards) y no
-    // habría nada pendiente que probar aquí.
+    // 3 cartas para que el Buitre (pide 2) deje una elección real entre
+    // cuáles 2 de las 3 entregar (con solo 2 no habría elección posible).
     opponent.hand = [freshInstance('coin-1', 'o1'), freshInstance('coin-2', 'o2'), freshInstance('coin-3', 'o3')];
     const vulture = freshInstance('vulture', 'test');
     const lion = freshInstance('lion', 'l1');
@@ -1081,7 +1080,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(() => playCard(state, player.id, lion.instanceId)).not.toThrow();
   });
 
-  it('pato: el jugador que elijas te da 1 moneda cualquiera de su mano, y el resto no pierde nada', () => {
+  it('pato: con una sola moneda elegible, el elegido sigue teniendo que confirmar la entrega explícitamente', () => {
     const state = createGame([
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
       { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
@@ -1103,6 +1102,17 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
 
     playCard(state, p1.id, duck.instanceId, undefined, undefined, p3.id);
 
+    // Sin elección real entre monedas (solo tiene 1), pero 'giveToPlayer'
+    // nunca se auto-resuelve: p3 debe confirmar explícitamente qué entrega,
+    // igual que un descarte o una eliminación.
+    expect(state.pendingDecision).not.toBeNull();
+    expect(state.pendingDecision?.kind).toBe('giveToPlayer');
+    expect(p3.hand).toHaveLength(1);
+    expect(p1.hand.some((c) => c.instanceId === chosenCoin.instanceId)).toBe(false);
+
+    resolveDiscard(state, p3.id, chosenCoin.instanceId);
+
+    expect(state.pendingDecision).toBeNull();
     expect(p3.hand).toHaveLength(0);
     expect(p1.hand.some((c) => c.instanceId === chosenCoin.instanceId)).toBe(true);
     expect(p2.hand).toHaveLength(1);

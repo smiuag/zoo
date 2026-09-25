@@ -1079,12 +1079,6 @@ export function playCard(
       sourceInstanceId: card.instanceId,
     });
   }
-  // Si alguno de esos efectos ha dejado un descarte forzoso pendiente
-  // (Buitre/Mono/Hiena/Murciélago), resuelve solo, sin esperar a nadie, a
-  // cualquier afectado que en realidad no tenga elección que hacer (le
-  // caben exactamente tantas cartas elegibles como debe descartar) — solo
-  // debe bloquear la partida cuando de verdad haya que elegir.
-  autoResolveForcedDiscards(state);
   // Algunas de esas habilidades dan valor de compra extra (Serpiente, Loro,
   // León, Delfín...): puede que este sea el pico de la partida para este
   // jugador, ver recordRichestTurn.
@@ -1366,8 +1360,10 @@ function findInAnyDiscard(state: GameState, instanceId: string): CardInstance | 
 // ningún objetivo, así que un Elefante/Araña/Flamenco/Tigre/Jirafa/
 // Murciélago prestado por la Serpiente no hacía nada en absoluto). Si esa
 // habilidad deja a su vez un descarte forzoso pendiente (p. ej. si la carta
-// elegida fuera un Buitre), se encadena con normalidad:
-// autoResolveForcedDiscards ya se llama al final, igual que en playCard.
+// elegida fuera un Buitre), se queda pendiente con normalidad: ninguna
+// entrega forzosa (discard/destroy/giveToPlayer) se auto-resuelve nunca,
+// aunque no haya elección real — el afectado siempre confirma explícitamente
+// qué entrega (ver resolveDiscard).
 export function useDiscardedAnimalAbility(
   state: GameState,
   playerId: string,
@@ -1396,49 +1392,9 @@ export function useDiscardedAnimalAbility(
       sourceInstanceId: card.instanceId,
     });
   }
-  autoResolveForcedDiscards(state);
   recordRichestTurn(state, player);
 
   state.log.push(`${player.name} usó la habilidad de ${card.name} gracias a la Serpiente`);
-}
-
-// Se llama justo después de resolver los efectos onPlay de una carta (ver
-// playCard): si alguno dejó pendiente una devolución al mercado ('discard'
-// tipo returnToMarket, Tiburón) resuelve automáticamente a cualquier
-// afectado que en realidad no tenga ninguna elección que hacer — le caben
-// exactamente tantas elegibles (owed.eligibleInstanceIds, o toda su mano si
-// es null) como debe devolver, así que el resultado es el mismo elija lo que
-// elija. Las entregas de tipo 'discard' (Buitre/Mono/Hiena) NUNCA se
-// auto-resuelven, ni siquiera sin elección real entre las cartas
-// "normales": desde que el Perezoso puede sustituir cualquier descarte
-// entero por sí solo, SIEMPRE hay una elección real que hacer (¿sacrifico el
-// Perezoso o las cartas pedidas?), así que el jugador afectado siempre debe
-// decidir explícitamente.
-// 'destroy' (Tiranosaurio/Mosasaurio/Pteranodon) TAMPOCO se auto-resuelve
-// nunca, ni siquiera con una sola elegible y sin Gato/Murciélago de por
-// medio — pedido explícito del usuario 2026-09-21: "las eliminaciones que
-// funcionen como los descartes en el sentido de que siempre veas y elijas
-// lo que descartas, aunque solo tengas una opción" (perder una carta de
-// verdad, a diferencia de un descarte al mazo compartido, siempre merece
-// una confirmación explícita del afectado, no un silencioso "ya está").
-// Solo 'giveToPlayer' (Pato) sigue auto-resolviéndose con normalidad: no
-// destruye nada, y el afectado no tiene ningún Gato/Murciélago que jugar
-// aquí.
-function autoResolveForcedDiscards(state: GameState): void {
-  if (!state.pendingDecision || state.pendingDecision.kind === 'discard' || state.pendingDecision.kind === 'destroy') return;
-  for (const playerId of Object.keys(state.pendingDecision.owed)) {
-    // Se recalcula en cada vuelta: resolveDiscard puede vaciar `owed` (y
-    // hasta poner pendingDecision a null) según va resolviendo.
-    while (state.pendingDecision?.owed[playerId]) {
-      const owed = state.pendingDecision.owed[playerId];
-      const player = state.players.find((p) => p.id === playerId);
-      const eligible = owed.eligibleInstanceIds ?? player?.hand.map((c) => c.instanceId) ?? [];
-      if (eligible.length > owed.amount) break; // hay elección real: se deja pendiente
-      const instanceId = eligible[0];
-      if (instanceId === undefined) break;
-      resolveDiscard(state, playerId, instanceId);
-    }
-  }
 }
 
 // Resuelve UN paso de la decisión pendiente actual (si hay alguna) con la

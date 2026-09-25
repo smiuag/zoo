@@ -2434,12 +2434,41 @@ body {
   overflow: hidden;
 }
 
+/* Arrastrable/redimensionable (ver RoomChat.tsx, solo con canDragResize()
+   true: pantalla > 860px). Con posición explícita, el ancho/alto ya no van
+   acotados a "hasta la esquina" (el JS que calcula al arrastrar/redimensionar
+   se encarga de no salirse de la ventana), y min-width/height evita que el
+   asa de resize permita encoger el panel hasta ser inútil. */
+.room-chat__panel--floating {
+  min-width: 260px;
+  min-height: 260px;
+  max-width: 100vw;
+  max-height: 100dvh;
+}
+
 .room-chat__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0.6rem 0.8rem;
   border-bottom: 1px solid var(--panel-border);
+}
+
+.room-chat__panel--floating .room-chat__header {
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.room-chat__resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  touch-action: none;
+  background: linear-gradient(135deg, transparent 0 50%, var(--panel-border) 50% 60%, transparent 60% 70%, var(--panel-border) 70% 80%, transparent 80%);
 }
 
 .room-chat__close {

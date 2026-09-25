@@ -79,6 +79,19 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string, 
       requestState();
     }, 4000);
 
+    // Al volver de segundo plano (cambiar de pestaña/app y volver) pide el
+    // estado otra vez: en móvil, el navegador puede suspender el WebSocket
+    // mientras la pestaña no es visible sin llegar a desconectarlo del todo,
+    // así que ni el reintento de arriba (ya parado, gotSync=true) ni el
+    // callback de re-subscribe se disparan solos — el jugador se queda
+    // viendo un estado viejo (p. ej. sin su turno activado) hasta que refresca
+    // a mano. Pedido explícito del usuario (2026-09-25): que este refresco
+    // sea automático en vez de tener que cambiar de pantalla o recargar.
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') requestState();
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     seatCh
       .on('broadcast', { event: 'sync' }, ({ payload: msg }) => {
         gotSync = true;
@@ -102,6 +115,7 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string, 
 
     return () => {
       window.clearInterval(retryId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       client.removeChannel(lobby);
       client.removeChannel(seatCh);
       client.removeChannel(actionsCh);
