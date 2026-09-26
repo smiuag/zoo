@@ -6,10 +6,10 @@ import { migrateWeights } from '../scripts/rl/weightsIo';
 
 describe('scripts/rl/weightsIo migrateWeights', () => {
   it('migra pesos de 96 columnas a 97 insertando la columna liveScoreDelta a cero, sin cambiar ningún score', () => {
-    // Índice literal 78, NO LIVE_DELTA_INDEX (que hoy vale 80: se movió con
-    // la migración 97->99 de más abajo) — esta migración concreta describe
-    // dónde se insertó la columna en 2026-09-16, cuando el vector aún tenía
-    // 97 columnas en total.
+    // Índice literal 78: dónde se insertó la columna en 2026-09-16, cuando
+    // el vector tenía 97 columnas en total (coincide numéricamente con
+    // LIVE_DELTA_INDEX hoy, pero por casualidad — no depender de esa
+    // constante aquí).
     const LIVE_DELTA_INDEX_AT_97 = 78;
     const old = createRandomWeights(96, 6);
     const migrated = migrateWeights(old, 97);
@@ -28,9 +28,33 @@ describe('scripts/rl/weightsIo migrateWeights', () => {
     expect(forward(migrated!, x97on).score).toBeCloseTo(forward(old, x96).score, 10);
   });
 
-  it('migra pesos de 97 columnas a 99 insertando las 2 bolsas de compra restringido a cero, sin cambiar ningún score', () => {
-    const AQUATIC_BONUS_INSERT_INDEX = 5;
-    const DINOSAUR_BONUS_INSERT_INDEX = 6;
+  it('migra pesos de 99 columnas (disposición del 25/09 con turno+hasRoundLimit) a 97 quitando esas 2 columnas de un tirón', () => {
+    const TURN_REMOVE_INDEX = 0;
+    const HAS_ROUND_LIMIT_REMOVE_INDEX = 19; // índice ORIGINAL en ese vector de 99, antes de quitar nada
+    const old = createRandomWeights(99, 6);
+    const migrated = migrateWeights(old, 97);
+    expect(migrated).not.toBeNull();
+    expect(migrated!.featureDim).toBe(97);
+    expect(migrated!.w1.every((row) => row.length === 97)).toBe(true);
+
+    // A diferencia de insertar, quitar SÍ pierde lo aprendido para esas 2
+    // columnas — lo que hay que verificar es que el resto del vector se
+    // comporta EXACTAMENTE como si esas 2 columnas nunca hubieran estado:
+    // un x99 con esas 2 entradas a 0 (su contribución anulada) debe dar el
+    // mismo score con los pesos VIEJOS que el x97 sin ellas con los pesos
+    // MIGRADOS.
+    const x99 = Array.from({ length: 99 }, () => Math.random() * 2 - 1);
+    const x99ZeroedRemoved = [...x99];
+    x99ZeroedRemoved[TURN_REMOVE_INDEX] = 0;
+    x99ZeroedRemoved[HAS_ROUND_LIMIT_REMOVE_INDEX] = 0;
+    const x97 = x99.filter((_, i) => i !== TURN_REMOVE_INDEX && i !== HAS_ROUND_LIMIT_REMOVE_INDEX);
+    expect(x97).toHaveLength(97);
+
+    expect(forward(migrated!, x97).score).toBeCloseTo(forward(old, x99ZeroedRemoved).score, 10);
+  });
+
+  it('migra pesos de 97 columnas (disposición ACTUAL) a FEATURE_DIM (100) insertando el recuento de Delfín/Mono/Loro en toda la colección, sin cambiar ningún score', () => {
+    const OWNERSHIP_INSERT_INDEX = 12;
     const old = createRandomWeights(97, 6);
     const migrated = migrateWeights(old, FEATURE_DIM);
     expect(migrated).not.toBeNull();
@@ -38,30 +62,18 @@ describe('scripts/rl/weightsIo migrateWeights', () => {
     expect(migrated!.w1.every((row) => row.length === FEATURE_DIM)).toBe(true);
 
     const x97 = Array.from({ length: 97 }, () => Math.random() * 2 - 1);
-    const x99 = [
-      ...x97.slice(0, AQUATIC_BONUS_INSERT_INDEX),
-      0,
-      0,
-      ...x97.slice(AQUATIC_BONUS_INSERT_INDEX),
-    ];
-    expect(x99).toHaveLength(99);
-    expect(forward(migrated!, x99).score).toBeCloseTo(forward(old, x97).score, 10);
+    const x100 = [...x97.slice(0, OWNERSHIP_INSERT_INDEX), 0, 0, 0, ...x97.slice(OWNERSHIP_INSERT_INDEX)];
+    expect(x100).toHaveLength(100);
+    expect(forward(migrated!, x100).score).toBeCloseTo(forward(old, x97).score, 10);
 
-    const x99on = [...x99];
-    x99on[AQUATIC_BONUS_INSERT_INDEX] = 0.6;
-    x99on[DINOSAUR_BONUS_INSERT_INDEX] = -0.3;
-    expect(forward(migrated!, x99on).score).toBeCloseTo(forward(old, x97).score, 10);
+    const x100on = [...x100];
+    x100on[OWNERSHIP_INSERT_INDEX] = 0.4;
+    x100on[OWNERSHIP_INSERT_INDEX + 1] = -0.2;
+    x100on[OWNERSHIP_INSERT_INDEX + 2] = 0.7;
+    expect(forward(migrated!, x100on).score).toBeCloseTo(forward(old, x97).score, 10);
   });
 
-  it('migra pesos de 96 columnas directamente a FEATURE_DIM encadenando las 3 migraciones', () => {
-    const old = createRandomWeights(96, 6);
-    const migrated = migrateWeights(old, FEATURE_DIM);
-    expect(migrated).not.toBeNull();
-    expect(migrated!.featureDim).toBe(FEATURE_DIM);
-    expect(migrated!.w1.every((row) => row.length === FEATURE_DIM)).toBe(true);
-  });
-
-  it('migra el crítico de 37 columnas a CRITIC_FEATURE_DIM (39) con los mismos índices que la política', () => {
+  it('migra el crítico de 37 columnas (ACTUAL) a CRITIC_FEATURE_DIM (40) con los mismos índices que la política', () => {
     const old = createRandomWeights(37, 4);
     const migrated = migrateWeights(old, CRITIC_FEATURE_DIM);
     expect(migrated).not.toBeNull();

@@ -149,7 +149,7 @@ function mergeEpisodeResults(results: EpisodeBatchResult[], weights: RlWeights, 
     truncatedGames += r.truncatedGames;
   }
 
-  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed, truncatedGames };
+  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed, truncatedGames, forcedSealCount: 0, forcedPenguinCount: 0 };
 }
 
 async function trainBatch(

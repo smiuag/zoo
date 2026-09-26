@@ -152,5 +152,9 @@ export function runEpisodesSolo(weights: RlWeights, criticWeights: RlWeights, ep
     episodesUsed++;
   }
 
-  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed, truncatedGames };
+  // forcedSealCount/forcedPenguinCount: mecanismo de exploración forzada de
+  // trainCore.ts (RL_FORCE_SEAL_VS_PENGUIN), no implementado aquí — el
+  // entrenamiento en solitario tiene su propio bucle de decisión, separado a
+  // propósito (ver cabecera del archivo). Siempre 0.
+  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed, truncatedGames, forcedSealCount: 0, forcedPenguinCount: 0 };
 }

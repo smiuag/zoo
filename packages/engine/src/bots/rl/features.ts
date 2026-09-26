@@ -41,15 +41,46 @@ import { computeMarketScarcity } from './marketScarcity';
 // aprovéchala comprando otro acuático este mismo turno" — el mismo punto
 // ciego que featuresFull.ts ya tenía arreglado desde el 21/09 para la
 // completa (ver el comentario de cabecera de ese archivo), nunca portado
-// aquí. Pesos guardados migrados igual que la vez anterior (dos pasos,
-// weightsIo.ts: 97->98->99).
-export const FEATURE_DIM = 99;
+// aquí.
+// 2026-09-25 (más tarde): bajado de 99 a 97 al quitar 2 columnas — el turno
+// en bruto (state.turn) y hasRoundLimit — y sustituir roundProgress por
+// roundFraction (ver el comentario en encodePlayerContext): con el
+// entrenamiento fijado a 15 rondas siempre (pedido explícito del usuario,
+// ver randomMaxRounds en trainCore.ts), hasRoundLimit era constante (1,
+// la app nunca ofrece partida sin límite) y el turno en bruto quedaba
+// redundante con la ronda (misma información, reescalada por una
+// constante). Pesos guardados migrados quitando esas 2 columnas de un
+// tirón (weightsIo.ts, ver removeFeatureColumn en network.ts) en vez de
+// reiniciarse — se pierde el peso aprendido de esas 2 columnas concretas,
+// el resto de lo entrenado se conserva.
+// 2026-09-25 (aún más tarde): se probó subir de 97 a 100 añadiendo el
+// recuento de animales por hábitat SOLO EN LA MANO (pensado para que
+// Delfín/Mono/Loro supieran cuánto valdría jugarse AHORA, y de paso ver la
+// sinergia de comprar un acuático barato tipo Pez de colores antes de jugar
+// un Delfín) — REVERTIDO enseguida, sin llegar a entrenar con ello: una
+// carta recién comprada va DIRECTA AL DESCARTE (ver buyAnimal en engine.ts,
+// `player.discard.push(animal)`), nunca a la mano, así que la premisa de
+// "comprar X para tenerlo en la mano" era falsa de raíz — ver
+// rl_hand_habitat_reverted.md. Sigue en 97.
+// 2026-09-25 (todavía más tarde): subido de 97 a 100 al añadir el recuento
+// de Delfín/Mono/Loro en TODA LA COLECCIÓN (no en la mano — corrección del
+// intento revertido justo arriba, pedida explícitamente por el usuario:
+// una carta comprada va directa al descarte, así que "cuántos tengo en
+// mano ahora" no sobrevive ni un turno; cuántos tienes en toda tu colección
+// sí es una señal estable de si merece la pena acumular relleno barato de
+// ese hábitat, tipo Pez de colores para el Delfín). 3 columnas nuevas, ver
+// handBonusOwnershipCounts.
+export const FEATURE_DIM = 100;
 
 // Índice de la columna liveScoreDelta dentro del vector: justo después del
-// bloque de la carta protagonista (39 contexto + 4 tipo de acción + 37
-// bloque de carta). Lo usa la migración de pesos 98->99 (weightsIo.ts) y
-// los tests.
-export const LIVE_DELTA_INDEX = 80;
+// bloque de la carta protagonista (37 contexto + 4 tipo de acción + 37
+// bloque de carta). Coincide numéricamente con el índice histórico de la
+// migración 96->97 (weightsIo.ts, valor literal 78, deliberadamente
+// desacoplado de esta constante — ver el comentario de esa migración), pero
+// es pura coincidencia de aquella vez: esta constante describe la
+// disposición ACTUAL del vector, no ninguna migración concreta. La usan los
+// tests.
+export const LIVE_DELTA_INDEX = 81;
 
 // Longitud de encodePlayerContext (más abajo) SOLA, sin nada de acción:
 // la usa el "crítico" del entrenamiento (ver scripts/rl/selfPlay.ts) para
@@ -59,7 +90,7 @@ export const LIVE_DELTA_INDEX = 80;
 // carta). Verificado por un test que compara con la longitud real
 // devuelta por encodePlayerContext (ver rlFeatures.test.ts) — si cambia
 // esa función hay que actualizar esto también.
-export const CRITIC_FEATURE_DIM = 39;
+export const CRITIC_FEATURE_DIM = 40;
 
 const HABITATS = ['land', 'bird', 'aquatic'] as const;
 const ACTION_TYPES = ['playCard', 'buyAnimal', 'buyCoin', 'endTurn'] as const;
@@ -134,6 +165,34 @@ function distinctSpeciesCount(cards: CardInstance[]): number {
   return new Set(cards.filter((c) => c.type === 'animal').map((c) => c.species)).size;
 }
 
+// Recuento, por hábitat, de animales con el efecto
+// gainBonusPurchasingPowerPerHabitatInHand parametrizado a ESE hábitat
+// (Delfín=acuático, Mono=terrestre, Loro=volador) en TODA la colección, no
+// solo la mano — pedido explícito del usuario 2026-09-25, tras descartar
+// dos intentos basados en la mano: una carta recién comprada va directa al
+// descarte (ver buyAnimal en engine.ts), nunca a la mano, así que "cuántas
+// tengo en mano ahora" no sobrevive ni un turno y no dice nada útil sobre
+// si merece la pena acumular más animales de ese hábitat. Cuántas tienes en
+// toda tu colección (que se reparte entre mazo/mano/descarte según se roba
+// y se rebaraja) sí es una señal estable: más Delfines en tu colección
+// significa que tarde o temprano volverán a tu mano, así que comprar
+// relleno barato de su hábitat (Pez de colores para Delfín, por ejemplo)
+// tiene más sentido cuanto más alto sea este recuento. Antes de esto, la
+// red solo veía el bit "esta carta tiene esta habilidad" en el bloque de la
+// PROPIA carta candidata (vía EFFECT_TYPES), nunca cuántas de esas cartas
+// ya posees.
+function handBonusOwnershipCounts(cards: CardInstance[]): number[] {
+  return HABITATS.map(
+    (h) =>
+      cards.filter((c) =>
+        c.type === 'animal' &&
+        c.effects?.some(
+          (e) => e.trigger === 'onPlay' && e.type === 'gainBonusPurchasingPowerPerHabitatInHand' && e.params?.habitat === h
+        )
+      ).length
+  );
+}
+
 // Recuento de animales propios por franja de coste (misma frontera que ya
 // usa scripts/rl/cardPreference.ts para informar: barato <=2, medio 3-4,
 // caro 5+). Añadido el 2026-09-14 al confirmar que cartas con un efecto
@@ -185,16 +244,21 @@ export function encodePlayerContext(state: GameState, player: Player): number[] 
   // para la carta candidata, vía la fase pura scoreCollection.
   const rawVictoryPoints = own.reduce((sum, c) => sum + c.victoryPoints, 0);
 
-  // Duración elegida de la partida (ver maxRounds en GameState): sin esto,
-  // el turno absoluto (arriba) no dice nada sobre "cuánta prisa tengo" — el
-  // turno 15 es "recién empezando" en una partida a 50 rondas y "se acaba
-  // ya" en una a 15. hasRoundLimit distingue "sin límite" (0, el turno
-  // absoluto vale lo que valía antes) de "con límite" (1); roundProgress
-  // (0 sin límite) es la fracción de la duración ya consumida, tope 1 por
-  // si `round` llegara a superar `maxRounds` un instante antes de que el
-  // motor cierre la partida.
-  const hasRoundLimit = state.maxRounds !== null ? 1 : 0;
-  const roundProgress = state.maxRounds !== null ? Math.min(1, state.round / state.maxRounds) : 0;
+  // Ronda actual, entre el valor fijo de entrenamiento (2026-09-25, pedido
+  // explícito del usuario: el entrenamiento SIEMPRE simula a 15 rondas por
+  // defecto y no se cambia sin que lo pida explícitamente — ver
+  // randomMaxRounds en trainCore.ts). Antes había 3 columnas aquí (turno
+  // bruto, si había límite de rondas, y progreso real / maxRounds): con
+  // maxRounds constante durante el entrenamiento, las 3 eran o ruido
+  // (hasRoundLimit: siempre 1, la app nunca ofrece partida sin límite — ver
+  // ROUND_LIMIT_OPTIONS en apps/web/src/lib/gameConfig.ts) o redundantes
+  // entre sí (turno bruto y round/maxRounds son la misma información
+  // reescalada por una constante). Se sustituyen por esta única columna.
+  // Compromiso consciente: en una partida real a 10 o 20 rondas (el usuario
+  // sí puede elegirlas) esta columna no refleja el progreso real de ESA
+  // partida — el bot puede juzgar mal la urgencia de la recta final fuera
+  // de 15 rondas. Aceptado explícitamente por el usuario.
+  const roundFraction = Math.min(1, state.round / 15);
 
   // Escasez de mercado: qué ratio de cada hábitat/tramo de coste sigue sin
   // comprar entre todos los jugadores (sharedDecks + animalTrack). Proxy
@@ -205,7 +269,6 @@ export function encodePlayerContext(state: GameState, player: Player): number[] 
   const marketScarcity = computeMarketScarcity(state);
 
   const context = [
-    state.turn / 50,
     player.hand.length / 10,
     player.deck.length / 40,
     player.discard.length / 40,
@@ -220,12 +283,17 @@ export function encodePlayerContext(state: GameState, player: Player): number[] 
     rawVictoryPoints / 40,
     ...habitatCounts(own).map((n) => n / 15),
     distinctSpeciesCount(own) / 27,
+    // Nuevo (2026-09-25, más tarde todavía): cuántos Delfín/Mono/Loro
+    // (gainBonusPurchasingPowerPerHabitatInHand, uno por hábitat) tienes en
+    // TODA la colección — ver el comentario largo junto a
+    // handBonusOwnershipCounts más abajo sobre por qué es la colección y no
+    // la mano.
+    ...handBonusOwnershipCounts(own).map((n) => n / 15),
     ...costTierCounts(own).map((n) => n / 15),
     coinCardCount(own) / 15,
     emptyDecks / 5,
     state.finalRoundTriggerPlayerIndex !== null ? 1 : 0,
-    hasRoundLimit,
-    roundProgress,
+    roundFraction,
     ...marketScarcity.habitat,
     ...marketScarcity.costTier,
   ];

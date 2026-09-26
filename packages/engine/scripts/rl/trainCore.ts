@@ -174,6 +174,112 @@ if (HABITAT_FILTER && !['land', 'bird', 'aquatic'].includes(HABITAT_FILTER)) {
   throw new Error(`RL_HABITAT inválido: "${HABITAT_FILTER}" (usa land, bird o aquatic)`);
 }
 
+// Exploración forzada puntual (2026-09-25, pedido explícito del usuario, a
+// raíz de la duda "¿el acuático compra Pingüino+Pez de colores por monedas
+// sobrantes o porque de verdad vale más que Foca?"): siempre que el
+// aprendiz llegue a una decisión de compra con menos de 5 rondas jugadas y
+// EXACTAMENTE 4 de poder de compra, y tanto Foca como Pingüino sean
+// opciones legales en ese momento, se fuerza la elección (50/50) en vez de
+// dejarla al softmax/epsilon de siempre — "exploring starts" clásico:
+// garantiza muchas muestras reales de esta decisión concreta en vez de
+// esperar a que la exploración aleatoria la toque por casualidad. Se sigue
+// registrando como un Step normal (mismo allFeatures/allScores, solo
+// chosenIndex forzado), así que el gradiente de política se calcula
+// EXACTAMENTE igual que cualquier otra decisión, con el retorno real de la
+// partida — "sube pesos, baja lo que tenga que bajar", no una puntuación
+// inventada a mano (ver runEpisodes más abajo). Cuando la rama forzada es
+// Pingüino, la SIGUIENTE decisión del aprendiz también se fuerza a comprar
+// Pez de colores (si sigue siendo legal) para comparar de verdad "Foca sola"
+// contra "el combo Pingüino+Pez de colores" completo, no "Pingüino y lo que
+// decida la red después". Desactivado por defecto (RL_FORCE_SEAL_VS_PENGUIN=1
+// lo activa) — no cambia NINGÚN otro entrenamiento que no lo pida
+// explícitamente.
+export const FORCE_SEAL_VS_PENGUIN = process.env.RL_FORCE_SEAL_VS_PENGUIN === '1';
+const FORCED_DECISION_MAX_ROUND = 4;
+const FORCED_DECISION_PURCHASING_POWER = 4;
+
+function findBuyActionIndex(state: GameState, actions: Action[], speciesId: string): number {
+  return actions.findIndex(
+    (a) => a.type === 'buyAnimal' && state.animalTrack.find((c) => c.instanceId === a.trackInstanceId)?.id === speciesId
+  );
+}
+
+// Forzado de timing de compra SOLO EN ENTRENAMIENTO (2026-09-25, pedido
+// explícito del usuario, a raíz de comprobar con el acuático real que ya
+// entrena que Pez de colores/Ornitorrinco/Tortuga las compra demasiado
+// pronto de una forma que le PERJUDICA — ver el test causal de "prohibir
+// antes de la ronda 10" en la conversación). Primer intento (EXCLUIR la
+// compra de las candidatas antes de la ronda umbral, revertido el mismo día
+// sin llegar a promocionarse): no funcionó — 12000 partidas después la
+// distribución de rondas del Pez de colores no se movió NADA. Motivo: el
+// bucle de gradiente (ver runEpisodes más abajo) solo actualiza el peso de
+// las acciones que están en allFeatures/allScores de esa decisión; si la
+// compra objetivo se excluye de `actions` ANTES de puntuar, nunca recibe
+// gradiente ninguno, ni a favor ni en contra — la red aprende qué hacer
+// cuando esa carta no está disponible, pero nunca compara su valor contra
+// nada, exactamente al revés de por qué funcionó Foca vs Pingüino (ver
+// FORCE_SEAL_VS_PENGUIN arriba: ahí SÍ se puntúan y comparan las dos
+// acciones reales). Corregido: en vez de excluir, se fuerza 50/50 entre (a)
+// comprar la carta objetivo, o (b) comprar la MEJOR alternativa real que la
+// red ya había puntuado más alto entre el resto de candidatas de esa misma
+// decisión — mismo patrón que Foca/Pingüino, pero con un "rival" que cambia
+// según la decisión en vez de ser siempre el mismo id fijo. Las dos ramas
+// quedan puntuadas y comparadas de verdad, así que el gradiente de esa
+// decisión sí puede subir o bajar el peso de la carta objetivo según el
+// resultado real de la partida. Superado el umbral de ronda, deja de
+// forzarse del todo: la carta vuelve a competir con total normalidad. NUNCA
+// se aplica en evaluate()/evaluateAgainstCurriculum (selfPlay.ts) ni en
+// rlBot.ts de producción — solo aquí, en las partidas de autojuego que
+// generan gradiente. Desactivado por defecto (RL_TRAINING_BUY_RESTRICTIONS=1
+// lo activa).
+export const TRAINING_BUY_RESTRICTIONS = process.env.RL_TRAINING_BUY_RESTRICTIONS === '1';
+// 2026-09-26 (pedido explícito del usuario): reducido a SOLO Pez de colores
+// para aislar y diagnosticar de una en una — con las 6 reglas a la vez, 9
+// revisiones seguidas (18000 partidas) quedaron todas por debajo del mejor
+// conocido, nunca promocionó ni una vez (peor que con Foca/Pingüino solo,
+// que promocionó a la primera). Candidatas a reactivar más adelante, ya
+// probadas y comentadas para no perder el trabajo de diseñarlas:
+// { speciesId: 'platypus', minRound: 3 },
+// { speciesId: 'turtle', minRound: 10, maxOwnedBefore: 2 },
+// { speciesId: 'polar-bear', minRound: 8 },
+// { speciesId: 'eagle', minRound: 8 },
+// { speciesId: 'toucan', minRound: 6 },
+const BUY_RESTRICTION_RULES: { speciesId: string; minRound: number; maxOwnedBefore?: number }[] = [
+  { speciesId: 'goldfish', minRound: 4 },
+];
+
+function ownedCount(player: Player, speciesId: string): number {
+  return [...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn, ...(player.table ?? [])].filter(
+    (c) => c.id === speciesId
+  ).length;
+}
+
+// Solo aplica la primera regla (en el orden de BUY_RESTRICTION_RULES) cuya
+// condición se cumpla Y cuya compra objetivo esté de verdad entre las
+// candidatas de esta decisión — si ninguna aplica, undefined (deja decidir
+// con normalidad al softmax/epsilon de siempre).
+function computeForcedTimingChoice(state: GameState, player: Player, actions: Action[], allScores: number[]): number | undefined {
+  if (!TRAINING_BUY_RESTRICTIONS) return undefined;
+  for (const rule of BUY_RESTRICTION_RULES) {
+    if (state.round >= rule.minRound) continue;
+    if (rule.maxOwnedBefore !== undefined && ownedCount(player, rule.speciesId) < rule.maxOwnedBefore) continue;
+    const targetIdx = findBuyActionIndex(state, actions, rule.speciesId);
+    if (targetIdx === -1) continue;
+    if (Math.random() < 0.5) return targetIdx;
+    let bestIdx = -1;
+    let bestScore = -Infinity;
+    for (let i = 0; i < actions.length; i++) {
+      if (i === targetIdx) continue;
+      if (allScores[i] > bestScore) {
+        bestScore = allScores[i];
+        bestIdx = i;
+      }
+    }
+    return bestIdx === -1 ? targetIdx : bestIdx;
+  }
+  return undefined;
+}
+
 // Las otras 3 variantes de rlBot (pesos ya guardados en disco al arrancar
 // este proceso, congelados durante todo este entrenamiento): desde
 // 2026-09-14 son SIEMPRE los 3 oponentes de cada partida de entrenamiento
@@ -381,9 +487,13 @@ export interface Step {
 // pesos congelados leídos del disco al arrancar este proceso), una de cada
 // — nunca self-play puro ni bots fijos no-RL (esos quedan solo para
 // evaluate() en selfPlay.ts).
-export function playOneGame(
-  weights: RlWeights
-): { trajectories: Map<string, Step[]>; finalScores: PlayerScore[]; truncated: boolean } {
+export function playOneGame(weights: RlWeights): {
+  trajectories: Map<string, Step[]>;
+  finalScores: PlayerScore[];
+  truncated: boolean;
+  forcedSealCount: number;
+  forcedPenguinCount: number;
+} {
   const playerConfigs = Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, deck: buildStarterDeck() }));
   const state = createGame(playerConfigs, { maxRounds: randomMaxRounds(), edition: RL_EDITION });
 
@@ -396,6 +506,14 @@ export function playOneGame(
   for (const cfg of playerConfigs) {
     if (!fixedOpponents.has(cfg.id)) trajectories.set(cfg.id, []);
   }
+
+  // Ver el comentario largo de FORCE_SEAL_VS_PENGUIN más arriba. Viven en el
+  // scope de la partida (no del proceso): forcedGoldfishPending solo debe
+  // sobrevivir hasta la SIGUIENTE decisión del aprendiz dentro de esta misma
+  // partida.
+  let forcedGoldfishPending = false;
+  let forcedSealCount = 0;
+  let forcedPenguinCount = 0;
 
   let guard = 0;
   while (!state.gameOver && guard < MAX_ACTIONS_PER_GAME) {
@@ -497,8 +615,37 @@ export function playOneGame(
     const allFeatures = encodeActionsForPlayer(state, player.id, actions);
     const allForward = allFeatures.map((x) => forward(weights, x));
     const allScores = allForward.map((f) => f.score);
-    const chosenIndex =
-      Math.random() < EPSILON ? Math.floor(Math.random() * actions.length) : sampleIndex(allScores, TRAIN_TEMPERATURE);
+
+    let chosenIndex: number | undefined;
+    if (FORCE_SEAL_VS_PENGUIN) {
+      if (forcedGoldfishPending) {
+        const goldfishIdx = findBuyActionIndex(state, actions, 'goldfish');
+        forcedGoldfishPending = false;
+        if (goldfishIdx !== -1) chosenIndex = goldfishIdx;
+      }
+      if (
+        chosenIndex === undefined &&
+        state.round <= FORCED_DECISION_MAX_ROUND &&
+        currentPurchasingPower(player) === FORCED_DECISION_PURCHASING_POWER
+      ) {
+        const sealIdx = findBuyActionIndex(state, actions, 'seal');
+        const penguinIdx = findBuyActionIndex(state, actions, 'penguin');
+        if (sealIdx !== -1 && penguinIdx !== -1) {
+          if (Math.random() < 0.5) {
+            chosenIndex = sealIdx;
+            forcedSealCount++;
+          } else {
+            chosenIndex = penguinIdx;
+            forcedGoldfishPending = true;
+            forcedPenguinCount++;
+          }
+        }
+      }
+    }
+    if (chosenIndex === undefined) chosenIndex = computeForcedTimingChoice(state, player, actions, allScores);
+    if (chosenIndex === undefined) {
+      chosenIndex = Math.random() < EPSILON ? Math.floor(Math.random() * actions.length) : sampleIndex(allScores, TRAIN_TEMPERATURE);
+    }
 
     // Media de liveScoreDelta (2026-09-23, pedido explícito del usuario)
     // entre TODAS las candidatas de COMPRA de esta decisión (solo las que el
@@ -620,7 +767,7 @@ export function playOneGame(
   // jugada hasta el final. Se reporta en selfPlay.ts (truncated_games en
   // el log de cada batch) para poder detectarlo si empieza a pasar.
   const truncated = !state.gameOver && guard >= MAX_ACTIONS_PER_GAME;
-  return { trajectories, finalScores: scoreGame(state), truncated };
+  return { trajectories, finalScores: scoreGame(state), truncated, forcedSealCount, forcedPenguinCount };
 }
 
 // Suelo blando (ver FLOOR_WEIGHT): para cada compra de animal candidata
@@ -651,6 +798,12 @@ export interface EpisodeBatchResult {
   // playOneGame). Debería ser 0 casi siempre; un valor no nulo sostenido
   // señala partidas anormalmente largas (posible bucle/atasco real).
   truncatedGames: number;
+  // Cuántas veces se forzó cada rama de FORCE_SEAL_VS_PENGUIN en este lote
+  // (0 siempre que la variable de entorno esté desactivada). Puramente
+  // informativo — confirma que el mecanismo se está disparando de verdad y
+  // con qué frecuencia, no cambia el gradiente ni el entrenamiento.
+  forcedSealCount: number;
+  forcedPenguinCount: number;
 }
 
 // Juega `episodeCount` partidas y acumula el gradiente resultante (política +
@@ -668,10 +821,14 @@ export function runEpisodes(weights: RlWeights, criticWeights: RlWeights, episod
   let sumReturn = 0;
   let stepCount = 0;
   let truncatedGames = 0;
+  let forcedSealCount = 0;
+  let forcedPenguinCount = 0;
 
   for (let e = 0; e < episodeCount; e++) {
-    const { trajectories, finalScores, truncated } = playOneGame(weights);
+    const { trajectories, finalScores, truncated, forcedSealCount: gameSeal, forcedPenguinCount: gamePenguin } = playOneGame(weights);
     if (truncated) truncatedGames++;
+    forcedSealCount += gameSeal;
+    forcedPenguinCount += gamePenguin;
 
     for (const [playerId, steps] of trajectories) {
       if (steps.length === 0) continue;
@@ -706,5 +863,5 @@ export function runEpisodes(weights: RlWeights, criticWeights: RlWeights, episod
     }
   }
 
-  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed, truncatedGames };
+  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed, truncatedGames, forcedSealCount, forcedPenguinCount };
 }

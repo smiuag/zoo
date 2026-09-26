@@ -21,6 +21,7 @@ import {
   chooseLearnerAction,
   EPSILON,
   FLOOR_WEIGHT,
+  FORCE_SEAL_VS_PENGUIN,
   SHAPING_WEIGHT,
   HABITAT_FILTER,
   MAX_ACTIONS_PER_GAME,
@@ -99,6 +100,20 @@ const EVAL_GAMES = Number(process.env.RL_EVAL_GAMES ?? 40);
 // desactiva el mecanismo entero (comportamiento de antes).
 const GATE_EVERY = Number(process.env.RL_GATE_EVERY ?? 500);
 const GATE_GAMES = Number(process.env.RL_GATE_GAMES ?? 1000);
+// Criterio de promoción del gatekeeper (2026-09-25, pedido explícito del
+// usuario para una tanda concreta del acuático: "revisen si hacen más o
+// menos puntos que la versión anterior"). Por defecto se mantiene winRate
+// (comportamiento de siempre, ver el comentario largo de GATE_EVERY arriba)
+// — RL_GATE_METRIC=score compara avgScore en su lugar, sin tocar ningún otro
+// entrenamiento que no pase esta variable explícitamente.
+const GATE_METRIC = process.env.RL_GATE_METRIC === 'score' ? 'score' : 'winRate';
+// Reporte detallado en cada revisión del gatekeeper (2026-09-25, pedido
+// explícito del usuario): además de promover/revertir, imprime puntos
+// medios, top especies compradas y ronda del Pez de colores — ver
+// evaluateAgainstCurriculumDetailed/logDetailedReport más abajo. Desactivado
+// por defecto: coste extra nulo en tiempo (reutiliza las mismas partidas del
+// gate), pero sin pedirlo no cambia el log de siempre.
+const GATE_DETAILED_REPORT = process.env.RL_GATE_DETAILED_REPORT === '1';
 
 // Edición completa (2026-09-21): archivo propio (weights-full.json), nunca
 // weights.json — ese es el generalista CLÁSICO que juega la web publicada,
@@ -224,6 +239,8 @@ function mergeEpisodeResults(results: EpisodeBatchResult[], weights: RlWeights, 
   let sumReturn = 0;
   let stepCount = 0;
   let truncatedGames = 0;
+  let forcedSealCount = 0;
+  let forcedPenguinCount = 0;
 
   for (const r of results) {
     addGrad(grad, r.grad);
@@ -233,9 +250,11 @@ function mergeEpisodeResults(results: EpisodeBatchResult[], weights: RlWeights, 
     sumReturn += r.sumReturn;
     stepCount += r.stepCount;
     truncatedGames += r.truncatedGames;
+    forcedSealCount += r.forcedSealCount;
+    forcedPenguinCount += r.forcedPenguinCount;
   }
 
-  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed, truncatedGames };
+  return { grad, criticGrad, sumAbsAdvantage, sumReturn, stepCount, episodesUsed, truncatedGames, forcedSealCount, forcedPenguinCount };
 }
 
 // Devuelve estadísticas del batch para el log (ver main): la media de
@@ -247,7 +266,7 @@ async function trainBatch(
   criticWeights: RlWeights,
   policyAdam: AdamState,
   criticAdam: AdamState
-): Promise<{ avgAbsAdvantage: number; avgReturn: number; truncatedGames: number }> {
+): Promise<{ avgAbsAdvantage: number; avgReturn: number; truncatedGames: number; forcedSealCount: number; forcedPenguinCount: number }> {
   const shares = splitEvenly(EPISODES_PER_BATCH, WORKER_COUNT + 1);
   const serializedWeights = serializeWeights(weights);
   const serializedCriticWeights = serializeWeights(criticWeights);
@@ -288,6 +307,8 @@ async function trainBatch(
     avgAbsAdvantage: merged.stepCount > 0 ? merged.sumAbsAdvantage / merged.stepCount : 0,
     avgReturn: merged.episodesUsed > 0 ? merged.sumReturn / merged.episodesUsed : 0,
     truncatedGames: merged.truncatedGames,
+    forcedSealCount: merged.forcedSealCount,
+    forcedPenguinCount: merged.forcedPenguinCount,
   };
 }
 
@@ -381,6 +402,110 @@ function evaluateAgainstCurriculum(weights: RlWeights, games: number): { winRate
   return { winRate: wins / games, avgScore: scoreTotal / games };
 }
 
+export interface DetailedEvalResult {
+  winRate: number;
+  avgScore: number;
+  animalBuys: number;
+  // Recuento de compras de animal del candidato por especie, para poder
+  // reportar "prioridad de cartas" real (lo que de verdad compra, no lo que
+  // dicen los pesos crudos) sin lanzar una pasada aparte — se recoge en las
+  // MISMAS partidas que ya juega el gatekeeper para decidir promover o
+  // revertir.
+  purchaseCounts: Map<string, number>;
+  // Ronda (state.round, 1..maxRounds — NUNCA state.turn, el contador global
+  // en bruto que sube de 1 en 1 por cada jugador: con 4 jugadores llega a
+  // 37+ en una partida de 15 rondas, ver el comentario histórico de
+  // FEATURE_DIM en features.ts sobre por qué se quitó de las features) en la
+  // que el candidato compra el Pez de colores, una entrada por compra.
+  goldfishRounds: number[];
+}
+
+// Igual que evaluateAgainstCurriculum, pero instrumentada para el reporte
+// pedido explícitamente por el usuario 2026-09-25 (entrenamiento del
+// acuático contra la mejor versión congelada de las otras 3 variantes, con
+// revisión cada ~2000 partidas): además de winRate/avgScore, registra qué
+// especies compra de verdad el candidato y en qué ronda compra
+// específicamente el Pez de colores (para poder ver si sigue comprándolo
+// por "monedas sobrantes" en vez de por sinergia real — ver
+// rl_orca_synergy_underweighted.md). Coste extra nulo: son las mismas
+// partidas que el gatekeeper ya jugaría de todas formas.
+function evaluateAgainstCurriculumDetailed(weights: RlWeights, games: number): DetailedEvalResult {
+  let wins = 0;
+  let scoreTotal = 0;
+  let animalBuys = 0;
+  const purchaseCounts = new Map<string, number>();
+  const goldfishRounds: number[] = [];
+
+  for (let g = 0; g < games; g++) {
+    const seat = g % 4;
+    const playerConfigs = Array.from({ length: 4 }, (_, i) => ({ id: `p${i}`, name: `P${i}`, deck: buildStarterDeck() }));
+    const state = createGame(playerConfigs, { maxRounds: randomMaxRounds(), edition: RL_EDITION });
+    const candidateId = playerConfigs[seat].id;
+    const opponentBySeat = new Map<string, Bot>();
+    let oppIdx = 0;
+    for (let i = 0; i < 4; i++) {
+      if (i === seat) continue;
+      opponentBySeat.set(playerConfigs[i].id, RL_CURRICULUM_OPPONENTS[oppIdx]);
+      oppIdx++;
+    }
+
+    let guard = 0;
+    while (!state.gameOver && guard < MAX_ACTIONS_PER_GAME) {
+      if (autoResolvePendingDiscard(state)) {
+        guard++;
+        continue;
+      }
+      const player = getActivePlayer(state);
+      const isCandidate = player.id === candidateId;
+      const action = isCandidate
+        ? chooseLearnerAction(state, player.id, weights)
+        : opponentBySeat.get(player.id)!.chooseAction(state, player.id);
+
+      if (isCandidate && action.type === 'buyAnimal') {
+        const animal = state.animalTrack.find((c) => c.instanceId === action.trackInstanceId);
+        if (animal) {
+          animalBuys++;
+          purchaseCounts.set(animal.id, (purchaseCounts.get(animal.id) ?? 0) + 1);
+          if (animal.id === 'goldfish') goldfishRounds.push(state.round);
+        }
+      }
+
+      applyAction(state, player.id, action);
+      guard++;
+    }
+
+    const scores = scoreGame(state);
+    const candidateScore = scores.find((s) => s.playerId === candidateId)?.score ?? 0;
+    const best = Math.max(...scores.map((s) => s.score));
+    scoreTotal += candidateScore;
+    if (candidateScore >= best) wins += scores.filter((s) => s.score >= best).length > 1 ? 0.5 : 1;
+  }
+
+  return { winRate: wins / games, avgScore: scoreTotal / games, animalBuys, purchaseCounts, goldfishRounds };
+}
+
+// Log del reporte detallado (RL_GATE_DETAILED_REPORT=1, ver GATE_METRIC más
+// abajo): top especies compradas por el candidato y distribución de ronda
+// del Pez de colores, en el mismo formato de idea que cardPreference.ts pero
+// impreso en cada revisión del gatekeeper en vez de en una pasada aparte.
+function logDetailedReport(result: DetailedEvalResult): void {
+  const sorted = [...result.purchaseCounts.entries()].sort((a, b) => b[1] - a[1]);
+  console.log(`  [detalle] compras de animal: ${result.animalBuys} en total. Top especies:`);
+  for (const [species, count] of sorted.slice(0, 10)) {
+    const pct = ((count / Math.max(1, result.animalBuys)) * 100).toFixed(1);
+    console.log(`    ${species.padEnd(14)} x${count} (${pct}%)`);
+  }
+  if (result.goldfishRounds.length === 0) {
+    console.log('  [detalle] pez de colores: 0 compras en esta revisión.');
+  } else {
+    const avgRound = result.goldfishRounds.reduce((sum, r) => sum + r, 0) / result.goldfishRounds.length;
+    const sortedRounds = [...result.goldfishRounds].sort((a, b) => a - b);
+    console.log(
+      `  [detalle] pez de colores: ${result.goldfishRounds.length} compras, ronda media ${avgRound.toFixed(1)}, rondas [${sortedRounds.join(', ')}]`
+    );
+  }
+}
+
 // Copian el CONTENIDO de src encima de dest sin reasignar la variable
 // externa (weights/criticWeights/criticAdam siguen siendo el mismo objeto
 // que ya tienen capturado trainBatch/los workers) — así un revert del
@@ -415,17 +540,26 @@ async function main(): Promise<void> {
   const bestCriticAdam = structuredClone(criticAdam);
   let totalTruncatedGames = 0;
   let totalEpisodesSoFar = 0;
+  let totalForcedSealCount = 0;
+  let totalForcedPenguinCount = 0;
 
   const habitatLabel = HABITAT_FILTER ? ` (especialista: solo compra ${HABITAT_FILTER})` : '';
   console.log(
-    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, optimizador=${POLICY_OPTIMIZER}, max_norm_w1=${MAX_NORM_W1}, max_norm_w2=${MAX_NORM_W2}, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, epsilon=${EPSILON}, shaping=${SHAPING_WEIGHT}, floor_weight=${FLOOR_WEIGHT}, workers=${WORKER_COUNT}, gate_every=${GATE_EVERY}, gate_games=${GATE_GAMES}`
+    `Entrenando rlBot${habitatLabel}: ${TOTAL_BATCHES} batches x ${EPISODES_PER_BATCH} partidas, optimizador=${POLICY_OPTIMIZER}, max_norm_w1=${MAX_NORM_W1}, max_norm_w2=${MAX_NORM_W2}, lr=${LEARNING_RATE}, critic_lr=${CRITIC_LR}, epsilon=${EPSILON}, shaping=${SHAPING_WEIGHT}, floor_weight=${FLOOR_WEIGHT}, workers=${WORKER_COUNT}, gate_every=${GATE_EVERY}, gate_games=${GATE_GAMES}, gate_metric=${GATE_METRIC}, gate_detailed_report=${GATE_DETAILED_REPORT}, force_seal_vs_penguin=${FORCE_SEAL_VS_PENGUIN}`
   );
 
   try {
     for (let batch = 0; batch < TOTAL_BATCHES; batch++) {
-      const { avgAbsAdvantage, avgReturn, truncatedGames } = await trainBatch(weights, criticWeights, policyAdam, criticAdam);
+      const { avgAbsAdvantage, avgReturn, truncatedGames, forcedSealCount, forcedPenguinCount } = await trainBatch(
+        weights,
+        criticWeights,
+        policyAdam,
+        criticAdam
+      );
       totalTruncatedGames += truncatedGames;
       totalEpisodesSoFar += EPISODES_PER_BATCH;
+      totalForcedSealCount += forcedSealCount;
+      totalForcedPenguinCount += forcedPenguinCount;
 
       if (batch % EVAL_EVERY === 0 || batch === TOTAL_BATCHES - 1) {
         const winrateVsHeuristic = evaluate(weights, heuristicBot, EVAL_GAMES);
@@ -437,25 +571,30 @@ async function main(): Promise<void> {
         // Debería quedarse en 0.00% siempre; si empieza a subir, señala
         // partidas anormalmente largas (posible atasco real, no solo ruido).
         const truncatedPct = totalEpisodesSoFar > 0 ? (totalTruncatedGames / totalEpisodesSoFar) * 100 : 0;
+        const forcedSuffix = FORCE_SEAL_VS_PENGUIN ? ` forced_seal=${totalForcedSealCount} forced_penguin=${totalForcedPenguinCount}` : '';
         console.log(
           `batch=${batch} avg_return=${avgReturn.toFixed(3)} critic_avg_abs_advantage=${avgAbsAdvantage.toFixed(3)} ` +
             `winrate_vs_heuristic=${winrateVsHeuristic.toFixed(2)} winrate_vs_random=${winrateVsRandom.toFixed(2)} ` +
-            `truncated_games=${totalTruncatedGames}/${totalEpisodesSoFar} (${truncatedPct.toFixed(2)}%)`
+            `truncated_games=${totalTruncatedGames}/${totalEpisodesSoFar} (${truncatedPct.toFixed(2)}%)${forcedSuffix}`
         );
         await saveWeightsWithRetry(weights, WEIGHTS_PATH);
         await saveWeightsWithRetry(criticWeights, CRITIC_PATH);
       }
 
       if (GATE_EVERY > 0 && batch > 0 && batch % GATE_EVERY === 0) {
-        const candidate = evaluateAgainstCurriculum(weights, GATE_GAMES);
+        const candidate = GATE_DETAILED_REPORT
+          ? evaluateAgainstCurriculumDetailed(weights, GATE_GAMES)
+          : evaluateAgainstCurriculum(weights, GATE_GAMES);
         const best = evaluateAgainstCurriculum(bestWeights, GATE_GAMES);
-        if (candidate.winRate > best.winRate) {
+        const candidateMetric = GATE_METRIC === 'score' ? candidate.avgScore : candidate.winRate;
+        const bestMetric = GATE_METRIC === 'score' ? best.avgScore : best.winRate;
+        if (candidateMetric > bestMetric) {
           restoreWeightsInto(bestWeights, weights);
           restoreWeightsInto(bestCriticWeights, criticWeights);
           restoreAdamInto(bestCriticAdam, criticAdam);
           console.log(
             `  [gatekeeper] batch=${batch} candidato ${(candidate.winRate * 100).toFixed(1)}% (PV ${candidate.avgScore.toFixed(1)}) ` +
-              `> mejor ${(best.winRate * 100).toFixed(1)}% (PV ${best.avgScore.toFixed(1)}) — PROMOVIDO a nuevo mejor`
+              `> mejor ${(best.winRate * 100).toFixed(1)}% (PV ${best.avgScore.toFixed(1)}) [criterio: ${GATE_METRIC}] — PROMOVIDO a nuevo mejor`
           );
         } else {
           restoreWeightsInto(weights, bestWeights);
@@ -463,9 +602,10 @@ async function main(): Promise<void> {
           restoreAdamInto(criticAdam, bestCriticAdam);
           console.log(
             `  [gatekeeper] batch=${batch} candidato ${(candidate.winRate * 100).toFixed(1)}% (PV ${candidate.avgScore.toFixed(1)}) ` +
-              `<= mejor ${(best.winRate * 100).toFixed(1)}% (PV ${best.avgScore.toFixed(1)}) — REVERTIDO al mejor conocido`
+              `<= mejor ${(best.winRate * 100).toFixed(1)}% (PV ${best.avgScore.toFixed(1)}) [criterio: ${GATE_METRIC}] — REVERTIDO al mejor conocido`
           );
         }
+        if (GATE_DETAILED_REPORT) logDetailedReport(candidate as DetailedEvalResult);
         await saveWeightsWithRetry(weights, WEIGHTS_PATH);
         await saveWeightsWithRetry(criticWeights, CRITIC_PATH);
       }

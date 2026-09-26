@@ -83,6 +83,26 @@ export function insertZeroFeatureColumn(weights: RlWeights, insertIndex: number)
   return { ...weights, featureDim, w1 };
 }
 
+// Inversa de insertZeroFeatureColumn: quita la columna `removeIndex` de CADA
+// fila de w1 (desplazando el resto una posición hacia atrás), sin tocar
+// b1/w2/b2. A diferencia de insertar (donde el peso 0 garantiza que
+// forward() da el mismo score de antes), quitar una columna SÍ pierde lo
+// que la red hubiera aprendido para ella — el resto de columnas y lo que
+// aprendieron no se toca. Pensada para features.ts/features quitando una
+// columna que pasa a considerarse ruido/redundante (ver el comentario de
+// FEATURE_DIM en features.ts, 2026-09-25) sin tener que reentrenar desde
+// cero. Usado por scripts/rl/weightsIo.ts.
+export function removeFeatureColumn(weights: RlWeights, removeIndex: number): RlWeights {
+  const featureDim = weights.featureDim - 1;
+  const w1 = weights.w1.map((row) => {
+    const migrated = new Float64Array(featureDim);
+    migrated.set(row.subarray(0, removeIndex), 0);
+    migrated.set(row.subarray(removeIndex + 1), removeIndex);
+    return migrated;
+  });
+  return { ...weights, featureDim, w1 };
+}
+
 export function serializeWeights(weights: RlWeights): string {
   return JSON.stringify({
     version: weights.version,
