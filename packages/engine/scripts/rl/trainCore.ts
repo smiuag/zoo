@@ -204,6 +204,22 @@ function findBuyActionIndex(state: GameState, actions: Action[], speciesId: stri
   );
 }
 
+// 2026-09-26 (pedido explícito del usuario, SOLO para el terrestre): tras
+// comprobar con datos que Land infravalora al Oso polar frente a la Orca
+// (17.67 PV real medio por compra del Oso polar vs 12.41 de la Orca, pese a
+// comprarse menos de la mitad de veces — Land acumula más animales de
+// tierra que acuáticos, así que el motor de tierra le rinde más por copia),
+// mismo patrón que Foca/Pingüino: cuando Orca y Oso polar son AMBAS
+// candidatas legales en la misma decisión, se fuerza la elección 50/50 en
+// vez de dejarla al softmax/epsilon — las dos quedan puntuadas y comparadas
+// de verdad, así que el gradiente puede corregir el sesgo con el resultado
+// real de la partida. Sin restricción de ronda ni de dinero (a diferencia
+// de Foca/Pingüino): esto no es un problema de timing, es una preferencia
+// mal calibrada en cualquier momento en que compitan. Solo se activa para
+// el especialista terrestre (RL_FORCE_ORCA_VS_POLARBEAR=1, pensado para
+// lanzarse solo con RL_HABITAT=land).
+export const FORCE_ORCA_VS_POLARBEAR = process.env.RL_FORCE_ORCA_VS_POLARBEAR === '1';
+
 // Forzado de timing de compra SOLO EN ENTRENAMIENTO (2026-09-25, pedido
 // explícito del usuario, a raíz de comprobar con el acuático real que ya
 // entrena que Pez de colores/Ornitorrinco/Tortuga las compra demasiado
@@ -233,14 +249,18 @@ function findBuyActionIndex(state: GameState, actions: Action[], speciesId: stri
 // generan gradiente. Desactivado por defecto (RL_TRAINING_BUY_RESTRICTIONS=1
 // lo activa).
 export const TRAINING_BUY_RESTRICTIONS = process.env.RL_TRAINING_BUY_RESTRICTIONS === '1';
-// 2026-09-26 (pedido explícito del usuario): reducido a SOLO Pez de colores
-// para aislar y diagnosticar de una en una — con las 6 reglas a la vez, 9
-// revisiones seguidas (18000 partidas) quedaron todas por debajo del mejor
-// conocido, nunca promocionó ni una vez (peor que con Foca/Pingüino solo,
-// que promocionó a la primera). Candidatas a reactivar más adelante, ya
-// probadas y comentadas para no perder el trabajo de diseñarlas:
-// { speciesId: 'platypus', minRound: 3 },
+// 2026-09-26 (pedido explícito del usuario): probadas de una en una para
+// aislar y diagnosticar — con las 6 reglas a la vez, 9 revisiones seguidas
+// (18000 partidas) quedaron todas por debajo del mejor conocido, nunca
+// promocionó ni una vez. Pez de colores SÍ funcionó para el acuático
+// (~160 -> ~184 PV, ya commiteado, ver commit 2e6bcc3) — se reutiliza ahora
+// para el GENERALISTA (que también compra bastante Pez de colores, ver
+// cardPreference.ts), lanzado solo con RL_HABITAT sin definir + esta regla.
+// Tortuga (Tortuga mostró la señal causal más fuerte de estar mal calibrada
+// para el acuático) y el resto quedan aparcadas, comentadas para no perder
+// el trabajo:
 // { speciesId: 'turtle', minRound: 10, maxOwnedBefore: 2 },
+// { speciesId: 'platypus', minRound: 3 },
 // { speciesId: 'polar-bear', minRound: 8 },
 // { speciesId: 'eagle', minRound: 8 },
 // { speciesId: 'toucan', minRound: 6 },
@@ -640,6 +660,17 @@ export function playOneGame(weights: RlWeights): {
             forcedPenguinCount++;
           }
         }
+      }
+    }
+    if (
+      chosenIndex === undefined &&
+      FORCE_ORCA_VS_POLARBEAR &&
+      HABITAT_FILTER === 'land'
+    ) {
+      const orcaIdx = findBuyActionIndex(state, actions, 'orca');
+      const polarBearIdx = findBuyActionIndex(state, actions, 'polar-bear');
+      if (orcaIdx !== -1 && polarBearIdx !== -1) {
+        chosenIndex = Math.random() < 0.5 ? orcaIdx : polarBearIdx;
       }
     }
     if (chosenIndex === undefined) chosenIndex = computeForcedTimingChoice(state, player, actions, allScores);
