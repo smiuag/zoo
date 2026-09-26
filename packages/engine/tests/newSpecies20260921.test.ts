@@ -241,6 +241,13 @@ describe('Nutria: descarta cualquier moneda para mirar 3 y quedarte 1', () => {
     // prueban todas para no depender de cuál en concreto exponga el bug.
     for (const action of playOtter) {
       const { state: freshState, player: freshPlayer } = setupClean();
+      // Mismo rngSeed que `player` (ver Player en state.ts): en juego real la
+      // vista previa y la ejecución comparten SIEMPRE el mismo objeto de
+      // jugador, nunca dos partidas nuevas — aquí se reconstruye aparte por
+      // aislamiento del test, así que hay que igualar la semilla a mano para
+      // seguir comprobando lo mismo (si no, cada setupClean() trae su propia
+      // semilla real y el rebarajado deja de coincidir con `legal`).
+      freshPlayer.rngSeed = player.rngSeed;
       freshPlayer.hand = [freshInstance('otter', 'x'), freshInstance('coin-1', 'small')];
       freshPlayer.deck = [freshInstance('lion', 'top')];
       freshPlayer.discard = [freshInstance('tiger', 'd1'), freshInstance('monkey', 'd2'), freshInstance('owl', 'd3')];

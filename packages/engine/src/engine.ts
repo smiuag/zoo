@@ -564,6 +564,11 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
       purchasesCount: 0,
       richestTurn: null,
       destroyedCards: [],
+      // Math.random() de verdad, una vez por jugador y partida — ver el
+      // comentario de Player (state.ts) y de reshuffleDiscardIntoDeck sobre
+      // por qué hace falta: sin esto, dos partidas con el mismo patrón de
+      // compras rebarajaban el descarte siempre en el mismo orden.
+      rngSeed: Math.floor(Math.random() * 0x7fffffff),
     };
   });
 

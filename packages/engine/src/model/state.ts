@@ -88,6 +88,19 @@ export interface Player {
   // (mazo/mano/descarte, PV), pero se guardan aparte solo para poder
   // mostrarlas en el resumen final de la partida.
   destroyedCards: CardInstance[];
+  // Semilla real (Math.random(), una vez por jugador al crear la partida —
+  // ver createGame en engine.ts) para reshuffleDiscardIntoDeck: sin esto, su
+  // semilla determinista (purchasesCount + tamaños de mazo/descarte) es
+  // IDÉNTICA entre partidas distintas que compren las mismas cartas en el
+  // mismo orden, así que el rebarajado del descarte salía siempre en el
+  // mismo orden — bug real detectado por el usuario 2026-09-26 ("si empiezo
+  // comprando las mismas cartas, las robo en la misma posición"). Esta
+  // semilla se copia tal cual a la COPIA del jugador que usa
+  // drawThenTopdeckTargetSpecs (Tigre) para la vista previa — mismo id que
+  // el jugador real, así la previsualización sigue coincidiendo con lo que
+  // de verdad se roba al aplicar la acción (el motivo original por el que
+  // reshuffleDiscardIntoDeck es determinista, ver su comentario).
+  rngSeed: number;
 }
 
 // Entrega forzosa de cartas en curso (Buitre/Mono/Hiena/Murciélago: al
@@ -319,9 +332,14 @@ function seededShuffle<T>(items: T[], seed: number): T[] {
 // mazo con todo lo demás — "hasta que barajes" (pedido explícito del
 // usuario 2026-09-21). Antes de este cambio se quedaban en la mesa para
 // siempre; ahora solo mientras el mazo del jugador no necesite reponerse.
+// player.rngSeed (real, ver Player en este mismo archivo) entra en la
+// semilla para que dos PARTIDAS distintas con el mismo patrón de compras
+// no reproduzcan el mismo rebarajado — sin romper la consistencia
+// preview/aplicar del Tigre, que comparten el mismo player.rngSeed al
+// copiarse con `{...player}`.
 function reshuffleDiscardIntoDeck(player: Player): void {
   const source = [...player.discard, ...(player.table ?? [])];
-  const seed = player.purchasesCount * 97 + source.length * 31 + player.deck.length * 13 + 1;
+  const seed = player.rngSeed + player.purchasesCount * 97 + source.length * 31 + player.deck.length * 13 + 1;
   player.deck = seededShuffle(source, seed);
   player.discard = [];
   player.table = [];
