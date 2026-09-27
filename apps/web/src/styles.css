@@ -3255,16 +3255,16 @@ body {
   max-width: 1560px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: 1rem;
   align-items: start;
   justify-items: center;
 }
 
 .encyclopedia__card-slot {
-  --card-w: 190px;
+  --card-w: 210px;
   width: 100%;
-  max-width: 230px;
+  max-width: 250px;
 }
 
 /* Todas las cartas al MISMO alto fijo (pedido explícito del usuario, antes
@@ -3275,7 +3275,7 @@ body {
    colapsaría a lo mínimo posible en cuanto --card-h deja de mandar por sí
    solo en .card, que ya no se usa aquí). */
 .encyclopedia__card-slot .card {
-  height: 330px;
+  height: 370px;
 }
 
 .encyclopedia__card-slot .card__icon {
@@ -3288,8 +3288,8 @@ body {
 }
 
 .card__ability-inline {
-  font-size: 0.72rem;
-  line-height: 1.3;
+  font-size: 0.82rem;
+  line-height: 1.32;
   color: var(--muted-dark);
   text-align: center;
   white-space: normal;
@@ -3305,15 +3305,15 @@ body {
     font-size: 1.15rem;
   }
   .encyclopedia__grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
     gap: 0.75rem;
   }
   .encyclopedia__card-slot {
-    --card-w: 160px;
-    max-width: 190px;
+    --card-w: 175px;
+    max-width: 205px;
   }
   .encyclopedia__card-slot .card {
-    height: 290px;
+    height: 320px;
   }
   .encyclopedia__card-slot .card__icon {
     height: 100px;
@@ -3322,6 +3322,6 @@ body {
     font-size: 2.6rem;
   }
   .card__ability-inline {
-    font-size: 0.68rem;
+    font-size: 0.76rem;
   }
 }
