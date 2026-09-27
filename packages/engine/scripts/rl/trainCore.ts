@@ -220,6 +220,25 @@ function findBuyActionIndex(state: GameState, actions: Action[], speciesId: stri
 // lanzarse solo con RL_HABITAT=land).
 export const FORCE_ORCA_VS_POLARBEAR = process.env.RL_FORCE_ORCA_VS_POLARBEAR === '1';
 
+// 2026-09-27 (pedido explícito del usuario, SOLO para el terrestre): Tucán
+// es hábitat "bird" puro, pero su onScore (scorePerCostAtLeast) lo hace
+// cross-habitat exception (ver isCrossHabitatException/COMPOUNDING_SCORE_
+// EFFECT_TYPES en actionPriority.ts) — cualquier especialista PUEDE
+// comprarlo, pero el terrestre nunca lo hace: 0 compras en una muestra de
+// 2060 compras reales (cardPreference.ts, 26/09), una carta muerta por pozo
+// de muestreo (ver deadCards.ts), no una preferencia aprendida de verdad.
+// Mismo patrón que Orca/Oso polar: cuando Tucán y el Hipopótamo (su rival
+// más cercano en coste, 5, y la compra más frecuente de esa franja para
+// Land) son ambas candidatas legales en la misma decisión, se fuerza la
+// elección 50/50 en vez de dejarla al softmax/epsilon — las dos quedan
+// puntuadas y comparadas de verdad, así que el gradiente puede encontrar su
+// valor real con el resultado real de la partida en vez de dejarla en el
+// pozo para siempre. Sin restricción de ronda ni de dinero, igual que
+// Orca/Oso polar. Solo se activa para el especialista terrestre
+// (RL_FORCE_TOUCAN_VS_HIPPO=1, pensado para lanzarse solo con
+// RL_HABITAT=land).
+export const FORCE_TOUCAN_VS_HIPPO = process.env.RL_FORCE_TOUCAN_VS_HIPPO === '1';
+
 // Forzado de timing de compra SOLO EN ENTRENAMIENTO (2026-09-25, pedido
 // explícito del usuario, a raíz de comprobar con el acuático real que ya
 // entrena que Pez de colores/Ornitorrinco/Tortuga las compra demasiado
@@ -671,6 +690,17 @@ export function playOneGame(weights: RlWeights): {
       const polarBearIdx = findBuyActionIndex(state, actions, 'polar-bear');
       if (orcaIdx !== -1 && polarBearIdx !== -1) {
         chosenIndex = Math.random() < 0.5 ? orcaIdx : polarBearIdx;
+      }
+    }
+    if (
+      chosenIndex === undefined &&
+      FORCE_TOUCAN_VS_HIPPO &&
+      HABITAT_FILTER === 'land'
+    ) {
+      const toucanIdx = findBuyActionIndex(state, actions, 'toucan');
+      const hippoIdx = findBuyActionIndex(state, actions, 'hippopotamus');
+      if (toucanIdx !== -1 && hippoIdx !== -1) {
+        chosenIndex = Math.random() < 0.5 ? toucanIdx : hippoIdx;
       }
     }
     if (chosenIndex === undefined) chosenIndex = computeForcedTimingChoice(state, player, actions, allScores);
