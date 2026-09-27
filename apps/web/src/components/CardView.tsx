@@ -43,7 +43,7 @@ interface CardViewProps {
   disabled?: boolean;
   compact?: boolean;
   // Cuántas copias quedan en el montón (mazo compartido de esa especie, o
-  // "∞" para las monedas comprables, de suministro ilimitado). Solo se
+  // "∞" para las monedas comprables, de suministro ilimitado, 1 de cada tipo por turno). Solo se
   // muestra en las cartas del mercado, no en la mano.
   remainingLabel?: string;
   // Delante de remainingLabel: "×" por defecto (mercado: "quedan ×N"), pero

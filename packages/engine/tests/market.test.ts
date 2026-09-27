@@ -170,7 +170,7 @@ describe('reposición del mercado', () => {
   });
 });
 
-describe('compra de monedas (coin-2 a 3, coin-3 a 5, coin-5 a 7): suministro ilimitado', () => {
+describe('compra de monedas (coin-2 a 3, coin-3 a 5, coin-5 a 7): 1 de cada tipo por turno', () => {
   it('comprar una moneda de 2 cuesta 3 y va al descarte', () => {
     const { state, player } = setupClean();
     player.hand = [freshInstance('coin-1', 'a'), freshInstance('coin-1', 'b'), freshInstance('coin-1', 'c')];
@@ -215,7 +215,7 @@ describe('compra de monedas (coin-2 a 3, coin-3 a 5, coin-5 a 7): suministro ili
     expect(() => buyCoin(state, player.id, 'coin-2')).toThrow();
   });
 
-  it('el suministro es ilimitado: se puede comprar varias veces en el mismo turno', () => {
+  it('no se puede comprar 2 monedas del mismo tipo en el mismo turno, pero sí de tipos distintos', () => {
     const { state, player } = setupClean();
     player.hand = [
       freshInstance('coin-3', 'a'),
@@ -225,9 +225,26 @@ describe('compra de monedas (coin-2 a 3, coin-3 a 5, coin-5 a 7): suministro ili
     ];
 
     buyCoin(state, player.id, 'coin-2');
-    buyCoin(state, player.id, 'coin-2');
 
-    expect(player.discard.filter((c) => c.id === 'coin-2')).toHaveLength(2);
+    expect(() => buyCoin(state, player.id, 'coin-2')).toThrow();
+    expect(getLegalActions(state, player.id)).not.toContainEqual({ type: 'buyCoin', coinId: 'coin-2' });
+    expect(getLegalActions(state, player.id)).toContainEqual({ type: 'buyCoin', coinId: 'coin-3' });
+
+    buyCoin(state, player.id, 'coin-3');
+
+    expect(player.discard.filter((c) => c.id === 'coin-2')).toHaveLength(1);
+    expect(player.discard.filter((c) => c.id === 'coin-3')).toHaveLength(1);
+  });
+
+  it('el límite de monedas se reinicia al empezar el siguiente turno', () => {
+    const { state, player } = setupClean();
+    player.hand = [freshInstance('coin-3', 'a'), freshInstance('coin-3', 'b')];
+
+    buyCoin(state, player.id, 'coin-2');
+    expect(player.boughtSpeciesThisTurn).toContain('coin-2');
+
+    player.boughtSpeciesThisTurn = [];
+    expect(() => buyCoin(state, player.id, 'coin-2')).not.toThrow();
   });
 });
 

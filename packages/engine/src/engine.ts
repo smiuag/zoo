@@ -524,6 +524,18 @@ function canBuySpecies(player: Player, animal: CardInstance): boolean {
   return !animal.species || !player.boughtSpeciesThisTurn.includes(animal.species);
 }
 
+// Mismo límite para las monedas (2026-09-27, pedido explícito del usuario:
+// "monedas se puede comprar 1 de cada tipo por turno, como el resto de
+// cartas"): como mucho 1 compra (buyCoin) de cada TIPO de moneda por turno —
+// se puede comprar una Plata y un Oro en el mismo turno, pero no 2 Platas.
+// Se apunta en el mismo boughtSpeciesThisTurn que los animales, con el id de
+// la moneda ("coin-2"...), que nunca coincide con ninguna especie. Solo
+// limita compras directas: las monedas que dan los efectos (Pingüino,
+// Tortuga, Pato, Murciélago) no cuentan.
+function canBuyCoin(player: Player, coinId: string): boolean {
+  return !player.boughtSpeciesThisTurn.includes(coinId);
+}
+
 export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateGameOptions = {}): GameState {
   const state: GameState = {
     players: [],
@@ -1032,7 +1044,7 @@ export function getLegalActions(state: GameState, playerId: string): Action[] {
   }
 
   for (const coinId of PURCHASABLE_COINS) {
-    if (canAffordMarket(player, getCard(coinId).marketCost ?? 0)) {
+    if (canAffordMarket(player, getCard(coinId).marketCost ?? 0) && canBuyCoin(player, coinId)) {
       actions.push({ type: 'buyCoin', coinId });
     }
   }
@@ -1127,7 +1139,8 @@ export function buyAnimal(state: GameState, playerId: string, trackInstanceId: s
 }
 
 // Compra una moneda de mayor valor pagando su coste; va directo al
-// descarte. Suministro ilimitado: no hay mazo compartido que agotar.
+// descarte. Suministro ilimitado (no hay mazo compartido que agotar), pero
+// como mucho 1 compra de cada tipo de moneda por turno (ver canBuyCoin).
 export function buyCoin(state: GameState, playerId: string, coinId: (typeof PURCHASABLE_COINS)[number]): void {
   const player = requireActivePlayer(state, playerId);
 
@@ -1135,9 +1148,13 @@ export function buyCoin(state: GameState, playerId: string, coinId: (typeof PURC
   if (!canAffordMarket(player, coinCard.marketCost ?? 0)) {
     throw new Error(`${playerId} no puede pagar ${coinCard.marketCost}monedas por ${coinCard.name}`);
   }
+  if (!canBuyCoin(player, coinId)) {
+    throw new Error(`${playerId} ya ha comprado ${coinCard.name} este turno`);
+  }
 
   payCoins(player, coinCard.marketCost ?? 0);
   player.discard.push(mintInstance(state, coinCard));
+  player.boughtSpeciesThisTurn.push(coinId);
   player.purchasesCount += 1;
   recordRichestTurn(state, player);
 

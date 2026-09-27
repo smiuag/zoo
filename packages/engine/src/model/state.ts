@@ -40,7 +40,9 @@ export interface Player {
   // Especies de las que ya se ha comprado un animal del mercado ESTE TURNO
   // (buyAnimal, no efectos de captura gratis): como mucho 1 compra por
   // especie y turno (no puedes comprar 2 copias del mismo animal seguidas,
-  // pero sí animales distintos aunque compartan hábitat).
+  // pero sí animales distintos aunque compartan hábitat). También guarda el
+  // id de las monedas compradas este turno ("coin-2"...): mismo límite, 1
+  // compra de cada tipo de moneda por turno (ver canBuyCoin en engine.ts).
   boughtSpeciesThisTurn: string[];
   // Cartas jugadas ESTE TURNO (ya en el descarte, playCard las saca de
   // `hand` antes de resolver su efecto): para los efectos que cuentan

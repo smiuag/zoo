@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Animals - Instrucciones</title>
+<!--
+  Reglamento impreso de la edición clásica (sin mascotas ni dinosaurios).
+  Página A6 (media cuartilla, 105 x 148 mm), 16 páginas = 4 hojas A5 plegadas.
+  Se convierte a PDF con img/_work/build_instrucciones.py (Chrome sin ventana).
+  Cada <section class="page"> es una página física: si se añade texto hay que
+  comprobar que no se desborda (el script avisa si el PDF no tiene 16 páginas).
+-->
+<style>
+@font-face { font-family: "Baloo"; src: url("fonts/Baloo2-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Baloo"; src: url("fonts/Baloo2-ExtraBold.ttf"); font-weight: 800; }
+@page { size: 105mm 148mm; margin: 0; }
+:root {
+  --verde: #3c7a3a;
+  --verde-claro: #e6f0dc;
+  --marron: #6b4423;
+  --marron-claro: #f4ead7;
+  --tinta: #2b2118;
+  --morado: #5a2d82;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { font-family: "Baloo", sans-serif; font-size: 8.5pt; line-height: 1.24; color: var(--tinta); }
+.page {
+  width: 105mm; height: 148mm; padding: 8mm 8mm 10mm 8mm;
+  position: relative; overflow: hidden; page-break-after: always; background: #fff;
+}
+.page:last-child { page-break-after: auto; }
+.num { position: absolute; bottom: 3.5mm; left: 0; right: 0; text-align: center; font-size: 7pt; color: var(--marron); }
+h1 {
+  font-weight: 800; font-size: 13pt; line-height: 1.1; margin: 0 0 2.5mm 0; padding: 1.6mm 3mm 1.2mm;
+  color: #fff; background: var(--verde); border-radius: 2mm;
+}
+h2 { font-weight: 800; font-size: 9.6pt; line-height: 1.15; color: var(--marron); margin: 2.4mm 0 0.8mm 0; }
+h2:first-child { margin-top: 0; }
+p { margin: 0 0 1.5mm 0; }
+ul, ol { margin: 0 0 1.5mm 0; padding-left: 4.2mm; }
+li { margin-bottom: 0.7mm; }
+b, strong { font-weight: 800; }
+.nota { background: var(--marron-claro); border-left: 1mm solid var(--marron); border-radius: 1mm; padding: 1.4mm 2mm 1mm; margin: 1.5mm 0; }
+.ejemplo { background: var(--verde-claro); border-left: 1mm solid var(--verde); border-radius: 1mm; padding: 1.4mm 2mm 1mm; margin: 1.5mm 0; }
+.nota p:last-child, .ejemplo p:last-child { margin-bottom: 0; }
+.pv { color: var(--morado); font-weight: 800; }
+.coste { color: #1d6b1d; font-weight: 800; }
+table { border-collapse: collapse; width: 100%; margin: 1mm 0 1.5mm; }
+th { font-weight: 800; background: var(--marron); color: #fff; text-align: left; padding: 0.6mm 1.2mm 0.3mm; font-size: 7.4pt; }
+td { padding: 0.55mm 1.2mm 0.25mm; border-bottom: 0.2mm solid #d9c9aa; vertical-align: top; }
+td.c, th.c { text-align: center; }
+.ico { height: 3.6mm; vertical-align: -0.9mm; }
+
+/* Portada y contraportada */
+.portada { padding: 0; background: #efe6cf; }
+.portada img { width: 105mm; height: 148mm; object-fit: cover; display: block; }
+.portada .faja {
+  position: absolute; left: 0; right: 0; top: 111mm; text-align: center;
+  font-weight: 800; font-size: 12pt; color: var(--marron); letter-spacing: 0.3mm;
+}
+.portada .sub { position: absolute; left: 0; right: 0; top: 118mm; text-align: center; font-size: 8pt; color: var(--marron); }
+
+/* Carta recortada casi sin sangrado marrón (823x1122 -> recorte 736x1036 desde 43,43) */
+.carta { position: relative; width: var(--w); height: calc(var(--w) * 1036 / 736); overflow: hidden; border-radius: calc(var(--w) * 0.045); flex: none; }
+.carta img { position: absolute; width: calc(var(--w) * 823 / 736); left: calc(var(--w) * -43 / 736); top: calc(var(--w) * -43 / 736); }
+.marca {
+  position: absolute; width: 4.6mm; height: 4.6mm; margin: -2.3mm 0 0 -2.3mm; border-radius: 50%;
+  background: #c62828; color: #fff; font-weight: 800; font-size: 8pt; line-height: 4.9mm; text-align: center;
+  border: 0.35mm solid #fff;
+}
+.marca-txt {
+  display: inline-block; width: 3.8mm; height: 3.8mm; border-radius: 50%; background: #c62828; color: #fff;
+  font-weight: 800; font-size: 7pt; line-height: 4.1mm; text-align: center; margin-right: 0.8mm;
+}
+.fila { display: flex; gap: 3.5mm; align-items: flex-start; }
+.leyenda p { margin-bottom: 1.25mm; }
+.pasos { counter-reset: paso; list-style: none; padding: 0; }
+.pasos > li { counter-increment: paso; position: relative; padding-left: 6mm; margin-bottom: 1.3mm; }
+.pasos > li::before {
+  content: counter(paso); position: absolute; left: 0; top: 0.1mm; width: 4.4mm; height: 4.4mm; border-radius: 50%;
+  background: var(--verde); color: #fff; font-weight: 800; text-align: center; line-height: 4.7mm; font-size: 7.6pt;
+}
+.modos td:first-child { font-weight: 800; white-space: nowrap; }
+.lista { font-size: 8pt; line-height: 1.2; }
+.lista td { padding: 0.3mm 1mm 0.05mm; }
+.lista th { padding: 0.4mm 1mm 0.15mm; font-size: 6.8pt; }
+.lista tr.corte td { border-bottom: 0.5mm solid var(--verde); }
+.dos { display: flex; gap: 2.5mm; }
+.creditos { text-align: center; }
+.creditos h1, .creditos h2 { text-align: left; }
+.creditos h2 { margin-top: 4mm; }
+.creditos .juego { font-weight: 800; font-size: 15pt; color: var(--marron); margin: 0 0 1mm; line-height: 1.1; }
+.creditos .rol { margin: 22mm 0 0; color: var(--marron); }
+.creditos .nombres { font-weight: 800; font-size: 12pt; color: var(--verde); margin: 0 0 4mm; }
+.creditos .ia { font-size: 7.2pt; color: var(--marron); margin-top: 4mm; }
+.creditos .cierre { font-weight: 800; color: var(--verde); margin-top: 3mm; }
+.dos > div { flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- 1 -->
+<section class="page portada">
+  <img src="../cards/_back.png" alt="">
+  <div class="faja">REGLAS DEL JUEGO</div>
+  <div class="sub">2 a 7 jugadores · Edición clásica</div>
+</section>
+
+<!-- 2 -->
+<section class="page">
+  <h1>Bienvenidos a Animals</h1>
+  <p>En lo más profundo del bosque hay sitio para todos. Monos, loros, delfines y leones
+  buscan un hogar donde vivir tranquilos, y a todos les vuelve locos lo mismo: las
+  <b>bellotas</b>.</p>
+  <p>Cada jugador cuida de su propia reserva. Empiezas con un puñado de bellotas y tres
+  perezosos muy simpáticos, aunque algo dormilones. Turno a turno invitarás a nuevos animales
+  ofreciéndoles bellotas, y cada uno te ayudará con su habilidad para que lleguen más
+  amigos.</p>
+
+  <h2>Objetivo</h2>
+  <p>Reunir la colección de cartas que sume más <span class="pv">puntos de victoria (PV)</span>
+  cuando termine la última ronda.</p>
+
+  <h2>Contenido</h2>
+  <table>
+    <tr><th>Cartas</th><th class="c">Copias</th></tr>
+    <tr><td>21 especies de coste 4 o menos</td><td class="c">9 de cada una</td></tr>
+    <tr><td>12 especies de coste 5 o más</td><td class="c">7 de cada una</td></tr>
+    <tr><td>Perezosos</td><td class="c">21</td></tr>
+    <tr><td>Bellotas de valor 1</td><td class="c">49</td></tr>
+    <tr><td>Bellotas de valor 2</td><td class="c">16</td></tr>
+    <tr><td>Bellotas de valor 3</td><td class="c">11</td></tr>
+    <tr><td>Bellotas de valor 5</td><td class="c">8</td></tr>
+  </table>
+  <p>En total, 378 cartas.</p>
+  <div class="num">2</div>
+</section>
+
+<!-- 3 -->
+<section class="page">
+  <h1>Las cartas de animal</h1>
+  <div class="fila">
+    <div class="carta" style="--w: 43mm">
+      <img src="../cards/parrot.png" alt="Loro">
+      <span class="marca" style="left: 17.5%; top: 18.6%">1</span>
+      <span class="marca" style="left: 88.7%; top: 17.8%">2</span>
+      <span class="marca" style="left: 37.1%; top: 60.9%">3</span>
+      <span class="marca" style="left: 63.7%; top: 74.7%">4</span>
+      <span class="marca" style="left: 25.8%; top: 88.5%">5</span>
+    </div>
+    <div class="leyenda">
+      <p><span class="marca-txt">1</span><b>Coste.</b> Las bellotas que le ofreces para que venga a tu reserva. El Loro cuesta <span class="coste">3</span>.</p>
+      <p><span class="marca-txt">2</span><b>Puntos de victoria.</b> Lo que vale al final de la partida. El Loro vale <span class="pv">2 PV</span>.</p>
+      <p><span class="marca-txt">3</span><b>Nombre</b> de la especie.</p>
+      <p><span class="marca-txt">4</span><b>Hábitat.</b> Un animal puede tener uno, dos o los tres.</p>
+      <p><span class="marca-txt">5</span><b>Habilidad.</b> Se aplica cada vez que juegas la carta desde tu mano.</p>
+    </div>
+  </div>
+
+  <h2>Los tres hábitats</h2>
+  <p>
+    <img class="ico" src="../iconos_tipo/land.png" alt=""> Terrestre &nbsp;
+    <img class="ico" src="../iconos_tipo/bird.png" alt=""> Volador &nbsp;
+    <img class="ico" src="../iconos_tipo/aquatic.png" alt=""> Acuático
+  </p>
+  <p>Un animal con varios hábitats cuenta para todos ellos. El Pato es volador y acuático a la vez.</p>
+
+  <div class="ejemplo">
+    <p><b>Ejemplo.</b> Juegas el Loro teniendo un Pato en la mano. El Loro se cuenta a sí mismo y
+    cuenta al Pato: tienes 2 animales voladores, así que ganas <b>+2 bellotas</b> para este turno.</p>
+  </div>
+  <div class="num">3</div>
+</section>
+
+<!-- 4 -->
+<section class="page">
+  <h1>Las bellotas</h1>
+  <div class="fila">
+    <div class="carta" style="--w: 34mm">
+      <img src="../cards/coin-1.png" alt="Bellota de 1">
+    </div>
+    <div>
+      <p>A todos los animales les encantan las bellotas. No tienen nombre ni texto: su <b>valor</b> es el
+      número grabado en la bellota.</p>
+      <p>Una bellota <b>nunca se juega</b>. Se queda en tu mano y suma su valor a las bellotas que
+      puedes ofrecer este turno.</p>
+      <p>La bellota de 1 no se puede conseguir en la reserva, por eso su coste es un guion. Tampoco da puntos.</p>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>Bellota</th><th class="c">Valor</th><th class="c">Coste</th><th class="c">PV</th></tr>
+    <tr><td>Panda rojo</td><td class="c">1</td><td class="c">–</td><td class="c">0</td></tr>
+    <tr><td>Perezoso</td><td class="c">2</td><td class="c">3</td><td class="c">1</td></tr>
+    <tr><td>Ardilla</td><td class="c">3</td><td class="c">5</td><td class="c">2</td></tr>
+    <tr><td>Koala</td><td class="c">5</td><td class="c">7</td><td class="c">3</td></tr>
+  </table>
+
+  <h2>Bellotas de carta y bellotas de habilidad</h2>
+  <p>Muchas habilidades dicen «+2 bellotas». Eso <b>no</b> te da ninguna carta: solo aumenta
+  las bellotas que puedes ofrecer <b>este turno</b>. Las que no uses se pierden.</p>
+  <p>Llamamos <b>valor de captura</b> a la suma de las bellotas de tu mano y de las que te
+  dan tus habilidades.</p>
+
+  <h2>El Perezoso</h2>
+  <p>Coste 0 y 0 PV. No hace nada al jugarlo, pero te protege: cuando una carta rival te obligue a
+  descartar, puedes descartar un Perezoso en lugar de todo lo que te pedían.</p>
+  <div class="num">4</div>
+</section>
+
+<!-- 5 -->
+<section class="page">
+  <h1>Preparación</h1>
+  <ol class="pasos">
+    <li><b>Mazo inicial.</b> Cada jugador recibe <b>7 bellotas de 1</b> y <b>3 Perezosos</b>.
+    Baraja esas 10 cartas y déjalas boca abajo: es tu mazo.</li>
+    <li><b>La reserva.</b> Colocad en el centro una pila boca arriba por cada especie, con estas copias:
+      <table>
+        <tr><th>Especie</th><th class="c">Copias en la pila</th></tr>
+        <tr><td>Coste 4 o menos</td><td class="c">jugadores + 2</td></tr>
+        <tr><td>Coste 5 o más</td><td class="c">tantas como jugadores</td></tr>
+      </table>
+      Con 4 jugadores son 6 y 4 copias. Las cartas sobrantes vuelven a la caja.</li>
+    <li><b>Las bellotas.</b> Formad tres pilas con las bellotas de 2, de 3 y de 5. Las bellotas
+    de 1 y los Perezosos que sobren vuelven a la caja.</li>
+    <li><b>Mano inicial.</b> Todos los jugadores roban <b>5 cartas</b> de su mazo.</li>
+    <li><b>Jugador inicial.</b> Empieza quien haya visto un animal salvaje más recientemente.
+    Se juega en el sentido de las agujas del reloj.</li>
+  </ol>
+
+  <h2>Tu zona de juego</h2>
+  <ul>
+    <li><b>Mazo:</b> boca abajo, a tu izquierda.</li>
+    <li><b>Descarte:</b> boca arriba, a tu derecha. Aquí llega todo lo que capturas.</li>
+    <li><b>Colección:</b> todas tus cartas, estén en el mazo, en la mano o en el descarte.</li>
+  </ul>
+  <div class="nota"><p>Elegid el tipo de partida antes de montar la reserva. Está en la página 8.</p></div>
+  <div class="num">5</div>
+</section>
+
+<!-- 6 -->
+<section class="page">
+  <h1>Tu turno</h1>
+  <p>En tu turno puedes jugar animales y capturar cartas, en el orden que quieras y
+  alternando ambas cosas. Cuando no quieras hacer nada más, terminas el turno.</p>
+  <p><b>Ardilla.</b> Antes de nada, si tienes Ardillas en tu descarte, una vuelve a tu mano. Solo
+  una por turno.</p>
+
+  <h2>Jugar animales</h2>
+  <p>Pon delante de ti animales de tu mano, <b>de uno en uno o varios a la vez</b>, y aplica sus
+  habilidades de una en una. Puedes jugar todos los que quieras, o ninguno.</p>
+  <p>Cuando una habilidad habla de «tu mano», cuenta las cartas de tu mano y las que ya has
+  jugado este turno, incluida la propia carta. Si juegas un Mono y un Ornitorrinco, cada uno
+  cuenta al otro.</p>
+  <p>Si una habilidad no se puede cumplir del todo, haz lo que sea posible.</p>
+
+  <h2>Capturar</h2>
+  <p>Suma tu valor de captura y úsalo en la reserva:</p>
+  <ul>
+    <li>Puedes capturar <b>varias cartas</b> en el mismo turno si te alcanza para todas.</li>
+    <li>También puedes conseguir bellotas de 2, de 3 y de 5.</li>
+    <li>Solo <b>una carta de cada tipo por turno</b>: ni dos animales de la misma especie ni dos
+    bellotas del mismo valor.</li>
+    <li>Todo lo que capturas va a tu <b>descarte</b>, no a tu mano.</li>
+  </ul>
+  <p>Las cartas de bellota que usas no se pierden: siguen siendo tuyas y se descartan al final
+  del turno, como el resto de tu mano.</p>
+
+  <div class="nota"><p>Los animales que consigues gratis por una habilidad, como los del Elefante,
+  la Araña o el Flamenco, no cuentan para ese límite. Tampoco las bellotas del Pingüino o la Tortuga.</p></div>
+  <div class="num">6</div>
+</section>
+
+<!-- 7 -->
+<section class="page">
+  <h1>Fin del turno</h1>
+  <ol class="pasos">
+    <li>Pon en tu descarte los animales que has jugado y <b>todas</b> las cartas que te quedan
+    en la mano, bellotas incluidas.</li>
+    <li>Roba <b>5 cartas</b> nuevas. Las tendrás en la mano durante los turnos de los demás.</li>
+    <li>Pasa el turno al jugador de tu izquierda.</li>
+  </ol>
+
+  <h2>Cuando se acaba tu mazo</h2>
+  <p>Si tienes que robar y tu mazo está vacío, baraja tu descarte y colócalo boca abajo como
+  nuevo mazo. Después sigue robando. Así vuelven a tu mano los animales que capturaste.</p>
+
+  <h2>Una ronda</h2>
+  <p>Una ronda termina cuando todos los jugadores han jugado un turno. Apuntad las rondas en un
+  papel o llevad la cuenta con un dado.</p>
+
+  <div class="ejemplo">
+    <p><b>Ejemplo de turno.</b> Tu mano es Loro, Periquito y tres bellotas de 1.</p>
+    <p>Juegas el Loro. El Periquito cuenta como 2 voladores y el Loro como 1, así que ganas
+    +3 bellotas. Con tus tres bellotas de 1 tienes un valor de captura de <b>6</b>.</p>
+    <p>Capturas un Pingüino por 3 y un Delfín por 3. Los dos van a tu descarte.</p>
+    <p>Descartas toda tu mano y el Loro jugado, y robas 5 cartas.</p>
+  </div>
+  <div class="num">7</div>
+</section>
+
+<!-- 8 -->
+<section class="page">
+  <h1>Tipos de partida</h1>
+  <p>Elegid una antes de empezar. La partida termina siempre al acabar la última ronda, de
+  modo que todos juegan el mismo número de turnos.</p>
+  <table class="modos">
+    <tr><th>Partida</th><th>Reserva</th><th class="c">Rondas</th></tr>
+    <tr><td>Aprendizaje</td><td>Solo las especies de coste 4 o menos</td><td class="c">10</td></tr>
+    <tr><td>Intermedia</td><td>Solo las especies de coste 6 o menos</td><td class="c">12</td></tr>
+    <tr><td>Completa</td><td>Todas las especies</td><td class="c">15</td></tr>
+    <tr><td>Personalizada</td><td>Las que queráis</td><td class="c">A elegir</td></tr>
+  </table>
+
+  <h2>Partida de aprendizaje (opcional)</h2>
+  <p>Pensada para la primera vez o para jugar con niños. Se montan solo las <b>21 especies</b>
+  de coste 4 o menos y las tres pilas de bellotas. Las 12 especies caras se quedan en la caja.</p>
+  <p>Las cartas son más sencillas y no hay casi ninguna que puntúe de forma especial, así que
+  el recuento final es rápido.</p>
+
+  <h2>Partida intermedia</h2>
+  <p>Las <b>30 especies</b> de coste 6 o menos y 12 rondas. Se quedan en la caja el Águila, la
+  Orca y el Oso polar.</p>
+
+  <h2>Partida completa</h2>
+  <p>Todas las especies y 15 rondas. Da tiempo a que los mazos crezcan y a que las cartas
+  caras lleguen a jugarse varias veces.</p>
+
+  <h2>Partida personalizada</h2>
+  <p>Siéntete libre de jugar las rondas que quieras y con los animales que quieras. Si alguna
+  carta no te gusta, puedes prescindir de ella en tus partidas.</p>
+
+  <div class="nota"><p>Si se agota una pila de la reserva, esa carta ya no se puede conseguir.
+  La partida continúa con normalidad hasta la última ronda.</p></div>
+  <div class="num">8</div>
+</section>
+
+<!-- 9 -->
+<section class="page">
+  <h1>Final de la partida</h1>
+  <p>Cuando el último jugador termina su turno de la última ronda, la partida acaba. Cada
+  jugador junta <b>toda su colección</b>: mazo, mano y descarte.</p>
+
+  <h2>Recuento de puntos</h2>
+  <ol class="pasos">
+    <li><b>Cocodrilos.</b> Por cada Cocodrilo que tengas, retira de tu colección un animal
+    que no sea volador. La carta retirada no puntúa ni cuenta para nada.</li>
+    <li><b>Puntos impresos.</b> Suma los <span class="pv">PV</span> del escudo de todas tus cartas,
+    animales y bellotas.</li>
+    <li><b>Puntos por colección.</b> Suma los puntos de las cartas de la página siguiente.</li>
+  </ol>
+  <p>Gana quien tenga más puntos.</p>
+
+  <h2>Desempate</h2>
+  <p>Si hay empate a puntos, gana entre los empatados quien tenga <b>más animales</b>
+  en su colección.</p>
+  <p>Si también empatan en animales, <b>comparten la victoria</b>.</p>
+
+  <h2>Dudas sobre el Cocodrilo</h2>
+  <ul>
+    <li>Cada Cocodrilo retira <b>una carta</b> distinta. Dos Cocodrilos no pueden retirar un único
+    Pez de colores, aunque cuente como 2 acuáticos.</li>
+    <li>Si tu único animal no volador es el propio Cocodrilo, se retira a sí mismo.</li>
+  </ul>
+  <div class="num">9</div>
+</section>
+
+<!-- 10 -->
+<section class="page">
+  <h1>Cartas que puntúan</h1>
+  <p>Estas seis cartas dan puntos extra según el resto de tu colección.</p>
+  <table>
+    <tr><th>Carta</th><th>+1 PV por cada…</th></tr>
+    <tr><td><b>Águila</b></td><td>animal volador</td></tr>
+    <tr><td><b>Oso polar</b></td><td>animal terrestre</td></tr>
+    <tr><td><b>Orca</b></td><td>animal acuático</td></tr>
+    <tr><td><b>Albatros</b></td><td>especie distinta de animal</td></tr>
+    <tr><td><b>Tucán</b></td><td>animal de coste 5 o más</td></tr>
+    <tr><td><b>Tiburón</b></td><td>carta de bellota, sea cual sea su valor</td></tr>
+  </table>
+
+  <h2>Cómo se cuentan</h2>
+  <ul>
+    <li>Se cuenta <b>toda la colección</b>, no solo la mano.</li>
+    <li>La carta <b>se cuenta a sí misma</b>. El Águila es voladora y el Tucán cuesta 5.</li>
+    <li><b>Cada copia puntúa por separado.</b> Con 2 Águilas y 6 voladores sumas 6 + 6 = 12 PV.</li>
+    <li>Un animal con varios hábitats cuenta para cada uno. El Albatros es terrestre, volador y
+    acuático.</li>
+    <li>El <b>Periquito</b> cuenta como 2 voladores y el <b>Pez de colores</b> como 2 acuáticos.</li>
+    <li><b>Las cartas del mazo inicial también cuentan.</b> Tus bellotas de 1 cuentan para el
+    Tiburón. Tus Perezosos cuentan como terrestres para el Oso polar y como una especie más
+    para el Albatros.</li>
+    <li>Varias copias de la misma especie cuentan una sola vez para el Albatros.</li>
+  </ul>
+  <div class="num">10</div>
+</section>
+
+<!-- 11 -->
+<section class="page">
+  <h1>Ejemplo de recuento</h1>
+  <p>Al terminar la partida, la colección de Marta es esta:</p>
+  <table>
+    <tr><th>Cartas</th><th class="c">PV impresos</th></tr>
+    <tr><td>1 Águila</td><td class="c">2</td></tr>
+    <tr><td>2 Loros</td><td class="c">2 + 2</td></tr>
+    <tr><td>1 Periquito</td><td class="c">1</td></tr>
+    <tr><td>1 Pato</td><td class="c">1</td></tr>
+    <tr><td>1 Mono</td><td class="c">3</td></tr>
+    <tr><td>1 Oso polar</td><td class="c">0</td></tr>
+    <tr><td>1 Tiburón</td><td class="c">0</td></tr>
+    <tr><td>3 Perezosos</td><td class="c">0</td></tr>
+    <tr><td>7 bellotas de 1</td><td class="c">0</td></tr>
+    <tr><td>2 bellotas de 2</td><td class="c">1 + 1</td></tr>
+    <tr><td><b>Puntos impresos</b></td><td class="c"><b>13</b></td></tr>
+  </table>
+  <ul>
+    <li><b>Águila:</b> Águila, 2 Loros, Pato y Periquito, que cuenta doble. Son 6 voladores: <b>+6</b>.</li>
+    <li><b>Oso polar:</b> Oso polar, Mono y 3 Perezosos. Son 5 terrestres: <b>+5</b>.</li>
+    <li><b>Tiburón:</b> 9 cartas de bellota: <b>+9</b>.</li>
+  </ul>
+  <div class="ejemplo"><p>Total de Marta: 13 + 6 + 5 + 9 = <span class="pv">33 PV</span>.</p></div>
+  <p>Para el desempate, Marta tiene 11 animales en su colección.</p>
+  <div class="num">11</div>
+</section>
+
+<!-- 12 -->
+<section class="page">
+  <h1>Aclaraciones de cartas</h1>
+
+  <h2>Flamenco</h2>
+  <p>Devuelves un animal a su pila de la reserva y coges otro de una <b>especie distinta</b> que
+  cueste, como mucho, 2 bellotas más. El animal nuevo va a tu descarte.</p>
+  <ul>
+    <li><b>Puedes usar el animal antes de cambiarlo.</b> Juega primero ese animal, aplica su
+    habilidad y después juega el Flamenco para cambiarlo.</li>
+    <li><b>Puede usarse sobre sí mismo:</b> devuelves el propio Flamenco y coges un animal de
+    coste 5 o menos.</li>
+    <li>La carta que devuelves queda en la reserva y puedes capturarla con bellotas ese mismo turno.</li>
+    <li>Puedes cambiar un Perezoso por un animal de coste 2 o menos.</li>
+    <li>El cambio es gratis: no usas valor de captura.</li>
+  </ul>
+
+  <h2>Tortuga</h2>
+  <p>Cambia una bellota de tu mano por la del nivel siguiente: de 1 a 2, de 2 a 3 o de 3 a 5.</p>
+  <ul>
+    <li><b>Cambias la bellota antes de usarla.</b> La bellota que devuelves va a su pila de la
+    reserva, o a la caja si es de valor 1.</li>
+    <li>La bellota que consigues va <b>a tu mano</b> y puedes usarla este mismo turno.</li>
+    <li>Una bellota de 5 no se puede mejorar.</li>
+  </ul>
+
+  <h2>Pingüino</h2>
+  <p>La «bellota de cobre» es la <b>bellota de valor 2</b>. La coges de su pila y va a tu mano,
+  así que puedes usarla este mismo turno. Después es una carta más de tu colección.</p>
+
+  <div class="num">12</div>
+</section>
+
+<!-- 13 -->
+<section class="page">
+  <h1>Cartas de descarte</h1>
+  <p>La Hiena, la Serpiente y el Buitre obligan a descartar a los rivales. Las cartas
+  descartadas van al descarte <b>de su dueño</b>: nadie pierde cartas de su colección.</p>
+  <div class="nota"><p><b>Regla general.</b> Si hay empate o varias cartas posibles, elige siempre
+  <b>el dueño de la carta</b> que se descarta, nunca quien jugó el animal.</p></div>
+
+  <h2>Hiena</h2>
+  <p>Cada rival enseña su mano y descarta su animal de mayor coste. Si tiene varios empatados
+  en el coste más alto, él elige cuál. Quien no tenga animales no descarta nada.</p>
+
+  <h2>Serpiente</h2>
+  <p>Cada rival elige un animal de su mano y lo descarta. Después tú eliges <b>uno</b> de esos
+  animales y aplicas su habilidad como si lo hubieras jugado. La carta no cambia de dueño.</p>
+
+  <h2>Buitre</h2>
+  <p>Cada rival elige 2 cartas de su mano y las descarta. Pueden ser animales o bellotas.</p>
+
+  <h2>Pato</h2>
+  <p>El jugador que eliges decide <b>qué bellota te da</b>. Esa bellota va a tu mano y pasa a ser
+  tuya para el resto de la partida. Si no tiene bellotas, solo enseña su mano.</p>
+
+  <h2>Perezoso</h2>
+  <p>Ante la Hiena, la Serpiente o el Buitre puedes descartar <b>un Perezoso</b> en lugar de lo
+  que te piden. Un solo Perezoso cubre las 2 cartas del Buitre. No sirve contra el Pato.</p>
+  <div class="num">13</div>
+</section>
+
+<!-- 14 -->
+<section class="page">
+  <h1>Otras cartas</h1>
+
+  <h2>Jirafa y Murciélago</h2>
+  <p>La carta recuperada va a tu mano y puedes jugarla este turno. <b>Puedes recuperar una carta
+  que acabas de conseguir:</b> todo lo que consigues va inmediatamente a tu descarte, sea con
+  bellotas, con la Araña o con el Elefante.</p>
+
+  <h2>Conejo</h2>
+  <p>Enseña la carta superior de tu mazo. Si es una bellota o un animal de coste 4 o menos, va
+  a tu mano. Si es un animal más caro, se queda encima del mazo. Si tu mazo está vacío, baraja
+  antes tu descarte para formar el mazo.</p>
+
+  <h2>Tigre</h2>
+  <p>Roba 2 cartas y después deja encima de tu mazo una carta cualquiera de tu mano. No tiene
+  que ser una de las que acabas de robar.</p>
+
+  <h2>Elefante y Araña</h2>
+  <p>El animal que eliges de la reserva es gratis y va a tu descarte. Su habilidad no se aplica.</p>
+
+  <h2>Foca</h2>
+  <p>Puedes combinar sus 3 bellotas con otras y repartirlas entre varias cartas. La única
+  condición es que las bellotas de la Foca se usen en animales acuáticos.</p>
+
+  <h2>Mono, Ornitorrinco y Cuervo</h2>
+  <p>El Mono cuenta <b>animales</b> terrestres y el Ornitorrinco <b>especies distintas</b>. Con
+  2 Perezosos, un Mono y un Ornitorrinco, el Mono da +4 bellotas y el Ornitorrinco +3.</p>
+  <p>El Cuervo cuenta <b>cartas</b> de bellota, no su valor.</p>
+  <div class="num">14</div>
+</section>
+
+<!-- 15 -->
+<section class="page">
+  <h1>Resumen rápido</h1>
+  <h2>Preparación</h2>
+  <ul>
+    <li>Cada jugador: 7 bellotas de 1 y 3 Perezosos. Baraja y roba 5.</li>
+    <li>Pilas de la reserva: jugadores + 2 copias si el coste es 4 o menos, tantas copias como
+    jugadores si es 5 o más.</li>
+  </ul>
+  <h2>Tu turno</h2>
+  <ol class="pasos">
+    <li>Si hay una Ardilla en tu descarte, vuelve a tu mano.</li>
+    <li>Juega animales y captura cartas, en cualquier orden. Solo una carta de cada tipo por turno.</li>
+    <li>Lo capturado va a tu descarte.</li>
+    <li>Descarta todo y roba 5 cartas.</li>
+  </ol>
+  <h2>Duración</h2>
+  <table class="modos">
+    <tr><td>Aprendizaje</td><td>coste 4 o menos</td><td class="c">10 rondas</td></tr>
+    <tr><td>Intermedia</td><td>coste 6 o menos</td><td class="c">12 rondas</td></tr>
+    <tr><td>Completa</td><td>todas las cartas</td><td class="c">15 rondas</td></tr>
+  </table>
+  <h2>Recuento</h2>
+  <ol class="pasos">
+    <li>Cada Cocodrilo retira un animal no volador.</li>
+    <li>Suma los PV impresos de toda tu colección.</li>
+    <li>Suma Águila, Oso polar, Orca, Albatros, Tucán y Tiburón.</li>
+    <li>Empate: más animales en la colección. Si sigue el empate, victoria compartida.</li>
+  </ol>
+  <div class="num">15</div>
+</section>
+
+<!-- 16 -->
+<section class="page creditos">
+  <h1>Créditos</h1>
+  <p class="rol">Un juego creado por</p>
+  <p class="nombres">Gemma y Diego</p>
+
+  <p>Gracias a todas las personas que nos apoyaron y nos ayudaron a que este juego saliera
+  adelante.</p>
+  <p>A quienes probaron las primeras versiones, aguantaron partidas con cartas a medio hacer y
+  nos dijeron con cariño lo que no funcionaba. A quienes propusieron animales, habilidades y
+  reglas. Y a quienes simplemente se sentaron a jugar una partida más.</p>
+  <p>Este juego también es vuestro.</p>
+  <p class="cierre">¡Gracias por jugar!</p>
+  <p class="ia">© 2026 Gemma y Diego. Todos los derechos reservados.<br>
+  Desarrollado con ayuda de inteligencia artificial.</p>
+  <div class="num">16</div>
+</section>
+
+</body>
+</html>
