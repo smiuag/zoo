@@ -89,6 +89,13 @@ interface CardViewProps {
   // explícito del usuario 2026-09-21: "las cartas que salgan con su imagen
   // ... como el mercado pero con el check".
   selected?: boolean;
+  // Enciclopedia de cartas (CardEncyclopedia.tsx): el texto de habilidad se
+  // ve DENTRO de la propia carta (bajo el tipo), en vez de solo en el
+  // tooltip al pasar el ratón/mantener pulsado — pedido explícito del
+  // usuario, sin problema en que la carta salga más alta para caber. El
+  // resto de sitios (mano/mesa/mercado) no lo pasan: siguen viendo el
+  // tooltip de siempre y el tamaño de carta de siempre.
+  showAbilityInline?: boolean;
 }
 
 // El tooltip nace centrado bajo la carta (ver .card__tooltip en
@@ -142,6 +149,7 @@ export function CardView({
   liveCost,
   hideType,
   selected,
+  showAbilityInline,
 }: CardViewProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
@@ -289,6 +297,9 @@ export function CardView({
           bits.join(' · ')
         )}
       </div>
+      {showAbilityInline && card.text && (
+        <div className="card__ability-inline">{isEmoji ? card.text : (BELLOTA_TEXT[card.id] ?? card.text)}</div>
+      )}
       {remainingLabel !== undefined && (
         <span className="card__badge">
           {badgePrefix}

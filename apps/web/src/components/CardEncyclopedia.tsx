@@ -38,11 +38,13 @@ function toCardInstance(card: Card, showFullExtras: boolean): CardInstance {
   return { ...card, habitats, text, instanceId: card.id };
 }
 
-function toggle<T>(set: Set<T>, value: T): Set<T> {
-  const next = new Set(set);
-  if (next.has(value)) next.delete(value);
-  else next.add(value);
-  return next;
+// Selección única por grupo (pedido explícito del usuario): pinchar en
+// Volador despincha Acuático/Terrestre si estaba activo, y pinchar en un
+// coste despincha cualquier otro coste — dentro de un mismo grupo NO se
+// acumulan. Los dos grupos SÍ se combinan entre sí (coste Y hábitat a la
+// vez), por eso son dos estados independientes en vez de un único Set.
+function toggleSingle<T>(current: T | null, value: T): T | null {
+  return current === value ? null : value;
 }
 
 export function CardEncyclopedia() {
@@ -51,8 +53,8 @@ export function CardEncyclopedia() {
   const [manualEdition, setManualEdition] = useState<'classic' | 'full'>('classic');
   const showFullExtras = activeGameEdition !== undefined ? showsFullEditionCards(activeGameEdition) : manualEdition === 'full';
 
-  const [costFilter, setCostFilter] = useState<Set<number>>(new Set());
-  const [habitatFilter, setHabitatFilter] = useState<Set<HabitatFilter>>(new Set());
+  const [costFilter, setCostFilter] = useState<number | null>(null);
+  const [habitatFilter, setHabitatFilter] = useState<HabitatFilter | null>(null);
 
   const allCards = useMemo(() => getAllCards().filter((c) => c.type === 'animal'), []);
   const cards = useMemo(() => {
@@ -69,8 +71,8 @@ export function CardEncyclopedia() {
   );
 
   const filtered = cards.filter((c) => {
-    if (costFilter.size > 0 && !costFilter.has(c.marketCost ?? 0)) return false;
-    if (habitatFilter.size > 0 && !(c.habitats as string[]).some((h) => habitatFilter.has(h as HabitatFilter))) return false;
+    if (costFilter !== null && (c.marketCost ?? 0) !== costFilter) return false;
+    if (habitatFilter !== null && !(c.habitats as string[]).includes(habitatFilter)) return false;
     return true;
   });
 
@@ -113,14 +115,14 @@ export function CardEncyclopedia() {
             <button
               key={cost}
               type="button"
-              className={`btn btn--pill${costFilter.has(cost) ? ' btn--pill-active' : ''}`}
-              onClick={() => setCostFilter(toggle(costFilter, cost))}
+              className={`btn btn--pill${costFilter === cost ? ' btn--pill-active' : ''}`}
+              onClick={() => setCostFilter(toggleSingle(costFilter, cost))}
             >
               {cost === 0 ? 'Gratis' : cost}
             </button>
           ))}
-          {costFilter.size > 0 && (
-            <button type="button" className="btn btn--ghost btn--pill" onClick={() => setCostFilter(new Set())}>
+          {costFilter !== null && (
+            <button type="button" className="btn btn--ghost btn--pill" onClick={() => setCostFilter(null)}>
               Quitar filtro
             </button>
           )}
@@ -131,14 +133,14 @@ export function CardEncyclopedia() {
             <button
               key={h}
               type="button"
-              className={`btn btn--pill${habitatFilter.has(h) ? ' btn--pill-active' : ''}`}
-              onClick={() => setHabitatFilter(toggle(habitatFilter, h))}
+              className={`btn btn--pill${habitatFilter === h ? ' btn--pill-active' : ''}`}
+              onClick={() => setHabitatFilter(toggleSingle(habitatFilter, h))}
             >
               {HABITAT_ICON[h]} {habitatFilterLabel(h)}
             </button>
           ))}
-          {habitatFilter.size > 0 && (
-            <button type="button" className="btn btn--ghost btn--pill" onClick={() => setHabitatFilter(new Set())}>
+          {habitatFilter !== null && (
+            <button type="button" className="btn btn--ghost btn--pill" onClick={() => setHabitatFilter(null)}>
               Quitar filtro
             </button>
           )}
@@ -151,8 +153,7 @@ export function CardEncyclopedia() {
         <div className="encyclopedia__grid">
           {filtered.map((card) => (
             <div className="encyclopedia__card-slot" key={card.instanceId}>
-              <CardView card={card} />
-              {card.text && <div className="encyclopedia__card-text">{card.text}</div>}
+              <CardView card={card} showAbilityInline />
             </div>
           ))}
         </div>

@@ -3248,36 +3248,52 @@ body {
 /* Cartas más grandes que en la propia partida (pedido explícito del
    usuario): auto-fill con un mínimo generoso, así se reflowa solo según el
    ancho disponible sin necesitar breakpoints manuales por tamaño de
-   pantalla. */
+   pantalla. Más anchas que la primera versión porque ahora llevan el texto
+   de habilidad DENTRO (ver .card__ability-inline) — pedido explícito del
+   usuario, sin problema en que salgan más grandes para que quepa. */
 .encyclopedia__grid {
   max-width: 1560px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   gap: 1rem;
+  align-items: start;
   justify-items: center;
 }
 
 .encyclopedia__card-slot {
-  --card-w: 150px;
-  --card-h: 216px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
+  --card-w: 170px;
   width: 100%;
-  max-width: 190px;
+  max-width: 210px;
+}
+
+/* La carta crece para caber el texto de habilidad en vez de recortarlo
+   (ver .card { height: var(--card-h) } de siempre, fijo): aquí --card-h
+   pasa a ser un SUELO, no un techo. El icono/ilustración se fija a una
+   altura propia en vez de flex:1 (que colapsaría a lo mínimo posible en
+   cuanto el alto deja de ser fijo). */
+.encyclopedia__card-slot .card {
+  height: auto;
+  min-height: 216px;
+}
+
+.encyclopedia__card-slot .card__icon {
+  flex: 0 0 auto;
+  height: 130px;
 }
 
 .encyclopedia__card-slot .card__icon--emoji {
   font-size: 3.4rem;
 }
 
-.encyclopedia__card-text {
-  font-size: 0.8rem;
-  line-height: 1.35;
+.card__ability-inline {
+  font-size: 0.72rem;
+  line-height: 1.3;
   color: var(--muted-dark);
   text-align: center;
+  white-space: normal;
+  margin-top: 0.3rem;
+  padding: 0 0.1rem;
 }
 
 @media (max-width: 860px) {
@@ -3288,15 +3304,23 @@ body {
     font-size: 1.15rem;
   }
   .encyclopedia__grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 0.75rem;
   }
   .encyclopedia__card-slot {
-    --card-w: 120px;
-    --card-h: 173px;
-    max-width: 150px;
+    --card-w: 140px;
+    max-width: 170px;
+  }
+  .encyclopedia__card-slot .card {
+    min-height: 178px;
+  }
+  .encyclopedia__card-slot .card__icon {
+    height: 100px;
   }
   .encyclopedia__card-slot .card__icon--emoji {
     font-size: 2.6rem;
+  }
+  .card__ability-inline {
+    font-size: 0.68rem;
   }
 }
