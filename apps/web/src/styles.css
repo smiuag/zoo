@@ -3150,3 +3150,153 @@ body {
     padding: 0.3rem 0.5rem;
   }
 }
+
+/* ---------- Enciclopedia de cartas (CardEncyclopedia.tsx) ----------
+   Se monta como HERMANA de la partida en curso (nunca dentro de su árbol,
+   ver App.tsx), así que necesita ser una superposición de página completa
+   de verdad (position:fixed) en vez de limitarse a "ser lo único en el
+   flujo" como Tutorial/Ranking (que sí sustituyen el contenido normal). */
+.encyclopedia {
+  position: fixed;
+  inset: 0;
+  /* Por encima de TODO lo del tablero de debajo, que sigue montado y
+     jugando de fondo (bots) mientras esto está abierto — incluida la carta
+     "fantasma" volando de una compra (.flying-card, z-index:1000, el más
+     alto del resto de la hoja), que si no se colaba por encima. */
+  z-index: 1500;
+  background: var(--bg);
+  overflow-y: auto;
+  padding: 1.25rem 1rem 3rem;
+}
+
+.encyclopedia__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  max-width: 1560px;
+  margin: 0 auto 0.75rem;
+}
+
+.encyclopedia__header h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: var(--accent);
+}
+
+.encyclopedia__edition-toggle,
+.encyclopedia__filters {
+  max-width: 1560px;
+  margin: 0 auto 0.75rem;
+}
+
+.encyclopedia__edition-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.encyclopedia__edition-note {
+  max-width: 1560px;
+  margin: 0 auto 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.encyclopedia__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.encyclopedia__filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.encyclopedia__filter-label {
+  color: var(--muted-dark);
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-right: 0.15rem;
+}
+
+.btn--pill {
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+.btn--pill-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.btn--pill-active:hover {
+  color: var(--accent-ink);
+}
+
+.encyclopedia__empty {
+  max-width: 1560px;
+  margin: 2rem auto;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* Cartas más grandes que en la propia partida (pedido explícito del
+   usuario): auto-fill con un mínimo generoso, así se reflowa solo según el
+   ancho disponible sin necesitar breakpoints manuales por tamaño de
+   pantalla. */
+.encyclopedia__grid {
+  max-width: 1560px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+  justify-items: center;
+}
+
+.encyclopedia__card-slot {
+  --card-w: 150px;
+  --card-h: 216px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  max-width: 190px;
+}
+
+.encyclopedia__card-slot .card__icon--emoji {
+  font-size: 3.4rem;
+}
+
+.encyclopedia__card-text {
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--muted-dark);
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .encyclopedia {
+    padding: 1rem 0.75rem 2.5rem;
+  }
+  .encyclopedia__header h1 {
+    font-size: 1.15rem;
+  }
+  .encyclopedia__grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+  }
+  .encyclopedia__card-slot {
+    --card-w: 120px;
+    --card-h: 173px;
+    max-width: 150px;
+  }
+  .encyclopedia__card-slot .card__icon--emoji {
+    font-size: 2.6rem;
+  }
+}

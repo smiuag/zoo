@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { getLegalActions } from '@zoo/engine';
+import { CardEncyclopedia } from './components/CardEncyclopedia';
 import { GameBoard, type ReplayProps } from './components/GameBoard';
 import { RoomChat } from './components/RoomChat';
 import { GameSetup } from './components/GameSetup';
@@ -9,6 +11,7 @@ import { Ranking } from './components/Ranking';
 import { ScoreCalculator } from './components/ScoreCalculator';
 import { Tutorial } from './components/Tutorial';
 import { ArtStyleProvider } from './lib/artStyle';
+import { ActiveEditionProvider, useReportActiveEdition } from './lib/activeEdition';
 import { createHostRoom, type CreatedRoom } from './online/createHostRoom';
 import { computePosition, recordGameResult, summarizeCollection, type GameMode } from './online/gameResults';
 import { useHostRoom } from './online/useHostRoom';
@@ -27,13 +30,25 @@ function useGuestRouteParams(): { roomCode: string; seatId: string; seatKey: str
 export default function App() {
   const guestParams = useGuestRouteParams();
   return (
-    <ArtStyleProvider>
-      {guestParams ? (
-        <GuestApp roomCode={guestParams.roomCode} seatId={guestParams.seatId} seatKey={guestParams.seatKey} />
-      ) : (
-        <HostOrLocalApp />
-      )}
-    </ArtStyleProvider>
+    <BrowserRouter>
+      <ArtStyleProvider>
+        <ActiveEditionProvider>
+          {guestParams ? (
+            <GuestApp roomCode={guestParams.roomCode} seatId={guestParams.seatId} seatKey={guestParams.seatKey} />
+          ) : (
+            <HostOrLocalApp />
+          )}
+          {/* Se monta como hermana de la partida en curso (host/local o
+              invitado), nunca dentro de su árbol: así "/cartas" no
+              desmonta ni reinicia la partida al abrirse ni al volver atrás
+              con el botón del navegador — ver activeEdition.tsx para cómo
+              sabe qué edición mostrar sin que se le pase como prop. */}
+          <Routes>
+            <Route path="/cartas" element={<CardEncyclopedia />} />
+          </Routes>
+        </ActiveEditionProvider>
+      </ArtStyleProvider>
+    </BrowserRouter>
   );
 }
 
@@ -56,6 +71,13 @@ function HostOrLocalApp() {
     restartTurn,
     setBotAlgorithm,
   } = useGame();
+
+  // Ver activeEdition.tsx: qué edición está jugando esta pestaña ahora
+  // mismo, para que CardEncyclopedia.tsx sepa qué cartas mostrar sin
+  // recibirlo como prop. `state.edition` existe siempre (ver comentario de
+  // useGame.ts) pero solo es real mientras `phase === 'playing'` — en
+  // 'setup' es un placeholder sin sentido, así que se reporta undefined.
+  useReportActiveEdition(phase === 'playing' ? state.edition : undefined);
 
   // No nulo en cuanto se pulsa "Crear partida online" en el formulario (aún
   // en phase 'setup': primero se decide la sala, y solo al pulsar "Empezar

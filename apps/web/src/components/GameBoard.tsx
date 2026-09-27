@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   effectiveMarketCost,
   getActivePlayer,
@@ -106,6 +107,7 @@ export function GameBoard({
   onSetBotAlgorithm,
   replay,
 }: GameBoardProps) {
+  const navigate = useNavigate();
   const activePlayer = getActivePlayer(state);
   // Mismo cálculo que ActivePlayerBoard (comparten el hook): aquí solo hace
   // falta la cifra, para la barra inferior de más abajo — ver .bottom-bar
@@ -847,6 +849,9 @@ export function GameBoard({
             <div className="bottom-bar__scoreboard">{renderScoreboard()}</div>
             <div className="bottom-bar__right">
               {renderStatusPill()}
+              <button className="btn btn--ghost btn--new-game" onClick={() => navigate('/cartas')} title="Enciclopedia de cartas">
+                📖 <span className="btn__label">Cartas</span>
+              </button>
               {onNewGame && (
                 <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title="Nueva partida">
                   ↺ <span className="btn__label">Nueva partida</span>
@@ -918,6 +923,9 @@ export function GameBoard({
                 2026-09-24 — así que "Nueva partida" tiene que vivir aquí
                 también para que siga habiendo forma de pulsarlo en móvil (en
                 escritorio ya estaba siempre visible en la barra de abajo). */}
+            <button className="btn btn--ghost btn--new-game" onClick={() => navigate('/cartas')} title="Enciclopedia de cartas">
+              📖 <span className="btn__label">Cartas</span>
+            </button>
             {onNewGame && (
               <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title="Nueva partida">
                 ↺ <span className="btn__label">Nueva partida</span>
@@ -1070,6 +1078,9 @@ export function GameBoard({
             <div className="panel panel--status">
               <div className="status-row">
                 {renderStatusPill()}
+                <button className="btn btn--ghost btn--new-game" onClick={() => navigate('/cartas')} title="Enciclopedia de cartas">
+                  📖 <span className="btn__label">Cartas</span>
+                </button>
                 {onNewGame && (
                   <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title="Nueva partida">
                     ↺ <span className="btn__label">Nueva partida</span>

@@ -4,6 +4,7 @@ import { GameBoard } from './GameBoard';
 import { useGuestRoom } from '../online/useGuestRoom';
 import { loadSavedNick, saveNick, MAX_NICK_LENGTH } from '../lib/gameConfig';
 import { computePosition, recordGameResult, summarizeCollection } from '../online/gameResults';
+import { useReportActiveEdition } from '../lib/activeEdition';
 
 interface GuestAppProps {
   roomCode: string;
@@ -30,6 +31,11 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
   const { status, state, humanIds, botAlgorithms, scores, legalActions, animationsEnabled, sendAction, replayStatus, proposeReplay, respondReplay } =
     useGuestRoom(roomCode, seatId, seatKey, joinedNick);
   const [slowConnect, setSlowConnect] = useState(false);
+
+  // Ver activeEdition.tsx / App.tsx: mismo reporte que hace el host, para
+  // que CardEncyclopedia.tsx muestre las cartas de la edición de ESTA
+  // partida también en la pestaña de un invitado.
+  useReportActiveEdition(state?.edition);
 
   useEffect(() => {
     if (status === 'playing') {

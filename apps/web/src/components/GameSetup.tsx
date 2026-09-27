@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GearIcon } from './icons/GearIcon';
 import { LEARNING_EDITION_MAX_COST } from '@zoo/engine';
 import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
@@ -79,6 +80,7 @@ export function GameSetup({
   onResumeOnlineRoom,
   onDiscardResumableOnlineRoom,
 }: GameSetupProps) {
+  const navigate = useNavigate();
   // Se lee una sola vez (lazy initializer de useState, no en cada render):
   // nº de humanos, bots elegidos y animaciones de la última partida creada
   // en este dispositivo (ver saveSetupPrefs en buildConfig más abajo). null
@@ -381,6 +383,9 @@ export function GameSetup({
             </button>
             <button className="btn btn--ghost" type="button" onClick={onOpenRanking}>
               🏆 Ranking
+            </button>
+            <button className="btn btn--ghost" type="button" onClick={() => navigate('/cartas')}>
+              📖 Cartas
             </button>
           </div>
         </div>
