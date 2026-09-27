@@ -10,99 +10,13 @@
   Cada <section class="page"> es una página física: si se añade texto hay que
   comprobar que no se desborda (el script avisa si el PDF no tiene 16 páginas).
 -->
-<style>
-@font-face { font-family: "Baloo"; src: url("fonts/Baloo2-Regular.ttf"); font-weight: 400; }
-@font-face { font-family: "Baloo"; src: url("fonts/Baloo2-ExtraBold.ttf"); font-weight: 800; }
-@page { size: 105mm 148mm; margin: 0; }
-:root {
-  --verde: #3c7a3a;
-  --verde-claro: #e6f0dc;
-  --marron: #6b4423;
-  --marron-claro: #f4ead7;
-  --tinta: #2b2118;
-  --morado: #5a2d82;
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
-body { font-family: "Baloo", sans-serif; font-size: 8.5pt; line-height: 1.24; color: var(--tinta); }
-.page {
-  width: 105mm; height: 148mm; padding: 8mm 8mm 10mm 8mm;
-  position: relative; overflow: hidden; page-break-after: always; background: #fff;
-}
-.page:last-child { page-break-after: auto; }
-.num { position: absolute; bottom: 3.5mm; left: 0; right: 0; text-align: center; font-size: 7pt; color: var(--marron); }
-h1 {
-  font-weight: 800; font-size: 13pt; line-height: 1.1; margin: 0 0 2.5mm 0; padding: 1.6mm 3mm 1.2mm;
-  color: #fff; background: var(--verde); border-radius: 2mm;
-}
-h2 { font-weight: 800; font-size: 9.6pt; line-height: 1.15; color: var(--marron); margin: 2.4mm 0 0.8mm 0; }
-h2:first-child { margin-top: 0; }
-p { margin: 0 0 1.5mm 0; }
-ul, ol { margin: 0 0 1.5mm 0; padding-left: 4.2mm; }
-li { margin-bottom: 0.7mm; }
-b, strong { font-weight: 800; }
-.nota { background: var(--marron-claro); border-left: 1mm solid var(--marron); border-radius: 1mm; padding: 1.4mm 2mm 1mm; margin: 1.5mm 0; }
-.ejemplo { background: var(--verde-claro); border-left: 1mm solid var(--verde); border-radius: 1mm; padding: 1.4mm 2mm 1mm; margin: 1.5mm 0; }
-.nota p:last-child, .ejemplo p:last-child { margin-bottom: 0; }
-.pv { color: var(--morado); font-weight: 800; }
-.coste { color: #1d6b1d; font-weight: 800; }
-table { border-collapse: collapse; width: 100%; margin: 1mm 0 1.5mm; }
-th { font-weight: 800; background: var(--marron); color: #fff; text-align: left; padding: 0.6mm 1.2mm 0.3mm; font-size: 7.4pt; }
-td { padding: 0.55mm 1.2mm 0.25mm; border-bottom: 0.2mm solid #d9c9aa; vertical-align: top; }
-td.c, th.c { text-align: center; }
-.ico { height: 3.6mm; vertical-align: -0.9mm; }
-
-/* Portada y contraportada */
-.portada { padding: 0; background: #efe6cf; }
-.portada img { width: 105mm; height: 148mm; object-fit: cover; display: block; }
-.portada .faja {
-  position: absolute; left: 0; right: 0; top: 111mm; text-align: center;
-  font-weight: 800; font-size: 12pt; color: var(--marron); letter-spacing: 0.3mm;
-}
-.portada .sub { position: absolute; left: 0; right: 0; top: 118mm; text-align: center; font-size: 8pt; color: var(--marron); }
-
-/* Carta recortada casi sin sangrado marrón (823x1122 -> recorte 736x1036 desde 43,43) */
-.carta { position: relative; width: var(--w); height: calc(var(--w) * 1036 / 736); overflow: hidden; border-radius: calc(var(--w) * 0.045); flex: none; }
-.carta img { position: absolute; width: calc(var(--w) * 823 / 736); left: calc(var(--w) * -43 / 736); top: calc(var(--w) * -43 / 736); }
-.marca {
-  position: absolute; width: 4.6mm; height: 4.6mm; margin: -2.3mm 0 0 -2.3mm; border-radius: 50%;
-  background: #c62828; color: #fff; font-weight: 800; font-size: 8pt; line-height: 4.9mm; text-align: center;
-  border: 0.35mm solid #fff;
-}
-.marca-txt {
-  display: inline-block; width: 3.8mm; height: 3.8mm; border-radius: 50%; background: #c62828; color: #fff;
-  font-weight: 800; font-size: 7pt; line-height: 4.1mm; text-align: center; margin-right: 0.8mm;
-}
-.fila { display: flex; gap: 3.5mm; align-items: flex-start; }
-.leyenda p { margin-bottom: 1.25mm; }
-.pasos { counter-reset: paso; list-style: none; padding: 0; }
-.pasos > li { counter-increment: paso; position: relative; padding-left: 6mm; margin-bottom: 1.3mm; }
-.pasos > li::before {
-  content: counter(paso); position: absolute; left: 0; top: 0.1mm; width: 4.4mm; height: 4.4mm; border-radius: 50%;
-  background: var(--verde); color: #fff; font-weight: 800; text-align: center; line-height: 4.7mm; font-size: 7.6pt;
-}
-.modos td:first-child { font-weight: 800; white-space: nowrap; }
-.lista { font-size: 8pt; line-height: 1.2; }
-.lista td { padding: 0.3mm 1mm 0.05mm; }
-.lista th { padding: 0.4mm 1mm 0.15mm; font-size: 6.8pt; }
-.lista tr.corte td { border-bottom: 0.5mm solid var(--verde); }
-.dos { display: flex; gap: 2.5mm; }
-.creditos { text-align: center; }
-.creditos h1, .creditos h2 { text-align: left; }
-.creditos h2 { margin-top: 4mm; }
-.creditos .juego { font-weight: 800; font-size: 15pt; color: var(--marron); margin: 0 0 1mm; line-height: 1.1; }
-.creditos .rol { margin: 22mm 0 0; color: var(--marron); }
-.creditos .nombres { font-weight: 800; font-size: 12pt; color: var(--verde); margin: 0 0 4mm; }
-.creditos .ia { font-size: 7.2pt; color: var(--marron); margin-top: 4mm; }
-.creditos .cierre { font-weight: 800; color: var(--verde); margin-top: 3mm; }
-.dos > div { flex: 1; }
-</style>
+<link rel="stylesheet" href="instrucciones.css">
 </head>
 <body>
 
 <!-- 1 -->
 <section class="page portada">
-  <img src="../cards/_back.png" alt="">
+  <img src="../portada_viva.png" alt="Animals">
   <div class="faja">REGLAS DEL JUEGO</div>
   <div class="sub">2 a 7 jugadores · Edición clásica</div>
 </section>
@@ -153,7 +67,7 @@ td.c, th.c { text-align: center; }
       <p><span class="marca-txt">1</span><b>Coste.</b> Las bellotas que le ofreces para que venga a tu reserva. El Loro cuesta <span class="coste">3</span>.</p>
       <p><span class="marca-txt">2</span><b>Puntos de victoria.</b> Lo que vale al final de la partida. El Loro vale <span class="pv">2 PV</span>.</p>
       <p><span class="marca-txt">3</span><b>Nombre</b> de la especie.</p>
-      <p><span class="marca-txt">4</span><b>Hábitat.</b> Un animal puede tener uno, dos o los tres.</p>
+      <p><span class="marca-txt">4</span><b>Hábitat.</b> Un animal puede tener uno o varios.</p>
       <p><span class="marca-txt">5</span><b>Habilidad.</b> Se aplica cada vez que juegas la carta desde tu mano.</p>
     </div>
   </div>
@@ -250,9 +164,9 @@ td.c, th.c { text-align: center; }
   <h2>Jugar animales</h2>
   <p>Pon delante de ti animales de tu mano, <b>de uno en uno o varios a la vez</b>, y aplica sus
   habilidades de una en una. Puedes jugar todos los que quieras, o ninguno.</p>
-  <p>Cuando una habilidad habla de «tu mano», cuenta las cartas de tu mano y las que ya has
-  jugado este turno, incluida la propia carta. Si juegas un Mono y un Ornitorrinco, cada uno
-  cuenta al otro.</p>
+  <p>Cuando una habilidad habla de «tu mano», cuenta las cartas que tienes en la mano <b>en
+  ese momento</b> y las que ya has jugado este turno, incluida la propia carta. Si juegas un
+  Mono y un Ornitorrinco, cada uno cuenta al otro. Los animales que robes después no cuentan.</p>
   <p>Si una habilidad no se puede cumplir del todo, haz lo que sea posible.</p>
 
   <h2>Capturar</h2>
@@ -267,8 +181,8 @@ td.c, th.c { text-align: center; }
   <p>Las cartas de bellota que usas no se pierden: siguen siendo tuyas y se descartan al final
   del turno, como el resto de tu mano.</p>
 
-  <div class="nota"><p>Los animales que consigues gratis por una habilidad, como los del Elefante,
-  la Araña o el Flamenco, no cuentan para ese límite. Tampoco las bellotas del Pingüino o la Tortuga.</p></div>
+  <div class="nota"><p>No cuentan para ese límite los animales del Elefante, la Araña o el
+  Flamenco, ni las bellotas del Pingüino o la Tortuga.</p></div>
   <div class="num">6</div>
 </section>
 
@@ -314,7 +228,7 @@ td.c, th.c { text-align: center; }
   </table>
 
   <h2>Partida de aprendizaje (opcional)</h2>
-  <p>Pensada para la primera vez o para jugar con niños. Se montan solo las <b>21 especies</b>
+  <p>Se montan solo las <b>21 especies</b>
   de coste 4 o menos y las tres pilas de bellotas. Las 12 especies caras se quedan en la caja.</p>
   <p>Las cartas son más sencillas y no hay casi ninguna que puntúe de forma especial, así que
   el recuento final es rápido.</p>
@@ -437,7 +351,8 @@ td.c, th.c { text-align: center; }
     <li><b>Puede usarse sobre sí mismo:</b> devuelves el propio Flamenco y coges un animal de
     coste 5 o menos.</li>
     <li>La carta que devuelves queda en la reserva y puedes capturarla con bellotas ese mismo turno.</li>
-    <li>Puedes cambiar un Perezoso por un animal de coste 2 o menos.</li>
+    <li>Puedes cambiar un Perezoso por un animal de coste 2 o menos. Ese Perezoso <b>va a la
+    caja</b>, no a la reserva: los Perezosos nunca se pueden capturar.</li>
     <li>El cambio es gratis: no usas valor de captura.</li>
   </ul>
 
@@ -451,17 +366,16 @@ td.c, th.c { text-align: center; }
   </ul>
 
   <h2>Pingüino</h2>
-  <p>La «bellota de cobre» es la <b>bellota de valor 2</b>. La coges de su pila y va a tu mano,
-  así que puedes usarla este mismo turno. Después es una carta más de tu colección.</p>
-
+  <p>Coges la bellota de valor 2 de su pila y va <b>a tu mano</b>, así que puedes usarla este
+  mismo turno. Después es una carta más de tu colección.</p>
   <div class="num">12</div>
 </section>
 
 <!-- 13 -->
 <section class="page">
   <h1>Cartas de descarte</h1>
-  <p>La Hiena, la Serpiente y el Buitre obligan a descartar a los rivales. Las cartas
-  descartadas van al descarte <b>de su dueño</b>: nadie pierde cartas de su colección.</p>
+  <p>La Hiena, la Serpiente y el Buitre obligan a descartar a los rivales. Cada carta va al
+  descarte <b>de su dueño</b>.</p>
   <div class="nota"><p><b>Regla general.</b> Si hay empate o varias cartas posibles, elige siempre
   <b>el dueño de la carta</b> que se descarta, nunca quien jugó el animal.</p></div>
 
@@ -471,7 +385,9 @@ td.c, th.c { text-align: center; }
 
   <h2>Serpiente</h2>
   <p>Cada rival elige un animal de su mano y lo descarta. Después tú eliges <b>uno</b> de esos
-  animales y aplicas su habilidad como si lo hubieras jugado. La carta no cambia de dueño.</p>
+  animales y aplicas su habilidad como si lo hubieras jugado. La carta no cambia de dueño.
+  Si eliges un <b>Flamenco</b>, el animal que cambias ha de ser uno de los tuyos, nunca el
+  Flamenco del otro jugador.</p>
 
   <h2>Buitre</h2>
   <p>Cada rival elige 2 cartas de su mano y las descarta. Pueden ser animales o bellotas.</p>

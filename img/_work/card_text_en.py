@@ -13,12 +13,12 @@ CARD_TEXT_EN = {
     "pterodactyl": ("Pterodactyls", "Costs 1 acorn less for each dinosaur you have played this turn.\nWhen you play it, choose a dinosaur from the supply costing less than 6 and put it in your discard pile."),
     "mosasaurus": ("Mosasaurs", "Costs 1 acorn less for each dinosaur you have played this turn.\n+4 acorns.\nEach opponent removes an AQUATIC animal costing 4 or less from their hand."),
     "chicken": ("Chickens", "Discard an acorn from your hand to capture, from the supply, a LAND or AQUATIC animal costing 2 or less, and put it in your discard pile."),
-    "golden-fish": ("Golden Fish", "Swap an acorn from your hand for a gold acorn (value 3)."),
+    "golden-fish": ("Golden Fish", "Swap an acorn from your hand for an acorn of value 3."),
     "goose": ("Geese", "Add 1 to your capture value.\nAt the end of the game, +1 VP for each distinct pet animal in your whole collection."),
     "hamster": ("Hamsters", "When you play it, return all Hamsters from your discard pile to your hand.\n+1 acorn."),
     "hummingbird": ("Hummingbirds", "When you play it, you may leave it on the table instead of sending it to your discard pile, until you shuffle your deck: while it's there, it plays itself again every turn."),
     "iguana": ("Iguanas", "Draw 1 card."),
-    "ostrich": ("Ostriches", "Choose: draw 1 card, or discard a Gold acorn (or better) and return it to its supply to get a Tyrannosaurus or a Pterodactyl from the market."),
+    "ostrich": ("Ostriches", "Choose: draw 1 card, or discard an acorn of value 3 or more and return it to its supply to get a Tyrannosaurus or a Pterodactyl from the market."),
     "otter": ("Otters", "Discard an acorn from your hand to look at the top 3 cards of your deck: keep one and discard the rest."),
     "pig": ("Pigs", "Discard an acorn from your hand to draw as many cards as its value."),
     "plesiosaurus": ("Plesiosaurs", "Costs 2 acorns less for each dinosaur you have played this turn.\nWhen you play it, draw 2 cards.\nAt the end of the game, +1 VP for each dinosaur in your whole collection."),
@@ -75,7 +75,7 @@ CARD_TEXT_EN = {
     ),
     "lion": (
         "Lions",
-        "Add 3 to your purchasing power.",
+        "+3 acorns.",
     ),
     "monkey": (
         "Monkeys",
@@ -97,7 +97,7 @@ CARD_TEXT_EN = {
     "peacock": ("Peacocks", "Draw 1 card."),
     "penguin": (
         "Penguins",
-        "Add a copper acorn card to your hand.",
+        "Add an acorn of value 2 to your hand.",
     ),
     "raven": (
         "Ravens",
@@ -113,7 +113,7 @@ CARD_TEXT_EN = {
     ),
     "rabbit": (
         "Rabbits",
-        "Reveal the top card of your deck. If it isn't an animal costing more than 2, add it to your hand.",
+        "Reveal the top card of your deck. If it isn't an animal costing more than 4, add it to your hand.",
     ),
     "seal": (
         "Seals",
@@ -121,9 +121,9 @@ CARD_TEXT_EN = {
     ),
     "shark": (
         "Sharks",
-        "Add 3 to your purchasing power.\nAt the end of the game, +1 VP for each acorn card you have.",
+        "+3 acorns.\nAt the end of the game, +1 VP for each acorn card you have.",
     ),
-    "sloth": ("Sloths", "Does nothing. Just sleeps."),
+    "sloth": ("Sloths", "Whenever a card makes you discard one or more cards, you may discard the Sloth instead to cover the whole discard."),
     "snake": (
         "Snakes",
         "Each opponent discards an animal from their hand.\nChoose one of the discarded animals and use its ability.",

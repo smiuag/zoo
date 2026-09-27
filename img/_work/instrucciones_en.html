@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Animals - Rules</title>
+<!--
+  Versión en inglés de instrucciones.html: mismas 16 páginas A6, misma maqueta
+  (instrucciones.css) y mismas reglas. Usa las cartas de img/cards_en y los
+  términos de img/_work/card_text_en.py (acorn, market, discard pile, VP).
+  Se convierte a PDF con:  build_instrucciones.py en
+  MANTENER EN SINCRONÍA con instrucciones.html: cualquier cambio de reglas o de
+  texto en una versión hay que llevarlo a la otra.
+-->
+<link rel="stylesheet" href="instrucciones.css">
+</head>
+<body>
+
+<!-- 1 -->
+<section class="page portada">
+  <img src="../portada_viva.png" alt="Animals">
+  <div class="faja">GAME RULES</div>
+  <div class="sub">2 to 7 players · Classic edition</div>
+</section>
+
+<!-- 2 -->
+<section class="page">
+  <h1>Welcome to Animals</h1>
+  <p>Deep in the forest there is room for everyone. Monkeys, parrots, dolphins and lions are
+  looking for a quiet place to call home, and they all go crazy for the same thing:
+  <b>acorns</b>.</p>
+  <p>Each player looks after their own sanctuary. You start with a handful of acorns and three
+  very friendly, rather sleepy sloths. Turn by turn you will invite new animals by offering
+  them acorns, and each one will help you with its ability so that more friends can come.</p>
+
+  <h2>Goal</h2>
+  <p>Gather the collection of cards worth the most <span class="pv">victory points (VP)</span>
+  when the last round ends.</p>
+
+  <h2>Contents</h2>
+  <table>
+    <tr><th>Cards</th><th class="c">Copies</th></tr>
+    <tr><td>21 species costing 4 or less</td><td class="c">9 of each</td></tr>
+    <tr><td>12 species costing 5 or more</td><td class="c">7 of each</td></tr>
+    <tr><td>Sloths</td><td class="c">21</td></tr>
+    <tr><td>Acorns of value 1</td><td class="c">49</td></tr>
+    <tr><td>Acorns of value 2</td><td class="c">16</td></tr>
+    <tr><td>Acorns of value 3</td><td class="c">11</td></tr>
+    <tr><td>Acorns of value 5</td><td class="c">8</td></tr>
+  </table>
+  <p>378 cards in total.</p>
+  <div class="num">2</div>
+</section>
+
+<!-- 3 -->
+<section class="page">
+  <h1>Animal cards</h1>
+  <div class="fila">
+    <div class="carta" style="--w: 43mm">
+      <img src="../cards_en/parrot.png" alt="Parrot">
+      <span class="marca" style="left: 17.5%; top: 18.6%">1</span>
+      <span class="marca" style="left: 88.7%; top: 17.8%">2</span>
+      <span class="marca" style="left: 30.5%; top: 60.9%">3</span>
+      <span class="marca" style="left: 63.7%; top: 74.7%">4</span>
+      <span class="marca" style="left: 25.8%; top: 88.5%">5</span>
+    </div>
+    <div class="leyenda">
+      <p><span class="marca-txt">1</span><b>Cost.</b> The acorns you offer so it comes to your sanctuary. The Parrot costs <span class="coste">3</span>.</p>
+      <p><span class="marca-txt">2</span><b>Victory points.</b> What it is worth at the end of the game. The Parrot is worth <span class="pv">2 VP</span>.</p>
+      <p><span class="marca-txt">3</span><b>Name</b> of the species.</p>
+      <p><span class="marca-txt">4</span><b>Habitat.</b> An animal can have one or several.</p>
+      <p><span class="marca-txt">5</span><b>Ability.</b> It applies every time you play the card from your hand.</p>
+    </div>
+  </div>
+
+  <h2>The three habitats</h2>
+  <p>
+    <img class="ico" src="../iconos_tipo/land.png" alt=""> Land &nbsp;
+    <img class="ico" src="../iconos_tipo/bird.png" alt=""> Flying &nbsp;
+    <img class="ico" src="../iconos_tipo/aquatic.png" alt=""> Aquatic
+  </p>
+  <p>An animal with several habitats counts for all of them. The Duck is both flying and aquatic.</p>
+
+  <div class="ejemplo">
+    <p><b>Example.</b> You play the Parrot with a Duck in your hand. The Parrot counts itself and
+    counts the Duck: you have 2 flying animals, so you get <b>+2 acorns</b> for this turn.</p>
+  </div>
+  <div class="num">3</div>
+</section>
+
+<!-- 4 -->
+<section class="page">
+  <h1>Acorns</h1>
+  <div class="fila">
+    <div class="carta" style="--w: 34mm">
+      <img src="../cards_en/coin-1.png" alt="Acorn of value 1">
+    </div>
+    <div>
+      <p>Every animal loves acorns. Acorn cards have no name and no text: their <b>value</b> is
+      the number carved on the acorn.</p>
+      <p>An acorn is <b>never played</b>. It stays in your hand and adds its value to the acorns
+      you can offer this turn.</p>
+      <p>The acorn of value 1 cannot be taken from the market, so its cost is a dash. It gives no points either.</p>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>Acorn</th><th class="c">Value</th><th class="c">Cost</th><th class="c">VP</th></tr>
+    <tr><td>Red panda</td><td class="c">1</td><td class="c">–</td><td class="c">0</td></tr>
+    <tr><td>Sloth</td><td class="c">2</td><td class="c">3</td><td class="c">1</td></tr>
+    <tr><td>Squirrel</td><td class="c">3</td><td class="c">5</td><td class="c">2</td></tr>
+    <tr><td>Koala</td><td class="c">5</td><td class="c">7</td><td class="c">3</td></tr>
+  </table>
+
+  <h2>Acorn cards and ability acorns</h2>
+  <p>Many abilities say “+2 acorns”. That does <b>not</b> give you a card: it only raises the
+  acorns you can offer <b>this turn</b>. Any you do not use are lost.</p>
+  <p>Your <b>capture value</b> is the sum of the acorns in your hand and the acorns your
+  abilities give you.</p>
+
+  <h2>The Sloth</h2>
+  <p>Cost 0 and 0 VP. It does nothing when played, but it protects you: when an opponent's card
+  makes you discard, you may discard a Sloth instead of everything you were asked for.</p>
+  <div class="num">4</div>
+</section>
+
+<!-- 5 -->
+<section class="page">
+  <h1>Setup</h1>
+  <ol class="pasos">
+    <li><b>Starting deck.</b> Each player takes <b>7 acorns of value 1</b> and <b>3 Sloths</b>.
+    Shuffle those 10 cards and place them face down: this is your deck.</li>
+    <li><b>The market.</b> Place one face-up pile per species in the middle, with these copies:
+      <table>
+        <tr><th>Species</th><th class="c">Copies in the pile</th></tr>
+        <tr><td>Cost 4 or less</td><td class="c">players + 2</td></tr>
+        <tr><td>Cost 5 or more</td><td class="c">one per player</td></tr>
+      </table>
+      With 4 players that is 6 and 4 copies. Leftover cards go back in the box.</li>
+    <li><b>The acorns.</b> Make three piles with the acorns of value 2, 3 and 5. Leftover
+    acorns of value 1 and Sloths go back in the box.</li>
+    <li><b>Starting hand.</b> Every player draws <b>5 cards</b> from their deck.</li>
+    <li><b>First player.</b> Whoever saw a wild animal most recently goes first. Play goes
+    clockwise.</li>
+  </ol>
+
+  <h2>Your play area</h2>
+  <ul>
+    <li><b>Deck:</b> face down, on your left.</li>
+    <li><b>Discard pile:</b> face up, on your right. Everything you capture goes here.</li>
+    <li><b>Collection:</b> all your cards, whether in your deck, hand or discard pile.</li>
+  </ul>
+  <div class="nota"><p>Choose the type of game before setting up the market. See page 8.</p></div>
+  <div class="num">5</div>
+</section>
+
+<!-- 6 -->
+<section class="page">
+  <h1>Your turn</h1>
+  <p>On your turn you may play animals and capture cards, in any order and switching between
+  the two. When you are done, end your turn.</p>
+  <p><b>Squirrel.</b> First of all, if you have Squirrels in your discard pile, one returns to
+  your hand. Only one per turn.</p>
+
+  <h2>Playing animals</h2>
+  <p>Place animals from your hand in front of you, <b>one at a time or several at once</b>, and
+  apply their abilities one by one. Play as many as you like, or none.</p>
+  <p>When an ability mentions “your hand”, it counts the cards in your hand <b>at that
+  moment</b> and the ones you have already played this turn, including the card itself. If you
+  play a Monkey and a Platypus, each one counts the other. Animals you draw later do not count.</p>
+  <p>If an ability cannot be fully carried out, do as much as you can.</p>
+
+  <h2>Capturing</h2>
+  <p>Add up your capture value and use it in the market:</p>
+  <ul>
+    <li>You may capture <b>several cards</b> in the same turn if you have enough for all of them.</li>
+    <li>You may also take acorns of value 2, 3 and 5.</li>
+    <li>Only <b>one card of each kind per turn</b>: not two animals of the same species, and not
+    two acorns of the same value.</li>
+    <li>Everything you capture goes to your <b>discard pile</b>, not to your hand.</li>
+  </ul>
+  <p>The acorn cards you use are not lost: they are discarded at the end of the turn, like
+  the rest of your hand.</p>
+
+  <div class="nota"><p>Animals from the Elephant, the Spider or the Flamingo do not count towards
+  that limit, nor do acorns from the Penguin or the Turtle.</p></div>
+  <div class="num">6</div>
+</section>
+
+<!-- 7 -->
+<section class="page">
+  <h1>End of your turn</h1>
+  <ol class="pasos">
+    <li>Put the animals you played and <b>all</b> the cards left in your hand, acorns included,
+    in your discard pile.</li>
+    <li>Draw <b>5 new cards</b>. You will hold them during the other players' turns.</li>
+    <li>The player on your left takes the next turn.</li>
+  </ol>
+
+  <h2>When your deck runs out</h2>
+  <p>If you have to draw and your deck is empty, shuffle your discard pile and place it face
+  down as your new deck. Then keep drawing. This is how the animals you captured come back to
+  your hand.</p>
+
+  <h2>A round</h2>
+  <p>A round ends when every player has taken one turn. Keep track of the rounds on paper or
+  with a die.</p>
+
+  <div class="ejemplo">
+    <p><b>Example turn.</b> Your hand is Parrot, Parakeet and three acorns of value 1.</p>
+    <p>You play the Parrot. The Parakeet counts as 2 flying animals and the Parrot as 1, so you
+    get +3 acorns. With your three acorns of value 1 your capture value is <b>6</b>.</p>
+    <p>You capture a Penguin for 3 and a Dolphin for 3. Both go to your discard pile.</p>
+    <p>You discard your whole hand and the Parrot you played, and draw 5 cards.</p>
+  </div>
+  <div class="num">7</div>
+</section>
+
+<!-- 8 -->
+<section class="page">
+  <h1>Types of game</h1>
+  <p>Choose one before you start. The game always ends when the last round is over, so
+  everyone plays the same number of turns.</p>
+  <table class="modos">
+    <tr><th>Game</th><th>Market</th><th class="c">Rounds</th></tr>
+    <tr><td>Learning</td><td>Only species costing 4 or less</td><td class="c">10</td></tr>
+    <tr><td>Intermediate</td><td>Only species costing 6 or less</td><td class="c">12</td></tr>
+    <tr><td>Full</td><td>All species</td><td class="c">15</td></tr>
+    <tr><td>Custom</td><td>Whichever you like</td><td class="c">Your choice</td></tr>
+  </table>
+
+  <h2>Learning game (optional)</h2>
+  <p>Set up only the <b>21 species</b>
+  costing 4 or less and the three acorn piles. The 12 expensive species stay in the box.</p>
+  <p>The cards are simpler and hardly any of them score in a special way, so final scoring is
+  quick.</p>
+
+  <h2>Intermediate game</h2>
+  <p>The <b>30 species</b> costing 6 or less and 12 rounds. The Eagle, the Orca and the Polar
+  Bear stay in the box.</p>
+
+  <h2>Full game</h2>
+  <p>All species and 15 rounds. There is time for decks to grow and for expensive cards to be
+  played several times.</p>
+
+  <h2>Custom game</h2>
+  <p>Feel free to play as many rounds as you like, with the animals you like. If you do not
+  enjoy a card, simply leave it out of your games.</p>
+
+  <div class="nota"><p>If a market pile runs out, that card can no longer be taken. The game
+  carries on as normal until the last round.</p></div>
+  <div class="num">8</div>
+</section>
+
+<!-- 9 -->
+<section class="page">
+  <h1>End of the game</h1>
+  <p>When the last player finishes their turn in the last round, the game ends. Each player
+  gathers <b>their whole collection</b>: deck, hand and discard pile.</p>
+
+  <h2>Scoring</h2>
+  <ol class="pasos">
+    <li><b>Crocodiles.</b> For each Crocodile you have, remove one non-flying animal from your
+    collection. The removed card scores nothing and counts for nothing.</li>
+    <li><b>Printed points.</b> Add up the <span class="pv">VP</span> on the shield of all your
+    cards, animals and acorns.</li>
+    <li><b>Collection points.</b> Add the points from the cards on the next page.</li>
+  </ol>
+  <p>The player with the most points wins.</p>
+
+  <h2>Tiebreaker</h2>
+  <p>If there is a tie on points, the tied player with the <b>most animals</b> in their
+  collection wins.</p>
+  <p>If they are also tied on animals, they <b>share the victory</b>.</p>
+
+  <h2>Questions about the Crocodile</h2>
+  <ul>
+    <li>Each Crocodile removes <b>one</b> different <b>card</b>. Two Crocodiles cannot remove a
+    single Goldfish, even though it counts as 2 aquatic animals.</li>
+    <li>If your only non-flying animal is the Crocodile itself, it removes itself.</li>
+  </ul>
+  <div class="num">9</div>
+</section>
+
+<!-- 10 -->
+<section class="page">
+  <h1>Scoring cards</h1>
+  <p>These six cards give extra points depending on the rest of your collection.</p>
+  <table>
+    <tr><th>Card</th><th>+1 VP for each…</th></tr>
+    <tr><td><b>Eagle</b></td><td>flying animal</td></tr>
+    <tr><td><b>Polar Bear</b></td><td>land animal</td></tr>
+    <tr><td><b>Orca</b></td><td>aquatic animal</td></tr>
+    <tr><td><b>Albatross</b></td><td>different animal species</td></tr>
+    <tr><td><b>Toucan</b></td><td>animal costing 5 or more</td></tr>
+    <tr><td><b>Shark</b></td><td>acorn card, whatever its value</td></tr>
+  </table>
+
+  <h2>How to count</h2>
+  <ul>
+    <li>Count your <b>whole collection</b>, not just your hand.</li>
+    <li>The card <b>counts itself</b>. The Eagle is a flying animal and the Toucan costs 5.</li>
+    <li><b>Each copy scores separately.</b> With 2 Eagles and 6 flying animals you score 6 + 6 = 12 VP.</li>
+    <li>An animal with several habitats counts for each of them. The Albatross is land, flying
+    and aquatic.</li>
+    <li>The <b>Parakeet</b> counts as 2 flying animals and the <b>Goldfish</b> as 2 aquatic animals.</li>
+    <li><b>Cards from your starting deck count too.</b> Your acorns of value 1 count for the
+    Shark. Your Sloths count as land animals for the Polar Bear and as one more species for
+    the Albatross.</li>
+    <li>Several copies of the same species count only once for the Albatross.</li>
+  </ul>
+  <div class="num">10</div>
+</section>
+
+<!-- 11 -->
+<section class="page">
+  <h1>Scoring example</h1>
+  <p>At the end of the game, this is Martha's collection:</p>
+  <table>
+    <tr><th>Cards</th><th class="c">Printed VP</th></tr>
+    <tr><td>1 Eagle</td><td class="c">2</td></tr>
+    <tr><td>2 Parrots</td><td class="c">2 + 2</td></tr>
+    <tr><td>1 Parakeet</td><td class="c">1</td></tr>
+    <tr><td>1 Duck</td><td class="c">1</td></tr>
+    <tr><td>1 Monkey</td><td class="c">3</td></tr>
+    <tr><td>1 Polar Bear</td><td class="c">0</td></tr>
+    <tr><td>1 Shark</td><td class="c">0</td></tr>
+    <tr><td>3 Sloths</td><td class="c">0</td></tr>
+    <tr><td>7 acorns of value 1</td><td class="c">0</td></tr>
+    <tr><td>2 acorns of value 2</td><td class="c">1 + 1</td></tr>
+    <tr><td><b>Printed points</b></td><td class="c"><b>13</b></td></tr>
+  </table>
+  <ul>
+    <li><b>Eagle:</b> Eagle, 2 Parrots, Duck and Parakeet, which counts double. That is 6 flying animals: <b>+6</b>.</li>
+    <li><b>Polar Bear:</b> Polar Bear, Monkey and 3 Sloths. That is 5 land animals: <b>+5</b>.</li>
+    <li><b>Shark:</b> 9 acorn cards: <b>+9</b>.</li>
+  </ul>
+  <div class="ejemplo"><p>Martha's total: 13 + 6 + 5 + 9 = <span class="pv">33 VP</span>.</p></div>
+  <p>For the tiebreaker, Martha has 11 animals in her collection.</p>
+  <div class="num">11</div>
+</section>
+
+<!-- 12 -->
+<section class="page">
+  <h1>Card clarifications</h1>
+
+  <h2>Flamingo</h2>
+  <p>You return an animal to its market pile and take another of a <b>different species</b>
+  costing at most 2 acorns more. The new animal goes to your discard pile.</p>
+  <ul>
+    <li><b>You may use the animal before exchanging it.</b> Play that animal first, apply its
+    ability, then play the Flamingo to exchange it.</li>
+    <li><b>It can be used on itself:</b> you return the Flamingo and take an animal costing 5
+    or less.</li>
+    <li>The card you return stays in the market, and you may capture it with acorns that same turn.</li>
+    <li>You may exchange a Sloth for an animal costing 2 or less. That Sloth <b>goes to the
+    box</b>, not to the market: Sloths can never be captured.</li>
+    <li>The exchange is free: it uses no capture value.</li>
+  </ul>
+
+  <h2>Turtle</h2>
+  <p>Exchange an acorn in your hand for the next tier: 1 to 2, 2 to 3, or 3 to 5.</p>
+  <ul>
+    <li><b>You exchange the acorn before using it.</b> The acorn you return goes to its market
+    pile, or to the box if its value is 1.</li>
+    <li>The acorn you get goes <b>to your hand</b> and you may use it this same turn.</li>
+    <li>An acorn of value 5 cannot be upgraded.</li>
+  </ul>
+
+  <h2>Penguin</h2>
+  <p>Take the acorn of value 2 from its pile. It goes <b>to your hand</b>, so you may use it this
+  same turn. After that it is one more card in your collection.</p>
+  <div class="num">12</div>
+</section>
+
+<!-- 13 -->
+<section class="page">
+  <h1>Discard cards</h1>
+  <p>The Hyena, the Snake and the Vulture make opponents discard. Each card goes to
+  <b>its owner's</b> discard pile.</p>
+  <div class="nota"><p><b>General rule.</b> If there is a tie or several possible cards, the choice
+  always belongs to <b>the owner of the card</b> being discarded, never to whoever played the animal.</p></div>
+
+  <h2>Hyena</h2>
+  <p>Each opponent reveals their hand and discards their highest-cost animal. If several are
+  tied for the highest cost, they choose which one. A player with no animals discards nothing.</p>
+
+  <h2>Snake</h2>
+  <p>Each opponent chooses an animal from their hand and discards it. Then you choose <b>one</b>
+  of those animals and apply its ability as if you had played it. The card does not change owner.
+  If you choose a <b>Flamingo</b>, the animal you exchange must be one of your own, never the
+  other player's Flamingo.</p>
+
+  <h2>Vulture</h2>
+  <p>Each opponent chooses 2 cards from their hand and discards them. They can be animals or acorns.</p>
+
+  <h2>Duck</h2>
+  <p>The player you choose decides <b>which acorn to give you</b>. That acorn goes to your hand
+  and is yours for the rest of the game. If they have no acorns, they just reveal their hand.</p>
+
+  <h2>Sloth</h2>
+  <p>Against the Hyena, the Snake or the Vulture you may discard <b>one Sloth</b> instead of what
+  you are asked for. A single Sloth covers both cards of the Vulture. It does not work against the Duck.</p>
+  <div class="num">13</div>
+</section>
+
+<!-- 14 -->
+<section class="page">
+  <h1>Other cards</h1>
+
+  <h2>Giraffe and Bat</h2>
+  <p>The card you retrieve goes to your hand and you may play it this turn. <b>You may retrieve a
+  card you have just obtained:</b> everything you get goes straight to your discard pile,
+  whether with acorns, with the Spider or with the Elephant.</p>
+
+  <h2>Rabbit</h2>
+  <p>Reveal the top card of your deck. If it is an acorn or an animal costing 4 or less, it goes
+  to your hand. If it is a more expensive animal, it stays on top of your deck. If your deck is
+  empty, first shuffle your discard pile to form a new deck.</p>
+
+  <h2>Tiger</h2>
+  <p>Draw 2 cards, then put any one card from your hand on top of your deck. It does not have to
+  be one of the cards you just drew.</p>
+
+  <h2>Elephant and Spider</h2>
+  <p>The animal you choose from the market is free and goes to your discard pile. Its ability is
+  not applied.</p>
+
+  <h2>Seal</h2>
+  <p>You may combine its 3 acorns with others and split them among several cards. The only
+  condition is that the Seal's acorns are used on aquatic animals.</p>
+
+  <h2>Monkey, Platypus and Raven</h2>
+  <p>The Monkey counts land <b>animals</b> and the Platypus counts <b>different species</b>. With
+  2 Sloths, a Monkey and a Platypus, the Monkey gives +4 acorns and the Platypus +3.</p>
+  <p>The Raven counts acorn <b>cards</b>, not their value.</p>
+  <div class="num">14</div>
+</section>
+
+<!-- 15 -->
+<section class="page">
+  <h1>Quick reference</h1>
+  <h2>Setup</h2>
+  <ul>
+    <li>Each player: 7 acorns of value 1 and 3 Sloths. Shuffle and draw 5.</li>
+    <li>Market piles: players + 2 copies if the cost is 4 or less, one copy per player if it is
+    5 or more.</li>
+  </ul>
+  <h2>Your turn</h2>
+  <ol class="pasos">
+    <li>If there is a Squirrel in your discard pile, it returns to your hand.</li>
+    <li>Play animals and capture cards, in any order. Only one card of each kind per turn.</li>
+    <li>Captured cards go to your discard pile.</li>
+    <li>Discard everything and draw 5 cards.</li>
+  </ol>
+  <h2>Length</h2>
+  <table class="modos">
+    <tr><td>Learning</td><td>cost 4 or less</td><td class="c">10 rounds</td></tr>
+    <tr><td>Intermediate</td><td>cost 6 or less</td><td class="c">12 rounds</td></tr>
+    <tr><td>Full</td><td>all cards</td><td class="c">15 rounds</td></tr>
+  </table>
+  <h2>Scoring</h2>
+  <ol class="pasos">
+    <li>Each Crocodile removes one non-flying animal.</li>
+    <li>Add up the printed VP of your whole collection.</li>
+    <li>Add Eagle, Polar Bear, Orca, Albatross, Toucan and Shark.</li>
+    <li>Tie: most animals in the collection. If still tied, shared victory.</li>
+  </ol>
+  <div class="num">15</div>
+</section>
+
+<!-- 16 -->
+<section class="page creditos">
+  <h1>Credits</h1>
+  <p class="rol">A game created by</p>
+  <p class="nombres">Gemma and Diego</p>
+
+  <p>Thank you to everyone who supported us and helped make this game happen.</p>
+  <p>To those who tried the first versions, put up with games played with half-finished cards
+  and kindly told us what was not working. To those who suggested animals, abilities and
+  rules. And to those who simply sat down to play one more game.</p>
+  <p>This game is yours too.</p>
+  <p class="cierre">Thanks for playing!</p>
+  <p class="ia">© 2026 Gemma and Diego. All rights reserved.<br>
+  Developed with the help of artificial intelligence.</p>
+  <div class="num">16</div>
+</section>
+
+</body>
+</html>

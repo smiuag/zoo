@@ -6,7 +6,7 @@
   "edition": "full",
   "marketCost": 4,
   "victoryPoints": 2,
-  "text": "Cambia una moneda de tu mano por una moneda dorada (Oro, Valor 3).",
+  "text": "Cambia una moneda de tu mano por una moneda de valor 3.",
   "effects": [
     {
       "trigger": "onPlay",

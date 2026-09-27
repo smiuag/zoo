@@ -1,7 +1,11 @@
 """Genera img/instrucciones.pdf (reglamento A6 de la edición clásica) a partir
 de img/_work/instrucciones.html, usando Chrome o Edge sin ventana.
 
-Uso:  /c/Python310/python img/_work/build_instrucciones.py [--previews]
+Uso:  /c/Python310/python img/_work/build_instrucciones.py [en] [--previews]
+
+Sin argumento genera el castellano (instrucciones.html -> img/instrucciones.pdf); con
+"en", el inglés (instrucciones_en.html -> img/instrucciones_en.pdf). Las dos versiones
+comparten instrucciones.css.
 
 Con --previews deja además una imagen PNG por página en
 img/_work/preview_instrucciones/ para revisar la maqueta a ojo.
@@ -19,9 +23,26 @@ import tempfile
 import fitz
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-HTML = os.path.join(HERE, "instrucciones.html")
-OUT = os.path.join(HERE, "..", "instrucciones.pdf")
-PREVIEW_DIR = os.path.join(HERE, "preview_instrucciones")
+SUFFIX = "_en" if "en" in sys.argv[1:] else ""
+# --fondo: PRUEBA con todas las páginas sobre la textura de pergamino del dorso de las
+# cartas (img/fondo_pergamino.jpg, la genera build_fondo_pergamino.py). No sustituye al reglamento normal: escribe
+# instrucciones[_en]_fondo.pdf aparte. Ojo al imprimir: un fondo de color llega hasta el
+# borde, así que una impresora normal deja filo blanco y hace falta sangrado y recorte.
+# --capa: mismas páginas y mismos colores de recuadro que --fondo pero con el fondo de
+# página TRANSPARENTE. No es para imprimir tal cual: es la capa de texto que
+# build_instrucciones_librillo.py --pergamino coloca sobre un folio entero de pergamino.
+CAPA = "--capa" in sys.argv[1:]
+FONDO = "--fondo" in sys.argv[1:] or CAPA
+VARIANT = "_capa" if CAPA else "_fondo" if FONDO else ""
+HTML = os.path.join(HERE, f"instrucciones{SUFFIX}.html")
+OUT = os.path.join(HERE, "..", f"instrucciones{SUFFIX}{VARIANT}.pdf")
+PREVIEW_DIR = os.path.join(HERE, f"preview_instrucciones{SUFFIX}{VARIANT}")
+FONDO_CSS = """<style>
+.page, .portada { background: #ede2c7 url(../fondo_pergamino.jpg) center / cover no-repeat; }
+.nota { background: #e0cfa8; }
+.ejemplo { background: #d6e2bf; }
+td { border-bottom-color: #cbb98f; }
+</style>"""
 EXPECTED_PAGES = 16  # múltiplo de 4: librillo grapado de hojas A5 plegadas
 BROWSERS = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
@@ -35,6 +56,11 @@ MM = 72 / 25.4
 BOTTOM_LIMIT_MM = 148 - 8.5
 
 
+CAPA_CSS = """<style>
+html, body, .page, .portada { background: transparent !important; }
+</style>"""
+
+
 def find_browser():
     for path in BROWSERS:
         if os.path.exists(path):
@@ -44,7 +70,15 @@ def find_browser():
 
 def main():
     out = os.path.abspath(OUT)
-    url = "file:///" + HTML.replace("\\", "/")
+    html_path = HTML
+    if FONDO:
+        # copia temporal junto al original (mismas rutas relativas) con los estilos de fondo
+        html_path = os.path.join(HERE, f"_instrucciones{SUFFIX}_fondo_tmp.html")
+        with open(HTML, encoding="utf-8") as f:
+            src = f.read()
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(src.replace("</head>", (FONDO_CSS + CAPA_CSS if CAPA else FONDO_CSS) + "</head>"))
+    url = "file:///" + html_path.replace("\\", "/")
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as profile:
         subprocess.run(
             [
@@ -59,6 +93,9 @@ def main():
             check=True,
             timeout=120,
         )
+
+    if FONDO:
+        os.remove(html_path)
 
     doc = fitz.open(out)
     problems = []

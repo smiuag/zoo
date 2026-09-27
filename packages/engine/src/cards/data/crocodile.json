@@ -6,7 +6,7 @@
   "marketCost": 5,
   "victoryPoints": 7,
   "text": "Roba 1 carta.\nAl final de la partida, antes de la puntuación, elimina de tu colección una carta de animal no volador.",
-  "fullEditionText": "Elige: roba una carta, o descarta una moneda de Oro (o mejor) y devuélvelo a su reserva para conseguir, del mercado, un Mosasaurio o un Plesiosaurio.\nAl final de la partida, antes de la puntuación, elimina de tu colección una carta de animal no volador.",
+  "fullEditionText": "Elige: roba una carta, o descarta una moneda de valor 3 o más y devuélvelo a su reserva para conseguir, del mercado, un Mosasaurio o un Plesiosaurio.\nAl final de la partida, antes de la puntuación, elimina de tu colección una carta de animal no volador.",
   "effects": [
     {
       "trigger": "onPlay",

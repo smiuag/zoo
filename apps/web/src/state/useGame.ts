@@ -356,12 +356,20 @@ export function useGame(): UseGame {
   // El actor de una acción NO es siempre "el jugador activo": un
   // resolveDiscard lo resuelve el jugador afectado, que puede ser distinto
   // (ver PendingDiscardDecision) — se deduce de quién tiene de verdad esa
-  // carta en la mano ahora mismo, en vez de asumir getActivePlayer(state).
+  // carta ahora mismo, en vez de asumir getActivePlayer(state). Se mira la
+  // mano Y la mesa (player.table): "cada oponente elimina un animal..."
+  // también alcanza a lo dejado sobre la mesa (Colibrí/Gallina/Perro). Mirando
+  // solo la mano, pulsar la única carta elegible cuando estaba en la mesa no
+  // encontraba actor, la acción se descartaba en silencio y el aviso de
+  // entrega (que no se puede cerrar) dejaba la partida bloqueada — reportado
+  // por el usuario 2026-09-27: Pteranodon rival contra un Colibrí en mesa.
   // El resto de acciones (playCard/buyAnimal/buyCoin/endTurn) solo puede
   // hacerlas el jugador activo, como siempre.
   function actorForAction(action: Action): string | undefined {
     if (action.type === 'resolveDiscard') {
-      return state.players.find((p) => p.hand.some((c) => c.instanceId === action.instanceId))?.id;
+      return state.players.find((p) =>
+        [...p.hand, ...(p.table ?? [])].some((c) => c.instanceId === action.instanceId)
+      )?.id;
     }
     return getActivePlayer(state).id;
   }

@@ -6,7 +6,7 @@
   "edition": "full",
   "marketCost": 5,
   "victoryPoints": 5,
-  "text": "Elige: roba una carta, o descarta una moneda de Oro (o mejor) y devuélvela a su reserva para conseguir, del mercado, un Tiranosaurio o un Pterodáctilo.",
+  "text": "Elige: roba una carta, o descarta una moneda de valor 3 o más y devuélvela a su reserva para conseguir, del mercado, un Tiranosaurio o un Pterodáctilo.",
   "effects": [
     {
       "trigger": "onPlay",

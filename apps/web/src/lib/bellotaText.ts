@@ -30,7 +30,7 @@ export const BELLOTA_TEXT: Record<string, string> = {
   hamster: 'Al jugarlo, devuelve a tu mano todos los hámsteres de tu descarte.\n+1 bellota.',
   chicken:
     'Al jugarla, puedes dejarla sobre la mesa en vez de enviarla al descarte, hasta que barajes tu mazo.\nDescarta una bellota de tu mano para capturar, de la reserva, un animal terrestre o acuático de coste 2 o menos y ponlo en tu descarte.',
-  'golden-fish': 'Cambia una bellota de tu mano por una bellota de oro (valor 3).',
+  'golden-fish': 'Cambia una bellota de tu mano por una bellota de valor 3.',
   otter: 'Descarta una bellota de tu mano de valor 2 o más para mirar las 3 cartas superiores de tu mazo: quédate una y descarta el resto.',
   pig: 'Descarta una bellota de tu mano de valor 2 o más para robar una carta.',
   goose: 'Añade 1 bellota.\nAl final de la partida, +1PV por cada animal doméstico distinto que tengas en toda tu colección.',
@@ -49,7 +49,7 @@ export const BELLOTA_TEXT: Record<string, string> = {
   orca: '+2 bellotas.\n+1PV por cada animal acuático que tengas en todo tu mazo.',
   owl: '+1 bellota.\nRoba una carta.',
   parrot: '+1 bellota por cada animal volador que tengas en tu mano.',
-  penguin: 'Añade una carta de bellota de cobre a tu mano.',
+  penguin: 'Añade una bellota de valor 2 a tu mano.',
   platypus: '+1 bellota por cada animal distinto que tengas en tu mano.',
   'polar-bear': '+2 bellotas.\n+1PV por cada animal terrestre que tengas en todo tu mazo.',
   raven: '+1 bellota por cada carta de bellota en tu mano.',

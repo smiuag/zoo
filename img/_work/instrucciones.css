@@ -1,0 +1,88 @@
+/* Estilos compartidos por instrucciones.html y instrucciones_en.html (reglamento A6). */
+@font-face { font-family: "Baloo"; src: url("fonts/Baloo2-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Baloo"; src: url("fonts/Baloo2-ExtraBold.ttf"); font-weight: 800; }
+@page { size: 105mm 148mm; margin: 0; }
+:root {
+  --verde: #3c7a3a;
+  --verde-claro: #e6f0dc;
+  --marron: #6b4423;
+  --marron-claro: #f4ead7;
+  --tinta: #2b2118;
+  --morado: #5a2d82;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { font-family: "Baloo", sans-serif; font-size: 8.5pt; line-height: 1.24; color: var(--tinta); }
+.page {
+  width: 105mm; height: 148mm; padding: 8mm 8mm 10mm 8mm;
+  position: relative; overflow: hidden; page-break-after: always; background: #fff;
+}
+.page:last-child { page-break-after: auto; }
+.num { position: absolute; bottom: 3.5mm; left: 0; right: 0; text-align: center; font-size: 7pt; color: var(--marron); }
+h1 {
+  font-weight: 800; font-size: 13pt; line-height: 1.1; margin: 0 0 2.5mm 0; padding: 1.6mm 3mm 1.2mm;
+  color: #fff; background: var(--verde); border-radius: 2mm;
+}
+h2 { font-weight: 800; font-size: 9.6pt; line-height: 1.15; color: var(--marron); margin: 2.4mm 0 0.8mm 0; }
+h2:first-child { margin-top: 0; }
+p { margin: 0 0 1.5mm 0; }
+ul, ol { margin: 0 0 1.5mm 0; padding-left: 4.2mm; }
+li { margin-bottom: 0.7mm; }
+b, strong { font-weight: 800; }
+.nota { background: var(--marron-claro); border-left: 1mm solid var(--marron); border-radius: 1mm; padding: 1.4mm 2mm 1mm; margin: 1.5mm 0; }
+.ejemplo { background: var(--verde-claro); border-left: 1mm solid var(--verde); border-radius: 1mm; padding: 1.4mm 2mm 1mm; margin: 1.5mm 0; }
+.nota p:last-child, .ejemplo p:last-child { margin-bottom: 0; }
+.pv { color: var(--morado); font-weight: 800; }
+.coste { color: #1d6b1d; font-weight: 800; }
+table { border-collapse: collapse; width: 100%; margin: 1mm 0 1.5mm; }
+th { font-weight: 800; background: var(--marron); color: #fff; text-align: left; padding: 0.6mm 1.2mm 0.3mm; font-size: 7.4pt; }
+td { padding: 0.55mm 1.2mm 0.25mm; border-bottom: 0.2mm solid #d9c9aa; vertical-align: top; }
+td.c, th.c { text-align: center; }
+.ico { height: 3.6mm; vertical-align: -0.9mm; }
+
+/* Portada: fondo blanco (sin imagen a sangre, para que la impresora no deje filo) con el
+   emblema ya recortado y avivado de img/portada_viva.png (lo genera build_portada.py a
+   partir de img/portada.png). */
+.portada { padding: 0; background: #fff; }
+.portada img { position: absolute; width: 86mm; height: auto; left: 9.5mm; top: 20mm; display: block; }
+.portada .faja {
+  position: absolute; left: 0; right: 0; top: 118mm; text-align: center;
+  font-weight: 800; font-size: 14pt; color: var(--marron); letter-spacing: 0.4mm;
+}
+.portada .sub { position: absolute; left: 0; right: 0; top: 127mm; text-align: center; font-size: 8.5pt; color: var(--marron); }
+
+/* Carta recortada casi sin sangrado marrón (823x1122 -> recorte 736x1036 desde 43,43) */
+.carta { position: relative; width: var(--w); height: calc(var(--w) * 1036 / 736); overflow: hidden; border-radius: calc(var(--w) * 0.045); flex: none; }
+.carta img { position: absolute; width: calc(var(--w) * 823 / 736); left: calc(var(--w) * -43 / 736); top: calc(var(--w) * -43 / 736); }
+.marca {
+  position: absolute; width: 4.6mm; height: 4.6mm; margin: -2.3mm 0 0 -2.3mm; border-radius: 50%;
+  background: #c62828; color: #fff; font-weight: 800; font-size: 8pt; line-height: 4.9mm; text-align: center;
+  border: 0.35mm solid #fff;
+}
+.marca-txt {
+  display: inline-block; width: 3.8mm; height: 3.8mm; border-radius: 50%; background: #c62828; color: #fff;
+  font-weight: 800; font-size: 7pt; line-height: 4.1mm; text-align: center; margin-right: 0.8mm;
+}
+.fila { display: flex; gap: 3.5mm; align-items: flex-start; }
+.leyenda p { margin-bottom: 1.25mm; }
+.pasos { counter-reset: paso; list-style: none; padding: 0; }
+.pasos > li { counter-increment: paso; position: relative; padding-left: 6mm; margin-bottom: 1.3mm; }
+.pasos > li::before {
+  content: counter(paso); position: absolute; left: 0; top: 0.1mm; width: 4.4mm; height: 4.4mm; border-radius: 50%;
+  background: var(--verde); color: #fff; font-weight: 800; text-align: center; line-height: 4.7mm; font-size: 7.6pt;
+}
+.modos td:first-child { font-weight: 800; white-space: nowrap; }
+.lista { font-size: 8pt; line-height: 1.2; }
+.lista td { padding: 0.3mm 1mm 0.05mm; }
+.lista th { padding: 0.4mm 1mm 0.15mm; font-size: 6.8pt; }
+.lista tr.corte td { border-bottom: 0.5mm solid var(--verde); }
+.dos { display: flex; gap: 2.5mm; }
+.creditos { text-align: center; }
+.creditos h1, .creditos h2 { text-align: left; }
+.creditos h2 { margin-top: 4mm; }
+.creditos .juego { font-weight: 800; font-size: 15pt; color: var(--marron); margin: 0 0 1mm; line-height: 1.1; }
+.creditos .rol { margin: 22mm 0 0; color: var(--marron); }
+.creditos .nombres { font-weight: 800; font-size: 12pt; color: var(--verde); margin: 0 0 4mm; }
+.creditos .ia { font-size: 7.2pt; color: var(--marron); margin-top: 4mm; }
+.creditos .cierre { font-weight: 800; color: var(--verde); margin-top: 3mm; }
+.dos > div { flex: 1; }

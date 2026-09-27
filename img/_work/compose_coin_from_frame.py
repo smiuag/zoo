@@ -57,6 +57,13 @@ edge = green & hole & ~ndimage.binary_erosion(hole, iterations=3)          # com
 touch[np.unique(lab[edge])] = True
 leaves = np.isin(lab, np.arange(1, n + 1)[touch[1:] & (sizes >= 40)])
 leaves = ndimage.binary_dilation(leaves, iterations=2)
+# 2026-09-27: NO se pega nada del marco sobre la foto. Lo que esta deteccion encontraba en
+# la franja del borde no eran lianas del marco (esas viven sobre la madera, fuera del hueco)
+# sino follaje de la ilustracion con la que se monto el marco: quedaba una tira de ~36 px de
+# OTRA ilustracion a cada lado, con saltos visibles contra la foto nueva (marcados por el
+# usuario en las 4 monedas). Comprobado ampliando los bordes: sin esta capa el canto del
+# hueco queda limpio y no se corta ninguna hoja del marco.
+leaves = np.zeros_like(leaves)
 hole_soft = soft(hole, 0.6) * (1 - soft(leaves, 0.8))
 
 # bolsa y escudo: interior limpio de la plantilla (sin los numeros del marco de origen)

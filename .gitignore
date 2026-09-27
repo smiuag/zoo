@@ -21,3 +21,8 @@ __pycache__/
 img/mazo_impresion.pdf
 img/mazo_impresion_en.pdf
 img/mazo_impresion_1cara.pdf
+
+# Reglamento: vistas de revisión y capa intermedia sin fondo (se regeneran con
+# img/_work/build_instrucciones.py; no hace falta versionarlas).
+img/_work/preview_instrucciones*/
+img/instrucciones*_capa.pdf

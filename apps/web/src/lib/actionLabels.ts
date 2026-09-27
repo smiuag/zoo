@@ -12,6 +12,8 @@ export function findAnywhere(state: GameState, player: Player, instanceId: strin
   return (
     player.hand.find((c) => c.instanceId === instanceId) ??
     player.playedThisTurn.find((c) => c.instanceId === instanceId) ??
+    // mesa: animales dejados ahí (Colibrí/Gallina/Perro), que también se pueden tener que entregar
+    (player.table ?? []).find((c) => c.instanceId === instanceId) ??
     player.deck.find((c) => c.instanceId === instanceId) ??
     player.discard.find((c) => c.instanceId === instanceId) ??
     state.animalTrack.find((c) => c.instanceId === instanceId)
