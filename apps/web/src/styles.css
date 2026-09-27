@@ -3057,6 +3057,14 @@ body {
   .tutorial__slot--played {
     flex-basis: 100%;
   }
+  /* La Reserva (hasta 5 cartas) compartiendo fila con Mazo/Descarte se queda
+     sin ancho en un teléfono (~107px), así que sus cartas se apilan en una
+     sola columna altísima y empujan "Tu mano"/"Jugado" fuera de la pantalla
+     — bug real detectado 2026-09-26. A ancho completo caben varias por fila
+     y el paso queda mucho más corto. */
+  .tutorial__pile--reserve {
+    flex-basis: 100%;
+  }
   .tutorial__step {
     position: fixed;
     top: 0.5rem;

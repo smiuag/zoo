@@ -736,7 +736,7 @@ export function GameBoard({
   // Panel "Tu mano": en escritorio va en la columna izquierda, debajo de
   // la mesa; en móvil se monta dentro del muelle fijo de abajo (ver
   // dockRef / .mobile-dock), justo encima de la barra de turno.
-  const handPanel = human.hand.length > 0 && (
+  const handPanel = !state.gameOver && human.hand.length > 0 && (
     <div className="panel">
       <div className="panel__header">
         <h2>Tu mano</h2>
@@ -913,6 +913,16 @@ export function GameBoard({
         <div className="panel" ref={summaryRef}>
           <div className="panel__header">
             <h2>Resumen de la partida</h2>
+            {/* Con la partida terminada se oculta el resto del tablero (mano,
+                mesa, mercado, bots) — pedido explícito del usuario
+                2026-09-24 — así que "Nueva partida" tiene que vivir aquí
+                también para que siga habiendo forma de pulsarlo en móvil (en
+                escritorio ya estaba siempre visible en la barra de abajo). */}
+            {onNewGame && (
+              <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title="Nueva partida">
+                ↺ <span className="btn__label">Nueva partida</span>
+              </button>
+            )}
           </div>
           <p>
             {(() => {
@@ -1047,6 +1057,10 @@ export function GameBoard({
         </div>
       )}
 
+      {/* Mano, mesa, mercado y elección pendiente desaparecen al terminar la
+          partida — pedido explícito del usuario 2026-09-24: solo debe quedar
+          la tabla de puntuación (arriba) y sus botones. */}
+      {!state.gameOver && (
       <div className="layout">
         <div className="layout__left">
           {!isDesktop && (
@@ -1134,7 +1148,13 @@ export function GameBoard({
           </div>
         </div>
       </div>
+      )}
 
+      {/* Log y panel de bots también desaparecen al terminar la partida, por
+          el mismo pedido de arriba (2026-09-24) — solo la tabla de
+          puntuación y sus botones se quedan. */}
+      {!state.gameOver && (
+      <>
       {/* Cerrado por defecto: el texto del log solo aparece al pulsar el
           enlace pequeño — pedido explícito del usuario 2026-09-23. */}
       <details className="log-details">
@@ -1173,6 +1193,8 @@ export function GameBoard({
           ))}
         </div>
       </div>
+      </>
+      )}
 
       {owedDiscard && (
         // Sin onClick en el backdrop ni botón de cerrar a propósito: un
