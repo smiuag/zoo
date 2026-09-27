@@ -3255,31 +3255,32 @@ body {
   max-width: 1560px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 1rem;
   align-items: start;
   justify-items: center;
 }
 
 .encyclopedia__card-slot {
-  --card-w: 170px;
+  --card-w: 190px;
   width: 100%;
-  max-width: 210px;
+  max-width: 230px;
 }
 
-/* La carta crece para caber el texto de habilidad en vez de recortarlo
-   (ver .card { height: var(--card-h) } de siempre, fijo): aquí --card-h
-   pasa a ser un SUELO, no un techo. El icono/ilustración se fija a una
-   altura propia en vez de flex:1 (que colapsaría a lo mínimo posible en
-   cuanto el alto deja de ser fijo). */
+/* Todas las cartas al MISMO alto fijo (pedido explícito del usuario, antes
+   crecían según lo larga que fuera su habilidad) — sobra hueco bajo el
+   texto corto, pero nunca se recorta ni el más largo (el peor caso real es
+   el Cocodrilo en la edición completa, ~250 caracteres). El
+   icono/ilustración se fija a su propia altura en vez de flex:1 (que
+   colapsaría a lo mínimo posible en cuanto --card-h deja de mandar por sí
+   solo en .card, que ya no se usa aquí). */
 .encyclopedia__card-slot .card {
-  height: auto;
-  min-height: 216px;
+  height: 330px;
 }
 
 .encyclopedia__card-slot .card__icon {
   flex: 0 0 auto;
-  height: 130px;
+  height: 120px;
 }
 
 .encyclopedia__card-slot .card__icon--emoji {
@@ -3304,15 +3305,15 @@ body {
     font-size: 1.15rem;
   }
   .encyclopedia__grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 0.75rem;
   }
   .encyclopedia__card-slot {
-    --card-w: 140px;
-    max-width: 170px;
+    --card-w: 160px;
+    max-width: 190px;
   }
   .encyclopedia__card-slot .card {
-    min-height: 178px;
+    height: 290px;
   }
   .encyclopedia__card-slot .card__icon {
     height: 100px;
