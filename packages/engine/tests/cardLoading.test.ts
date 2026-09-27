@@ -9,14 +9,14 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   raven: { cost: 3, pv: 3 },
   peacock: { cost: 2, pv: 1 },
   dolphin: { cost: 3, pv: 3 },
-  giraffe: { cost: 5, pv: 3 },
+  giraffe: { cost: 5, pv: 5 },
   hippopotamus: { cost: 5, pv: 4 },
   tiger: { cost: 4, pv: 4 },
-  lion: { cost: 5, pv: 4 },
+  lion: { cost: 5, pv: 5 },
   monkey: { cost: 4, pv: 3 },
   spider: { cost: 3, pv: 3 },
   crocodile: { cost: 5, pv: 7 },
-  vulture: { cost: 6, pv: 3 },
+  vulture: { cost: 6, pv: 6 },
   elephant: { cost: 6, pv: 6 },
   orca: { cost: 7, pv: 2 },
   albatross: { cost: 6, pv: 0 },
@@ -215,7 +215,7 @@ describe('card registry', () => {
     });
     expect(getCard('rabbit').effects[0]).toMatchObject({
       type: 'drawTopUnlessExpensiveAnimal',
-      params: { maxCost: 3 },
+      params: { maxCost: 4 },
     });
   });
 

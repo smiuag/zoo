@@ -78,11 +78,11 @@ describe('Oca: +1 bellota al jugarla, +1PV por especie doméstica distinta al fi
       freshInstance('dog', 'd1'), // 2PV
       freshInstance('dog', 'd2'), // 2ª copia del Perro: PV base cuenta igual, pero no suma otra especie
       freshInstance('cat', 'c'), // 2PV
-      freshInstance('lion', 'l'), // 4PV, no doméstico: no cuenta para la Oca
+      freshInstance('lion', 'l'), // 5PV, no doméstico: no cuenta para la Oca
     ];
-    // PV base: 0(oca) + 2+2(perro x2) + 2(gato) + 4(león) = 10.
+    // PV base: 0(oca) + 2+2(perro x2) + 2(gato) + 5(león) = 11.
     // Bonus Oca: especies domésticas distintas = Oca, Perro, Gato = 3.
-    expect(scorePlayer(state, player)).toBe(10 + 3);
+    expect(scorePlayer(state, player)).toBe(11 + 3);
   });
 });
 

@@ -4,7 +4,7 @@
   "type": "animal",
   "species": "lion",
   "marketCost": 5,
-  "victoryPoints": 4,
+  "victoryPoints": 5,
   "text": "Añade 3 a tu valor de captura.",
   "effects": [
     {

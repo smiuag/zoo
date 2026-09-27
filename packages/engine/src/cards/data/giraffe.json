@@ -4,7 +4,7 @@
   "type": "animal",
   "species": "giraffe",
   "marketCost": 5,
-  "victoryPoints": 3,
+  "victoryPoints": 5,
   "text": "Recupera un animal de tu descarte a tu mano.",
   "effects": [
     {
