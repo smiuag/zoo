@@ -3269,13 +3269,21 @@ body {
 
 /* Todas las cartas al MISMO alto fijo (pedido explícito del usuario, antes
    crecían según lo larga que fuera su habilidad) — sobra hueco bajo el
-   texto corto, pero nunca se recorta ni el más largo (el peor caso real es
-   el Cocodrilo en la edición completa, ~250 caracteres). El
+   texto corto, pero nunca se recorta ni el más largo. En la edición
+   COMPLETA el peor caso real es el Cocodrilo (~250 caracteres) y necesita
+   los 370px de aquí; en la CLÁSICA el peor caso (Cocodrilo con su texto
+   corto, ~117 caracteres) mide de verdad ~261px con la fuente actual —
+   pedido explícito del usuario (2026-09-27, "sobra hueco"): la clásica usa
+   una altura menor, medida contra ese caso real, no adivinada. El
    icono/ilustración se fija a su propia altura en vez de flex:1 (que
    colapsaría a lo mínimo posible en cuanto --card-h deja de mandar por sí
    solo en .card, que ya no se usa aquí). */
 .encyclopedia__card-slot .card {
   height: 370px;
+}
+
+.encyclopedia:not(.encyclopedia--full) .encyclopedia__card-slot .card {
+  height: 280px;
 }
 
 .encyclopedia__card-slot .card__icon {
@@ -3288,7 +3296,7 @@ body {
 }
 
 .card__ability-inline {
-  font-size: 0.82rem;
+  font-size: 0.92rem;
   line-height: 1.32;
   color: var(--muted-dark);
   text-align: center;
@@ -3315,6 +3323,9 @@ body {
   .encyclopedia__card-slot .card {
     height: 320px;
   }
+  .encyclopedia:not(.encyclopedia--full) .encyclopedia__card-slot .card {
+    height: 262px;
+  }
   .encyclopedia__card-slot .card__icon {
     height: 100px;
   }
@@ -3322,6 +3333,6 @@ body {
     font-size: 2.6rem;
   }
   .card__ability-inline {
-    font-size: 0.76rem;
+    font-size: 0.86rem;
   }
 }

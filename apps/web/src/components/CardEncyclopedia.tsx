@@ -77,7 +77,7 @@ export function CardEncyclopedia() {
   });
 
   return (
-    <div className="encyclopedia">
+    <div className={`encyclopedia${showFullExtras ? ' encyclopedia--full' : ''}`}>
       <div className="encyclopedia__header">
         <h1>📖 Enciclopedia de cartas</h1>
         <button className="btn btn--ghost" type="button" onClick={() => navigate(-1)}>
