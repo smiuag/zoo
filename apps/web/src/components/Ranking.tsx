@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { getCard, type CardInstance } from '@zoo/engine';
 import {
+  RESULT_EDITIONS,
   fetchMyHistory,
   fetchTopScores,
   type DeckSummaryEntry,
   type GameMode,
   type GameResultRow,
+  type ResultEdition,
 } from '../online/gameResults';
 import { isOnlineAvailable } from '../online/supabaseClient';
-import { DEFAULT_ROUND_LIMIT, ROUND_LIMIT_OPTIONS } from '../lib/gameConfig';
+import { DEFAULT_ROUND_LIMIT, MAX_BOTS, MAX_HUMANS, MIN_TOTAL_PLAYERS, ROUND_LIMIT_OPTIONS } from '../lib/gameConfig';
 import { CardView } from './CardView';
 
 interface RankingProps {
@@ -16,6 +18,21 @@ interface RankingProps {
 }
 
 const MODE_LABEL: Record<GameMode, string> = { solo: 'Solitario', local: 'Local', online: '🌐 Online' };
+
+// "Personalizado" hace de edición completa en el ranking (decisión del usuario).
+const EDITION_LABEL: Record<ResultEdition, string> = {
+  classic: 'Clásica',
+  learning: 'Aprendizaje',
+  custom: 'Personalizado',
+};
+const PLAYER_COUNT_OPTIONS = Array.from(
+  { length: MAX_HUMANS + MAX_BOTS - MIN_TOTAL_PLAYERS + 1 },
+  (_, i) => MIN_TOTAL_PLAYERS + i
+);
+
+function filterKey(rounds: number, edition: ResultEdition, players: number | null): string {
+  return `${rounds}|${edition}|${players ?? 'all'}`;
+}
 
 function formatDate(iso: string): string {
   try {
@@ -70,6 +87,7 @@ function ResultsTable({
             <th>Puesto</th>
             <th>Jugadores</th>
             {showRounds && <th>Rondas</th>}
+            {showRounds && <th>Edición</th>}
             <th>Modo</th>
             <th>Fecha</th>
             <th></th>
@@ -86,6 +104,7 @@ function ResultsTable({
               <td>{positionLabel(row.position)}</td>
               <td>{row.num_players}</td>
               {showRounds && <td>{row.round_limit ?? '—'}</td>}
+              {showRounds && <td>{EDITION_LABEL[row.edition ?? 'classic']}</td>}
               <td>{MODE_LABEL[row.mode]}</td>
               <td>{formatDate(row.created_at)}</td>
               <td>
@@ -110,24 +129,23 @@ function ResultsTable({
 // lib/deviceId.ts). Pantalla completa igual que ScoreCalculator.tsx, sin
 // ninguna relación con la partida en curso.
 //
-// El "top" se separa en una pestaña POR duración (ROUND_LIMIT_OPTIONS): una
-// partida a 10 rondas y otra a 20 no son comparables por puntuación bruta
-// (pedido explícito del usuario), así que mezclarlas en un único ranking
-// premiaría siempre a las partidas más largas.
+// El "top" se separa por duración (ROUND_LIMIT_OPTIONS), por edición y por nº
+// de jugadores: partidas de distinta duración, edición o tamaño de mesa no
+// son comparables por puntuación bruta (pedido explícito del usuario), así
+// que mezclarlas premiaría siempre a las más largas o a las de menos rivales.
+// Cada combinación se pide al servidor al elegirla y se cachea.
 export function Ranking({ onClose }: RankingProps) {
   const [tab, setTab] = useState<'top' | 'mine'>('top');
   const [roundsTab, setRoundsTab] = useState<number>(DEFAULT_ROUND_LIMIT);
-  const [topByRounds, setTopByRounds] = useState<Partial<Record<number, GameResultRow[]>>>({});
+  const [editionTab, setEditionTab] = useState<ResultEdition>('classic');
+  // null = todas las mesas.
+  const [playersFilter, setPlayersFilter] = useState<number | null>(null);
+  const [topByFilter, setTopByFilter] = useState<Partial<Record<string, GameResultRow[]>>>({});
   const [myHistory, setMyHistory] = useState<GameResultRow[] | null>(null);
   const [viewedDeck, setViewedDeck] = useState<DeckSummaryEntry[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    for (const rounds of ROUND_LIMIT_OPTIONS) {
-      fetchTopScores(rounds).then((rows) => {
-        if (!cancelled) setTopByRounds((prev) => ({ ...prev, [rounds]: rows }));
-      });
-    }
     fetchMyHistory().then((rows) => {
       if (!cancelled) setMyHistory(rows);
     });
@@ -135,6 +153,19 @@ export function Ranking({ onClose }: RankingProps) {
       cancelled = true;
     };
   }, []);
+
+  const currentKey = filterKey(roundsTab, editionTab, playersFilter);
+  useEffect(() => {
+    if (topByFilter[currentKey] !== undefined) return;
+    let cancelled = false;
+    fetchTopScores({ roundLimit: roundsTab, edition: editionTab, numPlayers: playersFilter }).then((rows) => {
+      if (!cancelled) setTopByFilter((prev) => ({ ...prev, [currentKey]: rows }));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentKey]);
 
   const deckCards = viewedDeck
     ?.map((entry) => ({ instance: toCardInstance(entry.id), count: entry.count }))
@@ -179,11 +210,38 @@ export function Ranking({ onClose }: RankingProps) {
           </div>
         )}
 
+        {tab === 'top' && (
+          <div className="score-tabs score-tabs--secondary">
+            {RESULT_EDITIONS.map((edition) => (
+              <button
+                key={edition}
+                type="button"
+                className={`score-tab ${editionTab === edition ? 'score-tab--active' : ''}`}
+                onClick={() => setEditionTab(edition)}
+              >
+                {EDITION_LABEL[edition]}
+              </button>
+            ))}
+            <select
+              aria-label="Número de jugadores"
+              value={playersFilter ?? ''}
+              onChange={(e) => setPlayersFilter(e.target.value === '' ? null : Number(e.target.value))}
+            >
+              <option value="">Todas las mesas</option>
+              {PLAYER_COUNT_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n} jugadores
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {tab === 'top' ? (
-          topByRounds[roundsTab] === undefined ? (
+          topByFilter[currentKey] === undefined ? (
             <p className="setup-hint">Cargando...</p>
           ) : (
-            <ResultsTable rows={topByRounds[roundsTab]!} showMedals showRounds={false} onViewDeck={setViewedDeck} />
+            <ResultsTable rows={topByFilter[currentKey]!} showMedals showRounds={false} onViewDeck={setViewedDeck} />
           )
         ) : myHistory === null ? (
           <p className="setup-hint">Cargando...</p>

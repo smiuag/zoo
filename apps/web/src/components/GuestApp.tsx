@@ -3,8 +3,10 @@ import { RoomChat } from './RoomChat';
 import { GameBoard } from './GameBoard';
 import { useGuestRoom } from '../online/useGuestRoom';
 import { loadSavedNick, saveNick, MAX_NICK_LENGTH } from '../lib/gameConfig';
-import { computePosition, recordGameResult, summarizeCollection } from '../online/gameResults';
+import { computePosition, recordGameResult, summarizeCollection, toResultEdition } from '../online/gameResults';
 import { useReportActiveEdition } from '../lib/activeEdition';
+import { editionLabel } from '../lib/edition';
+import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
 
 interface GuestAppProps {
   roomCode: string;
@@ -28,7 +30,7 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
   const [nickInput, setNickInput] = useState(loadSavedNick);
   const [joinedNick, setJoinedNick] = useState('');
 
-  const { status, state, humanIds, botAlgorithms, scores, legalActions, animationsEnabled, sendAction, replayStatus, proposeReplay, respondReplay } =
+  const { status, state, humanIds, botAlgorithms, scores, lobbyInfo, legalActions, animationsEnabled, sendAction, replayStatus, proposeReplay, respondReplay } =
     useGuestRoom(roomCode, seatId, seatKey, joinedNick);
   const [slowConnect, setSlowConnect] = useState(false);
 
@@ -66,6 +68,7 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
       mode: 'online',
       numPlayers: state.players.length,
       roundLimit: state.maxRounds,
+      edition: toResultEdition(state.edition),
       position: computePosition(scores, seatId),
       deck: summarizeCollection([...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn, ...(player.table ?? [])]),
     });
@@ -121,6 +124,40 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
             {status === 'connecting' && 'Conectando...'}
             {status === 'waitingForHost' && 'Conectado. Esperando a que el anfitrión empiece la partida...'}
           </p>
+          {status === 'waitingForHost' && lobbyInfo && (
+            <div className="setup-bot-list">
+              <div className="setup-row setup-row--bot">
+                <label>
+                  Edición: <strong>{editionLabel(lobbyInfo.edition)}</strong>
+                  {lobbyInfo.customSpeciesCount !== undefined && ` (${lobbyInfo.customSpeciesCount} especies)`}
+                </label>
+              </div>
+              <div className="setup-row setup-row--bot">
+                <label>Duración: {lobbyInfo.roundLimit} rondas</label>
+              </div>
+              <div className="setup-row setup-row--bot">
+                <label>
+                  Bots:{' '}
+                  {lobbyInfo.botAlgorithms.length === 0
+                    ? 'ninguno'
+                    : lobbyInfo.botAlgorithms
+                        .map((a) => BOT_ALGORITHM_OPTIONS.find((o) => o.value === a)?.label ?? a)
+                        .join(', ')}
+                </label>
+              </div>
+              <div className="setup-row setup-row--bot">
+                <label>Animaciones: {lobbyInfo.animationsEnabled ? 'sí' : 'no'}</label>
+              </div>
+              {lobbyInfo.players.map((player) => (
+                <div key={player.seatId} className="setup-row setup-row--bot">
+                  <label>
+                    {player.seatId === seatId ? 'Tú' : (player.nick ?? `Jugador ${Number(player.seatId.split('-')[1]) + 1}`)}{' '}
+                    {player.connected ? '🟢 conectado' : '⏳ esperando'}
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
           {slowConnect && (
             <p className="setup-hint">
               Está tardando más de lo normal — seguimos intentándolo solos. Si el anfitrión también refrescó su

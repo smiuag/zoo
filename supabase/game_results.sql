@@ -38,6 +38,19 @@ create index if not exists game_results_device_id_idx on public.game_results (de
 alter table public.game_results add column if not exists position integer;
 alter table public.game_results add column if not exists deck jsonb;
 
+-- Edición de la partida ('classic' | 'learning' | 'custom', ver
+-- apps/web/src/lib/edition.ts), para separar el ranking por edición. Nulo en
+-- las filas anteriores a esta columna: Ranking.tsx las cuenta como clásicas
+-- (la edición que se jugaba casi siempre), ver fetchTopScores.
+-- EJECUTAR ESTO ANTES de publicar la versión de la web que guarda `edition`:
+-- si la columna no existe, el insert con `edition` falla (recordGameResult
+-- reintenta sin ella, pero el resultado quedaría sin edición) y el ranking
+-- filtrado por edición no cargaría.
+alter table public.game_results add column if not exists edition text
+  check (edition in ('classic', 'learning', 'custom'));
+create index if not exists game_results_filter_idx
+  on public.game_results (round_limit, edition, num_players, score desc);
+
 alter table public.game_results enable row level security;
 
 -- Cualquiera (incluido un visitante sin login, con la clave "anon") puede

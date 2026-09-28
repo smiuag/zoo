@@ -55,6 +55,10 @@ export type ReplayProps =
       allGuestsConnected: boolean;
       onPropose: () => void;
       onRespond: (accept: boolean) => void;
+      // Solo lo pasa el host (los invitados no): vuelve a la sala de espera
+      // conservando la sala para cambiar edición/config antes de otra
+      // partida, en vez de repetir con la misma (ver App.tsx: handleBackToLobby).
+      onChangeMode?: () => void;
     };
 
 export interface GameBoardProps {
@@ -1059,6 +1063,16 @@ export function GameBoard({
                     Aceptar
                   </button>
                 </div>
+              )}
+              {replay.mode === 'online' && replay.onChangeMode && (
+                <button
+                  className="btn btn--ghost"
+                  type="button"
+                  title="Volver a la sala de espera para cambiar modo o configuración, sin perder a los invitados"
+                  onClick={replay.onChangeMode}
+                >
+                  ⚙️ Cambiar modo
+                </button>
               )}
             </div>
           )}

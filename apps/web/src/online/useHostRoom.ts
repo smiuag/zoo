@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { getLegalActions, type Action, type GameState, type PlayerScore } from '@zoo/engine';
-import type { BotAlgorithm } from '../lib/gameConfig';
+import type { BotAlgorithm, GameConfig } from '../lib/gameConfig';
 import {
   actionsChannelName,
   lobbyChannelName,
   seatChannelName,
   type ActionsChannelMessage,
+  type LobbySyncMessage,
   type ReplayStatus,
   type StateSyncMessage,
 } from './protocol';
@@ -40,6 +41,10 @@ export interface UseHostRoomParams {
   // misma config de siempre). El propio hook limpia replayStatus justo
   // después, para todos los conectados.
   onReplayAccepted: () => void;
+  // Config vigente de la sala (la que se puede editar en el lobby): se
+  // difunde a los invitados mientras no hay partida en curso (ver
+  // LobbySyncMessage). Null si no hay sala.
+  lobbyConfig: GameConfig | null;
 }
 
 export interface UseHostRoomResult {
@@ -82,6 +87,8 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
   // registró el listener.
   const connectedSeatIdsRef = useRef(connectedSeatIds);
   connectedSeatIdsRef.current = connectedSeatIds;
+  const connectedSeatNicksRef = useRef(connectedSeatNicks);
+  connectedSeatNicksRef.current = connectedSeatNicks;
 
   const seatChannelsRef = useRef<Map<string, ReturnType<NonNullable<typeof supabase>['channel']>>>(new Map());
 
@@ -91,9 +98,12 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
   // para que las 3 vías nunca puedan divergir en qué campos incluyen.
   function broadcastToSeat(seatId: string) {
     const { state, humanIds, botAlgorithms, scores, animationsEnabled, active } = latestRef.current;
-    if (!active) return;
     const channel = seatChannelsRef.current.get(seatId);
     if (!channel) return;
+    if (!active) {
+      broadcastLobbyToSeat(seatId);
+      return;
+    }
     const payload: StateSyncMessage = {
       type: 'stateSync',
       state: redactStateForSeat(state, seatId, humanIds),
@@ -104,6 +114,29 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
       replayStatus: replayStatusRef.current,
     };
     channel.send({ type: 'broadcast', event: 'sync', payload });
+  }
+
+  // Sin partida en curso, lo único que hay que contarle a un invitado es la
+  // config de la sala y quién está conectado (ver LobbySyncMessage). Con
+  // lobbyConfig null (no hay sala) no se manda nada.
+  function broadcastLobbyToSeat(seatId: string) {
+    const { lobbyConfig } = latestRef.current;
+    const channel = seatChannelsRef.current.get(seatId);
+    if (!channel || !lobbyConfig) return;
+    const payload: LobbySyncMessage = {
+      type: 'lobbySync',
+      edition: lobbyConfig.edition ?? 'classic',
+      roundLimit: lobbyConfig.roundLimit,
+      ...(lobbyConfig.edition === 'custom' ? { customSpeciesCount: lobbyConfig.customSpecies?.length ?? 0 } : {}),
+      botAlgorithms: lobbyConfig.botAlgorithms,
+      animationsEnabled: lobbyConfig.animationsEnabled,
+      players: seats.map((seat) => ({
+        seatId: seat.seatId,
+        nick: connectedSeatNicksRef.current.get(seat.seatId),
+        connected: connectedSeatIdsRef.current.has(seat.seatId),
+      })),
+    };
+    channel.send({ type: 'broadcast', event: 'lobby', payload });
   }
 
   function broadcastToAll() {
@@ -254,6 +287,23 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
     // son las únicas dependencias reales.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomCode]);
+
+  // Mientras no hay partida en curso, cualquier cambio de config o de quién
+  // está conectado se retransmite ya mismo a los invitados (ver
+  // broadcastLobbyToSeat). Con partida en curso, esto no hace nada: manda el
+  // efecto de tick de más abajo.
+  useEffect(() => {
+    if (!supabase || params.active) return;
+    broadcastToAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.lobbyConfig, params.active, connectedSeatIds, connectedSeatNicks]);
+
+  // Una propuesta de "repetir" pendiente no debe sobrevivir a la vuelta al
+  // lobby (ver "Cambiar modo" en App.tsx): al empezar la partida siguiente
+  // aparecería como si fuera nueva.
+  useEffect(() => {
+    if (!params.active) setReplayStatus(null);
+  }, [params.active]);
 
   // Retransmite a todos los asientos cada vez que el estado cambia de
   // verdad (tick, expuesto por useGame), ya con la partida en marcha.

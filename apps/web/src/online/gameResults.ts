@@ -1,4 +1,4 @@
-import type { PlayerScore } from '@zoo/engine';
+import type { GameEdition, PlayerScore } from '@zoo/engine';
 import { supabase } from './supabaseClient';
 import { getDeviceId } from '../lib/deviceId';
 
@@ -11,6 +11,17 @@ import { getDeviceId } from '../lib/deviceId';
 // (anónimo, solo localStorage — ver lib/deviceId.ts — para poder filtrar
 // "mis partidas" sin mezclarlas con las de otro "Tú").
 export type GameMode = 'solo' | 'local' | 'online';
+
+// Ediciones que se distinguen en el ranking (ver lib/edition.ts): las 3 que
+// se pueden elegir en la web. En el ranking "Personalizado" hace de "completo".
+export type ResultEdition = 'classic' | 'learning' | 'custom';
+export const RESULT_EDITIONS: readonly ResultEdition[] = ['classic', 'learning', 'custom'];
+
+// 'full' (solo motor/entrenamiento, sin botón en la web) y cualquier valor
+// desconocido cuentan como clásica, igual que effectiveEdition en lib/edition.ts.
+export function toResultEdition(edition: GameEdition | undefined): ResultEdition {
+  return edition === 'custom' || edition === 'learning' ? edition : 'classic';
+}
 
 // Colección final comprimida: un par por CADA id de carta distinto que
 // tuvieras (deck+mano+descarte+jugado este turno), con cuántas copias — sin
@@ -27,6 +38,7 @@ export interface GameResultInput {
   mode: GameMode;
   numPlayers: number;
   roundLimit: number | null;
+  edition: ResultEdition;
   // Puesto final entre TODOS los jugadores de la partida (humanos y bots),
   // 1 = el que más puntos hizo — ver computePosition más abajo.
   position: number;
@@ -40,6 +52,8 @@ export interface GameResultRow {
   num_players: number;
   created_at: string;
   round_limit: number | null;
+  // null en filas anteriores a esta columna (se tratan como clásicas).
+  edition: ResultEdition | null;
   position: number | null;
   // null en filas registradas antes de añadir esta columna: Ranking.tsx
   // debe tratarlo como "sin baraja guardada", nunca como baraja vacía.
@@ -85,7 +99,7 @@ function withTimeout<T>(promise: Promise<T>, fallback: T, ms = 8000): Promise<T>
   });
 }
 
-const RESULT_COLUMNS = 'nick, score, mode, num_players, created_at, round_limit, position, deck';
+const RESULT_COLUMNS = 'nick, score, mode, num_players, created_at, round_limit, edition, position, deck';
 
 // Mejor esfuerzo siempre: sin Supabase configurado, sin tabla creada
 // todavía, o sin conexión, esto nunca debe romper ni bloquear la partida
@@ -94,7 +108,7 @@ export async function recordGameResult(input: GameResultInput): Promise<void> {
   if (!supabase) return;
   const nick = input.nick.trim() || 'Anon';
   try {
-    await supabase.from('game_results').insert({
+    const row = {
       nick,
       device_id: getDeviceId(),
       score: input.score,
@@ -103,26 +117,38 @@ export async function recordGameResult(input: GameResultInput): Promise<void> {
       round_limit: input.roundLimit,
       position: input.position,
       deck: input.deck,
-    });
+    };
+    const { error } = await supabase.from('game_results').insert({ ...row, edition: input.edition });
+    // Si la columna `edition` aún no existe en la tabla (falta ejecutar la
+    // migración, ver supabase/game_results.sql), se guarda el resultado sin
+    // ella antes que perderlo.
+    if (error) await supabase.from('game_results').insert(row);
   } catch {
     // ver comentario de arriba
   }
 }
 
-// Top puntuaciones para UNA duración de partida concreta: no tiene sentido
-// comparar una partida a 10 rondas contra una a 20 (pedido explícito del
-// usuario) — Ranking.tsx llama esto una vez por cada ROUND_LIMIT_OPTIONS en
-// vez de traer todo mezclado y filtrar en el cliente.
-export async function fetchTopScores(roundLimit: number, limit = 20): Promise<GameResultRow[]> {
+export interface TopScoresFilter {
+  roundLimit: number;
+  edition: ResultEdition;
+  // null = todos los tamaños de mesa.
+  numPlayers: number | null;
+}
+
+// Top puntuaciones para UNA combinación de duración, edición y (opcional) nº
+// de jugadores: no tiene sentido comparar una partida a 10 rondas contra una a
+// 20, ni una de 2 jugadores contra una de 6, ni clásica contra personalizada
+// (pedido explícito del usuario) — Ranking.tsx pide cada combinación por
+// separado en vez de traer todo mezclado y filtrar en el cliente. Las filas
+// sin `edition` (anteriores a la columna) cuentan como clásicas.
+export async function fetchTopScores(filter: TopScoresFilter, limit = 20): Promise<GameResultRow[]> {
   if (!supabase) return [];
   const run = (async () => {
     try {
-      const { data, error } = await supabase
-        .from('game_results')
-        .select(RESULT_COLUMNS)
-        .eq('round_limit', roundLimit)
-        .order('score', { ascending: false })
-        .limit(limit);
+      let query = supabase.from('game_results').select(RESULT_COLUMNS).eq('round_limit', filter.roundLimit);
+      query = filter.edition === 'classic' ? query.or('edition.eq.classic,edition.is.null') : query.eq('edition', filter.edition);
+      if (filter.numPlayers !== null) query = query.eq('num_players', filter.numPlayers);
+      const { data, error } = await query.order('score', { ascending: false }).limit(limit);
       if (error || !data) return [];
       return data as GameResultRow[];
     } catch {

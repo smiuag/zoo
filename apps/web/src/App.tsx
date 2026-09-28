@@ -13,7 +13,9 @@ import { Tutorial } from './components/Tutorial';
 import { ArtStyleProvider } from './lib/artStyle';
 import { ActiveEditionProvider, useReportActiveEdition } from './lib/activeEdition';
 import { createHostRoom, type CreatedRoom } from './online/createHostRoom';
-import { computePosition, recordGameResult, summarizeCollection, type GameMode } from './online/gameResults';
+import { computePosition, recordGameResult, summarizeCollection, toResultEdition, type GameMode } from './online/gameResults';
+import { saveEdition } from './lib/edition';
+import { saveSetupPrefs } from './lib/gameConfig';
 import { useHostRoom } from './online/useHostRoom';
 import { clearOnlineRoom, loadOnlineRoom, saveOnlineRoom } from './online/onlineRoomStorage';
 import { DEFAULT_ROUND_LIMIT, useGame, type GameConfig, type RoundLimit } from './state/useGame';
@@ -144,6 +146,7 @@ function HostOrLocalApp() {
     tick,
     active: isOnlineHost && phase === 'playing',
     onReplayAccepted: handleOnlineReplayAccepted,
+    lobbyConfig: onlineRoom?.config ?? null,
   });
 
   // Guarda el estado de la sala online cada vez que cambia de verdad
@@ -192,6 +195,7 @@ function HostOrLocalApp() {
         mode,
         numPlayers: state.players.length,
         roundLimit: state.maxRounds,
+        edition: toResultEdition(state.edition),
         position: computePosition(scores, humanId),
         deck: summarizeCollection([...player.deck, ...player.hand, ...player.discard, ...player.playedThisTurn, ...(player.table ?? [])]),
       });
@@ -234,7 +238,34 @@ function HostOrLocalApp() {
     // verdad para crear la partida.
     const config: GameConfig = { ...onlineRoom.config, guestNicks: Object.fromEntries(connectedSeatNicks) };
     setOnlineRoom({ ...onlineRoom, config });
+    // Se recuerda la última config usada en este dispositivo, igual que hace
+    // GameSetup al empezar (buildConfig).
+    saveSetupPrefs({
+      numHumans: config.numHumans,
+      botAlgorithms: config.botAlgorithms,
+      roundLimit: config.roundLimit,
+      animationsEnabled: config.animationsEnabled,
+      customSpecies: config.customSpecies,
+      customCopyDeltas: config.customCopyDeltas,
+    });
+    saveEdition(config.edition ?? 'classic');
     startGame(config);
+  }
+
+  // Cambios de config en la sala de espera (ver OnlineWaitingRoom): no tocan
+  // roomCode ni seats, así que enlaces e invitados conectados se mantienen.
+  function handleUpdateOnlineConfig(config: GameConfig) {
+    setOnlineRoom((room) => (room ? { ...room, config } : room));
+  }
+
+  // "Cambiar modo" al terminar una partida online: vuelve a la sala de
+  // espera CONSERVANDO la sala (mismo código, mismos enlaces, mismos
+  // invitados) en vez de destruirla como handleRestart. La sala guardada en
+  // localStorage sería ya una partida terminada, así que se borra; se vuelve
+  // a guardar en cuanto empiece la siguiente.
+  function handleBackToLobby() {
+    clearOnlineRoom();
+    restart();
   }
 
   function handleCancelOnlineRoom() {
@@ -297,6 +328,8 @@ function HostOrLocalApp() {
           seats={onlineRoom.seats}
           connectedSeatIds={connectedSeatIds}
           connectedSeatNicks={connectedSeatNicks}
+          config={onlineRoom.config}
+          onConfigChange={handleUpdateOnlineConfig}
           onStart={handleStartOnlineGame}
           onCancel={handleCancelOnlineRoom}
         />
@@ -328,6 +361,7 @@ function HostOrLocalApp() {
         allGuestsConnected: onlineRoom.seats.every((seat) => connectedSeatIds.has(seat.seatId)),
         onPropose: () => proposeReplay('human-0', state.players.find((p) => p.id === 'human-0')?.name ?? 'Host'),
         onRespond: (accept) => respondReplay('human-0', accept),
+        onChangeMode: handleBackToLobby,
       }
     : { mode: 'local', onReplay: handleLocalReplay };
 

@@ -1,25 +1,21 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GearIcon } from './icons/GearIcon';
-import { LEARNING_EDITION_MAX_COST } from '@zoo/engine';
-import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
+import { GameConfigFields } from './GameConfigFields';
 import { GameSettingsModal } from './GameSettingsModal';
 import {
   CUSTOM_PICKABLE_SPECIES,
   DEFAULT_BOT_ALGORITHM,
   DEFAULT_CUSTOM_COPY_DELTAS,
   DEFAULT_ROUND_LIMIT,
-  MAX_BOTS,
   MAX_NICK_LENGTH,
   loadSavedNick,
   loadSavedSetupPrefs,
   saveNick,
   saveSetupPrefs,
   MAX_HUMANS,
-  MIN_BOTS,
   MIN_HUMANS,
   MIN_TOTAL_PLAYERS,
-  ROUND_LIMIT_OPTIONS,
   type BotAlgorithm,
   type CustomCopyDeltas,
   type GameConfig,
@@ -54,20 +50,6 @@ interface GameSetupProps {
   resumableOnlineRoomCode?: string;
   onResumeOnlineRoom?: () => void;
   onDiscardResumableOnlineRoom?: () => void;
-}
-
-// Alarga o recorta la lista de algoritmos al nuevo nº de bots, conservando
-// lo ya elegido para los huecos que se mantienen (solo se pierde/genera lo
-// que cambia), en vez de resetear todo el formulario cada vez que se toca
-// el número de bots. Los huecos nuevos arrancan con el genérico
-// (DEFAULT_BOT_ALGORITHM): el usuario decide luego si le da preferencia de
-// hábitat a alguno. Los 4 algoritmos son edición-agnósticos (ver
-// botAlgorithms.ts: resolveBot decide qué bot de verdad usar según la
-// edición de la partida), así que no hace falta ningún caso especial aquí.
-function resizeBotAlgorithms(current: BotAlgorithm[], count: number): BotAlgorithm[] {
-  if (count <= current.length) return current.slice(0, count);
-  const extra = Array.from({ length: count - current.length }, () => DEFAULT_BOT_ALGORITHM);
-  return [...current, ...extra];
 }
 
 export function GameSetup({
@@ -119,14 +101,6 @@ export function GameSetup({
 
   function handleNumHumansChange(value: number) {
     setNumHumans(value);
-  }
-
-  function handleNumBotsChange(value: number) {
-    setBotAlgorithms((prev) => resizeBotAlgorithms(prev, value));
-  }
-
-  function handleBotAlgorithmChange(index: number, algorithm: BotAlgorithm) {
-    setBotAlgorithms((prev) => prev.map((a, i) => (i === index ? algorithm : a)));
   }
 
   function buildConfig(): GameConfig {
@@ -255,98 +229,15 @@ export function GameSetup({
           )}
         </div>
 
-        <div className="setup-row">
-          <label htmlFor="setup-bots">Número de bots</label>
-          <select
-            id="setup-bots"
-            value={botAlgorithms.length}
-            onChange={(e) => handleNumBotsChange(Number(e.target.value))}
-          >
-            {Array.from({ length: MAX_BOTS - MIN_BOTS + 1 }, (_, i) => MIN_BOTS + i).map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {botAlgorithms.length > 0 && (
-          <div className="setup-bot-list">
-            {botAlgorithms.map((algorithm, i) => (
-              <div key={i} className="setup-row setup-row--bot">
-                <label htmlFor={`setup-bot-${i}`}>Bot {i + 1}</label>
-                <select
-                  id={`setup-bot-${i}`}
-                  value={algorithm}
-                  onChange={(e) => handleBotAlgorithmChange(i, e.target.value as BotAlgorithm)}
-                >
-                  {BOT_ALGORITHM_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="setup-row">
-          <div className="setup-round-options setup-round-options--full">
-            {ROUND_LIMIT_OPTIONS.map((rounds) => (
-              <button
-                key={rounds}
-                type="button"
-                className={`btn ${roundLimit === rounds ? 'btn--primary' : 'btn--ghost'}`}
-                aria-pressed={roundLimit === rounds}
-                onClick={() => setRoundLimit(rounds)}
-              >
-                {rounds} rondas
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="setup-row">
-          <div className="setup-round-options setup-round-options--full">
-            <button
-              type="button"
-              className={`btn ${edition === 'learning' ? 'btn--primary' : 'btn--ghost'}`}
-              aria-pressed={edition === 'learning'}
-              onClick={() => setEdition('learning')}
-            >
-              Aprendizaje
-            </button>
-            <button
-              type="button"
-              className={`btn ${edition === 'classic' ? 'btn--primary' : 'btn--ghost'}`}
-              aria-pressed={edition === 'classic'}
-              onClick={() => setEdition('classic')}
-            >
-              Clásica
-            </button>
-            <button
-              type="button"
-              className={`btn ${edition === 'custom' ? 'btn--primary' : 'btn--ghost'}`}
-              aria-pressed={edition === 'custom'}
-              onClick={() => setEdition('custom')}
-            >
-              Personalizado
-            </button>
-          </div>
-          <p className="setup-hint">
-            {edition === 'learning'
-              ? `Mismo mazo clásico de siempre, pero el mercado solo ofrece animales de coste ${LEARNING_EDITION_MAX_COST} o menos: partidas más sencillas y rápidas para aprender.`
-              : edition === 'custom'
-                ? 'Elige tú qué especies entran en el mercado y cuántas copias hay de cada una, desde ⚙️ Configuración.'
-                : 'La oficial: 33 especies, sin restricciones.'}
-          </p>
-          {edition === 'learning' && (
-            <button className="btn btn--primary setup-tutorial-btn" type="button" onClick={onOpenTutorial}>
-              🎓 Ver tutorial
-            </button>
-          )}
-        </div>
+        <GameConfigFields
+          botAlgorithms={botAlgorithms}
+          onBotAlgorithmsChange={setBotAlgorithms}
+          roundLimit={roundLimit}
+          onRoundLimitChange={setRoundLimit}
+          edition={edition}
+          onEditionChange={setEdition}
+          onOpenTutorial={onOpenTutorial}
+        />
         {/* Acciones (empezar / online / marcador / ranking) al FINAL del
             formulario, debajo de toda la configuración — pedido explícito
             del usuario 2026-09-22 (antes iban arriba, justo bajo el título). */}

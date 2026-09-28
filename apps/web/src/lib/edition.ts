@@ -32,6 +32,13 @@ export function saveEdition(edition: GameEdition): void {
   }
 }
 
+export function editionLabel(edition: GameEdition): string {
+  const effective = effectiveEdition(edition);
+  if (effective === 'custom') return 'Personalizado';
+  if (effective === 'learning') return 'Aprendizaje';
+  return 'Clásica';
+}
+
 export function effectiveEdition(requested: GameEdition | undefined): GameEdition {
   if (requested === 'custom') return 'custom';
   if (requested === 'learning') return 'learning';

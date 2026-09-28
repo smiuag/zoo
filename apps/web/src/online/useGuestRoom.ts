@@ -6,6 +6,7 @@ import {
   lobbyChannelName,
   seatChannelName,
   type ActionMessage,
+  type LobbySyncMessage,
   type ReplayProposeMessage,
   type ReplayRespondMessage,
   type ReplayStatus,
@@ -22,6 +23,10 @@ export interface UseGuestRoomResult {
   humanIds: string[];
   botAlgorithms: Record<string, BotAlgorithm>;
   scores: PlayerScore[];
+  // Config de la sala y quién está conectado, mientras el host no ha empezado
+  // partida (sala de espera, o tras "Cambiar modo" al terminar una). Null
+  // hasta recibir el primer aviso del host.
+  lobbyInfo: LobbySyncMessage | null;
   legalActions: Action[];
   // Lo decide el host al crear la sala (ver GameConfig); true por defecto
   // antes de recibir el primer StateSync, para no dejar el flying-card ni
@@ -46,6 +51,7 @@ export interface UseGuestRoomResult {
 export function useGuestRoom(roomCode: string, seatId: string, seatKey: string, nick: string): UseGuestRoomResult {
   const [status, setStatus] = useState<GuestRoomStatus>('connecting');
   const [payload, setPayload] = useState<StateSyncMessage | null>(null);
+  const [lobbyInfo, setLobbyInfo] = useState<LobbySyncMessage | null>(null);
   const actionsChannelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
 
   useEffect(() => {
@@ -56,6 +62,7 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string, 
     if (!client || !nick) return;
     setStatus('connecting');
     setPayload(null);
+    setLobbyInfo(null);
 
     const lobby = client.channel(lobbyChannelName(roomCode));
     const seatCh = client.channel(seatChannelName(roomCode, seatKey));
@@ -97,6 +104,16 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string, 
         gotSync = true;
         setPayload(msg as StateSyncMessage);
         setStatus('playing');
+      })
+      // El host no tiene partida en curso (sala de espera, o "Cambiar modo"
+      // tras terminar una): se descarta el estado de partida anterior — si
+      // lo había, el invitado sale del resumen final hacia la pantalla de
+      // espera — y se guarda la config que el host está preparando.
+      .on('broadcast', { event: 'lobby' }, ({ payload: msg }) => {
+        gotSync = true;
+        setPayload(null);
+        setLobbyInfo(msg as LobbySyncMessage);
+        setStatus('waitingForHost');
       })
       .subscribe((s) => {
         if (s !== 'SUBSCRIBED') return;
@@ -156,6 +173,7 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string, 
     humanIds: payload?.humanIds ?? [],
     botAlgorithms: payload?.botAlgorithms ?? {},
     scores: payload?.scores ?? [],
+    lobbyInfo,
     legalActions,
     animationsEnabled: payload?.animationsEnabled ?? true,
     sendAction,

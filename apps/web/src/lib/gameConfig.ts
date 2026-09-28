@@ -61,6 +61,20 @@ export const MIN_TOTAL_PLAYERS = 2;
 // bot no tiene algoritmo asignado.
 export const DEFAULT_BOT_ALGORITHM: BotAlgorithm = 'general';
 
+// Alarga o recorta la lista de algoritmos al nuevo nº de bots, conservando
+// lo ya elegido para los huecos que se mantienen (solo se pierde/genera lo
+// que cambia), en vez de resetear todo el formulario cada vez que se toca
+// el número de bots. Los huecos nuevos arrancan con el genérico: el usuario
+// decide luego si le da preferencia de hábitat a alguno. Los 4 algoritmos
+// son edición-agnósticos (ver botAlgorithms.ts: resolveBot decide qué bot de
+// verdad usar según la edición de la partida), así que no hace falta ningún
+// caso especial aquí.
+export function resizeBotAlgorithms(current: BotAlgorithm[], count: number): BotAlgorithm[] {
+  if (count <= current.length) return current.slice(0, count);
+  const extra = Array.from({ length: count - current.length }, () => DEFAULT_BOT_ALGORITHM);
+  return [...current, ...extra];
+}
+
 // Duraciones de partida seleccionables (en rondas: 1 turno de cada
 // jugador). No hay opción "sin límite" a propósito: con una duración
 // elegida, esa es la ÚNICA forma en que termina la partida (el criterio de

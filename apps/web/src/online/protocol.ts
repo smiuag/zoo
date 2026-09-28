@@ -1,5 +1,6 @@
 import type { Action, GameState, PlayerScore } from '@zoo/engine';
-import type { BotAlgorithm } from '../lib/gameConfig';
+import type { GameEdition } from '@zoo/engine';
+import type { BotAlgorithm, RoundLimit } from '../lib/gameConfig';
 
 // Código corto de sala: solo sirve para AGRUPAR los canales de una partida,
 // nunca es secreto por sí mismo (a diferencia de `seatKey`, ver más abajo) —
@@ -72,6 +73,29 @@ export interface StateSyncMessage {
   // "Repetir partida" en curso (o null si no hay ninguna) — ver ReplayStatus
   // más abajo.
   replayStatus: ReplayStatus | null;
+}
+
+// Lo que el host difunde por el canal privado de cada asiento (evento
+// 'lobby', distinto del 'sync' de partida) mientras NO hay partida en curso:
+// en la sala de espera antes de empezar, y de nuevo tras "Cambiar modo" al
+// terminar una partida. Es también la señal que saca a los invitados del
+// resumen final hacia la pantalla de espera.
+export interface LobbySyncMessage {
+  type: 'lobbySync';
+  edition: GameEdition;
+  roundLimit: RoundLimit;
+  // Nº de especies elegidas, solo con edition === 'custom'.
+  customSpeciesCount?: number;
+  botAlgorithms: BotAlgorithm[];
+  animationsEnabled: boolean;
+  players: LobbyPlayer[];
+}
+
+export interface LobbyPlayer {
+  seatId: string;
+  // Nick escrito por el invitado (ausente mientras no se haya conectado).
+  nick?: string;
+  connected: boolean;
 }
 
 // Mensaje de un invitado recién conectado (o que acaba de refrescar la
