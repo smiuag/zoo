@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import type { ScanScore } from '../lib/scanScoring';
+import { CardScanner } from './CardScanner';
 
 interface ScoreCalculatorProps {
   onClose: () => void;
@@ -23,12 +25,12 @@ const ROWS: ScoreRowDef[] = [
   { key: 'direct', label: 'Puntos directos', icon: '🌰', kind: 'direct', hint: 'PV impreso en animales y bellotas' },
   { key: 'eagle', label: 'Águila', icon: '🦅', kind: 'product', hint: 'nº Águilas × nº voladores', f1: 'águilas', f2: 'voladores' },
   {
-    key: 'polarbear',
-    label: 'Oso polar',
-    icon: '🐻‍❄️',
+    key: 'panda',
+    label: 'Oso panda',
+    icon: '🐼',
     kind: 'product',
-    hint: 'nº Osos polares × nº terrestres',
-    f1: 'osos polares',
+    hint: 'nº Osos panda × nº terrestres',
+    f1: 'osos panda',
     f2: 'terrestres',
   },
   { key: 'orca', label: 'Orca', icon: '🐋', kind: 'product', hint: 'nº Orcas × nº acuáticos', f1: 'orcas', f2: 'acuáticos' },
@@ -110,6 +112,7 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
   const [players, setPlayers] = useState<PlayerScoreState[]>(() => [emptyPlayer('Jugador 1'), emptyPlayer('Jugador 2')]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [mode, setMode] = useState<'edit' | 'summary'>('edit');
+  const [scanning, setScanning] = useState(false);
 
   // Al cambiar de jugador (añadir uno, pestaña siguiente/anterior, elegir
   // una pestaña) se sube al principio de la pantalla: si se venía de rellenar
@@ -119,6 +122,9 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
   useEffect(() => {
     if (mode === 'edit') window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeIndex, mode]);
+
+  // El escáner es del jugador activo: al cambiar de jugador o de vista se cierra.
+  useEffect(() => setScanning(false), [activeIndex, mode]);
 
   function addPlayer() {
     setPlayers((prev) => {
@@ -153,7 +159,23 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
     );
   }
 
+  // Vuelca el resultado del escáner en el jugador activo; las casillas
+  // siguen siendo editables a mano después.
+  function applyScan(score: ScanScore) {
+    updateActive({
+      direct: String(score.direct),
+      factors: Object.fromEntries(
+        PRODUCT_ROWS.map((r) => {
+          const [a, b] = score.factors[r.key as keyof ScanScore['factors']];
+          return [r.key, [String(a), String(b)] as [string, string]];
+        })
+      ),
+    });
+    setScanning(false);
+  }
+
   function openPlayer(index: number) {
+    setScanning(false);
     setActiveIndex(index);
     setMode('edit');
   }
@@ -232,6 +254,14 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
                 </button>
               )}
             </div>
+
+            {scanning ? (
+              <CardScanner playerName={active.name} onApply={applyScan} onCancel={() => setScanning(false)} />
+            ) : (
+              <button className="btn scan-open" type="button" onClick={() => setScanning(true)}>
+                📷 Escanear cartas con la cámara
+              </button>
+            )}
 
             {ROWS.map((row) => (
               <div key={row.key} className="score-row">
