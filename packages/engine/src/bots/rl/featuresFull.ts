@@ -95,6 +95,11 @@ const EFFECT_TYPES = [
   'drawOrReturnSelfForSpecies',
   'gainDinosaurOnlyBonusPurchasingPower',
   'scorePerDistinctSpeciesWithHabitat',
+  // 2026-10-01: regla genérica de evolución de dinosaurios (sustituye al
+  // descuento por turno costReductionPerDinosaurPlayedThisTurn, que nunca
+  // llegó a ser una feature propia — solo influía en el coste ya calculado).
+  // Ver dinosaurEvolutionTargets en effects/registry.ts.
+  'evolveDinosaur',
 ] as const;
 
 const MAX_OPPONENTS = 3;
@@ -220,7 +225,7 @@ function emptyCardBlock(): number[] {
 // habitatWeightMagnitudes.ts en scripts/rl/ para las mediciones). Esto NO
 // afecta al recuento de hábitats en encodePlayerContext (habitatCounts),
 // que sigue viendo los hábitats reales del jugador — lo necesita el Oso
-// Polar (scorePerHabitatCount) y cualquier efecto similar, que valora la
+// Panda (scorePerHabitatCount) y cualquier efecto similar, que valora la
 // COLECCIÓN ya poseída, no la carta que se está decidiendo comprar. Se deja
 // el hueco a cero (en vez de encoger FEATURE_DIM_FULL) para no invalidar ni
 // desplazar los índices de los pesos ya entrenados de los otros 3

@@ -14,6 +14,17 @@
 //      corregir la inclinación de la carta con la posición de su escudo).
 // Cuenta de cartas = nº de bolsas de la pila; especie = la de la frontal.
 //
+// Filtros que evitan falsos positivos y pérdidas (ajustados con fotos reales de
+// distinta luz y mantel; ver las constantes de más abajo):
+//  - máximos locales por escala antes de ordenar (si no, los picos fuertes
+//    acaparan el cupo de candidatas y se pierden las débiles);
+//  - color: centro crema y aro marrón; escudo a la derecha, con ventana alta por
+//    la inclinación de la carta; descarte de lo que en realidad es un escudo;
+//  - conflictos físicos (dos bolsas que no caben en cartas distintas) y
+//    coherencia dentro de la pila (tamaño, puntuación, escudo), con excepción
+//    para las bolsas alineadas en columna con sus vecinas;
+//  - una carta suelta exige escudo claro, y una suelta sin identificar se descarta.
+//
 // Probado con una foto real de ~35 cartas en 16 pilas (1 a 5 cartas): recuento e
 // identificación correctos en todas. La foto puede estar girada 90°/180°/270°:
 // se prueba cada orientación y se queda con la que más bolsas encuentra.
@@ -54,6 +65,15 @@ export interface StackResult {
   y: number;
 }
 
+/** Detalle interno de una búsqueda (para depurar con fotos reales). */
+export interface ScanDebug {
+  rotation: number;
+  width: number;
+  height: number;
+  /** Candidatas a bolsa y por qué se aceptaron ('ok') o descartaron. */
+  candidates: { cx: number; cy: number; s: number; score: number; support: number; reason: string; cream?: number; brown?: number; shieldDx?: number; shieldDy?: number }[];
+}
+
 export interface CvScanResult {
   stacks: StackResult[];
   /** Cartas por especie (solo pilas identificadas). */
@@ -79,7 +99,22 @@ const PROBE_SHIELD_SUPPORT = 0.5; // el escudo debe aparecer con esta correlaci�
 const BAG_THRESHOLD = 0.6;
 const PROBE_THRESHOLD = 0.62;
 const MIN_TEMPLATE_PX = 8;
-const ID_MIN_SCORE = 0.55; // por debajo, la pila se cuenta pero no se asigna especie
+// Las cartas apiladas a mano se desplazan de lado hasta casi una bolsa de ancho.
+const CLUSTER_DX = 1.2;
+// Separación máxima entre franjas de una misma pila (hay quien escalona muy abierto).
+const CLUSTER_DY = 3.3;
+// Una carta debe dejar a la vista al menos la bolsa: dos bolsas más juntas que esto
+// en vertical no pueden ser de cartas distintas de la misma pila.
+const MIN_STEP = 1.0;
+// Dos cartas sin solaparse miden ~5,3 bolsas de ancho: bolsas más cerca que esto en
+// horizontal (y a la misma altura) no pueden ser de cartas distintas.
+const MIN_SIDE_BY_SIDE = 4.5;
+// Carta suelta: vale con el escudo claro, o con bolsa y escudo medianos pero ambos buenos.
+const SINGLE_SUPPORT = 0.5;
+const SINGLE_COMBINED = 1.2;
+const MIN_SHIELD_SUPPORT = 0.35; // toda bolsa debe tener su escudo cerca de donde toca
+const ID_MIN_SCORE = 0.55;
+const UNKNOWN_SINGLE_MIN = 0.5; // una carta suelta sin identificar por debajo de esto se descarta // por debajo, la pila se cuenta pero no se asigna especie
 
 const yieldToUi = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
@@ -91,6 +126,9 @@ interface Cand {
   x: number;
   y: number;
   support?: number;
+  /** Dónde aparece el escudo respecto a lo esperado (px de la imagen de trabajo). */
+  shieldDx?: number;
+  shieldDy?: number;
 }
 
 function toMat(cv: Cv, img: RgbaImage): Mat {
@@ -148,16 +186,25 @@ function detectBags(cv: Cv, rgb: Mat, bagTpl: Mat, scales: number[], threshold: 
     }
     const res = new cv.Mat();
     cv.matchTemplate(rgb, tpl, res, cv.TM_CCOEFF_NORMED);
+    // Solo máximos locales (ventana ~0,7 bolsas): cada bolsa deja decenas de píxeles
+    // vecinos con buena correlación que, sin esto, llenarían el cupo de candidatas.
+    const kernelSize = Math.max(3, Math.round(0.7 * BAG_W * s)) | 1;
+    const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(kernelSize, kernelSize));
+    const dilated = new cv.Mat();
+    cv.dilate(res, dilated, kernel);
     const data: Float32Array = res.data32F;
+    const peaks: Float32Array = dilated.data32F;
     const w = res.cols;
     for (let i = 0; i < data.length; i++) {
       const v = data[i];
-      if (v > threshold) {
+      if (v > threshold && v === peaks[i]) {
         const x = i % w;
         const y = (i - x) / w;
         found.push({ score: v, x, y, cx: x + BAG_CENTER[0] * s, cy: y + BAG_CENTER[1] * s, s });
       }
     }
+    kernel.delete();
+    dilated.delete();
     res.delete();
     tpl.delete();
   }
@@ -171,13 +218,13 @@ function detectBags(cv: Cv, rgb: Mat, bagTpl: Mat, scales: number[], threshold: 
 }
 
 /** ¿Hay una bolsa de verdad? Centro crema y aro marrón (el mantel y los dibujos no cumplen ambas). */
-function colorOk(hsv: Mat, cx: number, cy: number, s: number): boolean {
+function colorStats(hsv: Mat, cx: number, cy: number, s: number): { cream: number; brown: number } | null {
   const w = BAG_W * s;
   const x0 = Math.floor(cx - w);
   const x1 = Math.ceil(cx + w);
   const y0 = Math.floor(cy - w);
   const y1 = Math.ceil(cy + w);
-  if (x0 < 0 || y0 < 0 || x1 >= hsv.cols || y1 >= hsv.rows) return false;
+  if (x0 < 0 || y0 < 0 || x1 >= hsv.cols || y1 >= hsv.rows) return null;
   const data: Uint8Array = hsv.data;
   const stride = hsv.cols * 3;
   let inner = 0;
@@ -200,7 +247,13 @@ function colorOk(hsv: Mat, cx: number, cy: number, s: number): boolean {
       }
     }
   }
-  return inner > 0 && ring > 0 && innerCream / inner > 0.6 && ringBrown / ring > 0.25;
+  if (inner === 0 || ring === 0) return null;
+  return { cream: innerCream / inner, brown: ringBrown / ring };
+}
+
+function colorOk(hsv: Mat, cx: number, cy: number, s: number): boolean {
+  const st = colorStats(hsv, cx, cy, s);
+  return !!st && st.cream > 0.6 && st.brown > 0.25;
 }
 
 /** Máximo de `tpl` con su esquina en [x0..x1]x[y0..y1] (coordenadas de `rgb`). */
@@ -216,6 +269,99 @@ function localMatch(cv: Cv, rgb: Mat, tpl: Mat, x0: number, y0: number, x1: numb
   return best.score;
 }
 
+// Escudo esperado respecto a la bolsa: una carta inclinada ±SHIELD_TILT_DEG lo
+// desplaza sobre todo en vertical (542·sen θ), así que la ventana de búsqueda es
+// alta y estrecha.
+const SHIELD_TILT_DEG = 16;
+function shieldSupport(cv: Cv, rgb: Mat, shieldTpl: Mat, c: Cand): { support: number; dx: number; dy: number } {
+  const ts = resized(cv, shieldTpl, c.s / REF_SCALE);
+  const sx = c.x + SHIELD_TL_OFFSET[0] * c.s;
+  const sy = c.y + SHIELD_TL_OFFSET[1] * c.s;
+  const reachY = SHIELD_TL_OFFSET[0] * Math.sin((SHIELD_TILT_DEG * Math.PI) / 180) * c.s + 20 * c.s;
+  const reachX = 40 * c.s;
+  const rx0 = Math.max(0, Math.floor(sx - reachX));
+  const ry0 = Math.max(0, Math.floor(sy - reachY));
+  const rx1 = Math.min(rgb.cols, Math.ceil(sx + reachX) + ts.cols);
+  const ry1 = Math.min(rgb.rows, Math.ceil(sy + reachY) + ts.rows);
+  let out = { support: -1, dx: 0, dy: 0 };
+  if (rx1 - rx0 >= ts.cols && ry1 - ry0 >= ts.rows) {
+    const roi = rgb.roi(new cv.Rect(rx0, ry0, rx1 - rx0, ry1 - ry0));
+    const best = bestMatch(cv, roi, ts);
+    roi.delete();
+    out = { support: best.score, dx: rx0 + best.x - sx, dy: ry0 + best.y - sy };
+  }
+  ts.delete();
+  return out;
+}
+
+// Las cartas de una pila tienen la misma inclinación: su escudo cae en el mismo
+// sitio respecto a su bolsa. Una "bolsa" cuyo escudo se desvía en horizontal de la
+// mediana de la pila (más de esta fracción de bolsa) no es una carta de esa pila.
+// Solo se compara en horizontal: en vertical, el escudo de la carta vecina cae a
+// una franja de distancia y se confunde con el propio.
+const STACK_SHIELD_TOLERANCE = 0.9;
+const STACK_SCALE_TOLERANCE = Math.log(1.15); // tamaño de una bolsa respecto a la mediana de su pila
+const STACK_SCORE_SPREAD = 0.13; // cuánto puede quedar por debajo de la mejor bolsa de la pila
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+// Una bolsa a menos de esta fracción de bolsa (en horizontal) de su vecina en la
+// pila va en su misma columna: es una carta de la pila aunque la detección sea más
+// débil (por ejemplo, una carta tapada a medias). Las falsas caen a 0,6-1 bolsas.
+const COLUMN_ALIGNED = 0.45;
+
+function consistentWithStack(group: Cand[]): Cand[] {
+  let members = group;
+  if (members.length >= 3) {
+    const mdx = median(members.map((c) => c.shieldDx ?? 0));
+    members = members.filter((c) => Math.abs((c.shieldDx ?? 0) - mdx) <= STACK_SHIELD_TOLERANCE * BAG_W * c.s);
+  }
+  if (members.length < 2) return members;
+
+  // Las bolsas alineadas con alguna vecina se conservan siempre.
+  const byY = [...members].sort((a, b) => a.cy - b.cy);
+  const aligned = new Set(
+    byY.filter((c, i) =>
+      [byY[i - 1], byY[i + 1]].some((n) => n && Math.abs(n.cx - c.cx) <= COLUMN_ALIGNED * BAG_W * Math.max(c.s, n.s))
+    )
+  );
+
+  // El resto debe parecerse a la pila: mismo tamaño y una puntuación no muy inferior
+  // (las bolsas falsas se parecen menos a la plantilla que las verdaderas).
+  const stackScale = median(members.map((c) => c.s));
+  const best = Math.max(...members.map((c) => c.score));
+  return members.filter(
+    (c) =>
+      aligned.has(c) ||
+      (Math.abs(Math.log(c.s / stackScale)) <= STACK_SCALE_TOLERANCE && c.score >= best - STACK_SCORE_SPREAD)
+  );
+}
+
+/** Cuántas otras bolsas encajan con ésta en una misma pila (misma columna, a una franja de distancia). */
+function columnNeighbors(c: Cand, all: Cand[]): number {
+  return all.filter((o) => {
+    if (o === c) return false;
+    const w = BAG_W * Math.max(c.s, o.s);
+    const dy = Math.abs(o.cy - c.cy);
+    return Math.abs(o.cx - c.cx) < CLUSTER_DX * w && dy >= MIN_STEP * w && dy < CLUSTER_DY * w;
+  }).length;
+}
+
+/** Quita las bolsas imposibles: si dos están en conflicto físico, se queda la mejor (y la que encaja en una pila). */
+function resolveConflicts(cards: Cand[]): Cand[] {
+  const quality = (c: Cand) => c.score + (c.support ?? 0) * 0.5 + 0.3 * Math.min(3, columnNeighbors(c, cards));
+  const kept: Cand[] = [];
+  for (const c of [...cards].sort((a, b) => quality(b) - quality(a))) {
+    const clash = kept.some((k) => {
+      const w = BAG_W * Math.max(c.s, k.s);
+      return Math.abs(c.cy - k.cy) < MIN_STEP * w && Math.abs(c.cx - k.cx) < MIN_SIDE_BY_SIDE * w;
+    });
+    if (!clash) kept.push(c);
+  }
+  return kept;
+}
+
 function cluster(cards: Cand[]): Cand[][] {
   const sorted = [...cards].sort((a, b) => a.cx - b.cx || a.cy - b.cy);
   const parent = sorted.map((_, i) => i);
@@ -229,7 +375,7 @@ function cluster(cards: Cand[]): Cand[][] {
   for (let i = 0; i < sorted.length; i++) {
     for (let j = i + 1; j < sorted.length; j++) {
       const w = BAG_W * Math.max(sorted[i].s, sorted[j].s);
-      if (Math.abs(sorted[i].cx - sorted[j].cx) < 0.5 * w && Math.abs(sorted[i].cy - sorted[j].cy) < 2.6 * w) {
+      if (Math.abs(sorted[i].cx - sorted[j].cx) < CLUSTER_DX * w && Math.abs(sorted[i].cy - sorted[j].cy) < CLUSTER_DY * w) {
         parent[find(i)] = find(j);
       }
     }
@@ -367,12 +513,7 @@ function pairedBags(cv: Cv, rgb: Mat, hsv: Mat, shieldTpl: Mat, cands: Cand[]): 
   const out: Cand[] = [];
   for (const c of cands) {
     if (!colorOk(hsv, c.cx, c.cy, c.s)) continue;
-    const ts = resized(cv, shieldTpl, c.s / REF_SCALE);
-    const reach = 42 * c.s;
-    const sx = c.x + SHIELD_TL_OFFSET[0] * c.s;
-    const sy = c.y + SHIELD_TL_OFFSET[1] * c.s;
-    const support = localMatch(cv, rgb, ts, sx - reach, sy - reach, sx + reach, sy + reach);
-    ts.delete();
+    const { support } = shieldSupport(cv, rgb, shieldTpl, c);
     if (support >= PROBE_SHIELD_SUPPORT) out.push({ ...c, support });
   }
   return out;
@@ -392,10 +533,15 @@ function pickOrientation(cv: Cv, rgb: Mat, bagTpl: Mat, shieldTpl: Mat): { rotat
     const ok = pairedBags(cv, rotated, hsv, shieldTpl, strongest);
     hsv.delete();
     rotated.delete();
-    if (ok.length > 0 && (!best || ok.length > best.count)) {
+    // En la orientación buena las bolsas forman columnas de varias cartas; las
+    // parejas falsas de las otras no se alinean. Puntúa lo que cae en columnas
+    // (y un poco las sueltas con escudo claro).
+    const columns = cluster(resolveConflicts(ok));
+    const count = columns.reduce((sum, g) => sum + (g.length >= 2 ? g.length : 0.3), 0);
+    if (ok.length > 0 && (!best || count > best.count)) {
       const top = [...ok].sort((a, b) => b.score - a.score).slice(0, 8);
       const scale = top.map((c) => c.s).sort((a, b) => a - b)[Math.floor(top.length / 2)];
-      best = { rotation, count: ok.length, scale };
+      best = { rotation, count, scale };
     }
   }
   small.delete();
@@ -408,7 +554,8 @@ export async function scanWithCv(
   cv: Cv,
   image: RgbaImage,
   assets: ScanAssets,
-  onProgress: (fraction: number) => void = () => {}
+  onProgress: (fraction: number) => void = () => {},
+  onDebug?: (info: ScanDebug) => void
 ): Promise<CvScanResult> {
   const toDelete: Mat[] = [];
   const keep = <T extends Mat>(m: T): T => {
@@ -442,17 +589,32 @@ export async function scanWithCv(
     await yieldToUi();
 
     const valid: Cand[] = [];
+    const debug: ScanDebug['candidates'] = [];
+    // El detalle por candidata solo se calcula si alguien lo pide (depuración).
+    const note = (c: Cand, support: number, reason: string, sd?: { dx: number; dy: number }) => {
+      if (!onDebug) return;
+      const st = colorStats(hsv, c.cx, c.cy, c.s);
+      debug.push({ cx: c.cx, cy: c.cy, s: c.s, score: c.score, support, reason, cream: st?.cream, brown: st?.brown, shieldDx: sd?.dx, shieldDy: sd?.dy });
+    };
     for (const c of candidates) {
-      if (!colorOk(hsv, c.cx, c.cy, c.s)) continue;
+      if (!colorOk(hsv, c.cx, c.cy, c.s)) {
+        note(c, 0, 'color');
+        continue;
+      }
+      const { support, dx: shieldDx, dy: shieldDy } = shieldSupport(cv, rgb, shieldTpl, c);
       const ts = resized(cv, shieldTpl, c.s / REF_SCALE);
-      const reach = 42 * c.s;
-      const sx = c.x + SHIELD_TL_OFFSET[0] * c.s;
-      const sy = c.y + SHIELD_TL_OFFSET[1] * c.s;
-      const support = localMatch(cv, rgb, ts, sx - reach, sy - reach, sx + reach, sy + reach);
       const own = localMatch(cv, rgb, ts, c.x - 3, c.y - 3, c.x + 3, c.y + 3);
       ts.delete();
-      if (own > c.score - 0.02) continue; // es un escudo, no una bolsa
-      valid.push({ ...c, support });
+      if (own > c.score - 0.02) {
+        note(c, support, 'escudo');
+        continue; // es un escudo, no una bolsa
+      }
+      if (support < MIN_SHIELD_SUPPORT) {
+        note(c, support, 'sin-escudo');
+        continue;
+      }
+      valid.push({ ...c, support, shieldDx, shieldDy });
+      note(c, support, 'ok', { dx: shieldDx, dy: shieldDy });
     }
 
     // Todas las cartas de una foto tienen casi el mismo tamaño.
@@ -460,7 +622,18 @@ export async function scanWithCv(
     const dominant = top.length ? top.map((c) => c.s).sort((a, b) => a - b)[Math.floor(top.length / 2)] : 0;
     const sized = valid.filter((c) => c.s >= 0.8 * dominant && c.s <= 1.25 * dominant);
 
-    const stacks = cluster(sized).filter((g) => g.length >= 2 || g.some((c) => (c.support ?? 0) >= 0.5));
+    const resolved = resolveConflicts(sized);
+    const stacks = cluster(resolved).map(consistentWithStack).filter(
+      (g) =>
+        g.length >= 2 ||
+        g.some((c) => (c.support ?? 0) >= SINGLE_SUPPORT || c.score + (c.support ?? 0) >= SINGLE_COMBINED)
+    );
+    for (const d of debug) {
+      if (d.reason !== 'ok') continue;
+      const inStack = stacks.some((g) => g.some((c) => c.cx === d.cx && c.cy === d.cy));
+      if (!inStack) d.reason = !sized.some((c) => c.cx === d.cx && c.cy === d.cy) ? 'escala' : !resolved.some((c) => c.cx === d.cx && c.cy === d.cy) ? 'conflicto' : 'suelta';
+    }
+    onDebug?.({ rotation: orientation.rotation, width: rgb.cols, height: rgb.rows, candidates: debug });
     onProgress(0.5);
     await yieldToUi();
 
@@ -469,6 +642,11 @@ export async function scanWithCv(
       const g = [...stacks[i]].sort((a, b) => a.cy - b.cy);
       const front = g[g.length - 1];
       const id = identify(cv, rgb, shieldTpl, front, refs);
+      // Una "carta" suelta que no se parece a ninguna es casi siempre una mancha, no una carta.
+      if (!id.id && g.length === 1 && id.score < UNKNOWN_SINGLE_MIN) {
+        onProgress(0.5 + (0.5 * (i + 1)) / stacks.length);
+        continue;
+      }
       results.push({ id: id.id, count: g.length, score: id.score, runnerUp: id.runnerUp, x: front.cx, y: front.cy });
       onProgress(0.5 + (0.5 * (i + 1)) / stacks.length);
       await yieldToUi();

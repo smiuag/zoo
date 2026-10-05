@@ -1,7 +1,7 @@
 // Precalcula, para cada variante de rlBot, el valor MEDIO que de verdad
 // acaba aportando cada carta con un efecto onScore "acumulativo" (cuenta
 // algo en TODA la colección al final de la partida: scorePerHabitatCount —
-// Águila/Orca/Oso polar —, scorePerDistinctSpecies — Albatros — y
+// Águila/Orca/Oso panda —, scorePerDistinctSpecies — Albatros — y
 // scorePerCostAtLeast — Tucán). Pedido explícito del usuario (2026-09-14):
 // el reward shaping (ver SCALER_CALIBRATION en trainCore.ts) usaba el delta
 // de PV en vivo justo al comprar la carta, que para estas 5 (todas con 0 PV
@@ -54,7 +54,7 @@ const CALIBRATABLE_EFFECT_TYPES = new Set(['scorePerHabitatCount', 'scorePerDist
 
 function findCalibratableCards(): { cardId: string; effect: Effect }[] {
   const result: { cardId: string; effect: Effect }[] = [];
-  for (const cardId of ['albatross', 'eagle', 'orca', 'polar-bear', 'toucan']) {
+  for (const cardId of ['albatross', 'eagle', 'orca', 'panda', 'toucan']) {
     const card = getCard(cardId);
     const effect = card.effects.find((e) => e.trigger === 'onScore' && CALIBRATABLE_EFFECT_TYPES.has(e.type));
     if (effect) result.push({ cardId, effect });

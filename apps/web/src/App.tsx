@@ -64,6 +64,7 @@ function HostOrLocalApp() {
     canRestartTurn,
     turnRestartCount,
     botAlgorithms,
+    botEmotes,
     animationsEnabled,
     tick,
     startGame,
@@ -377,6 +378,7 @@ function HostOrLocalApp() {
           roomCode={onlineRoom.roomCode}
           seatId="human-0"
           name={state.players.find((p) => p.id === 'human-0')?.name ?? 'Host'}
+          botEmotes={botEmotes}
         />
       )}
       <GameBoard

@@ -62,6 +62,26 @@ function toCardInstance(id: string): CardInstance | null {
   }
 }
 
+// Una fila de filtros del top: etiqueta fija a la izquierda y botones a la
+// derecha (con scroll horizontal propio si no caben, p. ej. los 11 tamaños de
+// mesa en un móvil), en vez de mezclar todos los filtros en una sola tira.
+function FilterRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="ranking-filter">
+      <span className="ranking-filter__label">{label}</span>
+      <div className="score-tabs score-tabs--secondary">{children}</div>
+    </div>
+  );
+}
+
+function FilterPill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button type="button" className={`score-tab ${active ? 'score-tab--active' : ''}`} aria-pressed={active} onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
 function ResultsTable({
   rows,
   showMedals,
@@ -196,44 +216,31 @@ export function Ranking({ onClose }: RankingProps) {
         </div>
 
         {tab === 'top' && (
-          <div className="score-tabs score-tabs--secondary">
-            {ROUND_LIMIT_OPTIONS.map((rounds) => (
-              <button
-                key={rounds}
-                type="button"
-                className={`score-tab ${roundsTab === rounds ? 'score-tab--active' : ''}`}
-                onClick={() => setRoundsTab(rounds)}
-              >
-                {rounds} rondas
-              </button>
-            ))}
-          </div>
-        )}
-
-        {tab === 'top' && (
-          <div className="score-tabs score-tabs--secondary">
-            {RESULT_EDITIONS.map((edition) => (
-              <button
-                key={edition}
-                type="button"
-                className={`score-tab ${editionTab === edition ? 'score-tab--active' : ''}`}
-                onClick={() => setEditionTab(edition)}
-              >
-                {EDITION_LABEL[edition]}
-              </button>
-            ))}
-            <select
-              aria-label="Número de jugadores"
-              value={playersFilter ?? ''}
-              onChange={(e) => setPlayersFilter(e.target.value === '' ? null : Number(e.target.value))}
-            >
-              <option value="">Todas las mesas</option>
-              {PLAYER_COUNT_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  {n} jugadores
-                </option>
+          <div className="ranking-filters">
+            <FilterRow label="Rondas">
+              {ROUND_LIMIT_OPTIONS.map((rounds) => (
+                <FilterPill key={rounds} active={roundsTab === rounds} onClick={() => setRoundsTab(rounds)}>
+                  {rounds}
+                </FilterPill>
               ))}
-            </select>
+            </FilterRow>
+            <FilterRow label="Edición">
+              {RESULT_EDITIONS.map((edition) => (
+                <FilterPill key={edition} active={editionTab === edition} onClick={() => setEditionTab(edition)}>
+                  {EDITION_LABEL[edition]}
+                </FilterPill>
+              ))}
+            </FilterRow>
+            <FilterRow label="Jugadores">
+              <FilterPill active={playersFilter === null} onClick={() => setPlayersFilter(null)}>
+                Todos
+              </FilterPill>
+              {PLAYER_COUNT_OPTIONS.map((n) => (
+                <FilterPill key={n} active={playersFilter === n} onClick={() => setPlayersFilter(n)}>
+                  {n}
+                </FilterPill>
+              ))}
+            </FilterRow>
           </div>
         )}
 

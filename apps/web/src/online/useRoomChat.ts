@@ -31,6 +31,12 @@ export interface UseRoomChat {
   messages: ChatMessage[];
   sendText: (text: string) => void;
   sendReaction: (reaction: string) => void;
+  // Emote AUTOMÁTICO de un bot (ver lib/botChat.ts/useGame.ts), no de quien
+  // tiene esta pestaña abierta: a diferencia de sendText/sendReaction, el
+  // mensaje se firma con el seatId/nombre del BOT, nunca con los propios
+  // (`seatId`/`name` del hook). Solo lo llama el anfitrión (el único que
+  // ejecuta la lógica de los bots) — ver RoomChat.tsx.
+  sendBotReaction: (botSeatId: string, botName: string, reaction: string) => void;
 }
 
 export function useRoomChat(roomCode: string | null, seatId: string, name: string): UseRoomChat {
@@ -99,5 +105,30 @@ export function useRoomChat(roomCode: string | null, seatId: string, name: strin
   const sendText = useCallback((text: string) => send('text', text), [send]);
   const sendReaction = useCallback((reaction: string) => send('reaction', reaction), [send]);
 
-  return { messages, sendText, sendReaction };
+  // No comparte lastSentAtRef/MIN_MS_BETWEEN_SENDS con send(): ese antirrebote
+  // es contra un doble toque accidental del humano; los emotes de bot ya
+  // llegan espaciados por su propio enfriamiento (ver COOLDOWN_ROUNDS en
+  // lib/botChat.ts), así que un mensaje de verdad del humano no debe
+  // bloquearse (ni bloquear) por coincidir en el tiempo con uno de un bot.
+  const sendBotReaction = useCallback(
+    (botSeatId: string, botName: string, reaction: string) => {
+      const channel = channelRef.current;
+      const text = reaction.trim().slice(0, CHAT_MAX_LENGTH);
+      if (!text || !channel) return;
+      const now = Date.now();
+      const msg: ChatMessage = {
+        id: `${botSeatId}-${now}-${Math.random().toString(36).slice(2, 8)}`,
+        seatId: botSeatId,
+        name: botName.slice(0, 12),
+        kind: 'reaction',
+        text,
+        at: now,
+      };
+      append(msg);
+      channel.send({ type: 'broadcast', event: 'chat', payload: msg });
+    },
+    [append]
+  );
+
+  return { messages, sendText, sendReaction, sendBotReaction };
 }

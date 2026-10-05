@@ -5,6 +5,7 @@ import { resolveBot } from '../lib/botAlgorithms';
 import { FLIGHT_TOTAL_MS } from '../components/FlyingCard';
 import { buildStarterDeck } from '../lib/starterDeck';
 import { DEFAULT_BOT_ALGORITHM, MAX_NICK_LENGTH, defaultGameConfig, type BotAlgorithm, type GameConfig } from '../lib/gameConfig';
+import { BIG_PURCHASE_COST, COOLDOWN_ROUNDS, isAggressiveCard, reactionFor, type BotEmoteEvent } from '../lib/botChat';
 
 export type { BotAlgorithm, GameConfig, RoundLimit } from '../lib/gameConfig';
 export { DEFAULT_BOT_ALGORITHM, DEFAULT_ROUND_LIMIT, MAX_BOTS, MAX_HUMANS, MIN_BOTS, MIN_HUMANS, MIN_TOTAL_PLAYERS, ROUND_LIMIT_OPTIONS } from '../lib/gameConfig';
@@ -137,6 +138,11 @@ export interface UseGame {
   // aparte.
   turnRestartCount: number;
   botAlgorithms: Record<string, BotAlgorithm>;
+  // Emotes automáticos de bot pendientes de mandar al chat (ver
+  // lib/botChat.ts) — solo tiene consumidor real en partidas online
+  // (App.tsx los reenvía a RoomChat.tsx); en local se genera igual pero
+  // nadie lo lee, así que es inofensivo no comprobarlo ahí.
+  botEmotes: BotEmoteEvent[];
   // Decidido al crear ESTA partida (ver GameConfig): si está desactivado,
   // los bots actúan sin ningún retraso artificial y no hay animación de
   // "vuelo" de compra — GameBoard.tsx lo usa para no generar esos vuelos.
@@ -202,8 +208,38 @@ export function useGame(): UseGame {
   // partida, así que no hace falta que sea un useState (no hay setter
   // expuesto para esto, a diferencia de botAlgorithms).
   const animationsEnabledRef = useRef(true);
+  // Emotes automáticos de bot en el chat online (ver lib/botChat.ts): cola
+  // de eventos pendientes de mandar, consumida por App.tsx/RoomChat.tsx (solo
+  // existen en partidas online, así que en local esto se genera pero nadie
+  // lo lee — inofensivo). seatId -> última RONDA en que ese bot reaccionó,
+  // para el enfriamiento (COOLDOWN_ROUNDS).
+  const botReactionCooldownRef = useRef<Map<string, number>>(new Map());
+  const botEmoteIdRef = useRef(0);
+  const [botEmotes, setBotEmotes] = useState<BotEmoteEvent[]>([]);
 
   const state = stateRef.current;
+
+  // Elige UN candidato al azar entre `candidates` que sea bot (controlado
+  // por botAlgorithms) y no esté en enfriamiento, y encola su reacción (con
+  // el `role` de ESE candidato concreto, nunca uno fijo para todos — ver
+  // lib/botChat.ts). No hace nada si no queda ningún candidato válido (p. ej.
+  // todos son humanos, o todos siguen en enfriamiento): nunca reacciona en
+  // nombre de un humano ni se salta el enfriamiento.
+  function triggerBotReaction(candidates: { seatId: string; role: 'attacker' | 'victim' | 'bigBuy' }[]) {
+    const round = state.round;
+    const eligible = candidates.filter(({ seatId }) => {
+      if (!(seatId in botAlgorithms)) return false;
+      const lastRound = botReactionCooldownRef.current.get(seatId);
+      return lastRound === undefined || round - lastRound >= COOLDOWN_ROUNDS;
+    });
+    if (eligible.length === 0) return;
+    const chosen = eligible[Math.floor(Math.random() * eligible.length)];
+    const botPlayer = state.players.find((p) => p.id === chosen.seatId);
+    if (!botPlayer) return;
+    botReactionCooldownRef.current.set(chosen.seatId, round);
+    const event: BotEmoteEvent = { id: botEmoteIdRef.current++, seatId: chosen.seatId, name: botPlayer.name, reaction: reactionFor(chosen.role) };
+    setBotEmotes((prev) => [...prev, event]);
+  }
 
   // A quién le toca actuar AHORA MISMO entre los humanos: normalmente el
   // humano con el turno activo, pero mientras haya un descarte forzoso
@@ -329,6 +365,10 @@ export function useGame(): UseGame {
           : BOT_PACED_ACTION_TYPES.has(action.type)
             ? BOT_STEP_DELAY_MS
             : 0;
+      // Mirados ANTES de aplicar la acción (el motor saca la carta de la
+      // mano / el animal del mercado al resolverla) — ver lib/botChat.ts.
+      const playedCard = action.type === 'playCard' ? bot.hand.find((c) => c.instanceId === action.instanceId) : undefined;
+      const boughtAnimal = action.type === 'buyAnimal' ? state.animalTrack.find((c) => c.instanceId === action.trackInstanceId) : undefined;
       applyStep = () => {
         // eslint-disable-next-line no-console
         console.log(`[bot] ${bot.name} (${algorithm}):`, action);
@@ -340,6 +380,14 @@ export function useGame(): UseGame {
           `T${turnBeforeAction} | ${bot.name} (${algorithm}) | ${describeAction(action)}`,
           ...engineLines.map((l) => `    -> ${l}`),
         ]);
+        if (playedCard && isAggressiveCard(playedCard)) {
+          triggerBotReaction([
+            { seatId: bot.id, role: 'attacker' },
+            ...state.players.filter((p) => p.id !== bot.id).map((p) => ({ seatId: p.id, role: 'victim' as const })),
+          ]);
+        } else if (boughtAnimal && (boughtAnimal.marketCost ?? 0) >= BIG_PURCHASE_COST) {
+          triggerBotReaction([{ seatId: bot.id, role: 'bigBuy' }]);
+        }
         rerender();
       };
     }
@@ -460,6 +508,7 @@ export function useGame(): UseGame {
     canRestartTurn,
     turnRestartCount: turnRestartCountRef.current,
     botAlgorithms,
+    botEmotes,
     animationsEnabled: animationsEnabledRef.current,
     tick,
     startGame,

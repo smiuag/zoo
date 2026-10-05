@@ -12,7 +12,7 @@ import { CardView } from './CardView';
 // fija de las zonas (mazo/mano/jugado/descarte/mercado/PV) escrita a mano
 // siguiendo las reglas reales; la aritmética está comprobada contra los
 // datos de carta (coste/PV/efectos) y el motor (el Mono se cuenta a sí
-// mismo vía effectiveHand; el Oso polar se cuenta a sí mismo en
+// mismo vía effectiveHand; el Oso panda se cuenta a sí mismo en
 // scorePerHabitatCount; el Hipopótamo es terrestre Y acuático; la Plata
 // vale 1 PV). Si cambian esos datos, hay que revisar los números de aquí.
 //
@@ -21,7 +21,7 @@ import { CardView } from './CardView';
 // al jugar, montón → mano al ganar una Plata, mercado → descarte al
 // comprar). El paso empieza en su foto base; tras `hold` ms sale el vuelo,
 // y al aterrizar se pasa a la foto del fotograma. Así "juegas el Pingüino
-// y te llega la Plata" o "juegas León y Mono y compras el Oso polar" son UN
+// y te llega la Plata" o "juegas León y Mono y compras el Oso panda" son UN
 // solo paso — pedido del usuario 2026-09-22.
 //
 // Cada paso dice qué zonas se enseñan (`show`): solo las que importan en
@@ -31,7 +31,7 @@ import { CardView } from './CardView';
 //
 // Se abre desde la pantalla de inicio SOLO con la edición Aprendizaje
 // seleccionada (botón "Ver tutorial"). Ojo: el guion usa Hipopótamo (5),
-// León (5) y Oso polar (7), que por coste NO salen en el mercado de la
+// León (5) y Oso panda (7), que por coste NO salen en el mercado de la
 // edición Aprendizaje (máximo 4) — están a propósito, elegidas por el
 // usuario para enseñar habilidades y el recuento final.
 //
@@ -47,7 +47,7 @@ const PG = 'penguin';
 const MO = 'monkey';
 const HI = 'hippopotamus';
 const LE = 'lion';
-const OS = 'polar-bear';
+const OS = 'panda';
 
 // Mercado del tutorial: unas cuantas especies de coste creciente (las 5
 // que se compran en el guion más dos baratas de relleno), siempre las
@@ -291,8 +291,8 @@ const STEPS: Step[] = [
     ],
   },
   {
-    title: 'Juegas León y Mono, y compras el Oso polar',
-    text: 'Te salen el León, el Mono y la Plata: 1 + 1 + 2 = 4. Juegas el León (+3 fijos → 7) y el Mono (+2: él y el León → 9), y compras el Oso polar (7). Tiene 0 PV impresos, pero da +1 PV por cada terrestre de TODO tu mazo: 3 Perezosos, Mono, Hipopótamo, León y él mismo = +7. Te sobran 2: lo que no gastas se pierde al terminar el turno.',
+    title: 'Juegas León y Mono, y compras el Oso panda',
+    text: 'Te salen el León, el Mono y la Plata: 1 + 1 + 2 = 4. Juegas el León (+3 fijos → 7) y el Mono (+2: él y el León → 9), y compras el Oso panda (7). Tiene 0 PV impresos, pero da +1 PV por cada terrestre de TODO tu mazo: 3 Perezosos, Mono, Hipopótamo, León y él mismo = +7. Te sobran 2: lo que no gastas se pierde al terminar el turno.',
     show: ['market', 'piles', 'hand', 'played'],
     ...T5_BASE, target: OS, showPv: true,
     frames: [
@@ -330,7 +330,7 @@ const FINAL_BREAKDOWN: { id: string; label: string; pv: number; note?: string }[
   { id: HI, label: 'Hipopótamo', pv: 4 },
   { id: LE, label: 'León', pv: 4 },
   { id: PL, label: 'Plata', pv: 1 },
-  { id: OS, label: 'Oso polar', pv: 7, note: '0 impresos + 7 terrestres en el mazo' },
+  { id: OS, label: 'Oso panda', pv: 7, note: '0 impresos + 7 terrestres en el mazo' },
   { id: B, label: 'Bronce ×7 y Perezoso ×3', pv: 0 },
 ];
 

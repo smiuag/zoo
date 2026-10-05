@@ -19,9 +19,5 @@
       "type": "scorePerDistinctSpecies"
     }
   ],
-  "habitats": [
-    "land",
-    "bird",
-    "aquatic"
-  ]
+  "habitats": ["aquatic", "bird"]
 }

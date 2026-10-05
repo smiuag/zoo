@@ -67,7 +67,7 @@ interface CardViewProps {
   // ven "como la carta estándar", sin nada añadido, así que ese sitio no
   // pasa este prop). Para la mayoría de especies coincide con
   // card.victoryPoints (su PV impreso, fijo); en las 5 de PV variable
-  // (Águila/Orca/Oso polar: +1 por hábitat en todo el mazo; Albatros: +1
+  // (Águila/Orca/Oso panda: +1 por hábitat en todo el mazo; Albatros: +1
   // por especie distinta; Tucán: +1 por animal caro) puede valer más.
   // Cuando difiere del PV impreso se muestra SIEMPRE (no hace falta pasar
   // el ratón), como "N*PV" en vez de solo "NPV" — el asterisco marca que
@@ -199,7 +199,7 @@ export function CardView({
 
   // "N*PV" siempre visible (nunca hace falta pasar el ratón) para las
   // cartas de PV variable (cualquiera con un efecto onScore: Águila, Orca,
-  // Oso polar, Albatros, Tucán, y ahora León/Tiburón/Halcón vía
+  // Oso panda, Albatros, Tucán, y ahora León/Tiburón/Halcón vía
   // scorePerDestroyedCard) SOLO en el mercado (ver livePoints arriba); en
   // mano/mesa nadie pasa livePoints, así que ahí siempre se ve el PV
   // impreso normal, sin nada añadido. Se muestra el asterisco aunque el

@@ -637,7 +637,7 @@ async function main(): Promise<void> {
 
 // Norma pedida explícitamente por el usuario (2026-09-16): recalcular
 // scalerCalibration.json después de CADA entrenamiento, no solo a mano de
-// vez en cuando — si no, el valor de shaping de Águila/Orca/Oso polar/
+// vez en cuando — si no, el valor de shaping de Águila/Orca/Oso panda/
 // Albatros/Tucán/Tiburón se queda anclado a como jugaba el bot mucho más
 // atrás y deja de reflejar lo que de verdad es capaz de acumular ahora.
 //

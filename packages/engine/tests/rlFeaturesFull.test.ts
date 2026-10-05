@@ -52,23 +52,6 @@ describe('rl/featuresFull (edición completa)', () => {
     }
   });
 
-  it('el bloque de la carta ve el coste REAL de comprar un dinosaurio con descuento, no el de catálogo', () => {
-    const { state, player } = setupFull();
-    const diplodocus = state.animalTrack.find((c) => c.species === 'diplodocus')!;
-    const before = encodeAction(state, player.id, { type: 'buyAnimal', trackInstanceId: diplodocus.instanceId });
-
-    // Jugar dinosaurios este turno reduce effectiveMarketCost, y por tanto
-    // la feature de coste de la misma acción candidata.
-    player.playedThisTurn.push(freshInstance('iguana', 'd1'), freshInstance('iguana', 'd2'));
-    const after = encodeAction(state, player.id, { type: 'buyAnimal', trackInstanceId: diplodocus.instanceId });
-
-    // Índice del coste dentro del bloque de carta: contexto(43) + tipo de
-    // acción(4) + [PV, COSTE, valor...].
-    const costIndex = CRITIC_FEATURE_DIM_FULL + 4 + 1;
-    expect(after[costIndex]).toBeLessThan(before[costIndex]);
-    expect(after[costIndex]).toBeCloseTo((12 - 2) / 10, 6);
-  });
-
   it('los 5 bits de hábitat de la carta protagonista están siempre a 0 (2026-09-24: ya no influyen en decidir si se coge una carta)', () => {
     const { state, player } = setupFull();
     const ptera = freshInstance('pteranodon', 'x');
@@ -82,7 +65,7 @@ describe('rl/featuresFull (edición completa)', () => {
     // enmascaran a 0 a propósito (ver comentario de encodeCardBlock en
     // featuresFull.ts) para que el hábitat de LA CARTA QUE SE DECIDE COMPRAR
     // no pueda sesgar el score — el recuento de hábitats ya poseídos (para
-    // el Oso Polar y similares) sigue viéndose en encodePlayerContext.
+    // el Oso Panda y similares) sigue viéndose en encodePlayerContext.
     for (let i = 0; i < 5; i++) expect(features[habitatBase + i]).toBe(0);
   });
 
@@ -95,8 +78,9 @@ describe('rl/featuresFull (edición completa)', () => {
     const after = encodeAction(state, player.id, { type: 'buyAnimal', trackInstanceId: lion.instanceId });
 
     // Última columna del bloque de carta: contexto(43) + tipoAcción(4) +
-    // [PV, coste, valor, 5 hábitats, 41 efectos] = 49 columnas antes de ella.
-    const ownedCopiesIndex = CRITIC_FEATURE_DIM_FULL + 4 + 49;
+    // [PV, coste, valor, 5 hábitats, 42 efectos] = 50 columnas antes de ella
+    // (42 desde que evolveDinosaur se sumó a EFFECT_TYPES, 2026-10-01).
+    const ownedCopiesIndex = CRITIC_FEATURE_DIM_FULL + 4 + 50;
     expect(before[ownedCopiesIndex]).toBe(0);
     expect(after[ownedCopiesIndex]).toBeCloseTo(2 / 15, 6);
   });
@@ -114,10 +98,10 @@ describe('rl/featuresFull (edición completa)', () => {
     expect(actions.length).toBeGreaterThan(0);
     const features = encodeActionsForPlayer(state, player.id, actions)[0];
 
-    // Bloque de carta (50, incluye ownedCopies) + liveScoreDelta(1) + bloque
+    // Bloque de carta (51, incluye ownedCopies) + liveScoreDelta(1) + bloque
     // de objetivo primario(8) = donde empieza el bloque de objetivo
     // SECUNDARIO; su primera columna ("existe") debe ser 1, no 0 (en blanco).
-    const secondaryBase = CRITIC_FEATURE_DIM_FULL + 4 + 50 + 1 + 8;
+    const secondaryBase = CRITIC_FEATURE_DIM_FULL + 4 + 51 + 1 + 8;
     expect(features[secondaryBase]).toBe(1);
   });
 
@@ -133,7 +117,7 @@ describe('rl/featuresFull (edición completa)', () => {
     expect(actions.length).toBeGreaterThan(0);
     const features = encodeActionsForPlayer(state, player.id, actions)[0];
 
-    const secondaryBase = CRITIC_FEATURE_DIM_FULL + 4 + 50 + 1 + 8;
+    const secondaryBase = CRITIC_FEATURE_DIM_FULL + 4 + 51 + 1 + 8;
     // "existe" = 1 (no en blanco): a diferencia de Nutria (carta del propio
     // mazo), aquí la moneda está en la MANO, no en mazo/descarte/mercado, así
     // que ejercita la rama nueva de secondaryTargetCard (sin ella, la red
@@ -151,22 +135,23 @@ describe('rl/featuresFull (edición completa)', () => {
     // comprobar que al menos una columna del bloque de carta está encendida
     // más allá de PV/coste/valor/hábitats (índice tras habitatBase+5).
     const effectsStart = CRITIC_FEATURE_DIM_FULL + 4 + 3 + 5;
-    const effectsSlice = features.slice(effectsStart, effectsStart + 41);
+    const effectsSlice = features.slice(effectsStart, effectsStart + 42);
     expect(effectsSlice.some((v) => v === 1)).toBe(true);
   });
 
-  it('eachOpponentDestroysAnimalFromHand (Tiranosaurio/Terodáctilo/Mosasaurio) SÍ está representado', () => {
+  it('eachOpponentDestroysAnimalFromHand y evolveDinosaur (Tiranosaurio/Terodáctilo/Mosasaurio) SÍ están representados', () => {
     const { state, player } = setupFull();
     const rex = freshInstance('tyrannosaurus', 'x');
     player.hand = [rex];
     const actions = getLegalActions(state, player.id).filter((a) => a.type === 'playCard');
     const features = encodeActionsForPlayer(state, player.id, actions)[0];
     const effectsStart = CRITIC_FEATURE_DIM_FULL + 4 + 3 + 5;
-    const effectsSlice = features.slice(effectsStart, effectsStart + 41);
-    // gainFlatBonusPurchasingPower Y eachOpponentDestroysAnimalFromHand: al
-    // menos 2 columnas encendidas, no solo 1 (si la segunda faltara, esta
-    // carta sería indistinguible en ese aspecto de una que solo diera dinero).
-    expect(effectsSlice.filter((v) => v === 1)).toHaveLength(2);
+    const effectsSlice = features.slice(effectsStart, effectsStart + 42);
+    // gainFlatBonusPurchasingPower, eachOpponentDestroysAnimalFromHand Y
+    // evolveDinosaur (2026-10-01, sustituye al antiguo descuento por turno):
+    // 3 columnas encendidas, no menos (si alguna faltara, esta carta sería
+    // indistinguible en ese aspecto de una con menos habilidades).
+    expect(effectsSlice.filter((v) => v === 1)).toHaveLength(3);
   });
 
   it('jugar un dinosaurio de verdad (playCard) no revienta nada al recalcular acciones legales', () => {

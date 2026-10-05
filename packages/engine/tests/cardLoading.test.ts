@@ -21,7 +21,7 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   orca: { cost: 7, pv: 2 },
   albatross: { cost: 6, pv: 0 },
   hyena: { cost: 4, pv: 5 },
-  'polar-bear': { cost: 7, pv: 0 },
+  panda: { cost: 7, pv: 0 },
   duck: { cost: 2, pv: 1 },
   flamingo: { cost: 3, pv: 1 },
   seal: { cost: 4, pv: 2 },
@@ -132,12 +132,17 @@ describe('card registry', () => {
     expect(getCard('shark').effects[1]).toMatchObject({ trigger: 'onScore', type: 'scorePerCoinCard' });
     expect(getCard('crocodile').effects[0]).toMatchObject({
       trigger: 'onPlay',
-      type: 'drawOrReturnSelfForSpecies',
-      params: { drawAmount: 1, speciesOptions: ['mosasaurus', 'plesiosaurus'] },
+      type: 'drawCards',
+      params: { amount: 1 },
     });
     expect(getCard('crocodile').effects[1]).toMatchObject({
       trigger: 'onScore',
       type: 'destroyWeakestNonFlyingOnScore',
+    });
+    expect(getCard('crocodile').effects[2]).toMatchObject({
+      trigger: 'onPlay',
+      type: 'evolveDinosaur',
+      params: { maxCostDelta: 5, minCoinValue: 1 },
     });
     expect(getCard('orca').effects[0]).toMatchObject({
       trigger: 'onPlay',
@@ -149,12 +154,12 @@ describe('card registry', () => {
       type: 'scorePerHabitatCount',
       params: { habitat: 'aquatic' },
     });
-    expect(getCard('polar-bear').effects[0]).toMatchObject({
+    expect(getCard('panda').effects[0]).toMatchObject({
       trigger: 'onPlay',
       type: 'gainFlatBonusPurchasingPower',
       params: { amount: 2 },
     });
-    expect(getCard('polar-bear').effects[1]).toMatchObject({
+    expect(getCard('panda').effects[1]).toMatchObject({
       trigger: 'onScore',
       type: 'scorePerHabitatCount',
       params: { habitat: 'land' },

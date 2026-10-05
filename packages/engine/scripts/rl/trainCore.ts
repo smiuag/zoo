@@ -205,20 +205,20 @@ function findBuyActionIndex(state: GameState, actions: Action[], speciesId: stri
 }
 
 // 2026-09-26 (pedido explícito del usuario, SOLO para el terrestre): tras
-// comprobar con datos que Land infravalora al Oso polar frente a la Orca
-// (17.67 PV real medio por compra del Oso polar vs 12.41 de la Orca, pese a
+// comprobar con datos que Land infravalora al Oso panda frente a la Orca
+// (17.67 PV real medio por compra del Oso panda vs 12.41 de la Orca, pese a
 // comprarse menos de la mitad de veces — Land acumula más animales de
 // tierra que acuáticos, así que el motor de tierra le rinde más por copia),
-// mismo patrón que Foca/Pingüino: cuando Orca y Oso polar son AMBAS
+// mismo patrón que Foca/Pingüino: cuando Orca y Oso panda son AMBAS
 // candidatas legales en la misma decisión, se fuerza la elección 50/50 en
 // vez de dejarla al softmax/epsilon — las dos quedan puntuadas y comparadas
 // de verdad, así que el gradiente puede corregir el sesgo con el resultado
 // real de la partida. Sin restricción de ronda ni de dinero (a diferencia
 // de Foca/Pingüino): esto no es un problema de timing, es una preferencia
 // mal calibrada en cualquier momento en que compitan. Solo se activa para
-// el especialista terrestre (RL_FORCE_ORCA_VS_POLARBEAR=1, pensado para
+// el especialista terrestre (RL_FORCE_ORCA_VS_PANDA=1, pensado para
 // lanzarse solo con RL_HABITAT=land).
-export const FORCE_ORCA_VS_POLARBEAR = process.env.RL_FORCE_ORCA_VS_POLARBEAR === '1';
+export const FORCE_ORCA_VS_PANDA = process.env.RL_FORCE_ORCA_VS_PANDA === '1';
 
 // 2026-09-27 (pedido explícito del usuario, SOLO para el terrestre): Tucán
 // es hábitat "bird" puro, pero su onScore (scorePerCostAtLeast) lo hace
@@ -227,14 +227,14 @@ export const FORCE_ORCA_VS_POLARBEAR = process.env.RL_FORCE_ORCA_VS_POLARBEAR ==
 // comprarlo, pero el terrestre nunca lo hace: 0 compras en una muestra de
 // 2060 compras reales (cardPreference.ts, 26/09), una carta muerta por pozo
 // de muestreo (ver deadCards.ts), no una preferencia aprendida de verdad.
-// Mismo patrón que Orca/Oso polar: cuando Tucán y el Hipopótamo (su rival
+// Mismo patrón que Orca/Oso panda: cuando Tucán y el Hipopótamo (su rival
 // más cercano en coste, 5, y la compra más frecuente de esa franja para
 // Land) son ambas candidatas legales en la misma decisión, se fuerza la
 // elección 50/50 en vez de dejarla al softmax/epsilon — las dos quedan
 // puntuadas y comparadas de verdad, así que el gradiente puede encontrar su
 // valor real con el resultado real de la partida en vez de dejarla en el
 // pozo para siempre. Sin restricción de ronda ni de dinero, igual que
-// Orca/Oso polar. Solo se activa para el especialista terrestre
+// Orca/Oso panda. Solo se activa para el especialista terrestre
 // (RL_FORCE_TOUCAN_VS_HIPPO=1, pensado para lanzarse solo con
 // RL_HABITAT=land).
 export const FORCE_TOUCAN_VS_HIPPO = process.env.RL_FORCE_TOUCAN_VS_HIPPO === '1';
@@ -280,7 +280,7 @@ export const TRAINING_BUY_RESTRICTIONS = process.env.RL_TRAINING_BUY_RESTRICTION
 // el trabajo:
 // { speciesId: 'turtle', minRound: 10, maxOwnedBefore: 2 },
 // { speciesId: 'platypus', minRound: 3 },
-// { speciesId: 'polar-bear', minRound: 8 },
+// { speciesId: 'panda', minRound: 8 },
 // { speciesId: 'eagle', minRound: 8 },
 // { speciesId: 'toucan', minRound: 6 },
 const BUY_RESTRICTION_RULES: { speciesId: string; minRound: number; maxOwnedBefore?: number }[] = [
@@ -376,7 +376,7 @@ export const RL_CURRICULUM_OPPONENTS =
         .map(([, bot]) => bot);
 
 // Pedido explícito del usuario (2026-09-14): las cartas con un efecto
-// onScore "acumulativo" (Águila/Orca/Oso polar: scorePerHabitatCount;
+// onScore "acumulativo" (Águila/Orca/Oso panda: scorePerHabitatCount;
 // Albatros: scorePerDistinctSpecies; Tucán: scorePerCostAtLeast) tienen las
 // 5 el mismo problema — 0 PV impreso, todo su valor depende de cuánto
 // acabe teniendo el resto de la colección — así que el delta de PV en vivo
@@ -405,7 +405,7 @@ export const RL_CURRICULUM_OPPONENTS =
 // escanea TODAS las cartas cargadas buscando COMPOUNDING_SCORE_EFFECT_TYPES
 // en vez de una lista de ids a mano (así se cubre automáticamente cualquier
 // carta nueva con ese tipo de efecto, sin tener que acordarse de añadirla
-// aquí) — hoy cubre Águila/Orca/Oso polar/Albatros/Tucán/Oca (heredadas de
+// aquí) — hoy cubre Águila/Orca/Oso panda/Albatros/Tucán/Oca (heredadas de
 // la clásica o propias) más Tiburón/Plesiosaurio (propias de la completa).
 // Se regenera a mano tras un reentrenamiento grande de la completa (nunca
 // en cada batch): `npx vite-node scripts/rl/calibrateScalerValuesFull.ts`.
@@ -683,13 +683,13 @@ export function playOneGame(weights: RlWeights): {
     }
     if (
       chosenIndex === undefined &&
-      FORCE_ORCA_VS_POLARBEAR &&
+      FORCE_ORCA_VS_PANDA &&
       HABITAT_FILTER === 'land'
     ) {
       const orcaIdx = findBuyActionIndex(state, actions, 'orca');
-      const polarBearIdx = findBuyActionIndex(state, actions, 'polar-bear');
-      if (orcaIdx !== -1 && polarBearIdx !== -1) {
-        chosenIndex = Math.random() < 0.5 ? orcaIdx : polarBearIdx;
+      const pandaIdx = findBuyActionIndex(state, actions, 'panda');
+      if (orcaIdx !== -1 && pandaIdx !== -1) {
+        chosenIndex = Math.random() < 0.5 ? orcaIdx : pandaIdx;
       }
     }
     if (

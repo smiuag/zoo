@@ -77,7 +77,7 @@ export function scoreCollection(player: Player, allCards: CardInstance[]): numbe
 // aporta la propia carta (PV impreso + su efecto acumulativo, p. ej. Tucán =
 // 1 por cada animal de coste 5+ ya tenido), sino también lo que hace crecer
 // a otras cartas que ya se tienen (comprar cualquier coste 5+ suma +1 por
-// cada Tucán en la colección; un terrestre, +1 por cada Oso polar...). Pura,
+// cada Tucán en la colección; un terrestre, +1 por cada Oso panda...). Pura,
 // nunca resuelve el Cocodrilo. La usa el rlBot como feature (ver
 // features.ts): en el último turno es el valor exacto de la compra; antes,
 // un suelo (la colección solo crece). `baseScore` permite pasar

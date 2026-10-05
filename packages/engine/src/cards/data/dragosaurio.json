@@ -1,0 +1,40 @@
+{
+  "id": "dragosaurio",
+  "name": "Dragosaurio",
+  "type": "animal",
+  "species": "dragosaurio",
+  "edition": "full",
+  "marketCost": 14,
+  "victoryPoints": 0,
+  "text": "Al jugarlo, roba 2 cartas.\nAl final de la partida, +1PV por cada dinosaurio que tengas en toda tu colección.\nEl final de la cadena de evolución: terrestre, volador y acuático a la vez.",
+  "effects": [
+    {
+      "trigger": "onPlay",
+      "type": "drawCards",
+      "params": {
+        "amount": 2
+      }
+    },
+    {
+      "trigger": "onScore",
+      "type": "scorePerHabitatCount",
+      "params": {
+        "habitat": "dinosaur"
+      }
+    },
+    {
+      "trigger": "onPlay",
+      "type": "evolveDinosaur",
+      "params": {
+        "maxCostDelta": 5,
+        "minCoinValue": 1
+      }
+    }
+  ],
+  "habitats": [
+    "land",
+    "bird",
+    "aquatic",
+    "dinosaur"
+  ]
+}

@@ -6,20 +6,26 @@
   "marketCost": 5,
   "victoryPoints": 7,
   "text": "Roba 1 carta.\nAl final de la partida, antes de la puntuación, elimina de tu colección una carta de animal no volador.",
-  "fullEditionText": "Elige: roba una carta, o descarta una moneda de valor 3 o más y devuélvelo a su reserva para conseguir, del mercado, un Mosasaurio o un Plesiosaurio.\nAl final de la partida, antes de la puntuación, elimina de tu colección una carta de animal no volador.",
+  "fullEditionText": "Roba 1 carta. Además, puedes evolucionarlo: descarta una moneda de tu mano para conseguir gratis, del mercado, otro animal de dinosaurio que comparta tipo y cueste hasta 5 monedas más.\nAl final de la partida, antes de la puntuación, elimina de tu colección una carta de animal no volador.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "drawOrReturnSelfForSpecies",
+      "type": "drawCards",
       "params": {
-        "drawAmount": 1,
-        "speciesOptions": ["mosasaurus", "plesiosaurus"],
-        "minValue": 3
+        "amount": 1
       }
     },
     {
       "trigger": "onScore",
       "type": "destroyWeakestNonFlyingOnScore"
+    },
+    {
+      "trigger": "onPlay",
+      "type": "evolveDinosaur",
+      "params": {
+        "maxCostDelta": 5,
+        "minCoinValue": 1
+      }
     }
   ],
   "habitats": [

@@ -5,9 +5,8 @@
   "species": "tyrannosaurus",
   "edition": "full",
   "marketCost": 10,
-  "costReductionPerDinosaurPlayedThisTurn": 1,
   "victoryPoints": 10,
-  "text": "Cuesta 1 moneda menos por cada dinosaurio que hayas jugado este turno.\nAñade 4 a tu valor de captura.\nCada oponente elimina un animal terrestre de coste 4 o menos de su mano.",
+  "text": "Añade 4 a tu valor de captura.\nCada oponente elimina un animal terrestre de coste 4 o menos de su mano.\nAdemás, puedes evolucionarlo: descarta una moneda de tu mano para conseguir gratis, del mercado, otro animal de dinosaurio que comparta tipo y cueste hasta 5 monedas más.",
   "effects": [
     {
       "trigger": "onPlay",
@@ -24,6 +23,14 @@
           "land"
         ],
         "maxCost": 5
+      }
+    },
+    {
+      "trigger": "onPlay",
+      "type": "evolveDinosaur",
+      "params": {
+        "maxCostDelta": 5,
+        "minCoinValue": 1
       }
     }
   ],

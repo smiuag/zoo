@@ -14,7 +14,7 @@ import {
 // petición suya: "que el reducido no excluya el mono"), mismos ids verificados
 // contra ANIMAL_SPECIES.
 const REDUCED_EXCLUDED_SPECIES = new Set([
-  'polar-bear',
+  'panda',
   'orca',
   'eagle',
   'albatross',

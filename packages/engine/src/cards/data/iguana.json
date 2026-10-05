@@ -6,13 +6,21 @@
   "edition": "full",
   "marketCost": 3,
   "victoryPoints": 2,
-  "text": "Roba una carta.",
+  "text": "Roba una carta.\nAdemás, puedes evolucionarlo: descarta una moneda de tu mano para conseguir gratis, del mercado, otro animal de dinosaurio que comparta tipo y cueste hasta 5 monedas más.",
   "effects": [
     {
       "trigger": "onPlay",
       "type": "drawCards",
       "params": {
         "amount": 1
+      }
+    },
+    {
+      "trigger": "onPlay",
+      "type": "evolveDinosaur",
+      "params": {
+        "maxCostDelta": 5,
+        "minCoinValue": 1
       }
     }
   ],

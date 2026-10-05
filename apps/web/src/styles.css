@@ -2115,6 +2115,41 @@ body {
   padding: 0.3rem 0.7rem;
 }
 
+/* Filtros del top del ranking (ver Ranking.tsx): una fila por filtro
+   (rondas, edición, nº de jugadores) con su etiqueta a la izquierda; cada
+   fila hace su propio scroll horizontal si sus botones no caben. */
+.ranking-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.8rem;
+  min-width: 0;
+}
+
+.ranking-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+}
+
+.ranking-filter__label {
+  flex: 0 0 4.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--muted-dark);
+}
+
+.ranking-filter .score-tabs {
+  flex: 1;
+  margin: 0;
+  padding-bottom: 0;
+  /* Los botones saltan de línea en vez de hacer scroll horizontal: en el móvil
+     el scroll dejaba botones cortados y una barra gris debajo de cada fila. */
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
 .icon-btn {
   flex: 0 0 auto;
   font: inherit;
@@ -2191,7 +2226,7 @@ body {
 }
 
 /* El icono es su propio elemento flex, separado del título: así en móvil
-   "Oso polar" puede partirse en dos líneas sin dejar el icono huérfano en
+   "Oso panda" puede partirse en dos líneas sin dejar el icono huérfano en
    una línea aparte (que es justo lo que pasaba metiendo icono + texto +
    .score-row__label small como 3 hijos sueltos de un flex en columna). */
 .score-row__title {

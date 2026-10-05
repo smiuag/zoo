@@ -6,7 +6,7 @@
   "edition": "full",
   "marketCost": 4,
   "victoryPoints": 0,
-  "text": "Añade 1 a tu valor de captura.\nAl final de la partida, +1PV por cada animal doméstico distinto que tengas en toda tu colección.",
+  "text": "Añade 1 a tu valor de captura.\nAl final de la partida, +1PV por cada animal doméstico distinto que tengas en toda tu colección.\nAdemás, puedes evolucionarlo: descarta una moneda de tu mano para conseguir gratis, del mercado, otro animal de dinosaurio que comparta tipo y cueste hasta 5 monedas más.",
   "effects": [
     {
       "trigger": "onPlay",
@@ -20,6 +20,14 @@
       "type": "scorePerDistinctSpeciesWithHabitat",
       "params": {
         "habitat": "pet"
+      }
+    },
+    {
+      "trigger": "onPlay",
+      "type": "evolveDinosaur",
+      "params": {
+        "maxCostDelta": 5,
+        "minCoinValue": 1
       }
     }
   ],

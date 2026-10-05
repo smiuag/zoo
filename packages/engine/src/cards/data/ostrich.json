@@ -6,15 +6,21 @@
   "edition": "full",
   "marketCost": 5,
   "victoryPoints": 5,
-  "text": "Elige: roba una carta, o descarta una moneda de valor 3 o más y devuélvela a su reserva para conseguir, del mercado, un Tiranosaurio o un Pterodáctilo.",
+  "text": "Roba 1 carta. Además, puedes evolucionarlo: descarta una moneda de tu mano para conseguir gratis, del mercado, otro animal de dinosaurio que comparta tipo y cueste hasta 5 monedas más.",
   "effects": [
     {
       "trigger": "onPlay",
-      "type": "drawOrReturnSelfForSpecies",
+      "type": "drawCards",
       "params": {
-        "drawAmount": 1,
-        "speciesOptions": ["tyrannosaurus", "pterodactyl"],
-        "minValue": 3
+        "amount": 1
+      }
+    },
+    {
+      "trigger": "onPlay",
+      "type": "evolveDinosaur",
+      "params": {
+        "maxCostDelta": 5,
+        "minCoinValue": 1
       }
     }
   ],

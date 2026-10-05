@@ -551,14 +551,20 @@ registerEffect(STAY_ON_TABLE_EFFECT_TYPE, () => {});
 // (no tiene que ser de valor 1, y no la decide el motor), igual que
 // cualquier otra entrega forzosa (ver resolveDiscard en engine.ts, kind
 // 'giveToPlayer'). Si no tiene ninguna, no pierde nada (en la práctica,
-// "muestra su mano"): no llega a deber nada, no hay elección que hacer.
+// "muestra su mano") y quien jugó el Pato coge de la reserva una moneda
+// params.fallbackCoinId (2026-10-05: valor 3) a su mano, igual que el
+// Pingüino (gainCoin); sin ese parámetro, no pasa nada, como antes.
 // Con 1 solo jugador no hay a quién elegir, así que no hace nada.
-registerEffect('stealCoinFromChosenPlayer', (state, player, _effect, context) => {
+registerEffect('stealCoinFromChosenPlayer', (state, player, effect, context) => {
   if (!context.targetPlayerId) return;
   const target = state.players.find((p) => p.id === context.targetPlayerId);
   if (!target || target.id === player.id) return;
   const eligible = target.hand.filter((c) => c.type === 'coin');
-  if (eligible.length === 0) return;
+  if (eligible.length === 0) {
+    const fallbackCoinId = typeof effect.params?.fallbackCoinId === 'string' ? effect.params.fallbackCoinId : undefined;
+    if (fallbackCoinId) player.hand.push(mintInstance(state, getCard(fallbackCoinId)));
+    return;
+  }
   const owed: PendingDiscardDecision['owed'] = {
     [target.id]: { amount: 1, eligibleInstanceIds: eligible.map((c) => c.instanceId) },
   };
@@ -796,6 +802,97 @@ registerEffect('drawOrReturnSelfForSpecies', (state, player, effect, context) =>
   }
 });
 
+// Regla genérica de evolución de dinosaurios (2026-10-01, pedido explícito
+// del usuario: sustituye al antiguo descuento por turno —
+// costReductionPerDinosaurPlayedThisTurn— por el mismo patrón que ya usaban
+// Avestruz/Cocodrilo, pero sin lista fija de especies: CUALQUIER carta con
+// hábitat dinosaurio puede evolucionar a OTRA carta con hábitat dinosaurio
+// que cueste más (hasta effect.params.maxCostDelta de diferencia, por
+// defecto 5) y que comparta al menos un hábitat "real" (terrestre, volador o
+// acuático — dinosaurio/mascota no cuentan para esta comparación, ver
+// REAL_HABITATS). Usado tanto por el handler (validar antes de resolver)
+// como por engine.ts (evolveDinosaurTargetSpecs, para ofrecer la elección a
+// humanos y bots) — exportada para que ambos usen EXACTAMENTE el mismo
+// criterio sin duplicar la lógica.
+const REAL_HABITATS = new Set(['land', 'bird', 'aquatic']);
+
+export function dinosaurEvolutionTargets(
+  source: CardInstance,
+  animalTrack: CardInstance[],
+  maxCostDelta: number
+): CardInstance[] {
+  const sourceHabitats = (source.habitats as string[] | undefined) ?? [];
+  const realHabitats = sourceHabitats.filter((h) => REAL_HABITATS.has(h));
+  if (realHabitats.length === 0) return [];
+  const sourceCost = source.marketCost ?? 0;
+  return animalTrack.filter((c) => {
+    if (c.species === source.species) return false;
+    if (!(c.habitats as string[] | undefined)?.includes('dinosaur')) return false;
+    const cost = c.marketCost ?? 0;
+    if (cost <= sourceCost || cost > sourceCost + maxCostDelta) return false;
+    return realHabitats.some((h) => (c.habitats as string[] | undefined)?.includes(h));
+  });
+}
+
+// Resuelve la evolución elegida (context.targetInstanceId, validado de
+// nuevo aquí por si el contexto viene manipulado — mismo criterio que
+// dinosaurEvolutionTargets) pagando effect.params.minCoinValue (por defecto
+// sin coste) con una moneda de la mano (context.secondaryTargetInstanceId).
+// Sin objetivo elegido, o sin moneda válida con la que costearlo, no hace
+// nada — a diferencia de drawOrReturnSelfForSpecies, esto es siempre un
+// extra OPCIONAL además de la habilidad propia de la carta (que ya se habrá
+// resuelto por su propio efecto onPlay, si tiene uno), nunca un sustituto de
+// "robar": por eso no hay ningún drawCards de refuerzo aquí.
+registerEffect('evolveDinosaur', (state, player, effect, context) => {
+  if (!context.targetInstanceId || !context.sourceInstanceId) return;
+  // Solo LEE la carta (sin quitarla todavía): dinosaurEvolutionTargets
+  // necesita su coste/hábitats, pero si el objetivo o la moneda resultan
+  // inválidos no debe tocarse nada — se valida todo antes de mutar, igual
+  // que drawOrReturnSelfForSpecies.
+  const sourceCard = findSelfWherever(state, context.sourceInstanceId);
+  if (!sourceCard) return;
+  const maxCostDelta = typeof effect.params?.maxCostDelta === 'number' ? effect.params.maxCostDelta : 5;
+  const candidates = dinosaurEvolutionTargets(sourceCard, state.animalTrack, maxCostDelta);
+  const trackIdx = state.animalTrack.findIndex(
+    (c) => c.instanceId === context.targetInstanceId && candidates.some((cand) => cand.instanceId === c.instanceId)
+  );
+  if (trackIdx === -1) return;
+  const minCoinValue = effect.params?.minCoinValue;
+  if (typeof minCoinValue === 'number') {
+    const coinIdx = player.hand.findIndex(
+      (c) =>
+        c.instanceId === context.secondaryTargetInstanceId &&
+        c.type === 'coin' &&
+        typeof c.value === 'number' &&
+        c.value >= minCoinValue
+    );
+    if (coinIdx === -1) return;
+    const [coin] = player.hand.splice(coinIdx, 1);
+    player.discard.push(coin);
+  }
+  const [captured] = state.animalTrack.splice(trackIdx, 1);
+  player.discard.push(captured);
+  refillHook?.(state, captured.species);
+  const self = removeSelfFromWherever(state, context.sourceInstanceId);
+  if (self) returnToMarketImmediately(state, self);
+});
+
+// Variante de solo lectura de removeSelfFromWherever (misma búsqueda:
+// playedThisTurn de cualquier jugador, luego descarte de cualquier
+// jugador), usada por evolveDinosaur para consultar coste/hábitats de la
+// propia carta ANTES de decidir si de verdad va a quitarla de donde está.
+function findSelfWherever(state: GameState, instanceId: string): CardInstance | undefined {
+  for (const p of state.players) {
+    const found = p.playedThisTurn.find((c) => c.instanceId === instanceId);
+    if (found) return found;
+  }
+  for (const p of state.players) {
+    const found = p.discard.find((c) => c.instanceId === instanceId);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 // `sourceCard` es la carta que lleva el efecto (p. ej. la instancia
 // concreta del Cocodrilo que lo dispara), para que un efecto pueda excluirse
 // a sí mismo de sus propios objetivos.
@@ -825,7 +922,7 @@ export function resolveScoreEffect(
   return handler(player, effect, allCards, sourceCard);
 }
 
-// Orca / Oso polar / Albatros: +1PV (× `multiplier`, por defecto 1) por
+// Orca / Oso panda / Albatros: +1PV (× `multiplier`, por defecto 1) por
 // cada animal del hábitat indicado que tenga el jugador en TODA su
 // colección (mazo + mano + descarte: todos los animales puntúan estén
 // donde estén), al final de la partida.
@@ -899,7 +996,7 @@ export const DESTRUCTIVE_SCORE_EFFECT_TYPES = new Set(['destroyWeakestNonFlyingO
 // Efectos onScore "acumulativos": 0 PV impreso, todo su valor depende de
 // cuánto acabe teniendo el resto de la colección al final de la partida
 // (hábitat, especies distintas, coste mínimo, cartas de moneda) — hoy
-// Águila/Orca/Oso polar (habitatCount), Albatros (distinctSpecies), Tucán
+// Águila/Orca/Oso panda (habitatCount), Albatros (distinctSpecies), Tucán
 // (costAtLeast) y Tiburón (coinCard). Lo usan calibrateScalerValues.ts (qué
 // cartas recalibrar) y filterActionsByHabitat en bots/actionPriority.ts (qué
 // cartas se libran del filtro de hábitat de los especialistas RL, pedido
@@ -917,7 +1014,7 @@ export const COMPOUNDING_SCORE_EFFECT_TYPES = new Set([
 
 // Cuánto vale REALMENTE una carta a la hora de puntuar: sus PV base más lo
 // que le sumen sus propios efectos onScore no destructivos (p. ej. el bonus
-// de hábitat de la Orca/Oso polar/Albatros, o el de especies distintas del
+// de hábitat de la Orca/Oso panda/Albatros, o el de especies distintas del
 // Pingüino), calculado sobre la colección
 // ACTUAL del jugador (mazo + mano + descarte, en este momento). Así el
 // Cocodrilo compara lo que cada carta aporta DE VERDAD, no solo su PV

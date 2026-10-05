@@ -26,7 +26,7 @@ const SPECIES_ICONS: Record<string, string> = {
   spider: '🕷️',
   hyena: '🐺',
   orca: '🐳',
-  'polar-bear': '🐻‍❄️',
+  'panda': '🐼',
   albatross: '🦢',
   crocodile: '🐊',
   hippopotamus: '🦛',
@@ -215,12 +215,10 @@ const EXTRA_TYPE_LABELS: Array<{ key: 'pet' | 'dinosaur'; label: string }> = [
 // unido de siempre para cualquier otro uso.
 export function habitatLabelParts(card: CardInstance): string[] {
   const matched = HABITAT_LABELS.filter(({ key }) => card.habitats?.includes(key));
-  // Un animal con los 3 hábitats a la vez se etiquetaría "Todoterreno" en
-  // vez de listarlos por separado. Excepción explícita del usuario
-  // (2026-09-21): el Albatros SÍ tiene los 3 a la vez, pero se listan sus 3
-  // tipos básicos por separado en vez de colapsarlos en "Todoterreno".
+  // Un animal con los 3 hábitats a la vez se etiqueta "Todoterreno" en vez de
+  // listarlos por separado.
   const extras = EXTRA_TYPE_LABELS.filter(({ key }) => card.habitats?.includes(key)).map(({ label }) => label);
-  const collapseToAllTerrain = matched.length === HABITAT_LABELS.length && card.id !== 'albatross';
+  const collapseToAllTerrain = matched.length === HABITAT_LABELS.length;
   const base = collapseToAllTerrain ? ['Todoterreno'] : matched.map(({ label }) => label);
   return [...base, ...extras];
 }

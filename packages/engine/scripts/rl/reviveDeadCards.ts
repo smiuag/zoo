@@ -199,7 +199,7 @@ function referenceState() {
   player.playedThisTurn = [];
   const collection: Record<string, number> = {
     sloth: 1, goldfish: 2, turtle: 2, spider: 3, squirrel: 3, platypus: 4, hyena: 2, monkey: 3,
-    crocodile: 2, hippopotamus: 2, albatross: 1, elephant: 2, orca: 1, 'polar-bear': 3,
+    crocodile: 2, hippopotamus: 2, albatross: 1, elephant: 2, orca: 1, panda: 3,
   };
   let k = 0;
   for (const [id, n] of Object.entries(collection)) for (let i = 0; i < n; i++) player.discard.push(inst(id, k++));

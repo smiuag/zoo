@@ -13,6 +13,7 @@ import {
 import {
   COIN_UPGRADE_TARGET,
   STAY_ON_TABLE_EFFECT_TYPE,
+  dinosaurEvolutionTargets,
   pickDefaultDiscard,
   resolveEffect,
   setRefillHook,
@@ -36,7 +37,7 @@ export const ANIMAL_SPECIES = [
   'spider',
   'hyena',
   'orca',
-  'polar-bear',
+  'panda',
   'albatross',
   'crocodile',
   'hippopotamus',
@@ -74,7 +75,7 @@ export const FULL_EDITION_EXTRA_SPECIES = [
   'chicken',
   'otter',
   'golden-fish',
-  'plesiosaurus',
+  'dragosaurio',
   'pteranodon',
   'hummingbird',
   'ostrich',
@@ -909,6 +910,36 @@ function drawOrReturnSelfForSpeciesTargetSpecs(state: GameState, player: Player,
   return specs;
 }
 
+// Regla genérica de evolución de dinosaurios (ver dinosaurEvolutionTargets
+// en effects/registry.ts, que decide qué cuenta como objetivo válido: otra
+// carta con hábitat dinosaurio, que cueste más —hasta maxCostDelta— y
+// comparta un hábitat real con `card`). Mismo patrón que
+// drawOrReturnSelfForSpeciesTargetSpecs: "no evolucionar" (spec vacío `{}`)
+// SIEMPRE está disponible, y además una combinación por cada (objetivo
+// válido × moneda de la mano de valor minCoinValue o más) — sin ninguna
+// moneda que lo costee, o sin ningún objetivo posible ahora mismo en el
+// mercado, solo se ofrece `{}` (a diferencia de Avestruz/Cocodrilo de
+// antes, esto es siempre un extra opcional, nunca sustituye a la habilidad
+// propia de la carta).
+function evolveDinosaurTargetSpecs(state: GameState, player: Player, card: CardInstance, effect: Effect): EffectTargetSpec[] {
+  const maxCostDelta = typeof effect.params?.maxCostDelta === 'number' ? effect.params.maxCostDelta : 5;
+  const candidates = dinosaurEvolutionTargets(card, state.animalTrack, maxCostDelta);
+  if (candidates.length === 0) return [{}];
+  const minCoinValue = effect.params?.minCoinValue;
+  if (typeof minCoinValue !== 'number') {
+    return [{}, ...candidates.map((c) => ({ targetInstanceId: c.instanceId }))];
+  }
+  const coins = discardCoinCandidates(player, minCoinValue);
+  if (coins.length === 0) return [{}];
+  const specs: EffectTargetSpec[] = [{}];
+  for (const coin of coins) {
+    for (const candidate of candidates) {
+      specs.push({ targetInstanceId: candidate.instanceId, secondaryTargetInstanceId: coin.instanceId });
+    }
+  }
+  return specs;
+}
+
 // Punto único que decide, para CUALQUIER carta con un efecto onPlay que
 // necesite elegir un objetivo, qué combinaciones son legales ahora mismo —
 // sin saber ni importarle si esa carta se va a jugar de verdad (playCard,
@@ -943,6 +974,9 @@ function effectTargetSpecsForCard(
 
   const drawOrReturnSelf = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'drawOrReturnSelfForSpecies');
   if (drawOrReturnSelf) return drawOrReturnSelfForSpeciesTargetSpecs(state, player, drawOrReturnSelf);
+
+  const evolveDinosaur = card.effects.find((e) => e.trigger === 'onPlay' && e.type === 'evolveDinosaur');
+  if (evolveDinosaur) return evolveDinosaurTargetSpecs(state, player, card, evolveDinosaur);
 
   const playerTargeted = card.effects.find((e) => e.trigger === 'onPlay' && PLAYER_TARGETED_EFFECT_TYPES.has(e.type));
   if (playerTargeted) {

@@ -30,7 +30,7 @@ export const CardSchema = z.object({
   // pero algunas pertenecen a varios a la vez: Hipopótamo, Cocodrilo,
   // Flamenco, Pato (2 hábitats cada uno), y Pingüino/Foca (terrestre-
   // acuática). Lo usan tanto la etiqueta visible de la carta como los
-  // efectos "por cada animal de tipo X" (orca, oso polar, albatros,
+  // efectos "por cada animal de tipo X" (orca, oso panda, albatros,
   // cocodrilo, pez de colores, periquito, serpiente, loro): cuentan si el
   // hábitat buscado está en esta lista, no si es el único.
   // 'pet' (mascota) y 'dinosaur' (dinosaurio) son tipos EXTRA (2026-09-20):

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CHAT_MAX_LENGTH, useRoomChat, type ChatMessage } from '../online/useRoomChat';
+import type { BotEmoteEvent } from '../lib/botChat';
 
 // Solo en pantalla ancha (ver el mismo corte de 860px que ./styles.css para
 // el panel): en móvil el chat es una hoja inferior a todo lo ancho a
@@ -24,14 +25,32 @@ interface RoomChatProps {
   roomCode: string;
   seatId: string;
   name: string;
+  // Cola de emotes automáticos de bot pendientes de mandar (ver
+  // lib/botChat.ts/useGame.ts) — SOLO App.tsx la pasa (es quien ejecuta la
+  // lógica de los bots, nunca GuestApp.tsx): ausente/vacía ahí, sin ningún
+  // efecto. Se manda cada entrada NUEVA (por id) una sola vez, nunca se
+  // reenvía si este componente se vuelve a montar con la misma lista.
+  botEmotes?: BotEmoteEvent[];
 }
 
 // Chat de la partida online: un botón flotante con contador de no leídos que abre un panel
 // (acoplado abajo a la derecha en pantalla grande, hoja inferior en móvil). Se monta SOLO en
 // partidas online (ver App.tsx / GuestApp.tsx): en local, pasando el dispositivo, no hay con
 // quién hablar. Con el panel cerrado, cada mensaje ajeno asoma unos segundos junto al botón.
-export function RoomChat({ roomCode, seatId, name }: RoomChatProps) {
-  const { messages, sendText, sendReaction } = useRoomChat(roomCode, seatId, name);
+export function RoomChat({ roomCode, seatId, name, botEmotes }: RoomChatProps) {
+  const { messages, sendText, sendReaction, sendBotReaction } = useRoomChat(roomCode, seatId, name);
+  // Últimos ids de botEmotes ya mandados: por id (nunca por longitud del
+  // array), para no reenviar nada si por lo que sea se recibe la misma lista
+  // dos veces, y para no perder ninguno si llegan varios en el mismo render.
+  const sentBotEmoteIdsRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    if (!botEmotes) return;
+    for (const event of botEmotes) {
+      if (sentBotEmoteIdsRef.current.has(event.id)) continue;
+      sentBotEmoteIdsRef.current.add(event.id);
+      sendBotReaction(event.seatId, event.name, event.reaction);
+    }
+  }, [botEmotes, sendBotReaction]);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [unread, setUnread] = useState(0);

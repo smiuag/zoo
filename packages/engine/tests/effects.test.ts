@@ -1144,7 +1144,7 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     expect(opponent.hand).toEqual([coin5]); // se queda con la de más valor
   });
 
-  it('pato: si el jugador elegido no tiene ninguna moneda, no pierde nada', () => {
+  it('pato: si el jugador elegido no tiene ninguna moneda, no pierde nada y tú coges una moneda de valor 3 de la reserva', () => {
     const { state, player, opponent } = setupClean();
     opponent.hand = [freshInstance('sloth', 'o1')]; // sin monedas en mano
     const duck = freshInstance('duck', 'test');
@@ -1153,7 +1153,22 @@ describe('habilidades de animales al jugarlos (onPlay)', () => {
     playCard(state, player.id, duck.instanceId, undefined, undefined, opponent.id);
 
     expect(opponent.hand).toHaveLength(1);
-    expect(player.hand.filter((c) => c.type === 'coin')).toHaveLength(0);
+    const coins = player.hand.filter((c) => c.type === 'coin');
+    expect(coins).toHaveLength(1);
+    expect(coins[0].id).toBe('coin-3');
+    expect(coins[0].value).toBe(3);
+    expect(state.pendingDecision).toBeNull(); // nadie debe nada: no hay elección que resolver
+  });
+
+  it('pato: si el jugador elegido SÍ tiene moneda, no se coge nada de la reserva', () => {
+    const { state, player, opponent } = setupClean();
+    opponent.hand = [freshInstance('coin-1', 'o1')];
+    const duck = freshInstance('duck', 'test');
+    player.hand = [duck];
+
+    playCard(state, player.id, duck.instanceId, undefined, undefined, opponent.id);
+
+    expect(player.hand.some((c) => c.id === 'coin-3')).toBe(false);
   });
 
   it('pato: sin elegir jugador (sin rivales o sin objetivo), no pasa nada', () => {

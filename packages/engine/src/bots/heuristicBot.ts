@@ -189,7 +189,14 @@ function targetPlayerBonus(state: GameState, _player: Player, card: CardInstance
     // Prioriza al rival con la moneda de mayor valor en mano: es la que se
     // llevaría (findIndex se queda la primera moneda que encuentre, pero
     // como heurística basta con saber si merece la pena apuntarle).
-    const bestCoin = Math.max(0, ...target.hand.filter((c) => c.type === 'coin').map((c) => c.value ?? 0));
+    // Si no tiene ninguna, el Pato da la moneda de params.fallbackCoinId
+    // de la reserva (valor 3): ese rival vale lo que valga esa moneda.
+    const coins = target.hand.filter((c) => c.type === 'coin');
+    if (coins.length === 0) {
+      const fallbackCoinId = card.effects.find((e) => e.type === 'stealCoinFromChosenPlayer')?.params?.fallbackCoinId;
+      return typeof fallbackCoinId === 'string' ? (getCard(fallbackCoinId).value ?? 0) * 0.2 : 0;
+    }
+    const bestCoin = Math.max(0, ...coins.map((c) => c.value ?? 0));
     return bestCoin * 0.2;
   }
 
@@ -216,7 +223,12 @@ function drawThenTopdeckTargetBonus(sourceCard: CardInstance, player: Player, ta
   return -worth * 0.3;
 }
 
-function scoreAction(state: GameState, player: Player, action: Action): number {
+// Exportada (2026-10-01) para que scripts de diagnóstico puedan reconstruir
+// "un heuristicBot restringido a un hábitat" reutilizando la MISMA
+// valoración de siempre (filtrando antes la lista de acciones con
+// filterActionsByHabitat, ver actionPriority.ts) en vez de inventar una
+// heurística nueva de usar y tirar — ver scripts/rl/dinoHabitatBots.ts.
+export function scoreAction(state: GameState, player: Player, action: Action): number {
   switch (action.type) {
     case 'buyAnimal': {
       // Comprar es la vía principal para acumular PV (cuenta esté donde

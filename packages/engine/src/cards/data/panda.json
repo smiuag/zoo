@@ -1,8 +1,8 @@
 {
-  "id": "polar-bear",
-  "name": "Oso polar",
+  "id": "panda",
+  "name": "Oso panda",
   "type": "animal",
-  "species": "polar-bear",
+  "species": "panda",
   "marketCost": 7,
   "victoryPoints": 0,
   "text": "Añade 2 a tu valor de captura.\n+1PV por cada animal terrestre que tengas en todo tu mazo.",

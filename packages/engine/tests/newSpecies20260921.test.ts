@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buyAnimal, canAffordMarket, createGame, effectiveMarketCost, getLegalActions, playCard } from '../src/engine';
+import { buyAnimal, canAffordMarket, createGame, getLegalActions, playCard } from '../src/engine';
 import { getCard } from '../src/cards/registry';
 import { drawCards, type CardInstance } from '../src/model/state';
 import { scorePlayer } from '../src/scoring';
@@ -25,42 +25,11 @@ function setupClean() {
   return { state, player: state.players[0], opponent: state.players[1] };
 }
 
-describe('coste dinámico por dinosaurios jugados este turno', () => {
-  it('el Diplodocus cuesta 1 menos por cada dinosaurio ya jugado este turno, sin bajar de 0', () => {
-    const { state, player } = setupClean();
-    const diplodocus = state.animalTrack.find((c) => c.species === 'diplodocus')!;
-    expect(effectiveMarketCost(player, diplodocus)).toBe(12);
-
-    player.playedThisTurn.push(freshInstance('iguana', 'd1')); // dinosaurio (land/aquatic/pet/dinosaur)
-    expect(effectiveMarketCost(player, diplodocus)).toBe(11);
-
-    for (let i = 0; i < 20; i++) player.playedThisTurn.push(freshInstance('iguana', `bulk${i}`));
-    expect(effectiveMarketCost(player, diplodocus)).toBe(0);
-  });
-
-  it('un dinosaurio mantenido en la mesa de turnos anteriores también cuenta para el descuento', () => {
-    const { state, player } = setupClean();
-    const diplodocus = state.animalTrack.find((c) => c.species === 'diplodocus')!;
-    // Colibrí en player.table (mayStayOnTable, jugado un turno anterior, ya
-    // no está en playedThisTurn): sigue siendo dinosaurio y debe contar.
-    player.table.push(freshInstance('hummingbird', 'kept'));
-    expect(effectiveMarketCost(player, diplodocus)).toBe(11); // 12 - 1
-
-    player.playedThisTurn.push(freshInstance('iguana', 'd1'));
-    expect(effectiveMarketCost(player, diplodocus)).toBe(10); // 12 - 1(mesa) - 1(jugado este turno)
-  });
-
-  it('comprarlo de verdad paga el coste reducido, no el de catálogo', () => {
-    const { state, player } = setupClean();
-    for (let i = 0; i < 2; i++) player.playedThisTurn.push(freshInstance('turtle', `t${i}`)); // turtle también es dinosaurio
-    player.hand.push(freshInstance('coin-5', 'pay1'), freshInstance('coin-5', 'pay2'));
-    const diplodocus = state.animalTrack.find((c) => c.species === 'diplodocus')!;
-    buyAnimal(state, player.id, diplodocus.instanceId);
-    // 12 - 2*1 = 10, pagado con 2 Platino (10): no sobra cambio.
-    expect(player.bonusPurchasingPowerThisTurn).toBe(0);
-    expect(player.discard.some((c) => c.species === 'diplodocus')).toBe(true);
-  });
-});
+// El descuento "cuesta 1 menos por cada dinosaurio jugado este turno"
+// (costReductionPerDinosaurPlayedThisTurn/effectiveMarketCost) se retiró el
+// 2026-10-01, pedido explícito del usuario — ningún dato de carta lo usa ya.
+// Lo sustituye evolveDinosaur (ver el describe de Avestruz/Cocodrilo/
+// Dragosaurio más abajo): evolucionar, no abaratar.
 
 describe('Oca: +1 bellota al jugarla, +1PV por especie doméstica distinta al final', () => {
   it('al jugarla da +1 de valor de compra genérico', () => {
@@ -354,24 +323,25 @@ describe('Avestruz: elige robar o evolucionar a Tiranosaurio/Pterodáctilo', () 
     expect(state.animalTrack.some((c) => c.species === 'tyrannosaurus')).toBe(true); // hueco repuesto
   });
 
-  it('sin ninguna moneda de Oro (o mejor) en la mano, no puede evolucionar: cae a robar', () => {
+  it('sin ninguna moneda en la mano (cualquiera vale, incluso Bronce), no puede evolucionar: cae a robar', () => {
     const { state, player } = setupClean();
     const ostrich = freshInstance('ostrich', 'x');
-    const silver = freshInstance('coin-2', 'silver');
-    player.hand = [ostrich, silver];
+    player.hand = [ostrich];
     player.deck = [freshInstance('coin-1', 'top')];
     const rex = state.animalTrack.find((c) => c.species === 'tyrannosaurus')!;
-    playCard(state, player.id, ostrich.instanceId, rex.instanceId, silver.instanceId);
+    // secondaryTargetInstanceId no corresponde a ninguna moneda real en la
+    // mano (no hay ninguna): evolveDinosaur no encuentra con qué pagar y cae
+    // a robar, igual que si no se hubiera pasado ningún objetivo.
+    playCard(state, player.id, ostrich.instanceId, rex.instanceId, 'no-existe');
     expect(player.discard.some((c) => c.instanceId === rex.instanceId)).toBe(false);
-    expect(player.hand.some((c) => c.instanceId === silver.instanceId)).toBe(true);
     expect(player.hand.map((c) => c.id)).toContain('coin-1');
   });
 });
 
-describe('Cocodrilo: misma elección, pero hacia cualquiera de los 2 dinosaurios acuáticos', () => {
-  it('edición completa: descartando un Oro puede evolucionar a Mosasaurio y usa el texto alternativo', () => {
+describe('Cocodrilo/Avestruz/Tiranosaurio: regla genérica de evolución (reemplaza al antiguo descuento, 2026-10-01)', () => {
+  it('Cocodrilo (5, terrestre+acuático): descartando un Oro puede evolucionar a Mosasaurio (10, acuático)', () => {
     const { state, player } = setupClean();
-    expect(getCard('crocodile').fullEditionText).toContain('Mosasaurio');
+    expect(getCard('crocodile').fullEditionText).toContain('evolucionar');
     const croc = freshInstance('crocodile', 'x');
     const gold = freshInstance('coin-3', 'gold');
     player.hand = [croc, gold];
@@ -382,17 +352,42 @@ describe('Cocodrilo: misma elección, pero hacia cualquiera de los 2 dinosaurios
     expect(player.discard.some((c) => c.id === 'crocodile')).toBe(false);
   });
 
-  it('edición completa: o, igual de bien, a Plesiosaurio (el otro dinosaurio acuático)', () => {
+  it('Cocodrilo: o, igual de bien, a Tiranosaurio (10, terrestre — el otro tipo que comparte)', () => {
     const { state, player } = setupClean();
-    expect(getCard('crocodile').fullEditionText).toContain('Plesiosaurio');
     const croc = freshInstance('crocodile', 'x');
     const gold = freshInstance('coin-3', 'gold');
     player.hand = [croc, gold];
-    const plesio = state.animalTrack.find((c) => c.species === 'plesiosaurus')!;
-    playCard(state, player.id, croc.instanceId, plesio.instanceId, gold.instanceId);
-    expect(player.discard.some((c) => c.instanceId === plesio.instanceId)).toBe(true);
+    const rex = state.animalTrack.find((c) => c.species === 'tyrannosaurus')!;
+    playCard(state, player.id, croc.instanceId, rex.instanceId, gold.instanceId);
+    expect(player.discard.some((c) => c.instanceId === rex.instanceId)).toBe(true);
     expect(player.discard.some((c) => c.instanceId === gold.instanceId)).toBe(true);
-    expect(player.discard.some((c) => c.id === 'crocodile')).toBe(false);
+  });
+
+  it('Cocodrilo NO puede evolucionar directamente a Dragosaurio (14): se sale del +5 (5+5=10)', () => {
+    const { state, player } = setupClean();
+    const croc = freshInstance('crocodile', 'x');
+    const gold = freshInstance('coin-3', 'gold');
+    player.hand = [croc, gold];
+    const drago = state.animalTrack.find((c) => c.species === 'dragosaurio')!;
+    playCard(state, player.id, croc.instanceId, drago.instanceId, gold.instanceId);
+    // Objetivo inválido: no se resuelve nada de la evolución (el Cocodrilo
+    // normal — robar — sigue intacto, igual que si no se hubiera elegido nada).
+    expect(player.discard.some((c) => c.instanceId === drago.instanceId)).toBe(false);
+    expect(player.hand.some((c) => c.instanceId === gold.instanceId)).toBe(true);
+    expect(player.playedThisTurn.some((c) => c.id === 'crocodile')).toBe(true);
+  });
+
+  it('Tiranosaurio (10, terrestre) SÍ llega directo a Dragosaurio (14, terrestre+volador+acuático): el final de las 3 líneas', () => {
+    const { state, player } = setupClean();
+    const rex = freshInstance('tyrannosaurus', 'x');
+    const gold = freshInstance('coin-3', 'gold');
+    player.hand = [rex, gold];
+    const drago = state.animalTrack.find((c) => c.species === 'dragosaurio')!;
+    playCard(state, player.id, rex.instanceId, drago.instanceId, gold.instanceId);
+    expect(player.discard.some((c) => c.instanceId === drago.instanceId)).toBe(true);
+    expect(player.discard.some((c) => c.instanceId === gold.instanceId)).toBe(true);
+    expect(player.discard.some((c) => c.id === 'tyrannosaurus')).toBe(false);
+    expect(state.animalTrack.some((c) => c.species === 'tyrannosaurus')).toBe(true); // hueco repuesto
   });
 
   it('edición clásica: sin Mosasaurio en la partida, jugarlo se comporta exactamente igual que antes (solo roba)', () => {
