@@ -41,6 +41,7 @@ const EN_NAMES: Record<string, string> = {
   peacock: 'Peacocks',
   penguin: 'Penguins',
   platypus: 'Platypuses',
+  'polar-bear': 'Polar Bears',
   rabbit: 'Rabbits',
   raven: 'Ravens',
   seal: 'Seals',
@@ -122,7 +123,8 @@ export function scoreFromCounts(counts: ScanCounts): ScanScore {
   }
   const factors: ScanScore['factors'] = {
     eagle: [counts.eagle ?? 0, flying],
-    panda: [counts.panda ?? 0, land],
+    // El oso de tierra se llamó 'polar-bear' antes de ser 'panda': vale cualquiera de los dos.
+    panda: [(counts.panda ?? 0) + (counts['polar-bear'] ?? 0), land],
     orca: [counts.orca ?? 0, aquatic],
     albatross: [counts.albatross ?? 0, species.size],
     toucan: [counts.toucan ?? 0, costly],

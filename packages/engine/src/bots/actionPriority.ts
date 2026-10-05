@@ -84,13 +84,25 @@ function isCrossHabitatException(card: CardInstance): boolean {
 // vivía duplicada e idéntica dentro de rlBot.ts; ahora la comparten ambos
 // sitios.
 export function filterActionsByHabitat(state: GameState, actions: Action[], habitat: string): Action[] {
-  return actions.filter((action) => {
+  const isSpecialty = (action: Action): boolean => {
     if (action.type !== 'buyAnimal') return true;
     const animal = state.animalTrack.find((c) => c.instanceId === action.trackInstanceId);
     if (!animal) return false;
     if (isCrossHabitatException(animal)) return true;
     return (animal.habitats as string[] | undefined)?.includes(habitat) ?? false;
-  });
+  };
+  const filtered = actions.filter(isSpecialty);
+
+  // Excepción "sobrante" (pedido explícito del usuario, 2026-10-04): si ya no
+  // queda NINGÚN animal comprable de su especialidad (ni de las excepciones
+  // de arriba) pero sí otros que le llegan con el dinero que le sobra, se le
+  // dejan todos en vez de obligarle a terminar el turno con dinero sin
+  // gastar. Mientras quede algún animal suyo comprable, el veto sigue igual.
+  const hadBuyOptions = actions.some((a) => a.type === 'buyAnimal');
+  const hasBuyAfterFilter = filtered.some((a) => a.type === 'buyAnimal');
+  if (hadBuyOptions && !hasBuyAfterFilter) return actions;
+
+  return filtered;
 }
 
 function findCardById(state: GameState, player: Player, instanceId: string | undefined): CardInstance | undefined {

@@ -84,4 +84,41 @@ describe('filterActionsByHabitat', () => {
 
     expect(filterActionsByHabitat(state, actions, 'land')).toEqual([actions[1]]);
   });
+
+  it('si no queda ningún animal comprable de su hábitat, le deja comprar los demás con el dinero sobrante', () => {
+    const state = createGame([
+      { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
+      { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
+    ]);
+    const dolphin = freshInstance('dolphin', 'd1'); // aquatic
+    const duck = freshInstance('duck', 'k1'); // bird
+    state.animalTrack = [dolphin, duck];
+
+    const actions: Action[] = [
+      { type: 'buyAnimal', trackInstanceId: dolphin.instanceId },
+      { type: 'buyAnimal', trackInstanceId: duck.instanceId },
+      { type: 'endTurn' },
+    ];
+
+    // Ninguno es terrestre: en vez de quedarse solo con endTurn, puede comprar cualquiera.
+    expect(filterActionsByHabitat(state, actions, 'land')).toEqual(actions);
+  });
+
+  it('mientras quede algún animal comprable de su hábitat, el veto al resto sigue igual', () => {
+    const state = createGame([
+      { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
+      { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
+    ]);
+    const dolphin = freshInstance('dolphin', 'd1'); // aquatic
+    const monkey = freshInstance('monkey', 'm1'); // land
+    state.animalTrack = [dolphin, monkey];
+
+    const actions: Action[] = [
+      { type: 'buyAnimal', trackInstanceId: dolphin.instanceId },
+      { type: 'buyAnimal', trackInstanceId: monkey.instanceId },
+      { type: 'endTurn' },
+    ];
+
+    expect(filterActionsByHabitat(state, actions, 'land')).toEqual([actions[1], actions[2]]);
+  });
 });
