@@ -1,17 +1,66 @@
 import { normalizeName, SCAN_CARDS, type ScanCounts } from './scanScoring';
 
 // Reconocimiento LOCAL (sin servidores ni IA externa) de las cartas de una
-// foto: se aíslan los píxeles casi blancos (el nombre de la carta va en
-// blanco sobre el tablón de madera), se lee con Tesseract en el propio
+// foto: se aísla el nombre de cada carta, se lee con Tesseract en el propio
 // navegador y cada nombre encontrado cuenta como una carta. Por eso las
-// cartas deben ir escalonadas dejando visible el tablón del nombre de cada
-// una. Sin ese aislamiento el OCR no lee el nombre (letra blanca con
-// contorno oscuro sobre madera); con él lo lee bien.
+// cartas deben ir escalonadas dejando visible el nombre de cada una. Sin el
+// aislamiento el OCR no lo lee (el nombre va sobre un tablón con relieve);
+// con él lo lee bien.
+//
+// Cada diseño de carta impresa necesita su propio aislamiento (letra blanca
+// sobre madera en el oficial actual, letra oscura sobre tablón de color en el
+// antiguo sin iconos). El usuario NO elige variante: se prueban todos los
+// PERFILES DE IMPRESIÓN y de cada especie se queda el mayor recuento.
+//
+// PARA AÑADIR UNA IMPRESIÓN NUEVA: añadir una entrada a PRINT_PROFILES con la
+// máscara que deje su nombre en negro sobre blanco (y ajustar umbrales
+// probando con una foto real o una simulación). Si cambia el diseño del
+// nombre de la carta (color, fondo, posición), revisar estos perfiles.
 
 const MAX_SIDE = 2000;
-// Dos umbrales de "blanco" por si la foto sale oscura o sobreexpuesta; de
-// cada especie se queda el mayor recuento de las dos pasadas.
-const WHITE_THRESHOLDS = [212, 190];
+
+interface PrintProfile {
+  id: string;
+  description: string;
+  /** Una máscara por pasada de OCR (umbrales distintos por si la foto sale oscura o sobreexpuesta). */
+  masks: ((source: HTMLCanvasElement) => HTMLCanvasElement)[];
+}
+
+// Texto negro sobre fondo blanco: negro donde `isText(r, g, b)` es verdadero.
+function maskBy(source: HTMLCanvasElement, isText: (r: number, g: number, b: number) => boolean): HTMLCanvasElement {
+  const out = document.createElement('canvas');
+  out.width = source.width;
+  out.height = source.height;
+  const ctx = out.getContext('2d')!;
+  ctx.drawImage(source, 0, 0);
+  const img = ctx.getImageData(0, 0, out.width, out.height);
+  const px = img.data;
+  for (let i = 0; i < px.length; i += 4) {
+    const v = isText(px[i], px[i + 1], px[i + 2]) ? 0 : 255;
+    px[i] = px[i + 1] = px[i + 2] = v;
+    px[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  return out;
+}
+
+const whiteText = (threshold: number) => (c: HTMLCanvasElement) =>
+  maskBy(c, (r, g, b) => Math.min(r, g, b) > threshold);
+const darkText = (threshold: number) => (c: HTMLCanvasElement) =>
+  maskBy(c, (r, g, b) => Math.max(r, g, b) < threshold);
+
+const PRINT_PROFILES: PrintProfile[] = [
+  {
+    id: 'white-on-wood',
+    description: 'Oficial actual (con iconos): nombre en blanco con contorno oscuro sobre tablón de madera.',
+    masks: [whiteText(212), whiteText(190)],
+  },
+  {
+    id: 'dark-on-plank',
+    description: 'Antiguo (sin iconos): nombre en marrón oscuro sobre tablón de madera o gris azulado según el hábitat.',
+    masks: [darkText(90), darkText(110)],
+  },
+];
 
 function levenshtein(a: string, b: string): number {
   const prev = Array.from({ length: b.length + 1 }, (_, j) => j);
@@ -94,40 +143,22 @@ async function loadCanvas(file: File): Promise<HTMLCanvasElement> {
   return canvas;
 }
 
-// Texto negro sobre fondo blanco: negro donde el canal más oscuro del píxel
-// supera el umbral (blanco de la letra), blanco en el resto.
-function whiteMask(source: HTMLCanvasElement, threshold: number): HTMLCanvasElement {
-  const out = document.createElement('canvas');
-  out.width = source.width;
-  out.height = source.height;
-  const ctx = out.getContext('2d')!;
-  ctx.drawImage(source, 0, 0);
-  const img = ctx.getImageData(0, 0, out.width, out.height);
-  const px = img.data;
-  for (let i = 0; i < px.length; i += 4) {
-    const v = Math.min(px[i], px[i + 1], px[i + 2]) > threshold ? 0 : 255;
-    px[i] = px[i + 1] = px[i + 2] = v;
-    px[i + 3] = 255;
-  }
-  ctx.putImageData(img, 0, 0);
-  return out;
-}
-
 export async function scanPhoto(file: File, onProgress: (fraction: number) => void): Promise<ScanCounts> {
   const { createWorker } = await import('tesseract.js');
+  const masks = PRINT_PROFILES.flatMap((profile) => profile.masks);
   let pass = 0;
   const worker = await createWorker('spa', 1, {
     logger: (m: { status: string; progress: number }) => {
       // La descarga de datos y el reconocimiento ocupan la barra por mitades
       // de cada pasada; no hace falta precisión, solo que se vea avance.
-      if (m.status === 'recognizing text') onProgress((pass + m.progress) / WHITE_THRESHOLDS.length);
+      if (m.status === 'recognizing text') onProgress((pass + m.progress) / masks.length);
     },
   });
   try {
     const canvas = await loadCanvas(file);
     const best: ScanCounts = {};
-    for (; pass < WHITE_THRESHOLDS.length; pass++) {
-      const { data } = await worker.recognize(whiteMask(canvas, WHITE_THRESHOLDS[pass]));
+    for (; pass < masks.length; pass++) {
+      const { data } = await worker.recognize(masks[pass](canvas));
       for (const [id, n] of Object.entries(countCardsInText(data.text))) {
         best[id] = Math.max(best[id] ?? 0, n);
       }
