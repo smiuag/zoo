@@ -1,6 +1,7 @@
 """Versión A7 (74 x 105 mm) del reglamento, para cajas pequeñas.
 
 Uso:  /c/Python310/python img/_work/build_instrucciones_a7.py [en] [--previews]
+      /c/Python310/python img/_work/build_instrucciones_a7.py [en] --pergamino [--previews]   (archivo para imprimir, todo en un PDF)
 
 Sale del MISMO texto que el reglamento A6 (instrucciones[_en].html): no hay que mantener
 otra copia. La diferencia es la maqueta. En A6 cada <section class="page"> es una página
@@ -9,11 +10,23 @@ reparta el texto en las páginas que hagan falta (cada sección empieza en pági
 los recuadros, tablas y puntos de lista no se parten).
 
 Escribe:
-- img/instrucciones[_en]_a7.pdf           página a página
-- img/instrucciones[_en]_a7_librillo_a4.pdf   montado para doblar y grapar (ver impose())
+- pdf/<idioma>/instrucciones[_en]_a7.pdf           página a página
+- pdf/<idioma>/instrucciones[_en]_a7_librillo_a4.pdf   montado para doblar y grapar (ver impose())
 
 El número de páginas tiene que ser múltiplo de 4 para poder graparlo: si no lo es, se
 añaden páginas de «Notas» justo antes de los créditos.
+
+Con --pergamino se prepara el ARCHIVO PARA IMPRIMIR con el fondo de pergamino (más claro que el
+del reglamento A6) hasta el borde, igual que build_instrucciones_librillo.py --pergamino hace
+con el A6. Escribe SOLO, en un único PDF con todas las caras (anverso y reverso de cada folio, en
+orden, para imprimir a doble cara volteando por el borde corto):
+- pdf/<idioma>/instrucciones[_en]_a7_librillo_a4_pergamino.pdf
+Son 32 páginas A7 = 8 hojas de librillo = 2 folios A4 apaisados = 4 caras. Cada cara lleva 4
+hojas (2 columnas x 2 filas) con marcas de recorte, corte y pliegue.
+Necesita antes  build_fondo_pergamino.py a4 claro.  Una impresora normal deja ~4 mm en blanco
+alrededor del folio, así que se imprime el folio entero de pergamino y se RECORTAN 5 mm por
+cada lado (marcas en esa franja); el librillo queda en ~70 x 100 mm (en vez de 74 x 105) y
+cada página se reduce al 95 % para caber. Ver impose_pergamino().
 """
 import os
 import re
@@ -23,11 +36,18 @@ import tempfile
 
 import fitz
 
+from pdf_paths import pdf_path
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SUFFIX = "_en" if "en" in sys.argv[1:] else ""
 HTML = os.path.join(HERE, f"instrucciones{SUFFIX}.html")
-OUT = os.path.join(HERE, "..", f"instrucciones{SUFFIX}_a7.pdf")
-OUT_BOOK = os.path.join(HERE, "..", f"instrucciones{SUFFIX}_a7_librillo_a4.pdf")
+LANG = "en" if SUFFIX else "es"
+OUT = pdf_path(LANG, f"instrucciones{SUFFIX}_a7.pdf")
+OUT_BOOK = pdf_path(LANG, f"instrucciones{SUFFIX}_a7_librillo_a4.pdf")
+PERGAMINO = "--pergamino" in sys.argv[1:]
+OUT_CAPA = os.path.join(HERE, f"_instrucciones{SUFFIX}_a7_capa_tmp.pdf")     # intermedio: se borra al acabar
+OUT_PERG = pdf_path(LANG, f"instrucciones{SUFFIX}_a7_librillo_a4_pergamino.pdf")
+FONDO_CLARO = os.path.join(HERE, "..", "fondo_pergamino_a4_claro.jpg")
 PREVIEW_DIR = os.path.join(HERE, f"preview_instrucciones{SUFFIX}_a7")
 BROWSERS = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
@@ -62,6 +82,17 @@ p { orphans: 2; widows: 2; }
 .notas-linea { border-bottom: 0.2mm solid #cbb98f; height: 7mm; }
 </style>"""
 
+# Capa para el pergamino claro (media ~(244, 236, 216), ver build_fondo_pergamino.py a4 claro): fondo de
+# página transparente y recuadros/líneas con los mismos colores que en el A6 (--fondo) pero desplazados
+# ~(+10, +16, +24) para seguir destacando sobre un fondo más claro.
+CAPA_CSS = """<style>
+html, body, .page, .portada { background: transparent !important; }
+.nota { background: #eadfc0; }
+.ejemplo { background: #e0f2d7; }
+td { border-bottom-color: #d5c9a7; }
+.notas-linea { border-bottom-color: #d5c9a7; }
+</style>"""
+
 # Frases del A6 que citan una página concreta o "la página siguiente": en A7 la
 # paginación cambia, así que se sustituyen por una referencia a la sección.
 REPLACEMENTS = [
@@ -80,14 +111,14 @@ def find_browser():
     sys.exit("No se encuentra Chrome ni Edge para generar el PDF")
 
 
-def render(extra_pages):
+def render(extra_pages, out=OUT, css=""):
     with open(HTML, encoding="utf-8") as f:
         src = f.read()
     for a, b in REPLACEMENTS:
         # el HTML parte las frases en varias líneas: se compara sin mirar los espacios
         pattern = r"\s+".join(re.escape(w) for w in a.split())
         src = re.sub(pattern, lambda m, b=b: b, src)
-    src = src.replace("</head>", A7_CSS + "</head>")
+    src = src.replace("</head>", A7_CSS + css + "</head>")
     notes = (
         '<section class="page"><h1>%s</h1>%s</section>\n' % (NOTES_TITLE, '<div class="notas-linea"></div>' * 11)
     ) * extra_pages
@@ -102,13 +133,13 @@ def render(extra_pages):
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as profile:
             subprocess.run(
                 [find_browser(), "--headless=new", "--disable-gpu", "--no-pdf-header-footer",
-                 "--user-data-dir=" + profile, "--print-to-pdf=" + os.path.abspath(OUT),
+                 "--user-data-dir=" + profile, "--print-to-pdf=" + os.path.abspath(out),
                  "file:///" + tmp.replace("\\", "/")],
                 check=True, timeout=120,
             )
     finally:
         os.remove(tmp)
-    return len(fitz.open(OUT))
+    return len(fitz.open(out))
 
 
 def impose():
@@ -156,7 +187,89 @@ def impose():
     return len(doc), sheets
 
 
+TRIM = 5 * MM
+DARK = (0.25, 0.18, 0.1)
+
+
+def impose_pergamino():
+    """Librillo A7 sobre folios A4 apaisados de pergamino hasta el borde, a doble cara (voltear por el
+    BORDE CORTO), con la misma disposición que impose().
+
+    Se recortan 5 mm por cada lado del folio (la impresora no imprime los ~4 mm exteriores) y
+    después se corta por la mitad en los dos ejes: quedan 4 hojas de 143,5 x 100 mm, cada una con
+    dos páginas de 71,75 x 100 mm. Cada A7 (74 x 105) se reduce al 95,2 % (limita el alto) y se
+    centra en su hueco. Las marcas de recorte, corte y pliegue van en la franja de 5 mm que se tira.
+    """
+    if not os.path.exists(FONDO_CLARO):
+        sys.exit(f"falta {FONDO_CLARO}: ver el uso al principio de este archivo")
+    src = fitz.open(OUT_CAPA)
+    n = len(src)
+    sheets = [((n - 2 * i, 1 + 2 * i), (2 + 2 * i, n - 1 - 2 * i)) for i in range(n // 4)]
+    sheet_w, sheet_h = A4_H, A4_W                                    # apaisado: 297 x 210
+    cell_w, cell_h = (sheet_w - 2 * TRIM) / 2, (sheet_h - 2 * TRIM) / 2   # 143,5 x 100
+    slot_w = cell_w / 2
+    scale = min(slot_w / A7_W, cell_h / A7_H)
+    w, h = A7_W * scale, A7_H * scale
+    doc = fitz.open()
+    xref = 0
+    a, b = 1 * MM, 4.4 * MM                       # tramo de cada marca dentro de la franja que se tira
+    for start in range(0, len(sheets), 4):
+        group = sheets[start:start + 4]
+        for face in (0, 1):
+            page = doc.new_page(width=sheet_w, height=sheet_h)
+            xref = page.insert_image(page.rect, filename=None if xref else FONDO_CLARO, xref=xref,
+                                     keep_proportion=False, rotate=90)
+            for k, sheet in enumerate(group):
+                row, col = k // 2, k % 2
+                if face == 1:
+                    col = 1 - col
+                x0, y0 = TRIM + col * cell_w, TRIM + row * cell_h
+                for side, num in enumerate(sheet[face]):
+                    x = x0 + side * slot_w + (slot_w - w) / 2
+                    y = y0 + (cell_h - h) / 2
+                    page.show_pdf_page(fitz.Rect(x, y, x + w, y + h), src, num - 1)
+            for x in (TRIM, sheet_w / 2, sheet_w - TRIM):                 # recorte izq., corte central, recorte dcho.
+                for y0, y1 in ((a, b), (sheet_h - b, sheet_h - a)):
+                    page.draw_line((x, y0), (x, y1), color=DARK, width=0.5)
+            for y in (TRIM, sheet_h / 2, sheet_h - TRIM):                 # recorte sup., corte central, recorte inf.
+                for x0, x1 in ((a, b), (sheet_w - b, sheet_w - a)):
+                    page.draw_line((x0, y), (x1, y), color=DARK, width=0.5)
+            for c in (0, 1):                                              # pliegue: centro de cada columna
+                x = TRIM + c * cell_w + cell_w / 2
+                for y0, y1 in ((a, b), (sheet_h - b, sheet_h - a)):
+                    page.draw_line((x, y0), (x, y1), color=DARK, width=0.25)
+    doc.save(OUT_PERG, garbage=4, deflate=True)
+    return len(doc), scale, (slot_w / MM, cell_h / MM)
+
+
+def main_pergamino():
+    try:
+        n = render(0, OUT_CAPA, CAPA_CSS)
+        pad = (-n) % 4
+        if pad:
+            print(f"{n} páginas: se añaden {pad} de «{NOTES_TITLE}» para llegar a múltiplo de 4")
+            n = render(pad, OUT_CAPA, CAPA_CSS)
+            if n % 4:
+                sys.exit(f"tras rellenar salen {n} páginas: revisar a mano")
+        faces, scale, page_mm = impose_pergamino()
+    finally:
+        if os.path.exists(OUT_CAPA):
+            os.remove(OUT_CAPA)
+    if "--previews" in sys.argv:
+        prev = PREVIEW_DIR + "_pergamino"
+        os.makedirs(prev, exist_ok=True)
+        for f in os.listdir(prev):
+            os.remove(os.path.join(prev, f))
+        for i, page in enumerate(fitz.open(OUT_PERG), start=1):
+            page.get_pixmap(dpi=100).save(os.path.join(prev, f"cara_{i}.png"))
+    print(os.path.abspath(OUT_PERG), f"({faces} caras = {faces // 2} folios A4, {os.path.getsize(OUT_PERG) / 1e6:.1f} MB)")
+    print("hueco de página: %.1f x %.1f mm, contenido al %.1f %%" % (page_mm[0], page_mm[1], scale * 100))
+
+
 def main():
+    if PERGAMINO:
+        main_pergamino()
+        return
     n = render(0)
     pad = (-n) % 4
     if pad:

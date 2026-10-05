@@ -116,3 +116,34 @@ def make_page(grid, images_or_paths):
 
 def n_pages_for(grid, total):
     return math.ceil(total / grid.per_page)
+
+
+# Radio de la esquina redondeada de la carta terminada, en px a tamano de impresion (ver CROP_MARK_IN).
+CARD_CORNER_RADIUS = 46
+REFERENCE_GAP = 40    # px en blanco entre cartas en la hoja de referencia
+
+
+def finished_card(img, grid):
+    """La carta tal como queda tras el corte: sin sangrado y con las esquinas redondeadas (RGBA)."""
+    card = img.convert("RGB").crop((grid.bleed_x, grid.bleed_y, grid.tile_w - grid.bleed_x, grid.tile_h - grid.bleed_y))
+    w, h = card.size
+    mask = Image.new("L", (w * 4, h * 4), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, w * 4 - 1, h * 4 - 1), radius=CARD_CORNER_RADIUS * 4, fill=255)
+    card.putalpha(mask.resize((w, h), Image.LANCZOS))
+    return card
+
+
+def make_reference_page(grid, images_or_paths):
+    """Pagina de la hoja de REFERENCIA (cartas_zoo*.pdf, no se recorta): cada carta como quedara terminada
+    (finished_card), a tamano real, separadas por un hueco en blanco. Pedido del usuario (2026-10-05) para
+    ver la carta final; los mazos de impresion siguen con make_page (sangrado y marcas de corte)."""
+    page = Image.new("RGB", (PAGE_W, PAGE_H), (255, 255, 255))
+    w, h = grid.tile_w - 2 * grid.bleed_x, grid.tile_h - 2 * grid.bleed_y
+    x0 = (PAGE_W - grid.cols * w - (grid.cols - 1) * REFERENCE_GAP) // 2
+    y0 = (PAGE_H - grid.rows * h - (grid.rows - 1) * REFERENCE_GAP) // 2
+    for i, item in enumerate(images_or_paths):
+        r, c = divmod(i, grid.cols)
+        img = item if isinstance(item, Image.Image) else Image.open(item)
+        card = finished_card(img, grid)
+        page.paste(card, (x0 + c * (w + REFERENCE_GAP), y0 + r * (h + REFERENCE_GAP)), card)
+    return page

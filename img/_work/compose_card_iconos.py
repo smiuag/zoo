@@ -1,6 +1,8 @@
-"""Diseno OFICIAL de las cartas de animal (desde 2026-09-20): redondos de tipo en vez del texto
-"Terrestre - Acuatico", plantilla estandar de madera para todas, nombre en blanco y texto centrado bajo los
-iconos. Es la variante A_pergamino; compose_all.py / compose_all_en.py la usan via compose_official().
+"""Diseno ANTERIOR de las cartas de animal (oficial del 2026-09-20 al 2026-10-05; el actual es
+compose_card_pergamino.py): redondos de tipo en vez del texto "Terrestre - Acuatico", plantilla estandar de
+madera para todas, nombre en blanco y texto centrado bajo los iconos (variante A_pergamino). Va sobre el
+marco anterior (template3): use_previous_template() devuelve compose_card.py a esas medidas, y hay que
+llamarla antes de componer nada con este modulo.
 El resto de variantes (B..H) son las pruebas de colocacion que se descartaron; se conservan para probar:
   /c/Python310/python img/_work/compose_card_iconos.py [id_carta] [variantes]   -> img/templates/pruebas/iconos_tipo
 """
@@ -18,6 +20,18 @@ M = cc.TEMPLATE_BLEED_MARGIN
 
 def P(x, y):
     return (x + M, y + M)
+
+
+def use_previous_template():
+    """Devuelve compose_card.py (solo en memoria) al marco anterior: template3 con tablon de madera."""
+    cc.TEMPLATES_DIR = r"C:\proyectos\Claude\zoo\img	emplates\sangrado\medias"
+    cc._ALPHA_CACHE_DIR = r"C:\proyectos\Claude\zoo\img\_work	emplate_alpha_cache_template3"
+    cc.ILLUSTRATION_BOX = cc._offset_box((66, 64, 551, 483))
+    cc.COST_BADGE = cc._offset_point((83, 109))
+    cc.PV_BADGE = cc._offset_point((526, 90))
+    cc.TITLE_BOX = cc._offset_box((95, 518, 540, 566))
+    cc.TYPE_LINE_POINT = cc._offset_point((307, 640))
+    cc.PANEL_BODY_BOX = cc._offset_box((95, 663, 540, 858))
 
 
 def row_centers(center, n, D, gap):
@@ -51,9 +65,7 @@ def compose(card, variant, lang='es', out_dir=None):
     cid = card['id']
     photo = os.path.join(ca.IMG_DIR, ca.SPECIES_PHOTO[card['species']])
     habitats = [h for h in ca.HABITAT_ORDER + ca.EXTRA_TYPE_ORDER if h in card['habitats']]   # habitats y, detras, tipos extra
-    # Excepción explícita del usuario (2026-09-21): el Albatros lista sus 3
-    # tipos básicos por separado en vez de colapsarlos en "Todoterreno".
-    type_label = ca.type_label_for(card['habitats'], ca.HABITAT_ES, None if cid == 'albatross' else 'Todoterreno')
+    type_label = ca.type_label_for(card['habitats'], ca.HABITAT_ES, 'Todoterreno')
     # Cartas que CUENTAN COMO 2 animales de un habitat (ver habitatWeight en effects/registry.ts): ese icono sale doble.
     for h, n in DOUBLE_ICON.get(cid, {}).items():
         i = habitats.index(h)
@@ -135,12 +147,13 @@ OFFICIAL_VARIANT = 'A_pergamino'
 
 
 def compose_official(card, lang, out_dir):
-    """Carta de animal con el diseno oficial, en `lang` ('es'/'en'), a out_dir/<id>.png."""
+    """Carta de animal con el diseno anterior, en `lang` ('es'/'en'), a out_dir/<id>.png."""
     return compose(card, OFFICIAL_VARIANT, lang=lang, out_dir=out_dir)
 
 
 if __name__ == '__main__':
     cid = sys.argv[1] if len(sys.argv) > 1 else 'hippopotamus'
+    use_previous_template()
     os.makedirs(OUT, exist_ok=True)
     card = next(c for c in ca.load_cards() if c['id'] == cid)
     only = sys.argv[2].split(',') if len(sys.argv) > 2 else list(VARIANTS)   # 2o argumento: variantes (prefijo), p. ej. D,E,F,G

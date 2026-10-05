@@ -48,7 +48,7 @@ SPECIES_PHOTO = {
     "spider": "ara\u00f1as.jpg",
     "hyena": "hienas.jpg",
     "orca": "orca.jpg",
-    "polar-bear": "osopolar.jpg",
+    "panda": "osopanda.jpg",
     "albatross": "albatros.jpg",
     "crocodile": "cocodrilos.jpg",
     "hippopotamus": "hipopotamos.jpg",
@@ -195,10 +195,8 @@ def main():
             photo = os.path.join(IMG_DIR, SPECIES_PHOTO[card["species"]])
             name = card["name"]
             # Un animal con los 3 hábitats a la vez se etiqueta "Todoterreno"
-            # en vez de listar los 3 por separado. Excepción explícita del
-            # usuario (2026-09-21): el Albatros SÍ tiene los 3 a la vez, pero
-            # se listan por separado en vez de colapsarlos.
-            all_terrain_label = None if cid == "albatross" else "Todoterreno"
+            # en vez de listar los 3 por separado.
+            all_terrain_label = "Todoterreno"
             type_label = type_label_for(card["habitats"], HABITAT_ES, all_terrain_label)
             cost = card["marketCost"]
             pv = card["victoryPoints"]
@@ -214,11 +212,11 @@ def main():
         else:
             continue
 
-        # Diseno oficial desde 2026-09-20: iconos de tipo (ver compose_card_iconos.py). compose_generic, mas
-        # arriba, es el diseno anterior (texto de tipo y tablon de color) y ya no se usa. Import aqui dentro
-        # porque ese modulo importa a su vez este.
-        import compose_card_iconos
-        out_path = compose_card_iconos.compose_official(card, "es", OUT_DIR)
+        # Diseno oficial desde 2026-10-05: pergamino de color y tipo escrito (ver compose_card_pergamino.py).
+        # compose_generic, mas arriba, y compose_card_iconos.py son disenos anteriores y ya no se usan.
+        # Import aqui dentro porque ese modulo importa a su vez este.
+        import compose_card_pergamino
+        out_path = compose_card_pergamino.compose_official(card, "es", OUT_DIR)
         generated.append(out_path)
         print("generated", cid)
 

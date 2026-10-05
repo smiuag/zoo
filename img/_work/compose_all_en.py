@@ -36,8 +36,8 @@ def main():
         else:
             continue
 
-        import compose_card_iconos                      # diseno oficial con iconos, ver compose_all.py
-        out_path = compose_card_iconos.compose_official(card, "en", OUT_DIR)
+        import compose_card_pergamino                   # diseno oficial, ver compose_all.py
+        out_path = compose_card_pergamino.compose_official(card, "en", OUT_DIR)
         generated.append(out_path)
         print("generated", cid)
 

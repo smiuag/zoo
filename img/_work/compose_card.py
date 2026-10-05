@@ -1,6 +1,8 @@
 import os
 import re
-from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageFilter, ImageOps
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
+from scipy import ndimage
 
 LAUREL_ICON_PATH = r"C:\proyectos\Claude\zoo\img\_work\laurel_icon.png"
 
@@ -36,7 +38,13 @@ FONT_REG = r"C:\proyectos\Claude\zoo\img\_work\fonts\Baloo2-Regular.ttf"
 # compose_back.py): así el corte real de la carta impresa puede quedar
 # 0.1cm por dentro del borde del papel sin que se vea nunca blanco/vacío,
 # tanto en el frente como en el reverso, cuadrando ambos exactamente igual.
-TEMPLATES_DIR = r"C:\proyectos\Claude\zoo\img\templates\sangrado\medias"
+#
+# Desde 2026-10-05 el marco oficial es template5 (img/template5.png): el marco de siempre
+# (template3) con el nombre en un pergamino enrollado en vez del tablon, del color de los
+# habitats de la carta (tierra marron, agua azul, aire blanco y sus mezclas). Las plantillas
+# las genera build_scroll_templates.py, ya con este mismo lienzo y sangrado. Quedan en
+# sangrado\medias el marco con tablon y en sangrado\template4 la primera prueba de pergamino.
+TEMPLATES_DIR = r"C:\proyectos\Claude\zoo\img\templates\sangrado\template5"
 TEMPLATE_FILES = {
     "land": "tierra.png",
     "aquatic": "agua.png",
@@ -45,7 +53,10 @@ TEMPLATE_FILES = {
     "land_bird": "tierra_aire.png",
     "aquatic_bird": "agua_aire.png",
     "land_aquatic_bird": "tierra_agua_aire.png",
-    "coin": "monedas.png",
+    # Las monedas son cartas ya terminadas, pintadas sobre el marco de template3 (el mismo de
+    # template5, sin pergamino; ver build_coin_card_base): se montan sobre SU plantilla.
+    # Ruta absoluta: os.path.join(TEMPLATES_DIR, ...) la respeta tal cual.
+    "coin": r"C:\proyectos\Claude\zoo\img\templates\sangrado\medias\monedas.png",
 }
 # Plantillas en RGBA con la ventana de ilustración ya recortada como
 # transparencia real (ver _build_template_alpha) — se detecta por flood fill
@@ -88,17 +99,16 @@ def _offset_point(point):
 # Coordenadas de siempre, medidas sobre el diseño puro de 615x878 (sin
 # sangrado) — se desplazan por TEMPLATE_BLEED_MARGIN para caer en el sitio
 # correcto dentro del lienzo de plantilla, más grande, con sangrado.
-ILLUSTRATION_BOX = _offset_box((66, 64, 551, 483))
-# Ajuste 2026-09-13: el numero de la bolsa quedaba alto respecto al cuerpo de la bolsa y el del
-# escudo bajo respecto al hueco del laurel (revisado sobre las cartas impresas): bolsa 6 px mas
-# abajo, escudo 7 px mas arriba (en espacio de diseno 615x878).
+# Medidas sobre template5 (615x878). Ventana, bolsa y escudo son los de template3 (los numeros
+# de bolsa y escudo se ajustaron sobre carta impresa el 2026-09-13).
+ILLUSTRATION_BOX = _offset_box((65, 63, 552, 484))   # cubre la ventana entera
 COST_BADGE = _offset_point((83, 109))             # center of the coin pouch body
 PV_BADGE = _offset_point((526, 90))               # center of the laurel wreath opening
 BADGE_NUMBER_SIZE = 50             # 45 + 10%
-TITLE_BOX = _offset_box((95, 518, 540, 566))    # wood ribbon banner: card name (bajado 3px + 2px, 2026-09-14)
-TYPE_LINE_POINT = _offset_point((307, 640))       # "Terrestre" label, centered in the panel
+TITLE_BOX = _offset_box((129, 518, 487, 566))   # cara plana del pergamino del nombre, entre los dos rollos
+TYPE_LINE_POINT = _offset_point((307, 639))       # "Terrestre" label, centered in the panel
 TYPE_LINE_MAX_WIDTH = 420          # shrink multi-habitat labels to fit
-PANEL_BODY_BOX = _offset_box((95, 663, 540, 858))  # starts right below the type label, top-aligned
+PANEL_BODY_BOX = _offset_box((95, 657, 540, 816))  # del pie de la etiqueta de tipo a la ultima linea util (el panel acaba en 828)
 
 COST_COLOR = (0, 100, 0)    # verde bosque
 PV_COLOR = (94, 35, 123)    # morado (el mismo que la Hiena en la tanda 4)
@@ -188,14 +198,14 @@ def resize_to_print_size(card, target_w=CARD_PRINT_W, target_h=CARD_PRINT_H):
 def _build_template_alpha(template_key):
     """Devuelve la plantilla `template_key` (ver TEMPLATE_FILES) en RGBA con
     la ventana de ilustración recortada como transparencia real. La ventana
-    se detecta por flood fill desde un punto que cae dentro de ella en las 7
-    plantillas (mismo diseño base, solo cambia la decoración): se rellena la
-    región blanca contigua al punto semilla y se usa como máscara, en vez de
-    depender de un fichero de máscara pintado a mano por plantilla. Igual que
-    antes (ver el MaxFilter de más abajo), la ventana se agranda 2px para que
-    el anillo antialiseado casi-blanco del borde quede del lado transparente
-    y lo tape la foto en vez de dejar una línea blanca dentada. Se cachea en
-    disco (_ALPHA_CACHE_DIR): detectar la ventana es más caro que leer un PNG."""
+    es la pieza conexa clara y poco saturada que contiene un punto que cae
+    dentro de ella en todas las plantillas (mismo marco, solo cambia el color
+    del pergamino), con los huecos rellenos y 1 px de más para que el anillo
+    antialiseado del borde quede del lado transparente y lo tape la foto (con
+    2 px se come el contorno fino del pergamino del nombre). Hasta 2026-10-05
+    era un relleno por inundación con tolerancia 30 sobre blanco puro, que con
+    un marco salido de un JPG se queda corto y deja halo. Se cachea en disco
+    (_ALPHA_CACHE_DIR): detectar la ventana es más caro que leer un PNG."""
     os.makedirs(_ALPHA_CACHE_DIR, exist_ok=True)
     cache_path = os.path.join(_ALPHA_CACHE_DIR, f"{template_key}.png")
     if os.path.exists(cache_path):
@@ -203,22 +213,14 @@ def _build_template_alpha(template_key):
 
     template = _load_raw_template(TEMPLATE_FILES[template_key])
     w, h = template.size
-    seed = (w // 2, h // 3)  # cae dentro de la ventana en las 7 plantillas
-    marker = (1, 2, 3)       # color imposible de confundir con arte real
-    filled = template.copy()
-    ImageDraw.floodfill(filled, seed, marker, thresh=30)
+    hsv = np.asarray(template.convert("HSV")).astype(float)
+    paper = (hsv[..., 1] < 112) & (hsv[..., 2] > 165)
+    labels, _ = ndimage.label(paper)
+    window = ndimage.binary_fill_holes(labels == labels[h // 3, w // 2])
+    window = ndimage.binary_dilation(window, iterations=1)
 
-    r, g, b = filled.split()
-    is_marker = ImageChops.multiply(
-        ImageChops.multiply(r.point(lambda p: 255 if p == marker[0] else 0),
-                             g.point(lambda p: 255 if p == marker[1] else 0)),
-        b.point(lambda p: 255 if p == marker[2] else 0),
-    )
-    grown_window = is_marker.filter(ImageFilter.MaxFilter(5))
-    alpha = ImageOps.invert(grown_window)  # 255 = marco opaco, 0 = ventana transparente
-
-    template_rgba = template.copy()
-    template_rgba.putalpha(alpha)
+    template_rgba = template.convert("RGBA")
+    template_rgba.putalpha(Image.fromarray(((~window) * 255).astype(np.uint8)))  # 255 = marco opaco, 0 = ventana
     template_rgba.save(cache_path)
     return template_rgba
 

@@ -46,7 +46,7 @@ CARD_TEXT_EN = {
     ),
     "duck": (
         "Ducks",
-        "Choose a player: they give you an acorn card. If they have none, they reveal their hand.",
+        "Choose a player: they give you an acorn card. If they have none, take an acorn of value 3 from the market into your hand.",
     ),
     "eagle": (
         "Eagles",
@@ -107,8 +107,8 @@ CARD_TEXT_EN = {
         "Platypuses",
         "+1 acorn for each distinct animal in your hand.",
     ),
-    "polar-bear": (
-        "Polar Bears",
+    "panda": (
+        "Giant Pandas",
         "+2 acorns.\n+1 VP for each land animal in your whole deck.",
     ),
     "rabbit": (

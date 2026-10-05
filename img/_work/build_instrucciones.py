@@ -1,10 +1,10 @@
-"""Genera img/instrucciones.pdf (reglamento A6 de la edición clásica) a partir
+"""Genera pdf/es/instrucciones.pdf (reglamento A6 de la edición clásica) a partir
 de img/_work/instrucciones.html, usando Chrome o Edge sin ventana.
 
 Uso:  /c/Python310/python img/_work/build_instrucciones.py [en] [--previews]
 
-Sin argumento genera el castellano (instrucciones.html -> img/instrucciones.pdf); con
-"en", el inglés (instrucciones_en.html -> img/instrucciones_en.pdf). Las dos versiones
+Sin argumento genera el castellano (instrucciones.html -> pdf/es/instrucciones.pdf); con
+"en", el inglés (instrucciones_en.html -> pdf/en/instrucciones_en.pdf). Las dos versiones
 comparten instrucciones.css.
 
 Con --previews deja además una imagen PNG por página en
@@ -22,6 +22,8 @@ import tempfile
 
 import fitz
 
+from pdf_paths import pdf_path
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SUFFIX = "_en" if "en" in sys.argv[1:] else ""
 # --fondo: PRUEBA con todas las páginas sobre la textura de pergamino del dorso de las
@@ -35,7 +37,10 @@ CAPA = "--capa" in sys.argv[1:]
 FONDO = "--fondo" in sys.argv[1:] or CAPA
 VARIANT = "_capa" if CAPA else "_fondo" if FONDO else ""
 HTML = os.path.join(HERE, f"instrucciones{SUFFIX}.html")
-OUT = os.path.join(HERE, "..", f"instrucciones{SUFFIX}{VARIANT}.pdf")
+LANG = "en" if SUFFIX else "es"
+# La capa es un intermedio para build_instrucciones_librillo.py --pergamino, no un entregable: se queda aqui.
+OUT = (os.path.join(HERE, f"_instrucciones{SUFFIX}_capa.pdf") if CAPA
+       else pdf_path(LANG, f"instrucciones{SUFFIX}{VARIANT}.pdf"))
 PREVIEW_DIR = os.path.join(HERE, f"preview_instrucciones{SUFFIX}{VARIANT}")
 FONDO_CSS = """<style>
 .page, .portada { background: #ede2c7 url(../fondo_pergamino.jpg) center / cover no-repeat; }

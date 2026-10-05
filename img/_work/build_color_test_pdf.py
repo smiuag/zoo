@@ -4,11 +4,13 @@ import math
 import os
 from PIL import Image, JpegImagePlugin  # noqa: F401
 
+from pdf_paths import pdf_path
+
 Image.init()
 
 CARDS_DIR = r"C:\proyectos\Claude\zoo\img\cards_colortest"
 DATA_DIR = r"C:\proyectos\Claude\zoo\packages\engine\src\cards\data"
-OUT_PDF = r"C:\proyectos\Claude\zoo\img\cartas_zoo_colores.pdf"
+OUT_PDF = pdf_path("es", "cartas_zoo_colores.pdf", "pruebas")
 
 PAGE_W, PAGE_H = 2480, 3508
 COLS, ROWS = 3, 3

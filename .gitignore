@@ -18,11 +18,11 @@ __pycache__/
 # con build_deck_pdf.py/_en.py (ver img/_work). Las hojas de referencia
 # (cartas_zoo.pdf/_en.pdf, 1 copia de cada carta) sí se siguen versionando,
 # pesan bastante menos.
-img/mazo_impresion.pdf
-img/mazo_impresion_en.pdf
-img/mazo_impresion_1cara.pdf
+pdf/es/mazo_impresion.pdf
+pdf/en/mazo_impresion_en.pdf
+pdf/es/mazo_impresion_1cara.pdf
 
 # Reglamento: vistas de revisión y capa intermedia sin fondo (se regeneran con
 # img/_work/build_instrucciones.py; no hace falta versionarlas).
 img/_work/preview_instrucciones*/
-img/instrucciones*_capa.pdf
+img/_work/_instrucciones*_capa.pdf

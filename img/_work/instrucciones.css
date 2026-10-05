@@ -39,6 +39,8 @@ th { font-weight: 800; background: var(--marron); color: #fff; text-align: left;
 td { padding: 0.55mm 1.2mm 0.25mm; border-bottom: 0.2mm solid #d9c9aa; vertical-align: top; }
 td.c, th.c { text-align: center; }
 .ico { height: 3.6mm; vertical-align: -0.9mm; }
+/* Muestra del color del pergamino del nombre de cada habitat (los de build_scroll_templates.py) */
+.hab { display: inline-block; width: 5.5mm; height: 3mm; border-radius: 0.6mm; border: 0.3mm solid var(--marron); vertical-align: -0.6mm; }
 
 /* Portada: fondo blanco (sin imagen a sangre, para que la impresora no deje filo) con el
    emblema ya recortado y avivado de img/portada_viva.png (lo genera build_portada.py a

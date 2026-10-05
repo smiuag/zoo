@@ -9,13 +9,26 @@ Todo lo que genera las cartas impresas vive en esta carpeta. El intérprete es `
 ```bash
 /c/Python310/python img/_work/compose_all.py        # cartas ES  -> img/cards
 /c/Python310/python img/_work/compose_all_en.py     # cartas EN  -> img/cards_en
-/c/Python310/python img/_work/build_pdf.py          # hoja de referencia ES -> img/cartas_zoo.pdf
-/c/Python310/python img/_work/build_pdf_en.py       # hoja de referencia EN -> img/cartas_zoo_en.pdf
-/c/Python310/python img/_work/build_deck_pdf.py     # mazo de impresion ES -> img/mazo_impresion.pdf
-/c/Python310/python img/_work/build_deck_pdf_en.py  # mazo de impresion EN -> img/mazo_impresion_en.pdf
+/c/Python310/python img/_work/build_pdf.py          # hoja de referencia ES -> pdf/es/cartas_zoo.pdf
+/c/Python310/python img/_work/build_pdf_en.py       # hoja de referencia EN -> pdf/en/cartas_zoo_en.pdf
+/c/Python310/python img/_work/build_deck_pdf.py     # mazo de impresion ES -> pdf/es/mazo_impresion.pdf
+/c/Python310/python img/_work/build_deck_pdf_en.py  # mazo de impresion EN -> pdf/en/mazo_impresion_en.pdf
 ```
 
 - "Regenerar los PDFs" son siempre los cuatro.
+- La **hoja de referencia** (`cartas_zoo*.pdf`) enseña cada carta como queda terminada: sin sangrado ni
+  marcas de corte, con la esquina redondeada y separadas por un hueco blanco (`make_reference_page` en
+  `print_layout.py`). No sirve para recortar: para eso están los mazos de impresión, que no cambian.
+- **Todos los PDF van a `pdf/<idioma>/`** en la raíz del repo (`pdf/es`, `pdf/en`), nunca sueltos en `img/`.
+  Los scripts sacan la ruta de `pdf_paths.py` (`pdf_path(idioma, nombre)`); las pruebas y comparativas van a
+  `pdf/<idioma>/pruebas/`. Los nombres no cambian (los ingleses siguen acabando en `_en`). La capa sin fondo
+  del reglamento es un intermedio y se queda en `img/_work/_instrucciones[_en]_capa.pdf`.
+  `pdf/es/hoja_puntuacion.pdf` no tiene script generador.
+- Si cambia el DISEÑO de las cartas, además de los cuatro PDFs hay que rehacer lo que las enseña: el
+  reglamento (`build_instrucciones.py`, `build_instrucciones_librillo.py`, `build_instrucciones_a7.py`,
+  con `en` y sus variantes `--fondo`, `--capa`, `--pergamino`; la página "Las cartas de animal" lleva una
+  carta anotada cuyas marcas se colocan a mano en `instrucciones[_en].html`) y la caja (`build_caja.py`).
+  El escáner de la web (`build_scan_assets.py`) también sale de `img/cards`.
 - El mazo de impresión debe sumar un **múltiplo de 18** cartas. Se cuadra solo con Plata, Oro y
   Platino (`COUNTS` en los DOS `build_deck_pdf*.py`); Bronce (49) y Perezoso (21) no se tocan.
   Estado actual: 378 cartas con Plata 16, Oro 11, Platino 8.
@@ -66,32 +79,45 @@ Todo lo que genera las cartas impresas vive en esta carpeta. El intérprete es `
 - OJO con dos fotos: `img/tiranosaurios.jpg` muestra un triceratops y `img/triceratops.jpg` muestra el
   tiranosaurio (562x463, poca resolución). `SPECIES_PHOTO` usa la segunda.
 
-## Diseño oficial de las cartas de animal (iconos de tipo)
+## Diseño oficial de las cartas de animal (pergamino de color y tipo escrito)
 
-Lo compone `compose_card_iconos.py` (`compose_official`, variante `A_pergamino`), llamado desde
-`compose_all.py` y `compose_all_en.py`. `compose_generic` es el diseño anterior (texto de tipo y tablón de
-color) y ya no se usa.
+Desde 2026-10-05. Lo compone `compose_card_pergamino.py` (`compose_official`), llamado desde
+`compose_all.py` y `compose_all_en.py`. Para probar una carta suelta:
+`/c/Python310/python img/_work/compose_card_pergamino.py toucan [en]` -> `img/templates/pruebas/pergamino/`.
 
-- **Iconos en vez del texto de tipo**: redondos de madera (`img/redondo.jpg`) con hoja = terrestre,
-  nube = volador, gota = acuático. Orden tierra, aire, agua. 52 px de diámetro en el diseño de 615x878,
-  12 px de separación, centrados en (307, 648).
-- El pez de colores y el periquito **cuentan como 2**, así que llevan el icono doble (`DOUBLE_ICON`).
-- **Plantilla estándar de madera** (`land`) para todas las cartas: el tipo ya lo dicen los iconos.
-- **Nombre en blanco** con contorno marrón de 2 px.
-- **Texto centrado en vertical** entre el borde inferior de los iconos y y=816 del diseño (el pergamino
-  acaba en 828). Se centra la TINTA real del bloque, no la caja de la fuente, que lleva aire arriba y hacía
-  que el texto se viera caído. Si no cabe con 10 px de aire arriba y abajo, baja la letra (solo afecta a
-  textos de 4 líneas).
-- Los iconos los dibuja `type_icons.py` (formas vectoriales con degradado, contorno y sombra). Ejecutarlo
-  regenera los PNG listos para usar: oficiales en `img/iconos_tipo/` (land, bird, aquatic) y los de la
-  edición completa en `img/iconos_tipo_completa/` (pet = caseta, dinosaur = hueso). La pluma (tres
-  variantes) sigue en el script por si se quiere volver; el usuario la cambió por la nube.
-- Las variantes B a H del módulo son las colocaciones que se probaron y descartaron (listón superior,
-  esquina de la ilustración, a caballo de cada borde, columna bajo la bolsa). Para probar una carta:
-  `/c/Python310/python img/_work/compose_card_iconos.py toucan A` -> `img/templates/pruebas/iconos_tipo/`.
-- Los números de bolsa y escudo están en `COST_BADGE = (83, 109)` y `PV_BADGE = (526, 90)` (`compose_card.py`).
-- `build_card_base` recorta el marco de papel de algunas ilustraciones (`PHOTO_INSET`) y ya no deja una
-  franja negra bajo las fotos apaisadas.
+- **Marco `img/template5.png`**: el marco de siempre (template3, ventana de esquinas redondeadas) con el
+  nombre en un pergamino enrollado en vez del tablón de madera. El pergamino va centrado entre el borde
+  inferior de la ventana y el panel de texto (misma distancia arriba que abajo) sobre un tablero de madera
+  del tono del marco.
+- **Color = hábitats de la carta**, en el pergamino del nombre Y en el panel de texto: tierra arena clara,
+  agua azul claro, aire blanco apenas cálido (a medio camino entre blanco puro y blanco roto). Con dos hábitats, mitad y mitad (tierra|agua, tierra|aire, agua|aire) con
+  una mezcla de ancho intermedio en el centro (`BLEND = 90`); con los tres, agua|tierra|aire. Tonos, panel
+  teñido y ancho de mezcla los eligió el usuario el 2026-10-05 (hojas de prueba en
+  `img/templates/pruebas/template5/`); se cambian en `build_scroll_templates.py` (`TIERRA`, `AGUA`, `AIRE`, `BLEND`,
+  `SCROLL_PANEL`).
+- **Tipo escrito** bajo el nombre ("Terrestre - Acuático"), sin iconos. Los hábitats se listan **en el
+  mismo orden que los colores del pergamino**, de izquierda a derecha: por eso es "Acuático - Volador" y
+  "Acuático - Terrestre - Volador" (`SCROLL_COLOR_ORDER`). Una carta con los tres hábitats pondría
+  "Todoterreno" (en inglés siempre se listan); hoy ninguna carta clásica los tiene (el Albatros es acuático y volador desde 2026-10-05).
+- **Nombre recto y en marrón oscuro** (`HEADING_INK`): el pergamino es plano y claro.
+- **Texto centrado en vertical** entre el pie de la etiqueta de tipo y la última línea útil del panel
+  (`PANEL_BODY_BOX`, y=657 a y=816 del diseño; el panel acaba en 828). Se centra la TINTA real del bloque,
+  no la caja de la fuente. Si no cabe con 10 px de aire arriba y abajo, baja la letra.
+- El pez de colores y el periquito cuentan como 2, pero ya no llevan icono doble: solo lo dice su texto.
+- Medidas del marco (615x878) en `compose_card.py`: `ILLUSTRATION_BOX`, `COST_BADGE = (83, 109)`,
+  `PV_BADGE = (526, 90)`, `TITLE_BOX`, `TYPE_LINE_POINT = (307, 639)`.
+- `build_card_base` recorta el marco de papel de algunas ilustraciones (`PHOTO_INSET`).
+- **Las monedas** (ver más abajo) llevan el mismo marco, sin pergamino: son cartas ya terminadas que se
+  montan sobre su propia plantilla (`TEMPLATE_FILES["coin"]`, ruta absoluta a `sangrado/medias/monedas.png`).
+
+### Diseño anterior (2026-09-20 a 2026-10-05): iconos de tipo
+
+`compose_card_iconos.py`: redondos de madera en vez del texto de tipo (hoja = terrestre, nube = volador,
+gota = acuático; icono doble en pez de colores y periquito), tablón de madera para todas y nombre en
+blanco. Va sobre el marco anterior (template3): `use_previous_template()` devuelve `compose_card.py` a
+esas medidas, y hay que llamarla antes de componer nada con ese módulo. Los iconos los dibuja
+`type_icons.py` (`img/iconos_tipo/`, y `img/iconos_tipo_completa/` para mascota y dinosaurio); ya no
+salen en las cartas ni en el reglamento.
 
 ## Cartas de moneda (bellotas)
 
@@ -139,8 +165,63 @@ Después, la cadena normal de cartas y PDFs.
 
 ## Plantillas
 
-- `build_plank_templates.py` recolorea el tablón del nombre de `img/template3.png` por hábitat y sus
-  mezclas (7 plantillas por carpeta: `normal`, `claras`, `medias`), con zonas manuales en `plank_zones.py`.
-- `compose_card.py` usa `img/templates/sangrado/medias` y recorta su sangrado de 98 a 30 px para que quepan
-  9 cartas por A4. Si cambian las plantillas, borrar `template_alpha_cache/`.
-- Desde el diseño de iconos solo se usan dos plantillas: `tierra` para los animales y `monedas`.
+- `build_template5.py` compone `img/template5.png`: quita el tablón de `img/template3.png`, repinta su hueco
+  con la madera del listón de la ventana (tono `BOARD_TONE`) y coloca encima el pergamino recortado de
+  `img/template4.jpg`, limpio de hojas y lianas. **El usuario retoca `template5.png` a mano después**: el
+  script se niega a sobrescribirlo sin `--force`; para probar cambios, `T5_OUT=otra_ruta`.
+- `build_scroll_templates.py` genera a partir de `template5.png` las 8 plantillas por carpeta (`tierra`,
+  `agua`, `aire`, `monedas`, las tres mixtas y la triple), en `img/templates/template5` y, con 98 px de
+  sangrado, en `img/templates/sangrado/template5`. Tiñe el pergamino del nombre y el panel de texto; como son
+  casi blancos, no se cambia el tono sino que se remapea su luminosidad entre un color oscuro y uno claro
+  (`duotone`). Deja `scroll_zona_control.png` con la zona repintada en magenta.
+- `compose_card.py` usa `img/templates/sangrado/template5` y recorta su sangrado de 98 a 30 px para que
+  quepan 9 cartas por A4. La ventana de la ilustración se detecta como la pieza conexa clara que contiene
+  su centro. Si cambian las plantillas, borrar `template_alpha_cache/`.
+- Marcos anteriores, ya sin uso salvo lo indicado: `img/templates/template4` (primera prueba de pergamino,
+  sobre `template4.jpg`, oficial unas horas el 2026-10-05) y las carpetas `normal`, `claras`, `medias` de
+  `build_plank_templates.py` (tablón recoloreado de template3; de ahí sigue en uso
+  `sangrado/medias/monedas.png`, para las monedas).
+
+## Caja (`img/Caja/`)
+
+`build_caja.py` (`/c/Python310/python img/_work/build_caja.py`) compone las caras de la caja de la
+clásica: 2 filas de cartas, exterior **140 x 97 x 73 mm**, con el librillo A7 tumbado encima de los dos
+montones (378 cartas de ~0,31 mm = 189 por montón, ~59 mm; medir el grosor real con una muestra de la
+imprenta antes de fijar la altura). Una imagen por cara a 300 ppp con 3 mm de sangrado por lado:
+`01_tapa`, `02_reverso`, `03_lateral_largo` (x2), `04_lateral_corto` (x2) y `vista_previa.png`
+(isométrica, no se imprime). Solo castellano.
+
+- Tapa y reverso: pergamino + el marco de enredadera de `back.jpg` (matte por diferencia con el fondo,
+  girado 90 grados y estirado; descarta la pieza conexa del emblema) + emblema de `portada_viva.png`
+  + abanicos de cartas reales (`card_rgba` las recorta por su línea de corte, 750x1050 centrada, con
+  las esquinas redondeadas).
+- Laterales: madera marrón procedural (`BROWN` = el marrón del borde de las cartas) con emblema e iconos.
+- Iconos de jugadores (2-7), duración (30–60 min, fija) y edad (10+) dibujados en el propio script; los textos están en las
+  constantes `PLAYERS_TXT`, `AGE_TXT`, `TIME_TXT` (`TIME_SUB` opcional, vacío), `BLURB`, `CONTENTS`.
+- Si la imprenta pide otra construcción (tapa + fondo, plantilla propia), las caras se reutilizan
+  tal cual; solo cambia dónde cae el corte.
+
+### Caja de una pieza en A3, sin pegamento (`build_caja_a3.py`)
+
+`/c/Python310/python img/_work/build_caja_a3.py` genera `pdf/es/caja_una_pieza_a3.pdf`: la caja de envío
+automontable clásica, de una pieza y paredes laterales dobles, para imprimir en un A3 de cartulina,
+recortar, doblar y montar SIN PEGAMENTO.
+
+- Las cartas van tumbadas en TRES montones de 126, uno al lado del otro; exterior 198 x 92 x 42 mm. Es la
+  única colocación con la que este tipo de caja cabe en un A3: con las cartas en una fila el desarrollo
+  mide unos 394 x 348 mm, y el lado que no cabe (2 x fondo + 2 x alto + solapa) no depende del número de
+  cartas sino del tamaño de la carta. El alto sale de 126 cartas de ~0,31 mm (cartulina de 300 g) +
+  holgura; si el taco real mide otra cosa, cambiar `H`. El librillo A7 no cabe.
+- Desarrollo (A3 apaisado, 375 x 286 mm): solapa, tapa (con alas), trasera y frente (con orejas) y, a cada
+  lado de la base, pared exterior, lomo, pared interior y dos pestañas que entran en dos cortes de la base.
+  Queda a 5-6 mm del borde del papel por arriba y por abajo: imprimir al 100 % y con márgenes mínimos.
+- Arte: la portada es `img/Caja/Alternativa/front.jpg` y continúa por el frente (misma imagen, misma
+  escala; va ampliada 2,4x, unos 126 ppp). Laterales: tucanes y loros (`SIDE_SCENES`); trasera: la franja de
+  selva con la serpiente que preparó el usuario, `img/Caja/Alternativa/Sin título.jpg` (`REAR`; la primera
+  versión, con monos, elefantes y perezoso fundidos, no le gustó). Base: pergamino con cinta, texto, iconos y abanico; su marco de
+  enredadera no se estira, se alarga repitiendo en espejo el tramo central (`paste_frame_wide`).
+- Página 1: arte con 3 mm de sangrado, línea de corte, los 4 cortes de la base y marcas de pliegue en los
+  márgenes. Página 2: guía de corte, pliegue y montaje. También deja `img/Caja/una_pieza_a3.png` y
+  `una_pieza_vista_previa.png`.
+- Versiones anteriores del mismo día, descartadas: estuche con pestaña pegada, y bandeja de pared sencilla
+  con orejas de flecha (cartas en una fila, 126 x 92 x 67 mm).

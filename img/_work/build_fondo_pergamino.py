@@ -12,6 +12,9 @@ promedia y apaga las manchas, al final se devuelve el contraste original.
 Uso:  /c/Python310/python img/_work/build_fondo_pergamino.py        ->  img/fondo_pergamino.jpg (una página A6)
       /c/Python310/python img/_work/build_fondo_pergamino.py a4     ->  img/fondo_pergamino_a4.jpg (folio entero,
       sin bordes tostados: lo usa el librillo con pergamino hasta el borde)
+      /c/Python310/python img/_work/build_fondo_pergamino.py a4 claro  ->  img/fondo_pergamino_a4_claro.jpg (la misma
+      textura, con el tono medio desplazado el 80 % del camino hacia un crema claro: lo usa el librillo A7
+      build_instrucciones_a7.py --pergamino)
 """
 import os
 import sys
@@ -23,7 +26,14 @@ from scipy import ndimage
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "..", "cards", "_back.png")
 SHEET = "a4" in sys.argv[1:]
-OUT = os.path.join(HERE, "..", "fondo_pergamino_a4.jpg" if SHEET else "fondo_pergamino.jpg")
+CLARO = "claro" in sys.argv[1:]
+if CLARO and not SHEET:
+    raise SystemExit("'claro' solo existe para el folio entero: usar  a4 claro")
+OUT = os.path.join(HERE, "..", ("fondo_pergamino_a4_claro.jpg" if CLARO else "fondo_pergamino_a4.jpg") if SHEET else "fondo_pergamino.jpg")
+# Variante clara: se desplaza el tono medio (no se mezcla con blanco, que apagaría la textura) una fracción del
+# camino (CLARO_K) hacia este crema. Con la media actual (234, 220, 192) y K = 0,8 el desplazamiento es de ~(+10, +16, +24).
+CLARO_TARGET = np.array([247.0, 240.0, 222.0])
+CLARO_K = 0.8
 OUT_W, OUT_H = (2480, 3508) if SHEET else (1240, 1748)          # A4 o A6 a 300 ppp
 PATCH = 112
 STEP = PATCH // 2
@@ -78,6 +88,8 @@ yy, xx = np.mgrid[0:OUT_H, 0:OUT_W]
 edge = np.minimum(np.minimum(xx, OUT_W - 1 - xx) / (OUT_W * 0.12), np.minimum(yy, OUT_H - 1 - yy) / (OUT_H * 0.09))
 vig = (0.0 if SHEET else -7.0) * np.clip(1 - edge, 0, 1) ** 2
 out = out + (big + vig)[..., None] * np.array([1.0, 1.05, 1.35])
+if CLARO:
+    out = out + (CLARO_TARGET - out.reshape(-1, 3).mean(0)) * CLARO_K
 out = np.clip(out, 0, 255).astype(np.uint8)
 Image.fromarray(out).save(OUT, quality=88)
 print("saved", os.path.abspath(OUT), out.shape[:2], "tono medio", mean.round())

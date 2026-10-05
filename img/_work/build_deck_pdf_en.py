@@ -5,11 +5,13 @@ from PIL import Image, JpegImagePlugin  # noqa: F401  (forces JPEG codec registr
 
 import print_layout as pl
 
+from pdf_paths import pdf_path
+
 Image.init()
 
 CARDS_DIR = r"C:\proyectos\Claude\zoo\img\cards_en"
 DATA_DIR = r"C:\proyectos\Claude\zoo\packages\engine\src\cards\data"
-OUT_PDF = r"C:\proyectos\Claude\zoo\img\mazo_impresion_en.pdf"
+OUT_PDF = pdf_path("en", "mazo_impresion_en.pdf")
 BACK_PATH = os.path.join(CARDS_DIR, "_back.png")
 
 # English print run: same copy counts as build_deck_pdf.py (double-sided,

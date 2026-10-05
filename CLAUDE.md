@@ -8,6 +8,7 @@ autojuego. Monorepo npm workspaces.
 packages/engine/   Motor del juego (TS puro, sin UI) + bots + entrenamiento RL
 apps/web/           App React/Vite (local pase-y-juega + online vía Supabase)
 img/                Arte e impresión de las cartas físicas (scripts Python)
+pdf/                PDFs generados (cartas, mazos, reglamento), una carpeta por idioma: pdf/es, pdf/en
 ```
 
 ## Comandos
@@ -230,6 +231,9 @@ clave:
   carta) → `build_deck_pdf.py` / `build_deck_pdf_en.py` (mazo de impresión
   real, con recuentos por especie). "Regenerar los PDFs" significa siempre
   los 4.
+- Todos los PDF se escriben en `pdf/<idioma>/` (`pdf/es`, `pdf/en`), nunca sueltos
+  en `img/`: los scripts sacan la ruta de `img/_work/pdf_paths.py`. Pruebas y
+  comparativas, en `pdf/<idioma>/pruebas/`.
 - El mazo de impresión debe sumar un **múltiplo de 18** cartas (18 por
   plancha física). Se cuadra ajustando solo Plata/Oro/Platino (`COUNTS` en
   ambos `build_deck_pdf*.py`) — Bronce (49 copias) y Perezoso (21 copias)

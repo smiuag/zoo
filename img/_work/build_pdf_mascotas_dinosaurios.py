@@ -1,17 +1,18 @@
 """PDF de revision (NO oficial): todas las cartas con tipo mascota o dinosaurio, 9 por pagina A4 y ordenadas
 por coste. Lee las cartas ya compuestas de la edicion completa, asi que antes hay que ejecutar
   ZOO_EDITION=full /c/Python310/python img/_work/compose_all.py
-Uso:  /c/Python310/python img/_work/build_pdf_mascotas_dinosaurios.py  -> img/cartas_mascotas_dinosaurios.pdf
+Uso:  /c/Python310/python img/_work/build_pdf_mascotas_dinosaurios.py  -> pdf/es/cartas_mascotas_dinosaurios.pdf
 """
 import glob, json, os, sys
 from PIL import Image, JpegImagePlugin  # noqa: F401  (el PDF de Pillow necesita el plugin JPEG registrado)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import print_layout as pl
+from pdf_paths import pdf_path
 
 DATA = r"C:\proyectos\Claude\zoo\packages\engine\src\cards\data"
 CARDS = r"C:\proyectos\Claude\zoo\img\cards_completa"
-OUT = r"C:\proyectos\Claude\zoo\img\cartas_mascotas_dinosaurios.pdf"
+OUT = pdf_path("es", "cartas_mascotas_dinosaurios.pdf")
 
 cards = []
 for p in glob.glob(os.path.join(DATA, "*.json")):

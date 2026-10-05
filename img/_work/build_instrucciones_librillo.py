@@ -2,18 +2,18 @@
 
 Uso:  /c/Python310/python img/_work/build_instrucciones_librillo.py [en] [--pergamino]
 
-Con --pergamino genera SOLO img/instrucciones[_en]_librillo_a4_pergamino.pdf: el mismo
+Con --pergamino genera SOLO pdf/<idioma>/instrucciones[_en]_librillo_a4_pergamino.pdf: el mismo
 librillo en A4 pero con pergamino en todo el folio, pensado para recortar. Ver
 build_pergamino() más abajo. Necesita antes:
   build_fondo_pergamino.py a4      y      build_instrucciones.py [en] --capa
 
-Parte de img/instrucciones[_en].pdf (generarlo antes con build_instrucciones.py)
+Parte de pdf/<idioma>/instrucciones[_en].pdf (generarlo antes con build_instrucciones.py)
 y escribe dos versiones con el mismo contenido:
 
-- img/instrucciones[_en]_librillo_a5.pdf: 4 hojas A5 apaisadas a doble cara
+- pdf/<idioma>/instrucciones[_en]_librillo_a5.pdf: 4 hojas A5 apaisadas a doble cara
   (8 páginas de PDF). Cada hoja lleva 2 páginas A6 por cara. Doble cara
   volteando por el BORDE CORTO.
-- img/instrucciones[_en]_librillo_a4.pdf: 2 folios A4 verticales a doble cara
+- pdf/<idioma>/instrucciones[_en]_librillo_a4.pdf: 2 folios A4 verticales a doble cara
   (4 páginas de PDF). Cada folio lleva 2 hojas A5 del librillo, una arriba y
   otra abajo. Doble cara volteando por el BORDE LARGO. Se corta cada folio por
   la mitad y salen las 4 hojas A5.
@@ -30,11 +30,14 @@ import sys
 
 import fitz
 
+from pdf_paths import pdf_path
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SUFFIX = "_en" if "en" in sys.argv[1:] else ""
-SRC = os.path.join(HERE, "..", f"instrucciones{SUFFIX}.pdf")
-OUT_A5 = os.path.join(HERE, "..", f"instrucciones{SUFFIX}_librillo_a5.pdf")
-OUT_A4 = os.path.join(HERE, "..", f"instrucciones{SUFFIX}_librillo_a4.pdf")
+LANG = "en" if SUFFIX else "es"
+SRC = pdf_path(LANG, f"instrucciones{SUFFIX}.pdf")
+OUT_A5 = pdf_path(LANG, f"instrucciones{SUFFIX}_librillo_a5.pdf")
+OUT_A4 = pdf_path(LANG, f"instrucciones{SUFFIX}_librillo_a4.pdf")
 
 MM = 72 / 25.4
 A6_W, A6_H = 105 * MM, 148 * MM
@@ -91,9 +94,9 @@ def crop_marks(page):
 
 
 def build_pergamino():
-    capa = os.path.join(HERE, "..", f"instrucciones{SUFFIX}_capa.pdf")
+    capa = os.path.join(HERE, f"_instrucciones{SUFFIX}_capa.pdf")     # intermedio de build_instrucciones.py --capa
     fondo = os.path.join(HERE, "..", "fondo_pergamino_a4.jpg")
-    out = os.path.join(HERE, "..", f"instrucciones{SUFFIX}_librillo_a4_pergamino.pdf")
+    out = pdf_path(LANG, f"instrucciones{SUFFIX}_librillo_a4_pergamino.pdf")
     for need in (capa, fondo):
         if not os.path.exists(need):
             sys.exit(f"falta {need}: ver el uso al principio de este archivo")

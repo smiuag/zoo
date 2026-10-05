@@ -5,11 +5,13 @@ from PIL import Image, JpegImagePlugin  # noqa: F401  (forces JPEG codec registr
 
 import print_layout as pl
 
+from pdf_paths import pdf_path
+
 Image.init()
 
 CARDS_DIR = r"C:\proyectos\Claude\zoo\img\cards"
 DATA_DIR = r"C:\proyectos\Claude\zoo\packages\engine\src\cards\data"
-OUT_PDF = r"C:\proyectos\Claude\zoo\img\cartas_zoo.pdf"
+OUT_PDF = pdf_path("es", "cartas_zoo.pdf")
 BACK_PATH = os.path.join(CARDS_DIR, "_back.png")
 
 
@@ -52,10 +54,10 @@ def main():
     all_pages = []
     for p in range(n_pages):
         chunk = card_paths[p * grid.per_page:(p + 1) * grid.per_page]
-        all_pages.append(pl.make_page(grid, chunk))
+        all_pages.append(pl.make_reference_page(grid, chunk))
         print(f"page {p+1}/{n_pages}: {len(chunk)} cards")
 
-    all_pages.append(pl.make_page(grid, [BACK_PATH] * grid.per_page))
+    all_pages.append(pl.make_reference_page(grid, [BACK_PATH] * grid.per_page))
 
     # resolution=300: las paginas son A4 a 300 ppp (2480x3508 px); sin esto Pillow las declara a
     # 72 ppp y el PDF sale como una pagina de 875x1238 mm.

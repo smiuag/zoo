@@ -1,7 +1,7 @@
 """Genera un cartas_zoo.pdf POR CADA variante de plantilla en img/templates/
 (claras, definitivas, medias, normal, primeras), para poder compararlas
 entre sí sin tocar la plantilla "real" que use compose_card.py ahora mismo
-(se restaura tal cual al terminar). Los PDF salen a img/templates/
+(se restaura tal cual al terminar). Los PDF salen a pdf/es/pruebas/
 cartas_zoo_<variante>.pdf. Uso: python build_template_comparison.py
 """
 import glob
@@ -13,9 +13,10 @@ from PIL import Image
 
 import compose_all as ca
 import compose_card as cc
+from pdf_paths import pdf_path
 
 TEMPLATES_ROOT = r"C:\proyectos\Claude\zoo\img\templates"
-OUT_DIR = TEMPLATES_ROOT
+OUT_DIR = os.path.dirname(pdf_path("es", "x.pdf", "pruebas"))    # pdf/es/pruebas
 SCRATCH_CARDS_DIR = r"C:\proyectos\Claude\zoo\img\_work\_template_compare_cards"
 SCRATCH_ALPHA_DIR = r"C:\proyectos\Claude\zoo\img\_work\_template_compare_alpha"
 
