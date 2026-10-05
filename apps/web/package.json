@@ -11,11 +11,11 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
+    "@techstark/opencv-js": "^5.0.0-release.1",
     "@zoo/engine": "*",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "react-router-dom": "^6.30.6",
-    "tesseract.js": "^7.0.0",
     "twemoji": "^14.0.2"
   },
   "devDependencies": {

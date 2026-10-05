@@ -9,62 +9,6 @@ export interface ScanCard {
   victoryPoints: number;
   cost: number;
   habitats: string[];
-  /** Nombres impresos (ES + EN) ya normalizados, para comparar con el OCR. */
-  aliases: string[];
-}
-
-// Nombres de las cartas impresas en inglés (img/_work/card_text_en.py).
-const EN_NAMES: Record<string, string> = {
-  albatross: 'Albatross',
-  bat: 'Bats',
-  'coin-1': 'Bronze',
-  'coin-2': 'Silver',
-  'coin-3': 'Gold',
-  'coin-5': 'Platinum',
-  crocodile: 'Crocodiles',
-  dolphin: 'Dolphins',
-  duck: 'Ducks',
-  eagle: 'Eagles',
-  elephant: 'Elephants',
-  flamingo: 'Flamingos',
-  giraffe: 'Giraffes',
-  goldfish: 'Goldfish',
-  hippopotamus: 'Hippos',
-  hyena: 'Hyenas',
-  lion: 'Lions',
-  monkey: 'Monkeys',
-  orca: 'Orcas',
-  owl: 'Owls',
-  panda: 'Giant Pandas',
-  parakeet: 'Parakeets',
-  parrot: 'Parrots',
-  peacock: 'Peacocks',
-  penguin: 'Penguins',
-  platypus: 'Platypuses',
-  'polar-bear': 'Polar Bears',
-  rabbit: 'Rabbits',
-  raven: 'Ravens',
-  seal: 'Seals',
-  shark: 'Sharks',
-  sloth: 'Sloths',
-  snake: 'Snakes',
-  spider: 'Spiders',
-  squirrel: 'Squirrels',
-  tiger: 'Tigers',
-  toucan: 'Toucans',
-  turtle: 'Turtles',
-  vulture: 'Vultures',
-};
-
-/** Mayúsculas, sin acentos, solo letras y espacios sueltos. */
-export function normalizeName(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toUpperCase()
-    .replace(/[^A-Z ]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 export const SCAN_CARDS: ScanCard[] = getAllCards()
@@ -76,7 +20,6 @@ export const SCAN_CARDS: ScanCard[] = getAllCards()
     victoryPoints: c.victoryPoints ?? 0,
     cost: c.marketCost ?? 0,
     habitats: (c.habitats as string[]) ?? [],
-    aliases: [normalizeName(c.name), ...(EN_NAMES[c.id] ? [normalizeName(EN_NAMES[c.id])] : [])],
   }));
 
 const CARD_BY_ID = new Map(SCAN_CARDS.map((c) => [c.id, c]));
