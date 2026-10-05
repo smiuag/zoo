@@ -91,8 +91,9 @@ export function CardScanner({ playerName, onApply, onCancel }: CardScannerProps)
         <>
           <p className="scan-hint">
             Coloca las cartas <strong>escalonadas</strong>, de modo que se vea el <strong>nombre</strong> (el tablón
-            con el nombre) de todas. Pueden ir en varias filas o columnas, una especie junta. Haz la foto de frente, con buena
-            luz y sin reflejos.
+            con el nombre) de todas. Pueden ir en varias filas o columnas, una especie junta. <strong>Acércate</strong>: cada
+            nombre debe verse grande y nítido, con el texto en horizontal, buena luz y sin reflejos. Mejor la foto original
+            del móvil que una reenviada por WhatsApp, que la comprime y pierde detalle.
           </p>
           {status === 'error' && (
             <p className="scan-hint scan-hint--error">No se pudo leer la foto (¿sin conexión la primera vez?). Prueba otra vez.</p>
