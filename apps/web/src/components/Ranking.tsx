@@ -50,13 +50,17 @@ function positionLabel(position: number | null): string {
   return `${position}º`;
 }
 
+// Ids guardados en partidas antiguas de cartas que luego se renombraron (misma
+// carta, otro id): el Oso panda sustituyó al Oso polar el 2026-10-05.
+const RENAMED_CARD_IDS: Record<string, string> = { 'polar-bear': 'panda' };
+
 // Reconstruye una carta "jugable" a partir de un id guardado en la baraja
 // (ver DeckSummaryEntry): null si ese id ya no existe en los datos de carta
 // actuales (rebalance/especie retirada desde que se guardó esa partida) —
 // se descarta esa entrada en vez de reventar toda la vista.
 function toCardInstance(id: string): CardInstance | null {
   try {
-    return { ...getCard(id), instanceId: id };
+    return { ...getCard(RENAMED_CARD_IDS[id] ?? id), instanceId: id };
   } catch {
     return null;
   }
