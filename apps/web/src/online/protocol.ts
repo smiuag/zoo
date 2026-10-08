@@ -62,6 +62,11 @@ export interface ActionMessage {
 // sido información pública (ver scoreGame) aunque las cartas no lo sean.
 export interface StateSyncMessage {
   type: 'stateSync';
+  // Número creciente (siempre mayor que el del mensaje anterior de este host)
+  // para que el invitado descarte un mensaje atrasado que llegue DESPUÉS de uno
+  // más nuevo — sin esto, un sync viejo pisaba el estado actual y el invitado
+  // se quedaba viendo un turno que ya había pasado.
+  seq?: number;
   state: GameState;
   humanIds: string[];
   botAlgorithms: Record<string, BotAlgorithm>;

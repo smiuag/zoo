@@ -52,6 +52,10 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string, 
   const [status, setStatus] = useState<GuestRoomStatus>('connecting');
   const [payload, setPayload] = useState<StateSyncMessage | null>(null);
   const [lobbyInfo, setLobbyInfo] = useState<LobbySyncMessage | null>(null);
+  // Último sync aplicado (ver seq en StateSyncMessage) y su contenido, para
+  // descartar mensajes atrasados y repeticiones idénticas del sondeo periódico.
+  const lastSeqRef = useRef(0);
+  const lastSyncJsonRef = useRef('');
   const actionsChannelRef = useRef<ReturnType<NonNullable<typeof supabase>['channel']> | null>(null);
 
   useEffect(() => {
@@ -63,6 +67,8 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string, 
     setStatus('connecting');
     setPayload(null);
     setLobbyInfo(null);
+    lastSeqRef.current = 0;
+    lastSyncJsonRef.current = '';
 
     const lobby = client.channel(lobbyChannelName(roomCode));
     const seatCh = client.channel(seatChannelName(roomCode, seatKey));
@@ -81,9 +87,14 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string, 
       const msg: RequestStateMessage = { type: 'requestState', seatId, seatKey };
       actionsCh.send({ type: 'broadcast', event: 'msg', payload: msg });
     }
+    // Con la partida en marcha sigue pidiendo el estado cada pocos segundos: los
+    // broadcast de Supabase no garantizan entrega, y un sync perdido dejaba al
+    // invitado viendo un turno ya pasado hasta que refrescaba a mano. El host
+    // contesta con el estado actual y, si no ha cambiado, aquí se ignora.
+    let beats = 0;
     const retryId = window.setInterval(() => {
-      if (gotSync) return;
-      requestState();
+      beats++;
+      if (!gotSync || beats % 2 === 0) requestState();
     }, 4000);
 
     // Al volver de segundo plano (cambiar de pestaña/app y volver) pide el
@@ -102,8 +113,17 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string, 
     seatCh
       .on('broadcast', { event: 'sync' }, ({ payload: msg }) => {
         gotSync = true;
-        setPayload(msg as StateSyncMessage);
+        const sync = msg as StateSyncMessage;
+        if (sync.seq !== undefined) {
+          if (sync.seq < lastSeqRef.current) return; // llega tarde: ya se aplicó uno más nuevo
+          lastSeqRef.current = sync.seq;
+        }
+        const { seq: _seq, ...content } = sync;
+        const json = JSON.stringify(content);
         setStatus('playing');
+        if (json === lastSyncJsonRef.current) return; // repetición idéntica (sondeo): nada que cambiar
+        lastSyncJsonRef.current = json;
+        setPayload(sync);
       })
       // El host no tiene partida en curso (sala de espera, o "Cambiar modo"
       // tras terminar una): se descarta el estado de partida anterior — si
@@ -111,6 +131,7 @@ export function useGuestRoom(roomCode: string, seatId: string, seatKey: string, 
       // espera — y se guarda la config que el host está preparando.
       .on('broadcast', { event: 'lobby' }, ({ payload: msg }) => {
         gotSync = true;
+        lastSyncJsonRef.current = '';
         setPayload(null);
         setLobbyInfo(msg as LobbySyncMessage);
         setStatus('waitingForHost');

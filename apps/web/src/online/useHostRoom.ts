@@ -90,6 +90,10 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
   const connectedSeatNicksRef = useRef(connectedSeatNicks);
   connectedSeatNicksRef.current = connectedSeatNicks;
 
+  // Último `seq` enviado (ver StateSyncMessage): monótono incluso si el host
+  // refresca la página (arranca desde la hora actual, no desde 0).
+  const lastSeqRef = useRef(0);
+
   const seatChannelsRef = useRef<Map<string, ReturnType<NonNullable<typeof supabase>['channel']>>>(new Map());
 
   // Único punto que arma un StateSyncMessage para UN asiento y lo manda —
@@ -104,8 +108,10 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
       broadcastLobbyToSeat(seatId);
       return;
     }
+    lastSeqRef.current = Math.max(lastSeqRef.current + 1, Date.now());
     const payload: StateSyncMessage = {
       type: 'stateSync',
+      seq: lastSeqRef.current,
       state: redactStateForSeat(state, seatId, humanIds),
       humanIds,
       botAlgorithms,
@@ -257,7 +263,13 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
         // que un mensaje repetido o manipulado a mano aplique algo ilegal.
         const legal = getLegalActions(state, seat.seatId);
         const isLegal = legal.some((a) => JSON.stringify(a) === JSON.stringify(msg.action));
-        if (!isLegal) return;
+        if (!isLegal) {
+          // El invitado actuó sobre un estado que ya no es el vigente (se le
+          // perdió un sync): se le reenvía el actual en vez de dejarle
+          // enganchado hasta que refresque a mano.
+          broadcastToSeat(seat.seatId);
+          return;
+        }
         doAction(msg.action);
         return;
       }
@@ -285,6 +297,17 @@ export function useHostRoom(params: UseHostRoomParams): UseHostRoomResult {
     // Los canales se abren una única vez por sala: `seats` es fijo desde que
     // se crea la sala (antes de que nadie se conecte), así que roomCode/seats
     // son las únicas dependencias reales.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomCode]);
+
+  // Al volver de segundo plano (el navegador puede haber frenado la pestaña del
+  // host y retrasado/perdido envíos) se retransmite el estado a todos.
+  useEffect(() => {
+    function onVisible() {
+      if (document.visibilityState === 'visible') broadcastToAll();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomCode]);
 

@@ -21,8 +21,10 @@ function hiddenCard(index: number): CardInstance {
   };
 }
 
-function redactZone(cards: CardInstance[]): CardInstance[] {
-  return cards.map((_, i) => hiddenCard(i));
+// `revealed`: instanceIds que se dejan a la vista aunque la zona esté redactada
+// (ver la Serpiente en redactStateForSeat).
+function redactZone(cards: CardInstance[], revealed?: Set<string>): CardInstance[] {
+  return cards.map((c, i) => (revealed?.has(c.instanceId) ? c : hiddenCard(i)));
 }
 
 // Devuelve una copia de `state` donde la mano/mazo de cualquier asiento
@@ -40,6 +42,14 @@ function redactZone(cards: CardInstance[]): CardInstance[] {
 export function redactStateForSeat(state: GameState, viewerSeatId: string, humanIds: string[]): GameState {
   if (state.gameOver) return state;
   const activePlayerId = state.players[state.activePlayerIndex]?.id;
+  // Serpiente: los animales que cada jugador acaba de descartar (ya entregados, o
+  // candidatos a elegir) son públicos. Sin esto, el descarte del OTRO humano (que
+  // no tiene el turno, así que va redactado) llegaba como carta oculta y el
+  // popup de la Serpiente enseñaba un animal menos.
+  const revealed = new Set<string>([
+    ...(state.pendingAnimalAbilityChoice?.candidateInstanceIds ?? []),
+    ...(state.pendingDecision?.collectedInstanceIds ?? []),
+  ]);
   return {
     ...state,
     players: state.players.map((player) => {
@@ -49,7 +59,7 @@ export function redactStateForSeat(state: GameState, viewerSeatId: string, human
         ...player,
         hand: redactZone(player.hand),
         deck: redactZone(player.deck),
-        discard: isActive ? player.discard : redactZone(player.discard),
+        discard: isActive ? player.discard : redactZone(player.discard, revealed),
         playedThisTurn: isActive ? player.playedThisTurn : redactZone(player.playedThisTurn),
       };
     }),
