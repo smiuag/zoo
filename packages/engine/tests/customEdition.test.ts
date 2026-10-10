@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { createGame, initialMarketCopies, marketSpeciesFor } from '../src/engine';
-import { getCard } from '../src/cards/registry';
 import { buildStarterDeck } from './helpers';
 
 describe('edición "Personalizado" (edition: "custom")', () => {
@@ -43,7 +42,7 @@ describe('edición "Personalizado" (edition: "custom")', () => {
     expect(mintedDog.habitats).toContain('pet');
   });
 
-  it('una carta CLÁSICA con texto alternativo en la completa (Cocodrilo) usa ese texto en una partida "custom"', () => {
+  it('una carta CLÁSICA con tipo extra en la completa (Cocodrilo) lo conserva en una partida "custom"', () => {
     const state = createGame(
       [
         { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
@@ -52,7 +51,6 @@ describe('edición "Personalizado" (edition: "custom")', () => {
       { edition: 'custom', customSpecies: ['crocodile', 'lion'] }
     );
     const mintedCroc = [...state.animalTrack, ...state.sharedDecks['crocodile']].find((c) => c.id === 'crocodile')!;
-    expect(mintedCroc.text).toBe(getCard('crocodile').fullEditionText);
     expect(mintedCroc.habitats).toContain('dinosaur');
   });
 

@@ -338,45 +338,7 @@ describe('Avestruz: elige robar o evolucionar a Tiranosaurio/Pterodáctilo', () 
   });
 });
 
-describe('Cocodrilo/Avestruz/Tiranosaurio: regla genérica de evolución (reemplaza al antiguo descuento, 2026-10-01)', () => {
-  it('Cocodrilo (5, terrestre+acuático): descartando un Oro puede evolucionar a Mosasaurio (10, acuático)', () => {
-    const { state, player } = setupClean();
-    expect(getCard('crocodile').fullEditionText).toContain('evolucionar');
-    const croc = freshInstance('crocodile', 'x');
-    const gold = freshInstance('coin-3', 'gold');
-    player.hand = [croc, gold];
-    const mosa = state.animalTrack.find((c) => c.species === 'mosasaurus')!;
-    playCard(state, player.id, croc.instanceId, mosa.instanceId, gold.instanceId);
-    expect(player.discard.some((c) => c.instanceId === mosa.instanceId)).toBe(true);
-    expect(player.discard.some((c) => c.instanceId === gold.instanceId)).toBe(true);
-    expect(player.discard.some((c) => c.id === 'crocodile')).toBe(false);
-  });
-
-  it('Cocodrilo: o, igual de bien, a Tiranosaurio (10, terrestre — el otro tipo que comparte)', () => {
-    const { state, player } = setupClean();
-    const croc = freshInstance('crocodile', 'x');
-    const gold = freshInstance('coin-3', 'gold');
-    player.hand = [croc, gold];
-    const rex = state.animalTrack.find((c) => c.species === 'tyrannosaurus')!;
-    playCard(state, player.id, croc.instanceId, rex.instanceId, gold.instanceId);
-    expect(player.discard.some((c) => c.instanceId === rex.instanceId)).toBe(true);
-    expect(player.discard.some((c) => c.instanceId === gold.instanceId)).toBe(true);
-  });
-
-  it('Cocodrilo NO puede evolucionar directamente a Dragosaurio (14): se sale del +5 (5+5=10)', () => {
-    const { state, player } = setupClean();
-    const croc = freshInstance('crocodile', 'x');
-    const gold = freshInstance('coin-3', 'gold');
-    player.hand = [croc, gold];
-    const drago = state.animalTrack.find((c) => c.species === 'dragosaurio')!;
-    playCard(state, player.id, croc.instanceId, drago.instanceId, gold.instanceId);
-    // Objetivo inválido: no se resuelve nada de la evolución (el Cocodrilo
-    // normal — robar — sigue intacto, igual que si no se hubiera elegido nada).
-    expect(player.discard.some((c) => c.instanceId === drago.instanceId)).toBe(false);
-    expect(player.hand.some((c) => c.instanceId === gold.instanceId)).toBe(true);
-    expect(player.playedThisTurn.some((c) => c.id === 'crocodile')).toBe(true);
-  });
-
+describe('Avestruz/Tiranosaurio y Cocodrilo: regla genérica de evolución (reemplaza al antiguo descuento, 2026-10-01)', () => {
   it('Tiranosaurio (10, terrestre) SÍ llega directo a Dragosaurio (14, terrestre+volador+acuático): el final de las 3 líneas', () => {
     const { state, player } = setupClean();
     const rex = freshInstance('tyrannosaurus', 'x');
@@ -390,32 +352,13 @@ describe('Cocodrilo/Avestruz/Tiranosaurio: regla genérica de evolución (reempl
     expect(state.animalTrack.some((c) => c.species === 'tyrannosaurus')).toBe(true); // hueco repuesto
   });
 
-  it('edición clásica: sin Mosasaurio en la partida, jugarlo se comporta exactamente igual que antes (solo roba)', () => {
-    const state = createGame(
-      [
-        { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
-        { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
-      ],
-      { edition: 'classic' }
-    );
-    const player = state.players[0];
-    // Una carta minteada de verdad en clásica muestra el texto de siempre,
-    // nunca el de la edición completa (ver mintInstance en model/state.ts).
-    const mintedCroc = state.animalTrack.find((c) => c.id === 'crocodile')!;
-    expect(mintedCroc.text).toBe(
-      'Roba 1 carta.\nAl final de la partida, antes de la puntuación, elimina de tu colección una carta de animal no volador.'
-    );
-
-    player.hand = [];
-    player.discard = [];
+  it('Cocodrilo: cambia una moneda de la mano por un Oro (valor 3), igual que el Pez Dorado, y ya no evoluciona', () => {
+    const { state, player } = setupClean();
     const croc = freshInstance('crocodile', 'x');
-    player.hand = [croc];
-    player.deck = [freshInstance('coin-1', 'top')];
-    // Sin ninguna acción de mercado que ofrezca un Mosasaurio (no existe en
-    // clásica): jugarlo se resuelve exactamente como el drawCards de antes.
-    expect(state.sharedDecks['mosasaurus']).toBeUndefined();
-    playCard(state, player.id, croc.instanceId);
-    expect(player.hand.map((c) => c.id)).toEqual(['coin-1']);
+    const bronze = freshInstance('coin-1', 'bronze');
+    player.hand = [croc, bronze];
+    playCard(state, player.id, croc.instanceId, bronze.instanceId);
+    expect(player.hand.map((c) => c.id)).toEqual(['coin-3']);
     expect(player.playedThisTurn.some((c) => c.id === 'crocodile')).toBe(true);
   });
 });

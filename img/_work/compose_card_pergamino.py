@@ -7,13 +7,25 @@ en compose_card_iconos.py. Para probar una carta:
   /c/Python310/python img/_work/compose_card_pergamino.py toucan [en]   -> img/templates/pruebas/pergamino
 """
 import os, re, sys
-from PIL import ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import compose_card as cc
 import compose_all as ca
 
 OUT = r"C:\proyectos\Claude\zoo\img\templates\pruebas\pergamino"
+
+BODY_SIZE = 28       # letra del panel, igual en todas las cartas: la mayor que cabe en 4 lineas en la mas larga (Pato, Perezoso, Serpiente...)
+BODY_MIN_SIZE = 20   # solo completa: por debajo de esto una carta larga abandona el tope de lineas
+ICONS_ON_SCROLL = False  # pruebas: icono del tipo (hoja/nube/gota) a cada lado del nombre, sobre el color del pergamino
+ICON_D, ICON_INSET = 50, 6
+ICON_MODE = 'sides'  # 'sides': a los lados del nombre (el nombre se estrecha); 'roll': dentro de cada rollo del pergamino
+ROLL_CENTERS = ((92, 523), (525, 523))  # centros de los dos rollos, en coordenadas del diseno (615x878)
+ICON_DIR = r"C:\proyectos\Claude\zoo\img\iconos_tipo"
+TYPE_ICON_FILES = {'land': 'land_solo.png', 'bird': 'bird_solo.png', 'aquatic': 'aquatic_solo.png'}
+TITLE_MAX = 37       # tope de la letra del nombre; en las pruebas se baja para que todos los nombres midan igual
+SHOW_TYPE = True     # False: pruebas sin la linea de tipo (el panel de texto se ensancha desde fuera, ver pruebas)
+BODY_MAX_LINES = 4   # ninguna carta lleva mas de 4 lineas de texto
 
 # Orden de los colores, de izquierda a derecha, en los pergaminos mixtos que no siguen ca.HABITAT_ORDER
 # (ver build_scroll_templates.py): la etiqueta de tipo lista los habitats en ese mismo orden.
@@ -50,28 +62,54 @@ def compose_official(card, lang, out_dir):
     cc.draw_centered(draw, cc.COST_BADGE, str(card['marketCost']), f_cost, fill=cc.COST_COLOR)
     cc.draw_centered(draw, cc.PV_BADGE, str(card['victoryPoints']), f_cost, fill=cc.PV_COLOR)
     # nombre recto y en tinta oscura: el pergamino es plano y claro (el blanco del tablon no se leeria)
-    f_title = cc.fit_font(draw, name, cc.TITLE_BOX[2] - cc.TITLE_BOX[0] - 16, max_size=37)
+    title_w = cc.TITLE_BOX[2] - cc.TITLE_BOX[0] - 16
+    if ICONS_ON_SCROLL:
+        if ICON_MODE == 'sides':
+            title_w -= 2 * (ICON_D + 2 * ICON_INSET)
+        habs = [h for h in SCROLL_COLOR_ORDER.get(key, ca.HABITAT_ORDER) if h in card['habitats'] and h in TYPE_ICON_FILES]
+        if habs:   # mismo tipo = mismo icono a los dos lados; con dos, uno de cada color (izquierda, derecha)
+            tb = cc.TITLE_BOX
+            cy = (tb[1] + tb[3]) // 2
+            if ICON_MODE == 'roll':
+                (lx, ly), (rx, ry) = [cc._offset_point(pt) for pt in ROLL_CENTERS]
+                spots = ((habs[0], lx, ly), (habs[-1], rx, ry))
+            else:
+                spots = ((habs[0], tb[0] + ICON_INSET + ICON_D // 2, cy), (habs[-1], tb[2] - ICON_INSET - ICON_D // 2, cy))
+            for h, cx, cy in spots:
+                ic = Image.open(os.path.join(ICON_DIR, TYPE_ICON_FILES[h])).convert('RGBA').resize((ICON_D, ICON_D), Image.LANCZOS)
+                img.paste(ic, (cx - ICON_D // 2, cy - ICON_D // 2), ic)
+    f_title = cc.fit_font(draw, name, title_w, max_size=TITLE_MAX)
     cc.draw_centered(draw, cc.TITLE_BOX, name, f_title, fill=cc.HEADING_INK)
-    f_type = cc.fit_font(draw, label, cc.TYPE_LINE_MAX_WIDTH, max_size=38, min_size=20)
-    cc.draw_centered(draw, cc.TYPE_LINE_POINT, label, f_type, fill=cc.HEADING_INK)
+    if SHOW_TYPE:
+        f_type = cc.fit_font(draw, label, cc.TYPE_LINE_MAX_WIDTH, max_size=38, min_size=20)
+        cc.draw_centered(draw, cc.TYPE_LINE_POINT, label, f_type, fill=cc.HEADING_INK)
 
     # Texto centrado en vertical entre el pie de la etiqueta de tipo y la ultima linea util del panel
     # (cc.PANEL_BODY_BOX). Se centra la TINTA real del bloque (del tope de las letras de la primera linea
     # a la base de la ultima), no la caja de la fuente, que lleva aire arriba y hace que se vea caido.
-    # Si no cabe con MIN_AIR de aire arriba y abajo, baja la letra.
+    # La letra es BODY_SIZE si el texto cabe con MIN_AIR de aire arriba y abajo y en
+    # BODY_MAX_LINES lineas como mucho; si no, baja.
     bx0, top_line, bx1, bottom_line = cc.PANEL_BODY_BOX
     spacing, MIN_AIR = 10, 10
     shown = re.sub(r"(?<=\d)PV", " PV", text)
-    size = ca.BODY_MAX_SIZE_OVERRIDE.get(cid, 26)
-    while True:
-        f_body = ImageFont.truetype(cc.FONT_REG, size)
-        lines = [" ".join(tokens) for tokens in cc._wrap_lines(draw, shown, f_body, bx1 - bx0)]
-        line_h = f_body.size + spacing
-        ink_top = draw.textbbox((0, 0), lines[0], font=f_body)[1]
-        ink_bottom = (len(lines) - 1) * line_h + draw.textbbox((0, 0), lines[-1], font=f_body)[3]
-        if ink_bottom - ink_top <= (bottom_line - top_line) - 2 * MIN_AIR or size <= 16:
+    # Misma letra en TODAS las cartas (BODY_SIZE): la mayor con la que cabe la carta mas larga de la clasica.
+    # Una carta que no cabe a ese tamano (solo pasa en la completa) baja lo justo: primero respetando
+    # BODY_MAX_LINES y, si eso la dejaria por debajo de BODY_MIN_SIZE, sin tope de lineas.
+    start = ca.BODY_MAX_SIZE_OVERRIDE.get(cid, BODY_SIZE)
+    for max_lines, floor in ((BODY_MAX_LINES, BODY_MIN_SIZE), (99, 16)):
+        size = start
+        while True:
+            f_body = ImageFont.truetype(cc.FONT_REG, size)
+            lines = [" ".join(tokens) for tokens in cc._wrap_lines(draw, shown, f_body, bx1 - bx0)]
+            line_h = f_body.size + spacing
+            ink_top = draw.textbbox((0, 0), lines[0], font=f_body)[1]
+            ink_bottom = (len(lines) - 1) * line_h + draw.textbbox((0, 0), lines[-1], font=f_body)[3]
+            fits = ink_bottom - ink_top <= (bottom_line - top_line) - 2 * MIN_AIR
+            if (fits and len(lines) <= max_lines) or size <= floor:
+                break
+            size -= 1
+        if fits and len(lines) <= max_lines:
             break
-        size -= 1
     y_start = (top_line + bottom_line) / 2 - (ink_top + ink_bottom) / 2
     cc.draw_wrapped(img, draw, (bx0, int(round(y_start)), bx1, bottom_line), text, f_body, valign='top', top_pad=0)
 

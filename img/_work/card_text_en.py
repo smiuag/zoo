@@ -9,6 +9,7 @@ HABITAT_EN = {"land": "Land", "aquatic": "Aquatic", "bird": "Flying", "pet": "Pe
 CARD_TEXT_EN = {
     "dog": ("Dogs", "When you play it, you may leave it on the table instead of sending it to your discard pile, until you shuffle your deck: while it's there, it plays itself again and repeats its ability every turn.\n+1 acorn."),
     "diplodocus": ("Diplodocus", "Costs 1 acorn less for each dinosaur you have played this turn."),
+    "dragosaurio": ("Dragosaurus", "When you play it, draw 2 cards.\nAt the end of the game, +1 VP for each dinosaur in your whole collection.\nThe end of the evolution chain: land, flying and aquatic all at once."),
     "tyrannosaurus": ("Tyrannosaurus", "Costs 1 acorn less for each dinosaur you have played this turn.\n+4 acorns.\nEach opponent removes a LAND animal costing 4 or less from their hand."),
     "pterodactyl": ("Pterodactyls", "Costs 1 acorn less for each dinosaur you have played this turn.\nWhen you play it, choose a dinosaur from the supply costing less than 6 and put it in your discard pile."),
     "mosasaurus": ("Mosasaurs", "Costs 1 acorn less for each dinosaur you have played this turn.\n+4 acorns.\nEach opponent removes an AQUATIC animal costing 4 or less from their hand."),
@@ -30,7 +31,7 @@ CARD_TEXT_EN = {
     ),
     "bat": (
         "Bats",
-        "Take an acorn from your discard pile to your hand.",
+        "Take an acorn from your discard pile and add it to your hand.",
     ),
     "coin-1": ("Bronze", "+1 acorn."),
     "coin-2": ("Silver", "+2 acorns."),
@@ -38,7 +39,7 @@ CARD_TEXT_EN = {
     "coin-5": ("Platinum", "+5 acorns."),
     "crocodile": (
         "Crocodiles",
-        "Draw 1 card.\nAt the end of the game, before scoring, remove one non-flying animal card from your collection.",
+        "Swap an acorn from your hand for an acorn of value 3.",
     ),
     "dolphin": (
         "Dolphins",
@@ -46,7 +47,7 @@ CARD_TEXT_EN = {
     ),
     "duck": (
         "Ducks",
-        "Choose a player: they give you an acorn card. If they have none, take an acorn of value 3 from the market into your hand.",
+        "Choose a player: they give you an acorn card. If they have none, add an acorn of value 3 from the market to your hand.",
     ),
     "eagle": (
         "Eagles",
@@ -113,7 +114,7 @@ CARD_TEXT_EN = {
     ),
     "rabbit": (
         "Rabbits",
-        "Reveal the top card of your deck. If it isn't an animal costing more than 4, add it to your hand.",
+        "Reveal the top card of your deck. If it is an animal costing 4 or less, or an acorn, add it to your hand.",
     ),
     "seal": (
         "Seals",

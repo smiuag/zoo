@@ -4,6 +4,19 @@ import { getCard } from '../src/cards/registry';
 import { scoreGame, scorePlayer } from '../src/scoring';
 import { buildStarterDeck } from './helpers';
 
+// El Cocodrilo real ya no elimina nada (2026-10-10), pero el efecto onScore
+// destructivo sigue existiendo en el motor: estos tests lo ejercitan con un
+// "Cocodrilo" de laboratorio al que se le añade a mano.
+function destroyerCroc() {
+  return {
+    ...getCard('crocodile'),
+    effects: [
+      ...getCard('crocodile').effects,
+      { trigger: 'onScore' as const, type: 'destroyWeakestNonFlyingOnScore' },
+    ],
+  };
+}
+
 describe('scorePlayer', () => {
   it('el mazo inicial (solo monedas de 1, 0PV) puntúa 0', () => {
     const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
@@ -112,7 +125,7 @@ describe('scorePlayer', () => {
     player.deck = []; // mazo inicial fuera, para un escenario determinista
     player.hand = []; // la mano inicial (repartida por createGame) también, o sus Perezosos/monedas seguirían siendo candidatos
 
-    const crocodile = { ...getCard('crocodile'), instanceId: 'croc#test' };
+    const crocodile = { ...destroyerCroc(), instanceId: 'croc#test' };
     const owl = { ...getCard('owl'), instanceId: 'owl#bird' }; // volador, 3PV: se salva SIEMPRE por ser volador, esté donde esté
     const turtle = { ...getCard('turtle'), instanceId: 'turtle#weak' }; // terrestre-acuático, 1PV: la más débil elegible, debe destruirse aunque esté en la MANO
     const hippo = { ...getCard('hippopotamus'), instanceId: 'hippo#strong' }; // terrestre-acuático, 4PV: sobrevive por ser más fuerte
@@ -129,8 +142,8 @@ describe('scorePlayer', () => {
     expect(player.deck.some((c) => c.instanceId === 'hippo#strong')).toBe(true);
     expect(player.hand.some((c) => c.instanceId === 'croc#test')).toBe(true);
     // La tortuga (1PV, la más débil elegible) fue destruida antes de puntuar.
-    // Quedan cocodrilo(7PV) + búho(3PV) + hipopótamo(4PV).
-    expect(score).toBe(7 + 3 + 4);
+    // Quedan cocodrilo(6PV) + búho(3PV) + hipopótamo(4PV).
+    expect(score).toBe(6 + 3 + 4);
     // Se guarda aparte, solo para el resumen final (no cuenta para el score).
     expect(player.destroyedCards.map((c) => c.instanceId)).toEqual(['turtle#weak']);
   });
@@ -142,7 +155,7 @@ describe('scorePlayer', () => {
     player.deck = [];
     player.hand = []; // la mano inicial repartida por createGame también, o sus Perezosos/monedas seguirían siendo candidatos
 
-    const crocodile = { ...getCard('crocodile'), instanceId: 'croc#test' }; // 7PV, terrestre-acuático
+    const crocodile = { ...destroyerCroc(), instanceId: 'croc#test' }; // 6PV, terrestre-acuático
     // Oso panda: 0PV impreso (el más bajo posible), pero +1PV por cada
     // animal TERRESTRE de toda la colección — con crocodile+panda+
     // turtle+lion (los 4 son terrestres) su valor real es 4, muy por
@@ -175,11 +188,11 @@ describe('scorePlayer', () => {
     player.deck = [];
     player.hand = [];
 
-    const crocodile = { ...getCard('crocodile'), instanceId: 'croc#solo' };
+    const crocodile = { ...destroyerCroc(), instanceId: 'croc#solo' };
     player.deck.push(crocodile);
 
     // Sin ninguna otra carta no voladora en el mazo a la que sacrificar, se
-    // destruye a sí mismo: no llega a puntuar sus 7PV. El resto de la
+    // destruye a sí mismo: no llega a puntuar sus 6PV. El resto de la
     // colección son monedas y Perezosos (0PV cada uno), así que el total
     // esperado es 0.
     const score = scorePlayer(state, player);
@@ -197,8 +210,8 @@ describe('scorePlayer', () => {
     player.hand = []; // sin esto, un Perezoso/moneda de la mano inicial (0PV) competiría con los cocodrilos
 
     player.deck.push(
-      { ...getCard('crocodile'), instanceId: 'croc#a' },
-      { ...getCard('crocodile'), instanceId: 'croc#b' }
+      { ...destroyerCroc(), instanceId: 'croc#a' },
+      { ...destroyerCroc(), instanceId: 'croc#b' }
     );
 
     scorePlayer(state, player);
@@ -218,7 +231,7 @@ describe('scorePlayer', () => {
     player.deck = [];
     player.hand = []; // sin esto, un Perezoso/moneda de la mano inicial (0PV) sería el objetivo en vez del pez de colores
 
-    const crocodile = { ...getCard('crocodile'), instanceId: 'croc#test' };
+    const crocodile = { ...destroyerCroc(), instanceId: 'croc#test' };
     const hippo1 = { ...getCard('hippopotamus'), instanceId: 'hippo#1' };
     const hippo2 = { ...getCard('hippopotamus'), instanceId: 'hippo#2' };
     const goldfish = { ...getCard('goldfish'), instanceId: 'goldfish#1pv' };
@@ -247,7 +260,7 @@ describe('scorePlayer', () => {
     player.deck = [];
     player.hand = [];
 
-    const crocodile = { ...getCard('crocodile'), instanceId: 'croc#test' };
+    const crocodile = { ...destroyerCroc(), instanceId: 'croc#test' };
     // 3 Orcas: 2PV base + 1PV por cada acuático de la colección. Con
     // crocodile/turtle/sloth también acuáticos o terrestres variados, su
     // valor real queda muy por encima de 0-1PV: nunca deben ser el objetivo.
@@ -283,9 +296,9 @@ describe('scorePlayer', () => {
     player.discard = [];
 
     const crocodiles = [
-      { ...getCard('crocodile'), instanceId: 'croc#a' },
-      { ...getCard('crocodile'), instanceId: 'croc#b' },
-      { ...getCard('crocodile'), instanceId: 'croc#c' },
+      { ...destroyerCroc(), instanceId: 'croc#a' },
+      { ...destroyerCroc(), instanceId: 'croc#b' },
+      { ...destroyerCroc(), instanceId: 'croc#c' },
     ];
     const hippos = [
       { ...getCard('hippopotamus'), instanceId: 'hippo#1' },

@@ -5,7 +5,7 @@
   "species": "bat",
   "marketCost": 2,
   "victoryPoints": 2,
-  "text": "Coge una moneda de tu descarte a tu mano.",
+  "text": "Coge una moneda de tu descarte y añádela a tu mano.",
   "effects": [
     {
       "trigger": "onPlay",

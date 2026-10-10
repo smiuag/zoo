@@ -74,6 +74,7 @@ SPECIES_PHOTO = {
     "dog": "perros.jpg",
     "cat": "gatos.jpg",
     "diplodocus": "diplodocus.jpg",
+    "dragosaurio": "dragosaurio.jpg",
     "tyrannosaurus": "triceratops.jpg",
     "pterodactyl": "pterodactilo.jpg",
     "mosasaurus": "mosasaurus.jpg",

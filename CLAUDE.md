@@ -70,7 +70,7 @@ verificación de referencia antes de dar algo por terminado.
   (`registerEffect`/`resolveEffect`, `registerScoreEffect`/`resolveScoreEffect`).
   Una carta solo-edición-completa lleva `"edition": "full"` en su JSON; su
   texto alternativo (cuando una carta clásica se comporta distinto en la
-  completa, como el Cocodrilo) va en `fullEditionText`.
+  completa) va en `fullEditionText` (hoy ninguna carta lo usa).
 - `engine.ts` — reglas del juego: `createGame`, resolución de turnos, compra
   de mercado, `ANIMAL_SPECIES` (las 33 especies clásicas — de ahí dependen
   los bots RL clásicos, no tocar sin retrenar) y `FULL_EDITION_EXTRA_SPECIES`

@@ -3,13 +3,16 @@ envío automontable clásica, de paredes laterales DOBLES (como la de la foto qu
 
 Las cartas van tumbadas en TRES montones de 126, uno al lado del otro. Es la única colocación con la que
 este tipo de caja cabe en un A3: el lado que no cabía con las cartas en fila (2 x fondo + 2 x alto + solapa)
-depende aquí del alto del montón. Exterior 198 x 92 x 42 mm (largo x fondo x alto). El alto sale de 126
+depende aquí del alto del montón. Exterior 203 x 91 x 52 mm (largo x fondo x alto). El alto sale de 126
 cartas de ~0,31 mm (cartulina de 300 g) + holgura; si el taco real mide otra cosa, cambiar H.
+(2026-10-07: el primer prototipo, 198 x 92 x 42, se quedó corto al montarlo: +5 mm de largo y +10 de alto. El
+alto cuenta dos veces en la hoja, así que para seguir en A3 con 1 mm de margen se acortaron la solapa (18 -> 9)
+y el fondo (92 -> 91) y se quitaron las pestañas de las paredes interiores y los cortes de la base.)
 
 Desarrollo (A3 apaisado, cara impresa hacia fuera): en vertical, solapa, tapa (con un ala a cada lado),
 trasera y frente (cada uno con dos orejas) a los lados de la base; en horizontal, a cada lado de la base,
-pared exterior, lomo, pared interior y dos pestañas que entran en dos cortes de la base. Queda a 5-6 mm del
-borde del papel por arriba y por abajo: muy justo de márgenes.
+pared exterior, lomo y pared interior. Queda centrado, con 1 mm de margen por arriba y por abajo y 4 mm
+a los lados.
 
 Arte: la portada es img/Caja/Alternativa/front.jpg y CONTINÚA por el frente (el pliegue cae a la altura
 de las patas de los tigres); trasera, la franja de selva con la serpiente que preparó el usuario
@@ -17,7 +20,7 @@ de las patas de los tigres); trasera, la franja de selva con la serpiente que pr
 pergamino con cinta, texto, iconos y abanico de build_caja.py. Solo castellano.
 
 Escribe:
-    pdf/es/caja_una_pieza_a3.pdf      pág. 1 = arte para imprimir, pág. 2 = guía de corte, pliegue y montaje
+    pdf/es/caja_una_pieza_a3.pdf      pág. 1 = arte para imprimir, pág. 2 = reverso liso del tono de dentro (a doble cara)
     img/Caja/una_pieza_a3.png         la página 1
     img/Caja/una_pieza_vista_previa.png   maqueta isométrica (no se imprime)
 
@@ -43,19 +46,18 @@ mm = bc.mm
 B = bc.BLEED
 K = bc.PPI / 25.4                      # px por mm
 
-L, D, H = 198.0, 92.0, 42.0            # exterior: largo (3 montones), fondo y alto
+L, D, H = 203.0, 91.0, 52.0            # exterior: largo (3 montones), fondo y alto
 SPINE = 1.5                            # lomo de la pared doble (abraza las orejas)
 INNER = H - 1.0                        # pared interior: 1 mm menos que la exterior, para que baje hasta el fondo
-TAB = 4.0                              # pestañas de la pared interior
-FLAP = 18.0                            # solapa delantera de la tapa (entra por dentro del frente)
+FLAP = 9.0                             # solapa delantera de la tapa (entra por dentro del frente)
 WING = 34.0                            # alas de la tapa (entran por dentro de los laterales)
 EAR = 36.0                             # orejas de frente y trasera (quedan dentro de la pared doble)
-TABS_Y = ((15.0, 35.0), (57.0, 77.0))  # tramos de fondo que ocupan las dos pestañas
 PAGE_W, PAGE_H = 420.0, 297.0          # A3 apaisado
+MARGIN = 1.0                           # margen de la impresora
 XL = (PAGE_W - L) / 2
 XR = XL + L
-X0 = XL - H - SPINE - INNER - TAB      # borde izquierdo del desarrollo
-Y0 = 5.0                               # el canto de la solapa (no lleva dibujo) va más pegado al borde que el del frente
+X0 = XL - H - SPINE - INNER            # borde izquierdo del desarrollo
+Y0 = (PAGE_H - (FLAP + 2 * D + 2 * H)) / 2   # desarrollo centrado en vertical (con 1 mm de margen, justo)
 YL0 = Y0 + FLAP                        # pliegue solapa / tapa
 YL1 = YL0 + D                          # pliegue tapa / trasera
 YB = YL1 + H                           # pliegue trasera / base
@@ -69,18 +71,6 @@ COVER = os.path.join(bc.IMG, "Caja", "Alternativa", "front.jpg")
 COVER_ROWS = (36, 700)                 # filas de la portada que se reparten entre tapa y frente
 SIDE_SCENES = (("tucan.jpg", 0.45), ("loros.jpg", 0.47))                                  # lateral izq. y dcho.
 REAR = os.path.join(bc.IMG, "Caja", "Alternativa", "Sin título.jpg")                       # trasera (1024x239)
-
-STEPS = [
-    "Imprime en A3 al 100 % y recorta por la línea exterior. Abre con cúter los 4 cortes de la base.",
-    "Marca los pliegues con regla y un boli sin tinta (coinciden con los cambios de dibujo) y dóblalos todos "
-    "hacia atrás: lo impreso queda por fuera. Cada lateral lleva dos pliegues juntos: el lomo.",
-    "Levanta la trasera y el frente, y dobla sus cuatro orejas hacia dentro, pegadas a los lados de la base.",
-    "Levanta cada pared exterior, vuélcala por encima de las orejas y baja la pared interior hasta el fondo: "
-    "sus dos pestañas entran en los cortes de la base. Las orejas quedan atrapadas dentro. Sin pegamento.",
-    "Mete las cartas en tres montones. Para cerrar, las alas de la tapa van por dentro de los laterales y la "
-    "solapa por dentro del frente.",
-]
-
 
 def polygons():
     """Piezas del desarrollo, en mm de página. Su unión es lo que se recorta."""
@@ -97,19 +87,12 @@ def polygons():
         p[f"exterior_{k}"] = [(x, YB + 0.5), (xo, YB + 0.5), (xo, YF - 0.5), (x, YF - 0.5)]
         p[f"lomo_{k}"] = [(xo, YB + 0.5), (xs, YB + 0.5), (xs, YF - 0.5), (xo, YF - 0.5)]
         p[f"interior_{k}"] = [(xs, YB + 1.5), (xi, YB + 1.5), (xi, YF - 1.5), (xs, YF - 1.5)]
-        for j, (a, b) in enumerate(TABS_Y):
-            p[f"pestana_{k}{j}"] = [(xi, YB + a), (xi + s * TAB, YB + a + 1.5), (xi + s * TAB, YB + b - 1.5), (xi, YB + b)]
         p[f"ala_{k}"] = [(x, YL0 + 3), (x + s * (WING - 10), YL0 + 3), (x + s * WING, YL0 + 13),
                          (x + s * WING, YL1 - 15), (x + s * (WING - 10), YL1 - 3), (x, YL1 - 3)]
         for j, (ya, yb) in enumerate(((YL1 + 1, YB - 1), (YF + 1, YE - 1))):
             p[f"oreja_{k}{j}"] = [(x, ya), (x + s * (EAR - 4), ya), (x + s * EAR, ya + 4), (x + s * EAR, yb - 4),
                                   (x + s * (EAR - 4), yb), (x, yb)]
     return p
-
-
-def slits():
-    """Cortes de la base por donde entran las pestañas de las paredes interiores, como segmentos en mm."""
-    return [((x, YB + a - 0.5), (x, YB + b + 0.5)) for x in (XL + SPINE, XR - SPINE) for a, b in TABS_Y]
 
 
 def folds():
@@ -225,17 +208,29 @@ def face_base():
 
 # ---------------------------------------------------------------- páginas
 
-def fold_ticks(d, color=LINE):
-    """Marcas de pliegue en los márgenes, donde hay sitio fuera del dibujo."""
+def fold_ticks(d, color=LINE, d_out=None):
+    """Marcas de pliegue en los márgenes, solo donde hay sitio: con el desarrollo tan ajustado al papel, una
+    marca que quedaría pegada a una pieza (a menos de 3 mm) se omite."""
     w = max(2, mm(0.3))
-    for y in (YL0, YL1, YB, YF):
-        for x0, x1 in ((6, 14), (PAGE_W - 14, PAGE_W - 6)):
-            d.line(px([(x0, y), (x1, y)]), fill=color, width=w)
+
+    def free(x0, y0, x1, y1):
+        if d_out is None:
+            return True
+        n = 8
+        for t in range(n + 1):
+            x, y = x0 + (x1 - x0) * t / n, y0 + (y1 - y0) * t / n
+            if d_out[min(int(y * K), PH - 1), min(int(x * K), PW - 1)] < mm(3):
+                return False
+        return True
+
+    segs = [((x0, y), (x1, y)) for y in (YL0, YL1, YB, YF) for x0, x1 in ((6, 14), (PAGE_W - 14, PAGE_W - 6))]
     for x, s in ((XL, -1), (XR, 1)):
-        d.line(px([(x, 7), (x, 16)]), fill=color, width=w)
+        segs.append(((x, 7), (x, 16)))
         for xx in (x + s * H, x + s * (H + SPINE)):
-            for y0, y1 in ((8, 18), (PAGE_H - 18, PAGE_H - 8)):
-                d.line(px([(xx, y0), (xx, y1)]), fill=color, width=w)
+            segs += [((xx, 8), (xx, 18)), ((xx, PAGE_H - 18), (xx, PAGE_H - 8))]
+    for (x0, y0), (x1, y1) in segs:
+        if free(x0, y0, x1, y1):
+            d.line(px([(x0, y0), (x1, y1)]), fill=color, width=w)
 
 
 def scale_bar(d, x, y, color):
@@ -257,13 +252,13 @@ def page_art(faces):
     placed = [("lid", XL, YL0, 180), ("rear", XL, YL1, 0), ("base", XL, YB, 0), ("front", XL, YF, 180),
               ("side0", XL - H, YB, 90), ("side1", XR, YB, -90)]
     # 1) cada cara CON su sangrado (el de los cantos libres es el que sobrevive); 2) solapa, alas, orejas,
-    #    lomos, paredes interiores y pestañas en madera; 3) cada cara exacta encima
+    #    lomos y paredes interiores en madera; 3) cada cara exacta encima
     for name, x, y, rot in placed:
         art.paste(faces[name].rotate(rot, expand=True), (mm(x - B), mm(y - B)))
     flaps = Image.new("L", (PW, PH), 0)
     df = ImageDraw.Draw(flaps)
     for key, pts in polys.items():
-        if key.startswith(("solapa", "ala", "oreja", "lomo", "interior", "pestana")):
+        if key.startswith(("solapa", "ala", "oreja", "lomo", "interior")):
             df.polygon(px(pts), fill=255)
     art.paste(wood, (0, 0), flaps)
     b = mm(B)
@@ -278,16 +273,12 @@ def page_art(faces):
     arr[cut] = LINE
     page = Image.fromarray(arr)
     d = ImageDraw.Draw(page)
-    for seg in slits():
-        d.line(px(seg), fill=(255, 250, 240), width=max(4, mm(0.45)))
-        d.line(px(seg), fill=LINE, width=max(2, mm(0.2)))
-    fold_ticks(d)
+    fold_ticks(d, d_out=d_out)
     # leyenda en el recorte sobrante de arriba a la izquierda
     x, y = 8 * K, 26 * K
     d.text((x, y), "Animals · caja de una pieza", font=bc.font(True, mm(3.2)), fill=GREY)
     y += mm(5)
-    for ln in ("Sin pegamento · A3 al 100 %.", "Recortar por la línea y abrir", "los 4 cortes de la base.", "Doblar con lo impreso hacia",
-               "fuera. Instrucciones: pág. 2."):
+    for ln in ("Sin pegamento · A3 al 100 %.", "Recortar por la línea. Doblar con", "lo impreso hacia fuera.", "Reverso: imprimir a doble cara."):
         d.text((x, y), ln, font=bc.font(False, mm(2.8)), fill=GREY)
         y += mm(3.9)
     scale_bar(d, 8, 62, GREY)
@@ -303,82 +294,6 @@ def dashed(d, p0, p1, color, width):
         a, b_ = t / n, min(t + dash, n) / n
         d.line([(x0 + (x1 - x0) * a, y0 + (y1 - y0) * a), (x0 + (x1 - x0) * b_, y0 + (y1 - y0) * b_)], fill=color, width=width)
         t += dash + gap
-
-
-def page_guide():
-    page = Image.new("RGB", (PW, PH), "white")
-    d = ImageDraw.Draw(page)
-    polys = polygons()
-    tint = {"oreja": (255, 232, 200), "solapa": (228, 238, 250), "ala": (228, 238, 250),
-            "interior": (236, 244, 232), "lomo": (236, 244, 232), "pestana": (255, 205, 205)}
-    for key, pts in polys.items():
-        fill = next((c for k, c in tint.items() if key.startswith(k)), (250, 247, 240))
-        d.polygon(px(pts), fill=fill)
-    inside = shape_mask()
-    arr = np.asarray(page).copy()
-    edge = (ndi.distance_transform_edt(~inside) <= 2.5) & (ndi.distance_transform_edt(inside) <= 2.5)
-    arr[edge] = (0, 0, 0)
-    page = Image.fromarray(arr)
-    d = ImageDraw.Draw(page)
-    red = (200, 40, 40)
-    for p0, p1 in folds():
-        dashed(d, p0, p1, red, max(2, mm(0.3)))
-    for seg in slits():
-        d.line(px(seg), fill=(0, 0, 0), width=max(5, mm(0.6)))
-    fold_ticks(d, red)
-
-    fb, fr, fs = bc.font(True, mm(5.0)), bc.font(False, mm(3.2)), bc.font(False, mm(2.8))
-
-    def label(cx, cy, title, sub=None, f=fb, color=(40, 40, 40)):
-        d.text((cx * K, cy * K), title, font=f, fill=color, anchor="mm")
-        if sub:
-            d.text((cx * K, (cy + 6) * K), sub, font=fr, fill=GREY, anchor="mm")
-
-    def vlabel(cx, cy, text, f=fr, color=(40, 40, 40)):
-        lab = Image.new("RGBA", (mm(86), mm(7)), (0, 0, 0, 0))
-        ImageDraw.Draw(lab).text((lab.width / 2, lab.height / 2), text, font=f, fill=color, anchor="mm")
-        lab = lab.rotate(90, expand=True)
-        page.paste(lab, (round(cx * K - lab.width / 2), round(cy * K - lab.height / 2)), lab)
-
-    cx, ym = (XL + XR) / 2, (YB + YF) / 2
-    label(cx, YL1 + H / 2 - 3, "TRASERA", f"{L:g} × {H:g} mm")
-    label(cx, YF + H / 2 - 3, "FRENTE", f"{L:g} × {H:g} mm")
-    label(cx, YL0 - FLAP / 2, "solapa (entra por dentro del frente)", f=fr)
-    for x, s in ((XL, -1), (XR, 1)):
-        vlabel(x + s * H / 2, ym, "PARED EXTERIOR", f=bc.font(True, mm(4.0)))
-        vlabel(x + s * (H + SPINE + INNER / 2), ym, "pared interior (queda dentro de la caja)")
-        vlabel(x + s * (H + SPINE + INNER + TAB + 4), ym, "pestañas → cortes de la base", color=(170, 40, 40))
-        label(x + s * WING / 2, (YL0 + YL1) / 2, "ala", f=fr)
-        for y in (YL1 + H / 2, YF + H / 2):
-            label(x + s * EAR / 2, y, "oreja", f=fr, color=(150, 80, 0))
-    d = ImageDraw.Draw(page)
-    # tapa: título, leyenda y medidas
-    x, y = (XL + 8) * K, (YL0 + 8) * K
-    d.text((x, y), "TAPA · caja de una pieza para las 378 cartas, sin pegamento", font=bc.font(True, mm(4.2)), fill=(40, 40, 40))
-    y += mm(10)
-    d.line([(x, y), (x + mm(14), y)], fill=(0, 0, 0), width=max(3, mm(0.4)))
-    d.text((x + mm(17), y), "cortar (también los 4 cortes de la base)", font=fr, fill=(40, 40, 40), anchor="lm")
-    y += mm(6)
-    dashed(d, (XL + 8, y / K), (XL + 22, y / K), red, max(2, mm(0.3)))
-    d.text((x + mm(17), y), "doblar hacia atrás (lo impreso, por fuera)", font=fr, fill=(40, 40, 40), anchor="lm")
-    y += mm(9)
-    for ln in (f"Exterior {L:g} × {D:g} × {H:g} mm (largo × fondo × alto). Las cartas van tumbadas, en tres montones de 126.",
-               "126 cartas de 0,30–0,32 mm (cartulina de 300 g) hacen un montón de 38 a 40 mm.",
-               "El desarrollo queda a 5–6 mm del borde del A3 por arriba y por abajo: imprimir sin márgenes o con los mínimos.",
-               "Mejor en cartulina de 300–350 g."):
-        d.text((x, y), ln, font=fs, fill=GREY)
-        y += mm(4.0)
-    scale_bar(d, XL + 8, (y / K) + 6, GREY)
-    # base: montaje
-    x, y, wmax = (XL + 8) * K, (YB + 6) * K, mm(L - 16)
-    d.text((x, y), "BASE · montaje", font=bc.font(True, mm(4.2)), fill=(40, 40, 40))
-    y += mm(6.8)
-    for i, step in enumerate(STEPS, start=1):
-        for ln in bc.wrap(f"{i}. {step}", fr, wmax, d):
-            d.text((x, y), ln, font=fr, fill=(40, 40, 40))
-            y += mm(4.3)
-        y += mm(1.0)
-    return page
 
 
 def preview(top, longf, shortf, path):
@@ -415,17 +330,23 @@ def preview(top, longf, shortf, path):
     bc._save_safe(bg.convert("RGB"), path)
 
 
+def page_back():
+    """Reverso liso, del mismo tono que las piezas interiores (la madera de page_art): a doble cara, al
+    doblar queda por dentro de la caja. Sin dibujo ni marcas: da igual cómo se voltee la hoja."""
+    return bc.wood(PW, PH, 4).convert("RGB")
+
+
 def main():
     faces = {"lid": cover_part(0, D), "front": cover_part(D, H), "rear": face_rear(), "base": face_base(),
              "side0": face_side(0), "side1": face_side(1)}
     art = page_art(faces)
-    guide = page_guide()
+    back = page_back()
     out = pdf_path("es", "caja_una_pieza_a3.pdf")
-    art.save(out, save_all=True, append_images=[guide], resolution=float(bc.PPI))
+    art.save(out, save_all=True, append_images=[back], resolution=float(bc.PPI))
     os.makedirs(bc.OUT, exist_ok=True)
     bc._save_safe(art, os.path.join(bc.OUT, "una_pieza_a3.png"))
     preview(faces["lid"], faces["front"], faces["side1"], os.path.join(bc.OUT, "una_pieza_vista_previa.png"))
-    print(out, f"(2 paginas A3; desarrollo {XR + H + SPINE + INNER + TAB - X0:g} x {YE - Y0:g} mm, "
+    print(out, f"(2 paginas A3; desarrollo {XR + H + SPINE + INNER - X0:g} x {YE - Y0:g} mm, "
                f"margenes {X0:g} mm a los lados, {Y0:g} arriba y {PAGE_H - YE:g} abajo)")
 
 

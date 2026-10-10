@@ -51,7 +51,7 @@ interface CardViewProps {
   // ahí el número es un recuento total, no un "quedan ×N".
   badgePrefix?: string;
   // Eliminada de la partida para siempre (ver player.destroyedCards: por el
-  // Cocodrilo al final de la partida, o capturada en vida por Tiburón/
+  // efecto de fin de partida, o capturada en vida por Tiburón/
   // Halcón/León): se marca con una X roja encima, para el resumen final.
   // Nunca es clicable (no tiene sentido interactuar con ella).
   destroyed?: boolean;
@@ -307,7 +307,7 @@ export function CardView({
         </span>
       )}
       {destroyed && (
-        <span className="card__destroyed-mark" aria-label="Eliminada por el Cocodrilo">
+        <span className="card__destroyed-mark" aria-label="Eliminada de la partida">
           ✕
         </span>
       )}

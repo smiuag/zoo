@@ -23,7 +23,12 @@ Todo lo que genera las cartas impresas vive en esta carpeta. El intérprete es `
   Los scripts sacan la ruta de `pdf_paths.py` (`pdf_path(idioma, nombre)`); las pruebas y comparativas van a
   `pdf/<idioma>/pruebas/`. Los nombres no cambian (los ingleses siguen acabando en `_en`). La capa sin fondo
   del reglamento es un intermedio y se queda en `img/_work/_instrucciones[_en]_capa.pdf`.
-  `pdf/es/hoja_puntuacion.pdf` no tiene script generador.
+  La **hoja de puntuación** (`pdf/es/hoja_puntuacion.pdf`) la genera `build_hoja_puntuacion.py` a partir de
+  `hoja_puntuacion.html` (Chrome sin ventana, como el reglamento): un A4 vertical con dos cuartillas A5 apaisadas
+  idénticas y una línea de corte entre ellas; en el HTML solo se escribe la primera y el script la duplica.
+  Lleva recortes de las ilustraciones de `img/cards` (las seis cartas que puntúan), así que si cambia
+  el arte de esas cartas hay que regenerarla. Las imágenes se incrustan reducidas (`REDUCIDAS`) para que no pese
+  13 MB; `--previews` deja un PNG en `preview_hoja_puntuacion/`.
 - Si cambia el DISEÑO de las cartas, además de los cuatro PDFs hay que rehacer lo que las enseña: el
   reglamento (`build_instrucciones.py`, `build_instrucciones_librillo.py`, `build_instrucciones_a7.py`,
   con `en` y sus variantes `--fondo`, `--capa`, `--pergamino`; la página "Las cartas de animal" lleva una
@@ -64,11 +69,11 @@ Todo lo que genera las cartas impresas vive en esta carpeta. El intérprete es `
     ir al descarte. Sigue puntuando, deja de circular y ningún efecto lo alcanza. Efecto `mayStayOnTable`,
     acción `playCard` con `keepOnTable`.
   - **Gato** (2, 2 PV, terrestre-mascota): si hay que ELIMINAR un terrestre, se entrega el gato y va al
-    descarte. No protege del Cocodrilo (ese texto dice "no volador" y ocurre al final de la partida).
+    descarte. (Desde 2026-10-10 el Cocodrilo ya no elimina nada: cambia una bellota por una de valor 3, como el Pez Dorado.)
   - **Tiranosaurio / Terodáctilo / Mosasaurio** (7, 10 PV): +4 bellotas y cada OPONENTE (nunca quien lo
     juega) elimina de su mano un terrestre / volador / acuático. Efecto `eachOpponentDestroysAnimalFromHand`.
   - **Diplodocus** (10, 15 PV, terrestre-acuático-dinosaurio), sin habilidad.
-  - Pez de colores y periquito ganan mascota; cocodrilo gana dinosaurio.
+  - Pez de colores y periquito ganan mascota; cocodrilo gana dinosaurio (ya sin evolución desde 2026-10-10).
 - Ilustraciones del modo "imagen" de la app para las 6 cartas nuevas: `web_card_art.py` convierte los JPG
   planos de `img/web/` (Perro, gato, diplodocus, tiranosaurio, terodactilo, mosasaurus) en PNG transparentes
   de 700 px recortados al sujeto, en `apps/web/public/cards/<id>.png`. Quita el fondo liso y la sombra del
@@ -100,6 +105,9 @@ Desde 2026-10-05. Lo compone `compose_card_pergamino.py` (`compose_official`), l
   "Acuático - Terrestre - Volador" (`SCROLL_COLOR_ORDER`). Una carta con los tres hábitats pondría
   "Todoterreno" (en inglés siempre se listan); hoy ninguna carta clásica los tiene (el Albatros es acuático y volador desde 2026-10-05).
 - **Nombre recto y en marrón oscuro** (`HEADING_INK`): el pergamino es plano y claro.
+- **Letra del panel**: la misma en todas las cartas, `BODY_SIZE = 28` (la mayor con la que la carta más larga de la
+  clásica cabe en 4 líneas, `BODY_MAX_LINES`); antes era 26 y bajaba por carta. En la completa, una carta que no
+  cabe a 28 baja lo justo. Se ajusta en `compose_card_pergamino.py`.
 - **Texto centrado en vertical** entre el pie de la etiqueta de tipo y la última línea útil del panel
   (`PANEL_BODY_BOX`, y=657 a y=816 del diseño; el panel acaba en 828). Se centra la TINTA real del bloque,
   no la caja de la fuente. Si no cabe con 10 px de aire arriba y abajo, baja la letra.
@@ -207,21 +215,25 @@ imprenta antes de fijar la altura). Una imagen por cara a 300 ppp con 3 mm de sa
 automontable clásica, de una pieza y paredes laterales dobles, para imprimir en un A3 de cartulina,
 recortar, doblar y montar SIN PEGAMENTO.
 
-- Las cartas van tumbadas en TRES montones de 126, uno al lado del otro; exterior 198 x 92 x 42 mm. Es la
+- Las cartas van tumbadas en TRES montones de 126, uno al lado del otro; exterior 203 x 91 x 52 mm (2026-10-07: +5 de
+  largo y +10 de alto sobre el prototipo de 198 x 92 x 42, que se quedó corto al montarlo. El alto cuenta
+  dos veces en la hoja, así que para seguir en A3 con 1 mm de margen se acortaron la solapa, de 18 a 9 mm, y el
+  fondo, de 92 a 91, y se quitaron las pestañas de las paredes interiores y los 4 cortes de la base; las
+  paredes interiores quedan trabadas por las orejas atrapadas entre las dos paredes). Es la
   única colocación con la que este tipo de caja cabe en un A3: con las cartas en una fila el desarrollo
   mide unos 394 x 348 mm, y el lado que no cabe (2 x fondo + 2 x alto + solapa) no depende del número de
   cartas sino del tamaño de la carta. El alto sale de 126 cartas de ~0,31 mm (cartulina de 300 g) +
   holgura; si el taco real mide otra cosa, cambiar `H`. El librillo A7 no cabe.
-- Desarrollo (A3 apaisado, 375 x 286 mm): solapa, tapa (con alas), trasera y frente (con orejas) y, a cada
-  lado de la base, pared exterior, lomo, pared interior y dos pestañas que entran en dos cortes de la base.
-  Queda a 5-6 mm del borde del papel por arriba y por abajo: imprimir al 100 % y con márgenes mínimos.
+- Desarrollo (A3 apaisado, 412 x 295 mm): solapa, tapa (con alas), trasera y frente (con orejas) y, a cada
+  lado de la base, pared exterior, lomo, y pared interior.
+  Va centrado: 1 mm de margen arriba y abajo y 4 a los lados (justo: imprimir al 100 % y sin márgenes).
 - Arte: la portada es `img/Caja/Alternativa/front.jpg` y continúa por el frente (misma imagen, misma
   escala; va ampliada 2,4x, unos 126 ppp). Laterales: tucanes y loros (`SIDE_SCENES`); trasera: la franja de
   selva con la serpiente que preparó el usuario, `img/Caja/Alternativa/Sin título.jpg` (`REAR`; la primera
   versión, con monos, elefantes y perezoso fundidos, no le gustó). Base: pergamino con cinta, texto, iconos y abanico; su marco de
   enredadera no se estira, se alarga repitiendo en espejo el tramo central (`paste_frame_wide`).
-- Página 1: arte con 3 mm de sangrado, línea de corte, los 4 cortes de la base y marcas de pliegue en los
-  márgenes. Página 2: guía de corte, pliegue y montaje. También deja `img/Caja/una_pieza_a3.png` y
+- Página 1: arte con 3 mm de sangrado, línea de corte, marcas de pliegue en los
+  márgenes (solo donde caben). Página 2: reverso liso del tono de dentro (madera), para imprimir a doble cara; la hoja de guía y montaje se quitó. También deja `img/Caja/una_pieza_a3.png` y
   `una_pieza_vista_previa.png`.
 - Versiones anteriores del mismo día, descartadas: estuche con pestaña pegada, y bandeja de pared sencilla
   con orejas de flecha (cartas en una fila, 126 x 92 x 67 mm).

@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Hoja de puntuación</title>
+<style>
+/* Hoja de puntuación de la edición clásica: un folio A4 vertical con DOS cuartillas (A5 apaisadas)
+   iguales, una encima de otra, separadas por una línea de corte. La genera build_hoja_puntuacion.py. */
+@font-face { font-family: "Baloo"; src: url("fonts/Baloo2-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Baloo"; src: url("fonts/Baloo2-ExtraBold.ttf"); font-weight: 800; }
+@page { size: 210mm 297mm; margin: 0; }
+:root {
+  --verde: #3c7a3a;
+  --marron: #6b4423;
+  --marron-oscuro: #4a2d14;
+  --tinta: #2b2118;
+  --morado: #5a2d82;
+  --linea: #c9b48c;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #fff; }
+body { font-family: "Baloo", sans-serif; color: var(--tinta); font-size: 8pt; line-height: 1.2; width: 210mm; height: 297mm; position: relative; }
+
+/* Cada cuartilla ocupa media hoja; el contenido va en un panel con margen blanco alrededor para que
+   una impresora normal no deje filo visible. */
+.cuartilla { width: 210mm; height: 148.5mm; padding: 6.5mm 7mm; position: relative; }
+.panel {
+  width: 100%; height: 100%; position: relative;
+  background: #efe4cb url("../fondo_pergamino_a4_claro.jpg") center / cover no-repeat;
+  border: 1.1mm solid var(--marron); border-radius: 3.5mm; padding: 3.2mm 4mm 3mm;
+  box-shadow: inset 0 0 0 0.5mm #f7efdc;
+}
+/* Línea de corte entre las dos cuartillas */
+.corte {
+  position: absolute; left: 0; right: 0; top: 148.5mm; height: 0; border-top: 0.25mm dashed #9a8a6e;
+}
+.corte span {
+  position: absolute; left: 2.2mm; top: -2.6mm; font-size: 8pt; color: #9a8a6e; background: #fff; padding: 0 0.6mm;
+  font-family: "Segoe UI Symbol", "Baloo", sans-serif; line-height: 1;
+}
+
+/* Cabecera: emblema + título + aviso del Cocodrilo */
+.cab { display: flex; align-items: center; gap: 3mm; height: 15mm; margin-bottom: 2.6mm; }
+.cab .emblema { height: 15mm; width: auto; flex: none; }
+.cab .titulo { flex: none; }
+.cab h1 { margin: 0; font-weight: 800; font-size: 17pt; line-height: 1; color: var(--marron); letter-spacing: 0.2mm; }
+.cab .sub { margin: 0.8mm 0 0; font-size: 7.4pt; color: var(--marron); }
+.cab .croco {
+  flex: 1; display: flex; align-items: center; gap: 2mm; margin-left: 2mm;
+  background: rgba(255, 255, 255, 0.55); border: 0.3mm solid var(--linea); border-left: 1mm solid var(--verde);
+  border-radius: 1.2mm; padding: 1mm 2mm 1mm 1.6mm; font-size: 7.2pt; line-height: 1.18;
+}
+.cab .croco b { font-weight: 800; }
+
+/* Recorte de la ilustración de una carta (zona central 473x380 de la carta de 823x1122, la misma
+   que usa el escáner en build_scan_assets.py) */
+.arte { position: relative; overflow: hidden; width: var(--w); height: calc(var(--w) * 380 / 473); border-radius: 1mm; border: 0.3mm solid var(--marron); flex: none; background: #ddd; }
+.arte img { position: absolute; width: calc(var(--w) * 823 / 473); left: calc(var(--w) * -177 / 473); top: calc(var(--w) * -172 / 473); display: block; }
+/* Recorte del escudo de PV (zona 180x195 desde 585,50) */
+.escudo { position: relative; overflow: hidden; width: var(--w); height: calc(var(--w) * 195 / 180); flex: none; }
+.escudo img { position: absolute; width: calc(var(--w) * 823 / 180); left: calc(var(--w) * -585 / 180); top: calc(var(--w) * -50 / 180); display: block; }
+
+/* Tabla del marcador */
+table { border-collapse: separate; border-spacing: 0; width: 100%; table-layout: fixed; }
+th, td { border: 0.25mm solid var(--linea); padding: 0; vertical-align: middle; }
+th { font-weight: 800; color: #fff; background: var(--marron); font-size: 7.2pt; height: 6.2mm; }
+th.cat { text-align: left; padding-left: 1.6mm; border-top-left-radius: 1.2mm; }
+th:last-child { border-top-right-radius: 1.2mm; }
+th .jug { font-size: 6.4pt; font-weight: 800; line-height: 1; }
+td.cat { text-align: left; padding: 0.6mm 1mm 0.6mm 1.2mm; background: rgba(255, 255, 255, 0.45); }
+td.cel { background: rgba(255, 255, 255, 0.28); text-align: center; }
+tr.dir td { height: 11mm; }
+tr.carta td { height: 11.4mm; }
+.fila { display: flex; align-items: center; gap: 1.6mm; }
+.fila .txt { line-height: 1.1; min-width: 0; }
+.fila .nom { font-weight: 800; font-size: 8.4pt; color: var(--marron-oscuro); display: block; }
+.fila .como { font-size: 6.3pt; color: #5d4a33; display: block; margin-top: 0.3mm; line-height: 1.12; }
+
+/* Casillas para escribir */
+.op { display: inline-flex; align-items: center; justify-content: center; gap: 0.5mm; }
+.caja { display: inline-block; width: 4.5mm; height: 5.4mm; background: #fff; border: 0.3mm solid var(--marron); border-radius: 0.8mm; }
+.caja.ancha { width: 9mm; }
+.caja.total { width: 11.5mm; height: 7.2mm; border-color: var(--morado); border-width: 0.4mm; }
+.op .s { font-size: 7pt; font-weight: 800; color: var(--marron); line-height: 1; width: 1.8mm; text-align: center; }
+
+/* Fila del total: color de los PV */
+tr.total td { height: 10.4mm; background: rgba(90, 45, 130, 0.09); }
+tr.total td.cat { color: var(--morado); font-weight: 800; font-size: 10pt; padding-left: 1.6mm; border-bottom-left-radius: 1.2mm; }
+tr.total td:last-child { border-bottom-right-radius: 1.2mm; }
+tr.total td.cat small { display: block; font-weight: 400; font-size: 6.2pt; color: #5d4a33; }
+
+/* Pie: desempate y recordatorios */
+.pie { display: flex; gap: 3mm; margin-top: 2.2mm; font-size: 6.6pt; line-height: 1.2; color: #4a3a28; }
+.pie > div { flex: 1; }
+.pie b { color: var(--marron); font-weight: 800; }
+.pie .trofeo { color: var(--verde); font-weight: 800; }
+</style>
+</head>
+<body>
+
+<!-- Cuartilla 1 -->
+<section class="cuartilla">
+<div class="panel">
+  <div class="cab">
+    <img class="emblema" src="../portada_viva.png" alt="">
+    <div class="titulo">
+      <h1>Marcador final</h1>
+      <p class="sub">Junta toda tu colección: mazo, mano y descarte.</p>
+    </div>
+  </div>
+
+  <table>
+    <colgroup><col style="width: 46mm"><col span="7"></colgroup>
+    <tr>
+      <th class="cat">Puntuación</th>
+      <th><span class="jug">Jugador 1</span></th>
+      <th><span class="jug">Jugador 2</span></th>
+      <th><span class="jug">Jugador 3</span></th>
+      <th><span class="jug">Jugador 4</span></th>
+      <th><span class="jug">Jugador 5</span></th>
+      <th><span class="jug">Jugador 6</span></th>
+      <th><span class="jug">Jugador 7</span></th>
+    </tr>
+    <tr class="dir">
+      <td class="cat"><div class="fila">
+        <div class="escudo" style="--w: 7.4mm"><img src="../cards/eagle.png" alt=""></div>
+        <div class="txt"><span class="nom">Puntos impresos</span><span class="como">Escudos de animales y bellotas</span></div>
+      </div></td>
+      <td class="cel"><span class="caja ancha"></span></td><td class="cel"><span class="caja ancha"></span></td>
+      <td class="cel"><span class="caja ancha"></span></td><td class="cel"><span class="caja ancha"></span></td>
+      <td class="cel"><span class="caja ancha"></span></td><td class="cel"><span class="caja ancha"></span></td>
+      <td class="cel"><span class="caja ancha"></span></td>
+    </tr>
+    <tr class="carta">
+      <td class="cat"><div class="fila">
+        <div class="arte" style="--w: 12mm"><img src="../cards/eagle.png" alt=""></div>
+        <div class="txt"><span class="nom">Águila</span><span class="como">nº Águilas × nº voladores</span></div>
+      </div></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+    </tr>
+    <tr class="carta">
+      <td class="cat"><div class="fila">
+        <div class="arte" style="--w: 12mm"><img src="../cards/panda.png" alt=""></div>
+        <div class="txt"><span class="nom">Oso panda</span><span class="como">nº Osos panda × nº terrestres</span></div>
+      </div></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+    </tr>
+    <tr class="carta">
+      <td class="cat"><div class="fila">
+        <div class="arte" style="--w: 12mm"><img src="../cards/orca.png" alt=""></div>
+        <div class="txt"><span class="nom">Orca</span><span class="como">nº Orcas × nº acuáticos</span></div>
+      </div></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+    </tr>
+    <tr class="carta">
+      <td class="cat"><div class="fila">
+        <div class="arte" style="--w: 12mm"><img src="../cards/albatross.png" alt=""></div>
+        <div class="txt"><span class="nom">Albatros</span><span class="como">nº Albatros × nº especies distintas</span></div>
+      </div></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+    </tr>
+    <tr class="carta">
+      <td class="cat"><div class="fila">
+        <div class="arte" style="--w: 12mm"><img src="../cards/toucan.png" alt=""></div>
+        <div class="txt"><span class="nom">Tucán</span><span class="como">nº Tucanes × nº animales de coste 5 o más</span></div>
+      </div></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+    </tr>
+    <tr class="carta">
+      <td class="cat"><div class="fila">
+        <div class="arte" style="--w: 12mm"><img src="../cards/shark.png" alt=""></div>
+        <div class="txt"><span class="nom">Tiburón</span><span class="como">nº Tiburones × nº cartas de bellota</span></div>
+      </div></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+      <td class="cel"><span class="op"><span class="caja"></span><span class="s">×</span><span class="caja"></span><span class="s">=</span><span class="caja"></span></span></td>
+    </tr>
+    <tr class="total">
+      <td class="cat">Total <small>Suma de todas las filas</small></td>
+      <td class="cel"><span class="caja total"></span></td><td class="cel"><span class="caja total"></span></td>
+      <td class="cel"><span class="caja total"></span></td><td class="cel"><span class="caja total"></span></td>
+      <td class="cel"><span class="caja total"></span></td><td class="cel"><span class="caja total"></span></td>
+      <td class="cel"><span class="caja total"></span></td>
+    </tr>
+  </table>
+
+  <div class="pie">
+    <div><span class="trofeo">Gana quien tenga más puntos.</span> <b>Empate:</b> gana quien tenga más animales;
+    si siguen empatados, comparten la victoria.</div>
+    <div>Cada carta <b>se cuenta a sí misma</b> y cada copia puntúa por separado. El <b>Periquito</b> cuenta
+    como 2 voladores y el <b>Pez de colores</b> como 2 acuáticos. Las bellotas de 1 y los Perezosos del
+    mazo inicial también cuentan.</div>
+  </div>
+</div>
+</section>
+
+<div class="corte"><span>✂</span></div>
+
+<!-- Cuartilla 2 (copia exacta de la primera; la rellena build_hoja_puntuacion.py) -->
+<!--CUARTILLA2-->
+
+</body>
+</html>
