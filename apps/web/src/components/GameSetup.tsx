@@ -23,7 +23,7 @@ import {
 } from '../lib/gameConfig';
 import { isOnlineAvailable } from '../online/supabaseClient';
 import { loadSavedEdition, saveEdition } from '../lib/edition';
-import { LANGS, LANG_LABELS, loadPlayerLangs, savePlayerLangs, useT, type Lang } from '../lib/i18n';
+import { LANGS, LANG_LABELS, loadDeviceLang, saveDeviceLang, useT, type Lang } from '../lib/i18n';
 
 interface GameSetupProps {
   onStart: (config: GameConfig) => void;
@@ -79,13 +79,14 @@ export function GameSetup({
   const [roundLimit, setRoundLimit] = useState<RoundLimit>(savedSetupPrefs?.roundLimit ?? DEFAULT_ROUND_LIMIT);
   const [animationsEnabled, setAnimationsEnabled] = useState(savedSetupPrefs?.animationsEnabled ?? true);
   const [edition, setEdition] = useState(loadSavedEdition);
-  // Idioma de cada humano (índice = human-N), elegido aquí al empezar: cada
-  // jugador ve la partida en el suyo. El del jugador 1 es también el de este
-  // formulario, así que cambia la interfaz en el acto.
-  const [langs, setLangs] = useState<Lang[]>(() => loadPlayerLangs(MAX_HUMANS));
+  // Idioma de QUIEN CREA la partida (también el de este formulario: cambia
+  // la interfaz en el acto). Los demás jugadores eligen el suyo ellos
+  // mismos: los invitados online al unirse (GuestApp) y, en pase-y-juega en
+  // el mismo dispositivo, con el botón de idioma durante la partida.
+  const [langChoice, setLangChoice] = useState<Lang>(loadDeviceLang);
   useEffect(() => {
-    setLang(langs[0]);
-  }, [langs[0], setLang]);
+    setLang(langChoice);
+  }, [langChoice, setLang]);
   // Solo tienen efecto con edition === 'custom' (ver GameSettingsModal.tsx).
   // Por defecto, si nunca se ha usado "Personalizado" en este dispositivo,
   // arranca con TODO marcado (mismo mercado que tenía antes "Completa").
@@ -127,7 +128,7 @@ export function GameSetup({
       customCopyDeltas,
     });
     saveEdition(edition);
-    savePlayerLangs(langs);
+    saveDeviceLang(langChoice);
     return {
       numHumans,
       nick: cleanNick,
@@ -135,7 +136,7 @@ export function GameSetup({
       roundLimit,
       animationsEnabled,
       edition,
-      langs: langs.slice(0, numHumans),
+      langs: [langChoice],
       ...(edition === 'custom' ? { customSpecies: customSpeciesArray, customCopyDeltas } : {}),
     };
   }
@@ -243,26 +244,17 @@ export function GameSetup({
         </div>
 
         <div className="setup-row">
-          <label htmlFor="setup-lang-0">{t('Idioma')}</label>
-          {Array.from({ length: numHumans }, (_, i) => (
-            <div key={i} className="setup-round-options">
-              {numHumans > 1 && <span className="setup-hint">{t('Jugador {n}', { n: i + 1 })}</span>}
-              <select
-                id={`setup-lang-${i}`}
-                value={langs[i]}
-                onChange={(e) => setLangs((prev) => prev.map((l, j) => (j === i ? (e.target.value as Lang) : l)))}
-              >
-                {LANGS.map((l) => (
-                  <option key={l} value={l}>
-                    {LANG_LABELS[l]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
+          <label htmlFor="setup-lang">{t('Idioma')}</label>
+          <select id="setup-lang" value={langChoice} onChange={(e) => setLangChoice(e.target.value as Lang)}>
+            {LANGS.map((l) => (
+              <option key={l} value={l}>
+                {LANG_LABELS[l]}
+              </option>
+            ))}
+          </select>
           {numHumans > 1 && (
             <span className="setup-hint">
-              {t('Cada jugador ve la partida en su idioma. En una partida online, cada invitado elige el suyo al unirse.')}
+              {t('Es tu idioma: cada jugador elige el suyo (online, al unirse; en este dispositivo, con el botón de idioma durante la partida).')}
             </span>
           )}
         </div>

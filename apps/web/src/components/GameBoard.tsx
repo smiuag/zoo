@@ -29,7 +29,7 @@ import { buildTargetChoice, type PendingChoice } from '../lib/pendingChoice';
 import { currencyLabel, useArtStyle } from '../lib/artStyle';
 import type { BotAlgorithm } from '../lib/gameConfig';
 import type { ReplayStatus } from '../online/protocol';
-import { cardNameLocalized, tr, useT } from '../lib/i18n';
+import { LangToggle, cardNameLocalized, tr, useT } from '../lib/i18n';
 
 // Cuántas rondas del final se consideran "recta final" (contador de ronda
 // en rojo, ver .status-pill__round--final).
@@ -867,6 +867,7 @@ export function GameBoard({
             <div className="bottom-bar__scoreboard">{renderScoreboard()}</div>
             <div className="bottom-bar__right">
               {renderStatusPill()}
+              <LangToggle />
               <button className="btn btn--ghost btn--new-game" onClick={() => navigate('/cartas')} title={t('Enciclopedia de cartas')}>
                 📖 <span className="btn__label">{t('Cartas')}</span>
               </button>
@@ -945,6 +946,7 @@ export function GameBoard({
                 2026-09-24 — así que "Nueva partida" tiene que vivir aquí
                 también para que siga habiendo forma de pulsarlo en móvil (en
                 escritorio ya estaba siempre visible en la barra de abajo). */}
+            <LangToggle />
             <button className="btn btn--ghost btn--new-game" onClick={() => navigate('/cartas')} title={t('Enciclopedia de cartas')}>
               📖 <span className="btn__label">{t('Cartas')}</span>
             </button>
@@ -1119,6 +1121,7 @@ export function GameBoard({
             <div className="panel panel--status">
               <div className="status-row">
                 {renderStatusPill()}
+                <LangToggle />
                 <button className="btn btn--ghost btn--new-game" onClick={() => navigate('/cartas')} title={t('Enciclopedia de cartas')}>
                   📖 <span className="btn__label">{t('Cartas')}</span>
                 </button>

@@ -78,13 +78,17 @@ function HostOrLocalApp() {
     restartTurn,
     setBotAlgorithm,
   } = useGame();
-  const { setLang } = useLang();
+  const { lang, setLang } = useLang();
   // Idioma de cada humano de la partida en curso (config.langs de
   // GameSetup). En local la interfaz cambia al del jugador al que le toca
   // (viewerPlayerId, más abajo); online el host siempre es human-0.
   const [playerLangs, setPlayerLangs] = useState<Lang[]>([]);
   const startGameWithLangs = (config: GameConfig) => {
-    setPlayerLangs(config.langs ?? []);
+    // Solo viene el idioma de quien crea la partida (human-0): los demás
+    // humanos de este dispositivo parten del mismo y lo cambian con el botón
+    // de idioma en su turno (se recuerda por jugador, ver más abajo).
+    const first = config.langs?.[0] ?? lang;
+    setPlayerLangs(Array.from({ length: config.numHumans }, (_, i) => config.langs?.[i] ?? first));
     startGame(config);
   };
 
@@ -146,6 +150,13 @@ function HostOrLocalApp() {
     if (phase === 'playing' && viewerLang) setLang(viewerLang);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, viewerLang]);
+  // Si quien mira cambia de idioma con el botón de la partida, se recuerda
+  // para ESE jugador (y vuelve a aplicarse cuando le toque otra vez).
+  useEffect(() => {
+    if (phase !== 'playing') return;
+    setPlayerLangs((prev) => (prev[viewerLangIndex] === lang ? prev : prev.map((l, i) => (i === viewerLangIndex ? lang : l))));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
 
   // "Repetir partida" online (ver ReplayStatus en online/protocol.ts): en
   // cuanto todos los humanos han aceptado, se reinicia con la MISMA config

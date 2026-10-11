@@ -143,3 +143,25 @@ export function useT() {
     [lang, setLang]
   );
 }
+
+// Botón de idioma de la partida en curso: alterna es/en para quien lo mira
+// (en pase-y-juega, para el jugador al que le toca; App.tsx recuerda la
+// elección de cada humano y la restaura en su turno).
+export function LangToggle({ className }: { className?: string }) {
+  const { lang, setLang } = useLang();
+  const next: Lang = LANGS[(LANGS.indexOf(lang) + 1) % LANGS.length];
+  return (
+    <button
+      type="button"
+      className={className ?? 'btn btn--ghost btn--new-game'}
+      title={`${LANG_LABELS[lang]} → ${LANG_LABELS[next]}`}
+      aria-label={`${LANG_LABELS[lang]} → ${LANG_LABELS[next]}`}
+      onClick={() => {
+        setLang(next);
+        saveDeviceLang(next);
+      }}
+    >
+      🌐 <span className="btn__label">{lang.toUpperCase()}</span>
+    </button>
+  );
+}

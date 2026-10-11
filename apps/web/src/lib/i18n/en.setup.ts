@@ -4,8 +4,8 @@ export const en_setup: Record<string, string> = {
   // GameSetup
   'Idioma': 'Language',
   'Jugador {n}': 'Player {n}',
-  'Cada jugador ve la partida en su idioma. En una partida online, cada invitado elige el suyo al unirse.':
-    'Each player sees the game in their own language. In an online game, each guest picks theirs when joining.',
+  'Es tu idioma: cada jugador elige el suyo (online, al unirse; en este dispositivo, con el botón de idioma durante la partida).':
+    'This is your language: each player picks their own (online, when joining; on this device, with the language button during the game).',
   '🌐 Partida online sin terminar': '🌐 Unfinished online game',
   'Parece que refrescaste la página a mitad de la sala': 'It looks like you refreshed the page in the middle of room',
   'Puedes seguir donde lo dejaste, con los mismos enlaces ya repartidos.':
