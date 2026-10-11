@@ -37,7 +37,7 @@ Todo lo que genera las cartas impresas vive en esta carpeta. El intérprete es `
 - El mazo de impresión debe sumar un **múltiplo de 18** cartas. Se cuadra solo con Plata, Oro y
   Platino (`COUNTS` en los DOS `build_deck_pdf*.py`); Bronce (45) y Perezoso (15) no se tocan (fijados por el usuario el 2026-10-11; 7 y 3 por
   jugador, tirada de `PRINT_PLAYERS = 5`). Estado actual (2026-10-11): 252 cartas (14 planchas) con Plata 11,
-  Oro 8, Platino 5; animales de coste <5 a 6 copias y de coste >=5 a 5 (jugadores+1 / jugadores).
+  Oro 8, Platino 5; todos los animales a 5 copias (tantas como jugadores de la tirada).
   Las especies guardadas (`SHELVED_SPECIES` en engine.ts: Tigre, Cuervo, Serpiente) se excluyen de las hojas y
   del mazo (`shelved.py`).
 - Tamaño de carta 63,5 x 88,9 mm (750 x 1050 px a 300 ppp), páginas A4, 3x3 por página.

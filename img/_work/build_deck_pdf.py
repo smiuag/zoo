@@ -29,12 +29,12 @@ COUNTS = {
     "coin-5": 5,
 }
 # Igual que el motor (ver createGame en engine.ts), escalado a una tirada
-# de 5 jugadores: nº jugadores + 1 para el resto, nº jugadores para las
+# de 5 jugadores: nº jugadores para TODAS (desde 2026-10-11), igual que antes para las
 # caras (coste 5+, escasez real). De ahí también los 21 Perezosos (7×3)
 # del mazo inicial repartidos en COUNTS más abajo (coin-1 ya no seguía esa
 # proporción exacta, ver el comentario junto a él).
 PRINT_PLAYERS = 5
-DEFAULT_ANIMAL_COPIES = PRINT_PLAYERS + 1  # especies de coste < 5
+DEFAULT_ANIMAL_COPIES = PRINT_PLAYERS  # especies de coste < 5
 HIGH_COST_ANIMAL_COPIES = PRINT_PLAYERS  # especies de coste 5 o más
 
 

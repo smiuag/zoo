@@ -110,8 +110,8 @@ TYPE_LINE_POINT = _offset_point((307, 639))       # "Terrestre" label, centered 
 TYPE_LINE_MAX_WIDTH = 420          # shrink multi-habitat labels to fit
 PANEL_BODY_BOX = _offset_box((95, 657, 540, 816))  # del pie de la etiqueta de tipo a la ultima linea util (el panel acaba en 828)
 
-COST_COLOR = (0, 100, 0)    # verde bosque
-PV_COLOR = (94, 35, 123)    # morado (el mismo que la Hiena en la tanda 4)
+COST_COLOR = (76, 46, 22)     # el mismo marron oscuro que el PV (2026-10-11, pedido del usuario; antes el marron del borde de la bolsa (166, 108, 66) y, antes, verde (0, 100, 0))
+PV_COLOR = (76, 46, 22)     # marron oscuro (2026-10-11, pedido del usuario; antes morado (94, 35, 123))
 
 # Tamaño físico real "carta de MTG" (2.5x3.5in) a 300dpi: 750x1050px exacto
 # (2.5*300=750, 3.5*300=1050 sin redondeos). El DISEÑO (TEMPLATE_DESIGN_W x

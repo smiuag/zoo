@@ -15,7 +15,7 @@ import compose_all as ca
 
 OUT = r"C:\proyectos\Claude\zoo\img\templates\pruebas\pergamino"
 
-BODY_SIZE = 28       # letra del panel, igual en todas las cartas: la mayor que cabe en 4 lineas en la mas larga (Pato, Perezoso, Serpiente...)
+BODY_SIZE = 36       # letra del panel (pedido del usuario 2026-10-11, antes 28): tamano objetivo; una carta cuyo texto no cabe a este tamano baja lo justo (se avisa por pantalla)
 BODY_MIN_SIZE = 20   # solo completa: por debajo de esto una carta larga abandona el tope de lineas
 ICONS_ON_SCROLL = False  # pruebas: icono del tipo (hoja/nube/gota) a cada lado del nombre, sobre el color del pergamino
 ICON_D, ICON_INSET = 50, 6
@@ -26,6 +26,9 @@ TYPE_ICON_FILES = {'land': 'land_solo.png', 'bird': 'bird_solo.png', 'aquatic': 
 TITLE_MAX = 37       # tope de la letra del nombre; en las pruebas se baja para que todos los nombres midan igual
 SHOW_TYPE = True     # False: pruebas sin la linea de tipo (el panel de texto se ensancha desde fuera, ver pruebas)
 BODY_MAX_LINES = 4   # ninguna carta lleva mas de 4 lineas de texto
+BODY_X_OFFSET = -6      # px (coordenadas del diseno) que se desplaza el texto del panel en horizontal; negativo = a la izquierda (pedido del usuario 2026-10-11)
+BODY_LINE_SPACING = 2   # px extra entre linea y linea (antes 10; pedido del usuario 2026-10-11: interlineado mas pequeno)
+FORCE_BODY_SIZE = True  # 2026-10-11, pedido del usuario: TODAS a BODY_SIZE aunque el texto se salga del panel (se avisa de las que no caben, para ir acortandolas)
 
 # Orden de los colores, de izquierda a derecha, en los pergaminos mixtos que no siguen ca.HABITAT_ORDER
 # (ver build_scroll_templates.py): la etiqueta de tipo lista los habitats en ese mismo orden.
@@ -90,7 +93,7 @@ def compose_official(card, lang, out_dir):
     # La letra es BODY_SIZE si el texto cabe con MIN_AIR de aire arriba y abajo y en
     # BODY_MAX_LINES lineas como mucho; si no, baja.
     bx0, top_line, bx1, bottom_line = cc.PANEL_BODY_BOX
-    spacing, MIN_AIR = 10, 10
+    spacing, MIN_AIR = BODY_LINE_SPACING, 10
     shown = re.sub(r"(?<=\d)PV", " PV", text)
     # Misma letra en TODAS las cartas (BODY_SIZE): la mayor con la que cabe la carta mas larga de la clasica.
     # Una carta que no cabe a ese tamano (solo pasa en la completa) baja lo justo: primero respetando
@@ -105,13 +108,17 @@ def compose_official(card, lang, out_dir):
             ink_top = draw.textbbox((0, 0), lines[0], font=f_body)[1]
             ink_bottom = (len(lines) - 1) * line_h + draw.textbbox((0, 0), lines[-1], font=f_body)[3]
             fits = ink_bottom - ink_top <= (bottom_line - top_line) - 2 * MIN_AIR
-            if (fits and len(lines) <= max_lines) or size <= floor:
+            if FORCE_BODY_SIZE or (fits and len(lines) <= max_lines) or size <= floor:
                 break
             size -= 1
         if fits and len(lines) <= max_lines:
             break
     y_start = (top_line + bottom_line) / 2 - (ink_top + ink_bottom) / 2
-    cc.draw_wrapped(img, draw, (bx0, int(round(y_start)), bx1, bottom_line), text, f_body, valign='top', top_pad=0)
+    cc.draw_wrapped(img, draw, (bx0 + BODY_X_OFFSET, int(round(y_start)), bx1 + BODY_X_OFFSET, bottom_line), text, f_body, valign='top', top_pad=0, line_spacing=spacing)
+    if f_body.size < start:
+        print(f"  texto reducido: {cid} ({lang}) {start} -> {f_body.size} px, {len(lines)} lineas")
+    elif not (fits and len(lines) <= BODY_MAX_LINES):
+        print(f"  texto desbordado: {cid} ({lang}) {f_body.size} px, {len(lines)} lineas")
 
     img = cc.resize_to_print_size(img)
     out = os.path.join(out_dir, f'{cid}.png')

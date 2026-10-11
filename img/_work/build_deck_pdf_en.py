@@ -28,10 +28,10 @@ COUNTS = {
     "coin-5": 5,
 }
 # Igual que el motor (ver createGame en engine.ts), escalado a una tirada
-# de 5 jugadores: nº jugadores + 1 para el resto, nº jugadores para las
+# de 5 jugadores: nº jugadores para TODAS (desde 2026-10-11), igual que antes para las
 # caras (coste 5+, escasez real).
 PRINT_PLAYERS = 5
-DEFAULT_ANIMAL_COPIES = PRINT_PLAYERS + 1
+DEFAULT_ANIMAL_COPIES = PRINT_PLAYERS
 HIGH_COST_ANIMAL_COPIES = PRINT_PLAYERS
 
 

@@ -125,15 +125,20 @@ export function initialMarketCopies(
   numPlayers: number,
   customDeltas?: { cheap: number; expensive: number }
 ): number {
+  // Desde 2026-10-11 (pedido explícito del usuario: "siempre de todas las
+  // cartas sean tantas como jugadores") TODAS las especies llevan tantas
+  // copias como jugadores, sin distinguir tramo de coste (antes: +2 en las
+  // de coste <5, y +1 desde ese mismo día). `marketCost` se conserva en la
+  // firma por los llamantes y por los deltas de 'custom'.
   if (!customDeltas) {
-    return marketCost >= 5 ? numPlayers : numPlayers + 1;
+    return numPlayers;
   }
   // A diferencia del caso sin deltas (arriba), aquí el delta se aplica
   // directamente sobre numPlayers en AMBOS tramos, no sobre el "+2" oculto
   // de las baratas — pedido explícito del usuario 2026-09-21: "que sea
   // sobre el número de jugadores en ambos casos. Ahora mismo las de <=5
   // parece que está sobre jugadores +2". Con los deltas por defecto
-  // ({cheap:1, expensive:0}, ver DEFAULT_CUSTOM_COPY_DELTAS en
+  // ({cheap:0, expensive:0}, ver DEFAULT_CUSTOM_COPY_DELTAS en
   // gameConfig.ts) el resultado coincide con el caso sin deltas de arriba.
   const delta = marketCost >= 5 ? customDeltas.expensive : customDeltas.cheap;
   return Math.max(1, numPlayers + delta);
@@ -595,7 +600,7 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
   // Un mazo por especie, con copias escaladas al nº de jugadores: nº de
   // jugadores para las especies caras (coste 5 o más) — son las de más
   // PV/mejores habilidades, y con menos copias en juego se agotan antes,
-  // dándoles algo de escasez real —, nº de jugadores + 1 para el resto.
+  // dándoles algo de escasez real — y, desde 2026-10-11, también el resto: nº de jugadores para todas.
   const numPlayers = playerConfigs.length;
   for (const species of marketSpeciesFor(state)) {
     const speciesCard = getCard(species);

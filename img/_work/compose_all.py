@@ -35,7 +35,7 @@ def type_label_for(habitats, names, all_terrain):
 
 SPECIES_PHOTO = {
     "monkey": "monos.jpg",
-    "penguin": "pinguino.jpg",
+    "penguin": "pinguinos.jpeg",
     "peacock": "pavoreal.jpg",
     "lion": "leones.jpg",
     "tiger": "tigres.jpg",

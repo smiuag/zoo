@@ -18,7 +18,13 @@ function freshInstance(cardId: string, suffix: string) {
 }
 
 function setupClean() {
-  const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
+  // 2 jugadores: con tantas copias como jugadores (desde 2026-10-11), con 1
+  // solo habría 1 copia por especie y no se podría comprar dos veces la misma
+  // ni ver la reposición del mercado.
+  const state = createGame([
+    { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
+    { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
+  ]);
   const player = getActivePlayer(state);
   player.deck = [];
   player.hand = [];
