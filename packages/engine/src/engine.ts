@@ -20,14 +20,13 @@ import {
 } from './effects/registry';
 
 const STARTING_HAND_SIZE = 5;
-// Exportado para que bots/rl/marketScarcity.ts pueda iterar las mismas 33
+// Exportado para que bots/rl/marketScarcity.ts pueda iterar las mismas 30
 // especies "de mercado" que createGame, sin duplicar la lista.
 export const ANIMAL_SPECIES = [
   'monkey',
   'penguin',
   'peacock',
   'lion',
-  'tiger',
   'dolphin',
   'goldfish',
   'snake',
@@ -39,7 +38,6 @@ export const ANIMAL_SPECIES = [
   'orca',
   'panda',
   'albatross',
-  'crocodile',
   'hippopotamus',
   'vulture',
   'duck',
@@ -55,8 +53,15 @@ export const ANIMAL_SPECIES = [
   'shark',
   'toucan',
   'squirrel',
-  'raven',
 ] as const;
+
+// Especies guardadas temporalmente (2026-10-11, pedido explícito del usuario):
+// sus JSON siguen en cards/data (getCard funciona, los tests y la impresión
+// pueden consultarlas) pero NO están en ningún mercado, ni en ANIMAL_SPECIES
+// ni en FULL_EDITION_EXTRA_SPECIES ni en la edición personalizada. Para
+// recuperarlas basta con devolver su id a ANIMAL_SPECIES (y reentrenar los
+// bots RL, que se entrenaron con ellas fuera/dentro).
+export const SHELVED_SPECIES = ['tiger', 'crocodile', 'raven'] as const;
 
 // Especies que SOLO existen en la edición completa (mascotas y dinosaurios,
 // 2026-09-20): se suman a las 33 de ANIMAL_SPECIES cuando la partida se crea
@@ -119,14 +124,14 @@ export function initialMarketCopies(
   customDeltas?: { cheap: number; expensive: number }
 ): number {
   if (!customDeltas) {
-    return marketCost >= 5 ? numPlayers : numPlayers + 2;
+    return marketCost >= 5 ? numPlayers : numPlayers + 1;
   }
   // A diferencia del caso sin deltas (arriba), aquí el delta se aplica
   // directamente sobre numPlayers en AMBOS tramos, no sobre el "+2" oculto
   // de las baratas — pedido explícito del usuario 2026-09-21: "que sea
   // sobre el número de jugadores en ambos casos. Ahora mismo las de <=5
   // parece que está sobre jugadores +2". Con los deltas por defecto
-  // ({cheap:2, expensive:0}, ver DEFAULT_CUSTOM_COPY_DELTAS en
+  // ({cheap:1, expensive:0}, ver DEFAULT_CUSTOM_COPY_DELTAS en
   // gameConfig.ts) el resultado coincide con el caso sin deltas de arriba.
   const delta = marketCost >= 5 ? customDeltas.expensive : customDeltas.cheap;
   return Math.max(1, numPlayers + delta);
@@ -588,7 +593,7 @@ export function createGame(playerConfigs: CreatePlayerConfig[], options: CreateG
   // Un mazo por especie, con copias escaladas al nº de jugadores: nº de
   // jugadores para las especies caras (coste 5 o más) — son las de más
   // PV/mejores habilidades, y con menos copias en juego se agotan antes,
-  // dándoles algo de escasez real —, nº de jugadores + 2 para el resto.
+  // dándoles algo de escasez real —, nº de jugadores + 1 para el resto.
   const numPlayers = playerConfigs.length;
   for (const species of marketSpeciesFor(state)) {
     const speciesCard = getCard(species);

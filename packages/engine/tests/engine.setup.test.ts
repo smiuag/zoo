@@ -31,15 +31,15 @@ describe('createGame', () => {
     expect(active.bonusPurchasingPowerThisTurn).toBe(0);
   });
 
-  it('el mercado de animales empieza con 1 hueco por cada una de las 33 especies', () => {
+  it('el mercado de animales empieza con 1 hueco por cada una de las 30 especies', () => {
     const state = createGame([{ id: 'p1', name: 'Alice', deck: buildStarterDeck() }]);
 
-    expect(state.animalTrack).toHaveLength(33);
+    expect(state.animalTrack).toHaveLength(30);
     const species = new Set(state.animalTrack.map((c) => c.species));
-    expect(species.size).toBe(33);
+    expect(species.size).toBe(30);
   });
 
-  it('cada mazo de especie tiene copias escaladas al nº de jugadores (menos 1 ya repuesta en el mercado): jugadores+2, o solo jugadores si cuesta 5 o más', () => {
+  it('cada mazo de especie tiene copias escaladas al nº de jugadores (menos 1 ya repuesta en el mercado): jugadores+1, o solo jugadores si cuesta 5 o más', () => {
     const state = createGame([
       { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
       { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
@@ -51,7 +51,7 @@ describe('createGame', () => {
     for (const [species, deck] of Object.entries(state.sharedDecks)) {
       if (species === 'sloth') continue;
       const inTrack = state.animalTrack.filter((c) => c.species === species).length;
-      const expectedCopies = (getCard(species).marketCost ?? 0) >= 5 ? numPlayers : numPlayers + 2;
+      const expectedCopies = (getCard(species).marketCost ?? 0) >= 5 ? numPlayers : numPlayers + 1;
       expect(deck.length + inTrack).toBe(expectedCopies);
     }
   });
@@ -72,7 +72,7 @@ describe('createGame', () => {
     const inTrack = (state: ReturnType<typeof createGame>, species: string) =>
       state.animalTrack.filter((c) => c.species === species).length;
 
-    expect(state4.sharedDecks[cheapSpecies].length + inTrack(state4, cheapSpecies)).toBe(6); // 4 jugadores + 2
+    expect(state4.sharedDecks[cheapSpecies].length + inTrack(state4, cheapSpecies)).toBe(5); // 4 jugadores + 1
     expect(state4.sharedDecks[expensiveSpecies].length + inTrack(state4, expensiveSpecies)).toBe(4); // 4 jugadores
   });
 });

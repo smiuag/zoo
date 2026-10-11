@@ -43,20 +43,20 @@ describe('tipos nuevos: mascota y dinosaurio', () => {
       { id: 'p2', name: 'Bob', deck: buildStarterDeck() },
     ]);
     expect(state.edition).toBe('classic');
-    expect(state.animalTrack).toHaveLength(33);
+    expect(state.animalTrack).toHaveLength(30);
     for (const species of FULL_EDITION_EXTRA_SPECIES) {
       expect(state.animalTrack.some((c) => c.species === species)).toBe(false);
       expect(state.sharedDecks[species]).toBeUndefined();
     }
     const everyCard = [...state.animalTrack, ...Object.values(state.sharedDecks).flat()];
     expect(everyCard.some((c) => c.habitats.includes('pet') || c.habitats.includes('dinosaur'))).toBe(false);
-    expect(state.animalTrack.find((c) => c.id === 'crocodile')?.habitats).toEqual(['land', 'aquatic']);
+    expect(state.animalTrack.find((c) => c.id === 'turtle')?.habitats).toEqual(['land', 'aquatic']);
   });
 
-  it('edición completa: 50 especies y los tipos extra visibles', () => {
+  it('edición completa: 47 especies y los tipos extra visibles', () => {
     const { state } = setupClean('full');
-    expect(state.animalTrack).toHaveLength(50);
-    expect(state.animalTrack.find((c) => c.id === 'crocodile')?.habitats).toEqual(['land', 'aquatic', 'dinosaur']);
+    expect(state.animalTrack).toHaveLength(47);
+    expect(state.animalTrack.find((c) => c.id === 'turtle')?.habitats).toEqual(['land', 'aquatic', 'pet', 'dinosaur']);
   });
 
   it('las especies nuevas tienen hueco en el mercado de la edición completa', () => {

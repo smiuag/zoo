@@ -20,11 +20,11 @@ export interface CustomCopyDeltas {
 }
 export const CUSTOM_COPY_DELTA_OPTIONS_CHEAP = [-2, -1, 0, 1, 2] as const;
 export const CUSTOM_COPY_DELTA_OPTIONS_EXPENSIVE = [-3, -2, -1, 0, 1] as const;
-// Por defecto +2 en baratas (coste<5) y 0 en caras (coste>=5) — pedido
-// explícito del usuario 2026-09-21, no 0/0. Con estos valores por defecto,
-// initialMarketCopies da el mismo resultado que el caso sin deltas
-// (numPlayers+2 en baratas, numPlayers en caras).
-export const DEFAULT_CUSTOM_COPY_DELTAS: CustomCopyDeltas = { cheap: 2, expensive: 0 };
+// Por defecto +1 en baratas (coste<5) y 0 en caras (coste>=5) — era +2
+// hasta 2026-10-11, cuando el usuario bajó las baratas a jugadores+1. Con
+// estos valores por defecto, initialMarketCopies da el mismo resultado que
+// el caso sin deltas (numPlayers+1 en baratas, numPlayers en caras).
+export const DEFAULT_CUSTOM_COPY_DELTAS: CustomCopyDeltas = { cheap: 1, expensive: 0 };
 // Los 4 algoritmos de IA disponibles para cada hueco de bot (pedido
 // explícito del usuario 2026-09-21: solo estos 4, nunca los heurísticos/
 // aleatorio como opción visible): 'general' sin restricción de hábitat,
