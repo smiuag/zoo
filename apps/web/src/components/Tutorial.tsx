@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { getCard, type CardInstance } from '@zoo/engine';
 import { CardView } from './CardView';
+import { useT, tr, cardTextLocalized } from '../lib/i18n';
 
 // Tutorial paso a paso (pedido explícito del usuario 2026-09-22): una
 // partida de ejemplo en solitario, contada con textos, donde se ve cómo se
@@ -338,9 +339,9 @@ const HABITAT_LABEL: Record<string, string> = { land: 'Terrestre', bird: 'Volado
 
 const FOCUS_ROWS: { key: Focus; label: string; value: (c: CardInstance) => string }[] = [
   { key: 'cost', label: 'Coste', value: (c) => String(c.marketCost ?? 0) },
-  { key: 'pv', label: 'Puntos de victoria', value: (c) => `${c.victoryPoints} PV` },
-  { key: 'types', label: 'Tipo', value: (c) => c.habitats.map((h) => HABITAT_LABEL[h] ?? h).join(' · ') },
-  { key: 'ability', label: 'Habilidad', value: (c) => c.text },
+  { key: 'pv', label: 'Puntos de victoria', value: (c) => `${c.victoryPoints} ${tr('PV')}` },
+  { key: 'types', label: 'Tipo', value: (c) => c.habitats.map((h) => (HABITAT_LABEL[h] ? tr(HABITAT_LABEL[h]) : h)).join(' · ') },
+  { key: 'ability', label: 'Habilidad', value: (c) => cardTextLocalized(c, c.text) },
 ];
 
 const AUTOPLAY_MS = 5500;
@@ -427,9 +428,10 @@ function FlightGhost({ flight, onLand, onDone }: { flight: Flight; onLand: () =>
 
 // Valor de compra: en su propia línea bajo el título de la zona.
 function MoneyLine({ money }: { money: number }) {
+  const { t } = useT();
   return (
     <div className="tutorial__money" key={money}>
-      💰 Valor de compra: {money}
+      💰 {t('Valor de compra: {n}', { n: money })}
     </div>
   );
 }
@@ -439,6 +441,7 @@ function toRect(r: DOMRect): Rect {
 }
 
 export function Tutorial({ onClose }: { onClose: () => void }) {
+  const { t } = useT();
   const [index, setIndex] = useState(0);
   const [playing, setPlaying] = useState(false);
   // Fotograma que se muestra (0 = foto base del paso) y vuelo en curso. El
@@ -609,14 +612,14 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
   const zones: Record<ZoneId, () => ReactNode> = {
     deckSpread: () => (
       <section className="tutorial__zone tutorial__zone--deck-spread">
-        <h4>Tu mazo · 10 cartas (antes de barajar)</h4>
+        <h4>{t('Tu mazo · 10 cartas (antes de barajar)')}</h4>
         {renderCards('deck-bronze', STARTER_BRONZE, '')}
         {renderCards('deck-sloths', STARTER_SLOTHS, '')}
       </section>
     ),
     market: () => (
       <section className="tutorial__zone tutorial__zone--market">
-        <h4>Mercado</h4>
+        <h4>{t('Mercado')}</h4>
         {moneyInMarket && <MoneyLine money={shown.money!} />}
         <div className="tutorial__cards">
           {MARKET.map((id) => {
@@ -642,35 +645,35 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
     ),
     hand: () => (
       <section className="tutorial__zone tutorial__zone--hand">
-        <h4>Tu mano</h4>
+        <h4>{t('Tu mano')}</h4>
         {moneyInHand && <MoneyLine money={shown.money!} />}
-        {renderCards('hand', shown.hand, 'vacía', shown.glow?.hand)}
+        {renderCards('hand', shown.hand, t('vacía'), shown.glow?.hand)}
       </section>
     ),
     played: () => (
       <section className="tutorial__zone tutorial__zone--played">
-        <h4>Jugado este turno</h4>
-        {renderCards('played', shown.played, 'nada todavía', shown.glow?.played)}
+        <h4>{t('Jugado este turno')}</h4>
+        {renderCards('played', shown.played, t('nada todavía'), shown.glow?.played)}
       </section>
     ),
     piles: () => (
       <div className="tutorial__piles">
         <div className="tutorial__pile">
-          <h4>Mazo</h4>
+          <h4>{t('Mazo')}</h4>
           <div className={`card card--compact card--facedown${shown.shuffling ? ' tutorial__deck--shuffling' : ''}`}>
             <span className="card__icon">{shown.shuffling ? '🔀' : '🂠'}</span>
             <span className="card__badge">{shown.deck}</span>
           </div>
-          {shown.shuffling && <span className="tutorial__shuffle-label">barajando el descarte…</span>}
+          {shown.shuffling && <span className="tutorial__shuffle-label">{t('barajando el descarte…')}</span>}
           {step.showPv && (
             <div className="tutorial__pv" key={shown.pv}>
-              ⭐ {shown.pv} <small>PV</small>
+              ⭐ {shown.pv} <small>{t('PV')}</small>
             </div>
           )}
         </div>
 
         <div className="tutorial__pile tutorial__pile--discard">
-          <h4>Descarte · {shown.discard.length}</h4>
+          <h4>{t('Descarte')} · {shown.discard.length}</h4>
           <div className="tutorial__discard" ref={discardRef}>
             {topDiscard.length === 0 && <div className="card card--compact card--empty" />}
             {topDiscard.map((id, i) => {
@@ -690,7 +693,7 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
 
         {step.reserve && (
           <div className="tutorial__pile tutorial__pile--reserve">
-            <h4>Reserva</h4>
+            <h4>{t('Reserva')}</h4>
             <div className="tutorial__cards">
               {RESERVE.map((id) => {
                 const leaving = flight?.source === 'reserve' && flight.id === id;
@@ -721,7 +724,7 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
           <dl className="tutorial__legend">
             {FOCUS_ROWS.map((row) => (
               <div key={row.key} className={`tutorial__legend-row${row.key === step.focus ? ' tutorial__legend-row--active' : ''}`}>
-                <dt>{row.label}</dt>
+                <dt>{t(row.label)}</dt>
                 <dd>{row.value(bigCard)}</dd>
               </div>
             ))}
@@ -733,25 +736,25 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
         <table className="summary-table">
           <thead>
             <tr>
-              <th>Carta</th>
-              <th>PV</th>
+              <th>{t('Carta')}</th>
+              <th>{t('PV')}</th>
             </tr>
           </thead>
           <tbody>
             {FINAL_BREAKDOWN.map((row) => (
               <tr key={row.id}>
                 <td>
-                  {row.label}
-                  {row.note && <small className="tutorial__note"> · {row.note}</small>}
+                  {t(row.label)}
+                  {row.note && <small className="tutorial__note"> · {t(row.note)}</small>}
                 </td>
                 <td>{row.pv}</td>
               </tr>
             ))}
             <tr className="tutorial__total">
-              <td>Total</td>
+              <td>{t('Total')}</td>
               <td>
                 <span className="tutorial__pv">
-                  ⭐ {step.pv} <small>PV</small>
+                  ⭐ {step.pv} <small>{t('PV')}</small>
                 </span>
               </td>
             </tr>
@@ -765,22 +768,22 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
     <div className="app app--setup">
       <div className="panel setup-panel setup-panel--wide tutorial" ref={rootRef}>
         <div className="panel__header">
-          <h2>🎓 Tutorial</h2>
+          <h2>🎓 {t('Tutorial')}</h2>
           <button className="btn btn--ghost" type="button" onClick={onClose}>
-            ✕ Cerrar
+            ✕ {t('Cerrar')}
           </button>
         </div>
 
         <div className="tutorial__step" ref={bubbleRef}>
           <div className="tutorial__step-inner" key={index}>
             <div className="tutorial__progress">
-              Paso {index + 1} de {STEPS.length}
+              {t('Paso {n} de {total}', { n: index + 1, total: STEPS.length })}
               <span className="tutorial__progress-bar">
                 <span style={{ width: `${((index + 1) / STEPS.length) * 100}%` }} />
               </span>
             </div>
-            <h3>{step.title}</h3>
-            <p>{step.text}</p>
+            <h3>{t(step.title)}</h3>
+            <p>{t(step.text)}</p>
           </div>
         </div>
 
@@ -794,7 +797,7 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
 
         <div className="tutorial__controls">
           <button className="btn btn--ghost" type="button" disabled={index === 0} onClick={() => setIndex(index - 1)}>
-            ← Anterior
+            ← {t('Anterior')}
           </button>
           <button
             className="btn btn--ghost"
@@ -808,15 +811,15 @@ export function Tutorial({ onClose }: { onClose: () => void }) {
               }
             }}
           >
-            {isLast ? '↺ Volver a empezar' : playing ? '⏸ Pausa' : '▶ Reproducir'}
+            {isLast ? t('↺ Volver a empezar') : playing ? t('⏸ Pausa') : t('▶ Reproducir')}
           </button>
           {isLast ? (
             <button className="btn btn--primary" type="button" onClick={onClose}>
-              ✓ Entendido
+              ✓ {t('Entendido')}
             </button>
           ) : (
             <button className="btn btn--primary" type="button" onClick={() => setIndex(index + 1)}>
-              Siguiente →
+              {t('Siguiente')} →
             </button>
           )}
         </div>

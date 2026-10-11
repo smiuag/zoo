@@ -1,4 +1,5 @@
 import { ANIMAL_SPECIES, FULL_EDITION_EXTRA_SPECIES, type GameEdition } from '@zoo/engine';
+import type { Lang } from './i18n';
 
 // Todas las especies elegibles en el picker de la edición "Personalizado"
 // (clásicas + las extra de la completa) — ni el Perezoso ni las monedas
@@ -224,6 +225,11 @@ export interface GameConfig {
   // iniciales por tramo de coste.
   customSpecies?: string[];
   customCopyDeltas?: CustomCopyDeltas;
+  // Idioma de cada humano (índice = human-N), elegido al crear la partida:
+  // en pase-y-juega local la interfaz cambia al del jugador al que le toca;
+  // online solo cuenta el del anfitrión (human-0), cada invitado elige el
+  // suyo al unirse (ver GuestApp.tsx). Ausente = idioma del dispositivo.
+  langs?: Lang[];
 }
 
 export function defaultGameConfig(): GameConfig {

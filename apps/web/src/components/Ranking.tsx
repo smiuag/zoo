@@ -12,6 +12,7 @@ import {
 import { isOnlineAvailable } from '../online/supabaseClient';
 import { DEFAULT_ROUND_LIMIT, MAX_BOTS, MAX_HUMANS, MIN_TOTAL_PLAYERS, ROUND_LIMIT_OPTIONS } from '../lib/gameConfig';
 import { CardView } from './CardView';
+import { tr, useT } from '../lib/i18n';
 
 interface RankingProps {
   onClose: () => void;
@@ -34,9 +35,9 @@ function filterKey(rounds: number, edition: ResultEdition, players: number | nul
   return `${rounds}|${edition}|${players ?? 'all'}`;
 }
 
-function formatDate(iso: string): string {
+function formatDate(iso: string, lang: string): string {
   try {
-    return new Date(iso).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    return new Date(iso).toLocaleDateString(lang === 'en' ? 'en-GB' : 'es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' });
   } catch {
     return iso;
   }
@@ -44,10 +45,10 @@ function formatDate(iso: string): string {
 
 function positionLabel(position: number | null): string {
   if (position === null) return '—';
-  if (position === 1) return '🥇 1º';
-  if (position === 2) return '🥈 2º';
-  if (position === 3) return '🥉 3º';
-  return `${position}º`;
+  if (position === 1) return `🥇 ${tr('1º')}`;
+  if (position === 2) return `🥈 ${tr('2º')}`;
+  if (position === 3) return `🥉 ${tr('3º')}`;
+  return tr('{n}º', { n: position });
 }
 
 // Ids guardados en partidas antiguas de cartas que luego se renombraron (misma
@@ -97,8 +98,9 @@ function ResultsTable({
   showRounds: boolean;
   onViewDeck: (deck: DeckSummaryEntry[]) => void;
 }) {
+  const { t, lang } = useT();
   if (rows.length === 0) {
-    return <p className="market-empty">Todavía no hay partidas registradas aquí.</p>;
+    return <p className="market-empty">{t('Todavía no hay partidas registradas aquí.')}</p>;
   }
   return (
     <div className="summary-table-wrap">
@@ -106,14 +108,14 @@ function ResultsTable({
         <thead>
           <tr>
             {showMedals && <th></th>}
-            <th>Nick</th>
-            <th>PV</th>
-            <th>Puesto</th>
-            <th>Jugadores</th>
-            {showRounds && <th>Rondas</th>}
-            {showRounds && <th>Edición</th>}
-            <th>Modo</th>
-            <th>Fecha</th>
+            <th>{t('Nick')}</th>
+            <th>{t('PV')}</th>
+            <th>{t('Puesto')}</th>
+            <th>{t('Jugadores')}</th>
+            {showRounds && <th>{t('Rondas')}</th>}
+            {showRounds && <th>{t('Edición')}</th>}
+            <th>{t('Modo')}</th>
+            <th>{t('Fecha')}</th>
             <th></th>
           </tr>
         </thead>
@@ -128,13 +130,13 @@ function ResultsTable({
               <td>{positionLabel(row.position)}</td>
               <td>{row.num_players}</td>
               {showRounds && <td>{row.round_limit ?? '—'}</td>}
-              {showRounds && <td>{EDITION_LABEL[row.edition ?? 'classic']}</td>}
-              <td>{MODE_LABEL[row.mode]}</td>
-              <td>{formatDate(row.created_at)}</td>
+              {showRounds && <td>{t(EDITION_LABEL[row.edition ?? 'classic'])}</td>}
+              <td>{t(MODE_LABEL[row.mode])}</td>
+              <td>{formatDate(row.created_at, lang)}</td>
               <td>
                 {row.deck && row.deck.length > 0 && (
                   <button className="btn btn--ghost" type="button" onClick={() => onViewDeck(row.deck!)}>
-                    Ver baraja
+                    {t('Ver baraja')}
                   </button>
                 )}
               </td>
@@ -159,6 +161,7 @@ function ResultsTable({
 // que mezclarlas premiaría siempre a las más largas o a las de menos rivales.
 // Cada combinación se pide al servidor al elegirla y se cachea.
 export function Ranking({ onClose }: RankingProps) {
+  const { t, lang, cardName } = useT();
   const [tab, setTab] = useState<'top' | 'mine'>('top');
   const [roundsTab, setRoundsTab] = useState<number>(DEFAULT_ROUND_LIMIT);
   const [editionTab, setEditionTab] = useState<ResultEdition>('classic');
@@ -194,50 +197,52 @@ export function Ranking({ onClose }: RankingProps) {
   const deckCards = viewedDeck
     ?.map((entry) => ({ instance: toCardInstance(entry.id), count: entry.count }))
     .filter((e): e is { instance: CardInstance; count: number } => e.instance !== null)
-    .sort((a, b) => (a.instance.marketCost ?? 0) - (b.instance.marketCost ?? 0) || a.instance.name.localeCompare(b.instance.name));
+    .sort((a, b) => (a.instance.marketCost ?? 0) - (b.instance.marketCost ?? 0) || cardName(a.instance).localeCompare(cardName(b.instance), lang === 'en' ? 'en' : 'es'));
 
   return (
     <div className="app app--setup">
       <div className="panel setup-panel setup-panel--wide">
         <div className="panel__header">
-          <h2>🏆 Ranking</h2>
+          <h2>🏆 {t('Ranking')}</h2>
           <button className="btn btn--ghost" type="button" onClick={onClose}>
-            ✕ cerrar
+            ✕ {t('cerrar')}
           </button>
         </div>
 
         {!isOnlineAvailable && (
-          <p className="setup-hint">No configurado en este despliegue (falta VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY).</p>
+          <p className="setup-hint">
+            {t('No configurado en este despliegue (falta VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY).')}
+          </p>
         )}
 
         <div className="score-tabs">
           <button type="button" className={`score-tab ${tab === 'top' ? 'score-tab--active' : ''}`} onClick={() => setTab('top')}>
-            Top puntuaciones
+            {t('Top puntuaciones')}
           </button>
           <button type="button" className={`score-tab ${tab === 'mine' ? 'score-tab--active' : ''}`} onClick={() => setTab('mine')}>
-            Mis partidas
+            {t('Mis partidas')}
           </button>
         </div>
 
         {tab === 'top' && (
           <div className="ranking-filters">
-            <FilterRow label="Rondas">
+            <FilterRow label={t('Rondas')}>
               {ROUND_LIMIT_OPTIONS.map((rounds) => (
                 <FilterPill key={rounds} active={roundsTab === rounds} onClick={() => setRoundsTab(rounds)}>
                   {rounds}
                 </FilterPill>
               ))}
             </FilterRow>
-            <FilterRow label="Edición">
+            <FilterRow label={t('Edición')}>
               {RESULT_EDITIONS.map((edition) => (
                 <FilterPill key={edition} active={editionTab === edition} onClick={() => setEditionTab(edition)}>
-                  {EDITION_LABEL[edition]}
+                  {t(EDITION_LABEL[edition])}
                 </FilterPill>
               ))}
             </FilterRow>
-            <FilterRow label="Jugadores">
+            <FilterRow label={t('Jugadores')}>
               <FilterPill active={playersFilter === null} onClick={() => setPlayersFilter(null)}>
-                Todos
+                {t('Todos')}
               </FilterPill>
               {PLAYER_COUNT_OPTIONS.map((n) => (
                 <FilterPill key={n} active={playersFilter === n} onClick={() => setPlayersFilter(n)}>
@@ -250,12 +255,12 @@ export function Ranking({ onClose }: RankingProps) {
 
         {tab === 'top' ? (
           topByFilter[currentKey] === undefined ? (
-            <p className="setup-hint">Cargando...</p>
+            <p className="setup-hint">{t('Cargando...')}</p>
           ) : (
             <ResultsTable rows={topByFilter[currentKey]!} showMedals showRounds={false} onViewDeck={setViewedDeck} />
           )
         ) : myHistory === null ? (
-          <p className="setup-hint">Cargando...</p>
+          <p className="setup-hint">{t('Cargando...')}</p>
         ) : (
           <ResultsTable rows={myHistory} showMedals={false} showRounds onViewDeck={setViewedDeck} />
         )}
@@ -265,9 +270,9 @@ export function Ranking({ onClose }: RankingProps) {
         <div className="modal-backdrop" onClick={() => setViewedDeck(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="panel__header">
-              <h2>Baraja · {viewedDeck.reduce((n, e) => n + e.count, 0)} cartas</h2>
+              <h2>{t('Baraja · {n} cartas', { n: viewedDeck.reduce((n, e) => n + e.count, 0) })}</h2>
               <button className="btn btn--ghost" onClick={() => setViewedDeck(null)}>
-                ✕ cerrar
+                ✕ {t('cerrar')}
               </button>
             </div>
             <div className="card-row">

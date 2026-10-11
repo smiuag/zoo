@@ -9,6 +9,7 @@ import {
   type GameConfig,
 } from '../lib/gameConfig';
 import type { HostRoomSeat } from '../online/useHostRoom';
+import { tr, useT } from '../lib/i18n';
 
 interface OnlineWaitingRoomProps {
   roomCode: string;
@@ -30,7 +31,7 @@ interface OnlineWaitingRoomProps {
 function seatLabel(seatId: string, nick: string | undefined): string {
   if (nick) return nick;
   const n = Number(seatId.split('-')[1]) + 1;
-  return `Jugador ${n}`;
+  return tr('Jugador {n}', { n });
 }
 
 export function OnlineWaitingRoom({
@@ -43,6 +44,7 @@ export function OnlineWaitingRoom({
   onStart,
   onCancel,
 }: OnlineWaitingRoomProps) {
+  const { t } = useT();
   const [copied, setCopied] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -109,15 +111,14 @@ export function OnlineWaitingRoom({
     <div className="app app--setup">
       <div className="panel setup-panel">
         <div className="panel__header">
-          <h2>Sala {roomCode}</h2>
+          <h2>{t('Sala {code}', { code: roomCode })}</h2>
           <button className="btn btn--ghost" onClick={onCancel}>
-            ✕ cancelar
+            {t('✕ cancelar')}
           </button>
         </div>
 
         <p className="setup-hint">
-          Manda cada enlace a una persona distinta por el chat que prefieras. Al abrirlo, esa persona ya está en la
-          partida como ese jugador — no hace falta que se registre en nada.
+          {t('Manda cada enlace a una persona distinta por el chat que prefieras. Al abrirlo, esa persona ya está en la partida como ese jugador — no hace falta que se registre en nada.')}
         </p>
 
         <div className="setup-bot-list">
@@ -125,27 +126,27 @@ export function OnlineWaitingRoom({
             <div key={seat.seatId} className="setup-row setup-row--bot">
               <label>
                 {seatLabel(seat.seatId, connectedSeatNicks.get(seat.seatId))}{' '}
-                {connectedSeatIds.has(seat.seatId) ? '🟢 conectado' : '⏳ esperando'}
+                {connectedSeatIds.has(seat.seatId) ? t('🟢 conectado') : t('⏳ esperando')}
               </label>
               <button className="btn btn--ghost" type="button" onClick={() => copyLink(seat.seatId, seat.inviteUrl)}>
-                {copied === seat.seatId ? '✓ copiado' : '📋 copiar enlace'}
+                {copied === seat.seatId ? t('✓ copiado') : t('📋 copiar enlace')}
               </button>
             </div>
           ))}
         </div>
 
         <div className="panel__header">
-          <h3>Configuración de la partida</h3>
+          <h3>{t('Configuración de la partida')}</h3>
           <button
             type="button"
             className="btn btn--ghost btn--settings-gear"
-            title="Configuración de la partida"
+            title={t('Configuración de la partida')}
             onClick={() => setSettingsOpen(true)}
           >
-            <GearIcon /><span className="btn__label"> Configuración</span>
+            <GearIcon /><span className="btn__label"> {t('Configuración')}</span>
           </button>
         </div>
-        <p className="setup-hint">Los invitados ven estos cambios al momento. Los enlaces no cambian.</p>
+        <p className="setup-hint">{t('Los invitados ven estos cambios al momento. Los enlaces no cambian.')}</p>
 
         <GameConfigFields
           botAlgorithms={config.botAlgorithms}
@@ -157,10 +158,10 @@ export function OnlineWaitingRoom({
         />
 
         <button className="btn btn--primary" onClick={onStart} disabled={!canStart}>
-          Empezar partida
+          {t('Empezar partida')}
         </button>
         {!canStart && (
-          <p className="setup-error">Elige al menos una especie en Configuración → Personalizado antes de empezar.</p>
+          <p className="setup-error">{t('Elige al menos una especie en Configuración → Personalizado antes de empezar.')}</p>
         )}
       </div>
     </div>

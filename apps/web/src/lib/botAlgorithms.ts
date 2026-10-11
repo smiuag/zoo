@@ -12,17 +12,20 @@ import {
   type Player,
 } from '@zoo/engine';
 import type { BotAlgorithm } from './gameConfig';
+import { tr } from './i18n';
 
 // `label`: texto completo del desplegable de algoritmo (formulario y panel
 // "Otros jugadores"). `shortLabel`: código de 2 letras usado en sitios donde
 // no cabe el texto completo (el marcador de arriba en GameBoard.tsx
 // sustituye el nombre corto del bot, B1/B2, por este código cuando se
 // muestra ahí).
+// `label` es un getter: se evalúa en cada lectura con tr(), así que cambia al
+// cambiar de idioma aunque la constante se cree una sola vez.
 export const BOT_ALGORITHM_OPTIONS: { value: BotAlgorithm; label: string; shortLabel: string }[] = [
-  { value: 'general', label: 'Genérico', shortLabel: 'GE' },
-  { value: 'land', label: 'Terrestre', shortLabel: 'TT' },
-  { value: 'bird', label: 'Volador', shortLabel: 'AI' },
-  { value: 'aquatic', label: 'Acuático', shortLabel: 'FO' },
+  { value: 'general', get label() { return tr('Genérico'); }, shortLabel: 'GE' },
+  { value: 'land', get label() { return tr('Terrestre'); }, shortLabel: 'TT' },
+  { value: 'bird', get label() { return tr('Volador'); }, shortLabel: 'AI' },
+  { value: 'aquatic', get label() { return tr('Acuático'); }, shortLabel: 'FO' },
 ];
 
 // Qué Bot de verdad usa cada algoritmo, según la edición de la partida —

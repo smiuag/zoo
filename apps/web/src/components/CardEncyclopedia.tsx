@@ -4,6 +4,7 @@ import { getAllCards, type Card, type CardInstance, type GameEdition } from '@zo
 import { CardView } from './CardView';
 import { useActiveEdition } from '../lib/activeEdition';
 import { habitatLabel } from '../lib/cardVisuals';
+import { useT } from '../lib/i18n';
 
 // 'classic'/'learning' juegan con el mismo mazo de 33 especies + Perezoso
 // (ver game_editions_classic_vs_full); 'full'/'custom' pueden incluir
@@ -48,6 +49,7 @@ function toggleSingle<T>(current: T | null, value: T): T | null {
 }
 
 export function CardEncyclopedia() {
+  const { t, lang, cardName } = useT();
   const navigate = useNavigate();
   const activeGameEdition = useActiveEdition();
   const [manualEdition, setManualEdition] = useState<'classic' | 'full'>('classic');
@@ -61,8 +63,9 @@ export function CardEncyclopedia() {
     const visible = allCards.filter((c) => showFullExtras || c.edition !== 'full');
     return visible
       .map((c) => toCardInstance(c, showFullExtras))
-      .sort((a, b) => (a.marketCost ?? 0) - (b.marketCost ?? 0) || a.name.localeCompare(b.name, 'es'));
-  }, [allCards, showFullExtras]);
+      .sort((a, b) => (a.marketCost ?? 0) - (b.marketCost ?? 0) || cardName(a).localeCompare(cardName(b), lang === 'en' ? 'en' : 'es'));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allCards, showFullExtras, lang]);
 
   const availableCosts = useMemo(() => [...new Set(cards.map((c) => c.marketCost ?? 0))].sort((a, b) => a - b), [cards]);
   const availableHabitats = useMemo(
@@ -79,38 +82,40 @@ export function CardEncyclopedia() {
   return (
     <div className={`encyclopedia${showFullExtras ? ' encyclopedia--full' : ''}`}>
       <div className="encyclopedia__header">
-        <h1>📖 Enciclopedia de cartas</h1>
+        <h1>📖 {t('Enciclopedia de cartas')}</h1>
         <button className="btn btn--ghost" type="button" onClick={() => navigate(-1)}>
-          ✕ Cerrar
+          ✕ {t('Cerrar')}
         </button>
       </div>
 
       {activeGameEdition === undefined ? (
-        <div className="encyclopedia__edition-toggle" role="tablist" aria-label="Edición a mostrar">
+        <div className="encyclopedia__edition-toggle" role="tablist" aria-label={t('Edición a mostrar')}>
           <button
             type="button"
             className={`btn btn--pill${manualEdition === 'classic' ? ' btn--pill-active' : ''}`}
             onClick={() => setManualEdition('classic')}
           >
-            Clásica
+            {t('Clásica')}
           </button>
           <button
             type="button"
             className={`btn btn--pill${manualEdition === 'full' ? ' btn--pill-active' : ''}`}
             onClick={() => setManualEdition('full')}
           >
-            Completa
+            {t('Completa')}
           </button>
         </div>
       ) : (
         <div className="encyclopedia__edition-note">
-          Cartas de tu partida en curso ({showFullExtras ? 'edición completa' : 'edición clásica'})
+          {t('Cartas de tu partida en curso ({edition})', {
+            edition: showFullExtras ? t('edición completa') : t('edición clásica'),
+          })}
         </div>
       )}
 
       <div className="encyclopedia__filters">
         <div className="encyclopedia__filter-group">
-          <span className="encyclopedia__filter-label">Coste:</span>
+          <span className="encyclopedia__filter-label">{t('Coste:')}</span>
           {availableCosts.map((cost) => (
             <button
               key={cost}
@@ -118,17 +123,17 @@ export function CardEncyclopedia() {
               className={`btn btn--pill${costFilter === cost ? ' btn--pill-active' : ''}`}
               onClick={() => setCostFilter(toggleSingle(costFilter, cost))}
             >
-              {cost === 0 ? 'Gratis' : cost}
+              {cost === 0 ? t('Gratis') : cost}
             </button>
           ))}
           {costFilter !== null && (
             <button type="button" className="btn btn--ghost btn--pill" onClick={() => setCostFilter(null)}>
-              Quitar filtro
+              {t('Quitar filtro')}
             </button>
           )}
         </div>
         <div className="encyclopedia__filter-group">
-          <span className="encyclopedia__filter-label">Hábitat:</span>
+          <span className="encyclopedia__filter-label">{t('Hábitat:')}</span>
           {availableHabitats.map((h) => (
             <button
               key={h}
@@ -136,19 +141,19 @@ export function CardEncyclopedia() {
               className={`btn btn--pill${habitatFilter === h ? ' btn--pill-active' : ''}`}
               onClick={() => setHabitatFilter(toggleSingle(habitatFilter, h))}
             >
-              {HABITAT_ICON[h]} {habitatFilterLabel(h)}
+              {HABITAT_ICON[h]} {t(habitatFilterLabel(h))}
             </button>
           ))}
           {habitatFilter !== null && (
             <button type="button" className="btn btn--ghost btn--pill" onClick={() => setHabitatFilter(null)}>
-              Quitar filtro
+              {t('Quitar filtro')}
             </button>
           )}
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <p className="encyclopedia__empty">Ninguna carta cumple los filtros elegidos.</p>
+        <p className="encyclopedia__empty">{t('Ninguna carta cumple los filtros elegidos.')}</p>
       ) : (
         <div className="encyclopedia__grid">
           {filtered.map((card) => (

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GearIcon } from './icons/GearIcon';
 import { GameConfigFields } from './GameConfigFields';
@@ -23,6 +23,7 @@ import {
 } from '../lib/gameConfig';
 import { isOnlineAvailable } from '../online/supabaseClient';
 import { loadSavedEdition, saveEdition } from '../lib/edition';
+import { LANGS, LANG_LABELS, loadPlayerLangs, savePlayerLangs, useT, type Lang } from '../lib/i18n';
 
 interface GameSetupProps {
   onStart: (config: GameConfig) => void;
@@ -63,6 +64,7 @@ export function GameSetup({
   onDiscardResumableOnlineRoom,
 }: GameSetupProps) {
   const navigate = useNavigate();
+  const { t, setLang } = useT();
   // Se lee una sola vez (lazy initializer de useState, no en cada render):
   // nº de humanos, bots elegidos y animaciones de la última partida creada
   // en este dispositivo (ver saveSetupPrefs en buildConfig más abajo). null
@@ -77,6 +79,13 @@ export function GameSetup({
   const [roundLimit, setRoundLimit] = useState<RoundLimit>(savedSetupPrefs?.roundLimit ?? DEFAULT_ROUND_LIMIT);
   const [animationsEnabled, setAnimationsEnabled] = useState(savedSetupPrefs?.animationsEnabled ?? true);
   const [edition, setEdition] = useState(loadSavedEdition);
+  // Idioma de cada humano (índice = human-N), elegido aquí al empezar: cada
+  // jugador ve la partida en el suyo. El del jugador 1 es también el de este
+  // formulario, así que cambia la interfaz en el acto.
+  const [langs, setLangs] = useState<Lang[]>(() => loadPlayerLangs(MAX_HUMANS));
+  useEffect(() => {
+    setLang(langs[0]);
+  }, [langs[0], setLang]);
   // Solo tienen efecto con edition === 'custom' (ver GameSettingsModal.tsx).
   // Por defecto, si nunca se ha usado "Personalizado" en este dispositivo,
   // arranca con TODO marcado (mismo mercado que tenía antes "Completa").
@@ -118,6 +127,7 @@ export function GameSetup({
       customCopyDeltas,
     });
     saveEdition(edition);
+    savePlayerLangs(langs);
     return {
       numHumans,
       nick: cleanNick,
@@ -125,6 +135,7 @@ export function GameSetup({
       roundLimit,
       animationsEnabled,
       edition,
+      langs: langs.slice(0, numHumans),
       ...(edition === 'custom' ? { customSpecies: customSpeciesArray, customCopyDeltas } : {}),
     };
   }
@@ -162,55 +173,57 @@ export function GameSetup({
       {resumableOnlineRoomCode && (
         <div className="panel panel--choice setup-panel setup-resume">
           <div className="panel__header">
-            <h2>🌐 Partida online sin terminar</h2>
+            <h2>{t('🌐 Partida online sin terminar')}</h2>
           </div>
           <p className="setup-hint">
-            Parece que refrescaste la página a mitad de la sala <strong>{resumableOnlineRoomCode}</strong>. Puedes
-            seguir donde lo dejaste, con los mismos enlaces ya repartidos.
+            {t('Parece que refrescaste la página a mitad de la sala')} <strong>{resumableOnlineRoomCode}</strong>.{' '}
+            {t('Puedes seguir donde lo dejaste, con los mismos enlaces ya repartidos.')}
           </p>
           <div className="setup-round-options">
             <button className="btn btn--primary" type="button" onClick={onResumeOnlineRoom}>
-              ▶ Reanudar partida
+              {t('▶ Reanudar partida')}
             </button>
             <button className="btn btn--ghost" type="button" onClick={onDiscardResumableOnlineRoom}>
-              Descartar
+              {t('Descartar')}
             </button>
           </div>
         </div>
       )}
       <form className="panel setup-panel" onSubmit={handleSubmit}>
         <div className="panel__header">
-          <h2>Nueva partida</h2>
+          <h2>{t('Nueva partida')}</h2>
           <button
             type="button"
             className="btn btn--ghost btn--settings-gear"
-            title="Configuración de la partida"
+            title={t('Configuración de la partida')}
             onClick={() => setSettingsOpen(true)}
           >
-            <GearIcon /><span className="btn__label"> Configuración</span>
+            <GearIcon /><span className="btn__label"> {t('Configuración')}</span>
           </button>
         </div>
 
         <div className="setup-row">
-          <label htmlFor="setup-nick">Tu nick</label>
+          <label htmlFor="setup-nick">{t('Tu nick')}</label>
           <input
             id="setup-nick"
             className="setup-nick"
             type="text"
             value={nick}
             maxLength={MAX_NICK_LENGTH}
-            placeholder="Tú"
+            placeholder={t('Tú')}
             autoComplete="nickname"
             spellCheck={false}
             onChange={(e) => setNick(e.target.value)}
           />
           <span className="setup-hint">
-            Hasta {MAX_NICK_LENGTH} letras, para que el marcador quepa en el móvil. Se recuerda en este dispositivo.
+            {t('Hasta {n} letras, para que el marcador quepa en el móvil. Se recuerda en este dispositivo.', {
+              n: MAX_NICK_LENGTH,
+            })}
           </span>
         </div>
 
         <div className="setup-row">
-          <label htmlFor="setup-humans">Jugadores humanos</label>
+          <label htmlFor="setup-humans">{t('Jugadores humanos')}</label>
           <select
             id="setup-humans"
             value={numHumans}
@@ -224,7 +237,32 @@ export function GameSetup({
           </select>
           {numHumans > 1 && (
             <span className="setup-hint">
-              Turno rotatorio en este mismo dispositivo: el indicador de turno siempre muestra a quién le toca.
+              {t('Turno rotatorio en este mismo dispositivo: el indicador de turno siempre muestra a quién le toca.')}
+            </span>
+          )}
+        </div>
+
+        <div className="setup-row">
+          <label htmlFor="setup-lang-0">{t('Idioma')}</label>
+          {Array.from({ length: numHumans }, (_, i) => (
+            <div key={i} className="setup-round-options">
+              {numHumans > 1 && <span className="setup-hint">{t('Jugador {n}', { n: i + 1 })}</span>}
+              <select
+                id={`setup-lang-${i}`}
+                value={langs[i]}
+                onChange={(e) => setLangs((prev) => prev.map((l, j) => (j === i ? (e.target.value as Lang) : l)))}
+              >
+                {LANGS.map((l) => (
+                  <option key={l} value={l}>
+                    {LANG_LABELS[l]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+          {numHumans > 1 && (
+            <span className="setup-hint">
+              {t('Cada jugador ve la partida en su idioma. En una partida online, cada invitado elige el suyo al unirse.')}
             </span>
           )}
         </div>
@@ -244,39 +282,39 @@ export function GameSetup({
         <div className="setup-row">
           <div className="setup-round-options setup-round-options--full">
             <button className="btn btn--primary" type="submit" disabled={!canStart}>
-              Empezar partida
+              {t('Empezar partida')}
             </button>
             {onCreateOnlineRoom && (
               <button className="btn btn--ghost" type="button" disabled={!canGoOnline} onClick={handleCreateOnlineRoom}>
-                🌐 Crear partida online
+                {t('🌐 Crear partida online')}
               </button>
             )}
           </div>
           {totalPlayers < MIN_TOTAL_PLAYERS && (
             <p className="setup-error">
-              Con 1 solo jugador humano hace falta al menos 1 bot rival: sube el número de bots o de jugadores.
+              {t('Con 1 solo jugador humano hace falta al menos 1 bot rival: sube el número de bots o de jugadores.')}
             </p>
           )}
           {edition === 'custom' && customSpecies.size === 0 && (
             <p className="setup-error">
-              Elige al menos una especie en Configuración → Personalizado antes de empezar.
+              {t('Elige al menos una especie en Configuración → Personalizado antes de empezar.')}
             </p>
           )}
           {onCreateOnlineRoom && !isOnlineAvailable && (
-            <p className="setup-hint">No configurada en este despliegue (falta VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY).</p>
+            <p className="setup-hint">{t('No configurada en este despliegue (falta VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY).')}</p>
           )}
         </div>
 
         <div className="setup-row">
           <div className="setup-round-options setup-round-options--full">
             <button className="btn btn--ghost" type="button" onClick={onOpenScoreCalculator}>
-              🌰 Calculadora
+              {t('🌰 Calculadora')}
             </button>
             <button className="btn btn--ghost" type="button" onClick={onOpenRanking}>
-              🏆 Ranking
+              {t('🏆 Ranking')}
             </button>
             <button className="btn btn--ghost" type="button" onClick={() => navigate('/cartas')}>
-              📖 Cartas
+              {t('📖 Cartas')}
             </button>
           </div>
         </div>

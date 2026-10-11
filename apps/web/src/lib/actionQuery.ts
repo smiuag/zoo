@@ -1,6 +1,7 @@
 import type { Action, GameState, Player } from '@zoo/engine';
 import { findAnywhere } from './actionLabels';
 import { currencyLabel, type ArtStyle } from './artStyle';
+import { cardNameLocalized, tr } from './i18n';
 
 // Helpers para agrupar `getLegalActions(...)` por la carta/casilla que el
 // jugador pulsó. Todo se deriva de las acciones legales reales (nunca se
@@ -56,8 +57,8 @@ export function useDiscardedAnimalAbilityActionsFor(legalActions: Action[], card
 export function targetLabel(state: GameState, player: Player, targetInstanceId: string, artStyle: ArtStyle): string {
   const card = findAnywhere(state, player, targetInstanceId);
   if (!card) return '?';
-  const bits = [card.name];
-  if (card.type === 'animal') bits.push(`${card.victoryPoints}PV`);
-  if (card.marketCost) bits.push(`${card.marketCost} ${currencyLabel(artStyle, card.marketCost)}`);
+  const bits = [cardNameLocalized(card)];
+  if (card.type === 'animal') bits.push(tr('{n}PV', { n: card.victoryPoints }));
+  if (card.marketCost) bits.push(`${card.marketCost} ${tr(currencyLabel(artStyle, card.marketCost))}`);
   return bits.join(' · ');
 }

@@ -1,4 +1,5 @@
 import type { GameEdition } from '@zoo/engine';
+import { tr } from './i18n';
 
 // Las 3 ediciones seleccionables desde la UI están disponibles en cualquier
 // sitio, incluida la web publicada: 'classic' (la oficial impresa),
@@ -34,9 +35,9 @@ export function saveEdition(edition: GameEdition): void {
 
 export function editionLabel(edition: GameEdition): string {
   const effective = effectiveEdition(edition);
-  if (effective === 'custom') return 'Personalizado';
-  if (effective === 'learning') return 'Aprendizaje';
-  return 'Clásica';
+  if (effective === 'custom') return tr('Personalizado');
+  if (effective === 'learning') return tr('Aprendizaje');
+  return tr('Clásica');
 }
 
 export function effectiveEdition(requested: GameEdition | undefined): GameEdition {

@@ -1,14 +1,16 @@
 import type { Ref } from 'react';
 import type { Player } from '@zoo/engine';
 import { CardView } from './CardView';
+import { useT } from '../lib/i18n';
 
 // Mazo de robo (boca abajo a propósito: nunca se revela qué hay) de un
 // jugador, con su recuento. Usado tanto en la fila de controles de turno
 // (cuando es tu propio turno, ver GameBoard.tsx) como junto a "Mesa de X"
 // (cuando es el turno de otro, ver ActivePlayerBoard.tsx).
 export function DeckPile({ player }: { player: Player }) {
+  const { t } = useT();
   return (
-    <div className="pile pile--deck" title={`Mazo de ${player.name}`}>
+    <div className="pile pile--deck" title={t('Mazo de {name}', { name: player.name })}>
       <div className="card card--compact card--facedown">
         <span className="card__icon">🂠</span>
         <span className="card__badge">{player.deck.length}</span>
@@ -36,10 +38,11 @@ export function DiscardPile({
   pileRef?: Ref<HTMLDivElement>;
   hiddenCount?: number;
 }) {
+  const { t } = useT();
   const visibleCount = Math.max(0, player.discard.length - hiddenCount);
   const lastDiscarded = player.discard[visibleCount - 1];
   return (
-    <div className="pile pile--discard" title={`Descarte de ${player.name}`} ref={pileRef}>
+    <div className="pile pile--discard" title={t('Descarte de {name}', { name: player.name })} ref={pileRef}>
       {lastDiscarded ? (
         <CardView card={lastDiscarded} compact badgePrefix="" remainingLabel={String(visibleCount)} hideType />
       ) : (

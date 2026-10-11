@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react';
 import type { CardInstance } from '@zoo/engine';
 import { useArtStyle } from '../lib/artStyle';
 import { BELLOTA_TEXT } from '../lib/bellotaText';
+import { useT } from '../lib/i18n';
 import {
   cardAccentClass,
   cardIcon,
@@ -151,6 +152,7 @@ export function CardView({
   selected,
   showAbilityInline,
 }: CardViewProps) {
+  const { t, cardName, cardText } = useT();
   const cardRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   // Pantalla táctil: el tooltip NO depende de :hover (que en móvil se queda
@@ -179,6 +181,8 @@ export function CardView({
   const [artStyle] = useArtStyle();
   const clickable = Boolean(onClick) && !disabled && !destroyed;
   const isEmoji = artStyle === 'emoji';
+  const shownName = cardName(card);
+  const shownText = cardText(card, isEmoji ? card.text : (BELLOTA_TEXT[card.id] ?? card.text));
   // Tipo (hábitats + mascota/dinosaurio) partido en líneas de 2 en 2 (ver
   // chunkPairs arriba): con 3-4 tipos a la vez una sola línea no cabía y se
   // recortaba con "…" (ver .card__footer en styles.css).
@@ -188,7 +192,7 @@ export function CardView({
   // ilustraciones nuevas, que ya no llevan el número grabado encima; en
   // emoji, el 🪙 de siempre nunca lo necesitó — se vuelve al texto "vale N"
   // de toda la vida, igual que en el resto del pie.
-  if (isEmoji && card.value) bits.push(`vale ${card.value}`);
+  if (isEmoji && card.value) bits.push(t('vale {n}', { n: card.value }));
 
   const classNames = ['card', cardAccentClass(card)];
   if (disabled) classNames.push('card--disabled');
@@ -260,7 +264,7 @@ export function CardView({
         {card.marketCost ? <span className="card__cost">{costLabel}</span> : <span />}
         {showPvBadge && (
           <span className={['card__pv', card.victoryPoints < 0 && 'card__pv--negative'].filter(Boolean).join(' ')}>
-            {pvLabel}PV
+            {pvLabel}{t('PV')}
           </span>
         )}
       </div>
@@ -271,7 +275,7 @@ export function CardView({
           <img
             className="card__icon-img"
             src={cardImageUrl(card)}
-            alt={card.name}
+            alt={shownName}
             draggable={false}
             style={{ '--icon-scale': cardIconScale(card) } as CSSProperties}
           />
@@ -282,7 +286,7 @@ export function CardView({
           identificar la especie (p. ej. vulture/toucan usan una
           aproximación temática, ver SPECIES_ICONS). Con la imagen real ya
           no hace falta, así que ese sitio se queda para el hábitat. */}
-      {isEmoji && <div className="card__name">{card.name}</div>}
+      {isEmoji && <div className="card__name">{shownName}</div>}
       {/* El número grabado en la ilustración de la bellota (ver img/web) es
           demasiado pequeño/decorativo para distinguirse de un vistazo, así
           que en modo imagen el valor real de captura se repite aquí,
@@ -298,7 +302,7 @@ export function CardView({
         )}
       </div>
       {showAbilityInline && card.text && (
-        <div className="card__ability-inline">{isEmoji ? card.text : (BELLOTA_TEXT[card.id] ?? card.text)}</div>
+        <div className="card__ability-inline">{shownText}</div>
       )}
       {remainingLabel !== undefined && (
         <span className="card__badge">
@@ -307,12 +311,12 @@ export function CardView({
         </span>
       )}
       {destroyed && (
-        <span className="card__destroyed-mark" aria-label="Eliminada de la partida">
+        <span className="card__destroyed-mark" aria-label={t('Eliminada de la partida')}>
           ✕
         </span>
       )}
       {selected === true && (
-        <span className="card__check" aria-label="Incluida">
+        <span className="card__check" aria-label={t('Incluida')}>
           ✓
         </span>
       )}
@@ -324,8 +328,8 @@ export function CardView({
         // bellotaText.ts, mismo tema que las ilustraciones reales y el
         // mazo impreso); en emoji se queda el texto de siempre.
         <div ref={tooltipRef} className="card__tooltip">
-          <div className="card__tooltip-name">{card.name}</div>
-          <div className="card__tooltip-text">{isEmoji ? card.text : (BELLOTA_TEXT[card.id] ?? card.text)}</div>
+          <div className="card__tooltip-name">{shownName}</div>
+          <div className="card__tooltip-text">{shownText}</div>
         </div>
       )}
       {/* Versión táctil: centrada en la PANTALLA y fuera del árbol de la carta
@@ -338,8 +342,8 @@ export function CardView({
         card.text &&
         createPortal(
           <div className="card-press-tooltip" role="tooltip">
-            <div className="card__tooltip-name">{card.name}</div>
-            <div className="card__tooltip-text">{isEmoji ? card.text : (BELLOTA_TEXT[card.id] ?? card.text)}</div>
+            <div className="card__tooltip-name">{shownName}</div>
+            <div className="card__tooltip-text">{shownText}</div>
           </div>,
           document.body
         )}

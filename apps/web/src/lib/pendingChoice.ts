@@ -3,6 +3,7 @@ import { targetLabel } from './actionQuery';
 import { findAnywhere } from './actionLabels';
 import { cardAccentClass } from './cardVisuals';
 import type { ArtStyle } from './artStyle';
+import { cardNameLocalized, tr } from './i18n';
 
 // Menú contextual genérico: un título + opciones. Cada opción o bien
 // aplica una acción directamente, o bien (si trae `next`) abre un segundo
@@ -49,7 +50,8 @@ export function buildTargetChoice(
   state: GameState,
   player: Player,
   card: CardInstance,
-  artStyle: ArtStyle
+  artStyle: ArtStyle,
+  nameOf: (p: Player) => string = (p) => p.name
 ): PendingChoice {
   const playActions = actions.filter(
     (a): a is Extract<Action, { type: 'playCard' | 'useDiscardedAnimalAbility' }> =>
@@ -65,22 +67,23 @@ export function buildTargetChoice(
   // la mesa) — para ella se sigue el flujo normal de abajo, que resuelve esa
   // combinación con leafChoice.
   if (hasKeepOnTableVariant && !hasRealTargeting) {
+    const keepLabel = tr('Dejarlo sobre la mesa');
     const options: ChoiceOption[] = playActions.map((a) => ({
-      label: a.type === 'playCard' && a.keepOnTable ? 'Dejarlo sobre la mesa' : 'Enviarlo al descarte',
+      label: a.type === 'playCard' && a.keepOnTable ? keepLabel : tr('Enviarlo al descarte'),
       action: a,
     }));
-    options.sort((a, b) => Number(b.label === 'Dejarlo sobre la mesa') - Number(a.label === 'Dejarlo sobre la mesa'));
-    return { title: `${card.name}: ¿dónde lo dejas?`, options };
+    options.sort((a, b) => Number(b.label === keepLabel) - Number(a.label === keepLabel));
+    return { title: tr('{card}: ¿dónde lo dejas?', { card: cardNameLocalized(card) }), options };
   }
 
   // Pato: elige un JUGADOR, no una carta. Una opción por rival, sin segundo
   // menú encadenado.
   if (playActions.some((a) => a.targetPlayerId)) {
-    const options: ChoiceOption[] = playActions.map((a) => ({
-      label: state.players.find((p) => p.id === a.targetPlayerId)?.name ?? '?',
-      action: a,
-    }));
-    return { title: `${card.name}: ¿a qué jugador afecta?`, options };
+    const options: ChoiceOption[] = playActions.map((a) => {
+      const target = state.players.find((p) => p.id === a.targetPlayerId);
+      return { label: target ? nameOf(target) : '?', action: a };
+    });
+    return { title: tr('{card}: ¿a qué jugador afecta?', { card: cardNameLocalized(card) }), options };
   }
 
   // Las variantes con secondaryTargetInstanceId (Flamenco) necesitan un
@@ -127,12 +130,14 @@ export function buildTargetChoice(
       const group = bySource.get(sourceId)!;
       const label =
         sourceId === '' && drawOrReturnEffect
-          ? `Robar ${drawAmount} carta${drawAmount === 1 ? '' : 's'} (no transformarla)`
+          ? drawAmount === 1
+            ? tr('Robar {n} carta (no transformarla)', { n: drawAmount })
+            : tr('Robar {n} cartas (no transformarla)', { n: drawAmount })
           : targetLabel(state, player, sourceId, artStyle);
       const accentClassName = accentClassFor(state, player, sourceId);
       const hasSecondaryChoice = group.some((a) => a.secondaryTargetInstanceId);
       if (!hasSecondaryChoice) {
-        return { label, accentClassName, ...leafChoice(card.name, group) };
+        return { label, accentClassName, ...leafChoice(cardNameLocalized(card), group) };
       }
       // Gallina (discardCoinToCapture) combina esta segunda elección con la
       // de quedarse en la mesa o no: cada animal del mercado puede tener 1
@@ -149,19 +154,19 @@ export function buildTargetChoice(
         label: `${label} →`,
         accentClassName,
         next: {
-          title: `¿Qué animal coges a cambio de ${label}?`,
+          title: tr('¿Qué animal coges a cambio de {label}?', { label }),
           options: [...bySecondary.keys()]
             .sort((x, y) => costOf(state, player, x) - costOf(state, player, y))
             .map((secondaryId) => ({
               label: targetLabel(state, player, secondaryId, artStyle),
               accentClassName: accentClassFor(state, player, secondaryId),
-              ...leafChoice(card.name, bySecondary.get(secondaryId)!),
+              ...leafChoice(cardNameLocalized(card), bySecondary.get(secondaryId)!),
             })),
         },
       };
     });
 
-  return { title: `${card.name}: elige el objetivo`, options };
+  return { title: tr('{card}: elige el objetivo', { card: cardNameLocalized(card) }), options };
 }
 
 type PlayOrUseAbilityAction = Extract<Action, { type: 'playCard' | 'useDiscardedAnimalAbility' }>;
@@ -179,10 +184,10 @@ function leafChoice(cardName: string, group: PlayOrUseAbilityAction[]): { action
   if (!tableAction || !discardAction) return { action: group[0] };
   return {
     next: {
-      title: `${cardName}: ¿dónde lo dejas?`,
+      title: tr('{card}: ¿dónde lo dejas?', { card: cardName }),
       options: [
-        { label: 'Dejarlo sobre la mesa', action: tableAction },
-        { label: 'Enviarlo al descarte', action: discardAction },
+        { label: tr('Dejarlo sobre la mesa'), action: tableAction },
+        { label: tr('Enviarlo al descarte'), action: discardAction },
       ],
     },
   };

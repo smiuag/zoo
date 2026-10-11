@@ -11,6 +11,7 @@ import { Ranking } from './components/Ranking';
 import { ScoreCalculator } from './components/ScoreCalculator';
 import { Tutorial } from './components/Tutorial';
 import { ArtStyleProvider } from './lib/artStyle';
+import { LangProvider, useLang } from './lib/i18n';
 import { ActiveEditionProvider, useReportActiveEdition } from './lib/activeEdition';
 import { createHostRoom, type CreatedRoom } from './online/createHostRoom';
 import { computePosition, recordGameResult, summarizeCollection, toResultEdition, type GameMode } from './online/gameResults';
@@ -19,6 +20,7 @@ import { saveSetupPrefs } from './lib/gameConfig';
 import { useHostRoom } from './online/useHostRoom';
 import { clearOnlineRoom, loadOnlineRoom, saveOnlineRoom } from './online/onlineRoomStorage';
 import { DEFAULT_ROUND_LIMIT, useGame, type GameConfig, type RoundLimit } from './state/useGame';
+import type { Lang } from './lib/i18n';
 
 function useGuestRouteParams(): { roomCode: string; seatId: string; seatKey: string } | null {
   const params = new URLSearchParams(window.location.search);
@@ -33,6 +35,7 @@ export default function App() {
   const guestParams = useGuestRouteParams();
   return (
     <BrowserRouter>
+      <LangProvider>
       <ArtStyleProvider>
         <ActiveEditionProvider>
           {guestParams ? (
@@ -50,6 +53,7 @@ export default function App() {
           </Routes>
         </ActiveEditionProvider>
       </ArtStyleProvider>
+      </LangProvider>
     </BrowserRouter>
   );
 }
@@ -74,6 +78,15 @@ function HostOrLocalApp() {
     restartTurn,
     setBotAlgorithm,
   } = useGame();
+  const { setLang } = useLang();
+  // Idioma de cada humano de la partida en curso (config.langs de
+  // GameSetup). En local la interfaz cambia al del jugador al que le toca
+  // (viewerPlayerId, más abajo); online el host siempre es human-0.
+  const [playerLangs, setPlayerLangs] = useState<Lang[]>([]);
+  const startGameWithLangs = (config: GameConfig) => {
+    setPlayerLangs(config.langs ?? []);
+    startGame(config);
+  };
 
   // Ver activeEdition.tsx: qué edición está jugando esta pestaña ahora
   // mismo, para que CardEncyclopedia.tsx sepa qué cartas mostrar sin
@@ -125,6 +138,15 @@ function HostOrLocalApp() {
   // invitado resuelve su propio descarte pendiente).
   const legalActions = phase === 'playing' ? getLegalActions(state, viewerPlayerId) : [];
 
+  // Cada jugador ve la partida en su idioma: en local, al pasar el turno a
+  // otro humano la interfaz cambia al suyo; online, el host es human-0.
+  const viewerLangIndex = Number(viewerPlayerId.split('-')[1]);
+  const viewerLang = playerLangs[viewerLangIndex];
+  useEffect(() => {
+    if (phase === 'playing' && viewerLang) setLang(viewerLang);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, viewerLang]);
+
   // "Repetir partida" online (ver ReplayStatus en online/protocol.ts): en
   // cuanto todos los humanos han aceptado, se reinicia con la MISMA config
   // exacta con la que se creó esta sala (mismos nicks/bots/duración) — ni
@@ -132,7 +154,7 @@ function HostOrLocalApp() {
   // cual desde el principio.
   function handleOnlineReplayAccepted() {
     if (!onlineRoom) return;
-    startGame(onlineRoom.config);
+    startGameWithLangs(onlineRoom.config);
   }
 
   const { connectedSeatIds, connectedSeatNicks, replayStatus, proposeReplay, respondReplay } = useHostRoom({
@@ -250,7 +272,7 @@ function HostOrLocalApp() {
       customCopyDeltas: config.customCopyDeltas,
     });
     saveEdition(config.edition ?? 'classic');
-    startGame(config);
+    startGameWithLangs(config);
   }
 
   // Cambios de config en la sala de espera (ver OnlineWaitingRoom): no tocan
@@ -305,8 +327,9 @@ function HostOrLocalApp() {
       edition: state.edition,
       customSpecies: state.customSpeciesList,
       customCopyDeltas: state.customCopyDeltas,
+      langs: playerLangs,
     };
-    startGame(config);
+    startGameWithLangs(config);
   }
 
   if (showScoreCalculator) {
@@ -338,7 +361,7 @@ function HostOrLocalApp() {
     }
     return (
       <GameSetup
-        onStart={startGame}
+        onStart={startGameWithLangs}
         onCreateOnlineRoom={handleCreateOnlineRoom}
         onOpenScoreCalculator={() => setShowScoreCalculator(true)}
         onOpenRanking={() => setShowRanking(true)}

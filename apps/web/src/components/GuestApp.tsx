@@ -7,6 +7,7 @@ import { computePosition, recordGameResult, summarizeCollection, toResultEdition
 import { useReportActiveEdition } from '../lib/activeEdition';
 import { editionLabel } from '../lib/edition';
 import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
+import { LANGS, LANG_LABELS, saveDeviceLang, useT, type Lang } from '../lib/i18n';
 
 interface GuestAppProps {
   roomCode: string;
@@ -28,6 +29,13 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
   // host, ver lib/gameConfig.ts) para no tener que volver a escribirlo cada
   // vez, pero editable antes de unirse.
   const [nickInput, setNickInput] = useState(loadSavedNick);
+  // Cada invitado ve la partida en SU idioma, elegido al unirse: es solo
+  // cosa de este dispositivo, no viaja al anfitrión ni a los demás.
+  const { t, lang, setLang } = useT();
+  function handleLangChange(next: Lang) {
+    setLang(next);
+    saveDeviceLang(next);
+  }
   const [joinedNick, setJoinedNick] = useState('');
 
   const { status, state, humanIds, botAlgorithms, scores, lobbyInfo, legalActions, animationsEnabled, sendAction, replayStatus, proposeReplay, respondReplay } =
@@ -87,26 +95,36 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
       <div className="app app--setup">
         <form className="panel setup-panel" onSubmit={handleJoin}>
           <div className="panel__header">
-            <h2>Sala {roomCode}</h2>
+            <h2>{t('Sala {code}', { code: roomCode })}</h2>
           </div>
           <div className="setup-row">
-            <label htmlFor="guest-nick">Tu nick</label>
+            <label htmlFor="guest-nick">{t('Tu nick')}</label>
             <input
               id="guest-nick"
               className="setup-nick"
               type="text"
               value={nickInput}
               maxLength={MAX_NICK_LENGTH}
-              placeholder="Tú"
+              placeholder={t('Tú')}
               autoComplete="nickname"
               spellCheck={false}
               autoFocus
               onChange={(e) => setNickInput(e.target.value)}
             />
-            <span className="setup-hint">Hasta {MAX_NICK_LENGTH} letras. Así te verán el resto en la partida.</span>
+            <span className="setup-hint">{t('Hasta {n} letras. Así te verán el resto en la partida.', { n: MAX_NICK_LENGTH })}</span>
+          </div>
+          <div className="setup-row">
+            <label htmlFor="guest-lang">{t('Idioma')}</label>
+            <select id="guest-lang" value={lang} onChange={(e) => handleLangChange(e.target.value as Lang)}>
+              {LANGS.map((l) => (
+                <option key={l} value={l}>
+                  {LANG_LABELS[l]}
+                </option>
+              ))}
+            </select>
           </div>
           <button className="btn btn--primary" type="submit">
-            Unirse
+            {t('Unirse')}
           </button>
         </form>
       </div>
@@ -118,41 +136,44 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
       <div className="app app--setup">
         <div className="panel setup-panel">
           <div className="panel__header">
-            <h2>Sala {roomCode}</h2>
+            <h2>{t('Sala {code}', { code: roomCode })}</h2>
           </div>
           <p className="setup-hint">
-            {status === 'connecting' && 'Conectando...'}
-            {status === 'waitingForHost' && 'Conectado. Esperando a que el anfitrión empiece la partida...'}
+            {status === 'connecting' && t('Conectando...')}
+            {status === 'waitingForHost' && t('Conectado. Esperando a que el anfitrión empiece la partida...')}
           </p>
           {status === 'waitingForHost' && lobbyInfo && (
             <div className="setup-bot-list">
               <div className="setup-row setup-row--bot">
                 <label>
-                  Edición: <strong>{editionLabel(lobbyInfo.edition)}</strong>
-                  {lobbyInfo.customSpeciesCount !== undefined && ` (${lobbyInfo.customSpeciesCount} especies)`}
+                  {t('Edición:')} <strong>{editionLabel(lobbyInfo.edition)}</strong>
+                  {lobbyInfo.customSpeciesCount !== undefined &&
+                    ` (${t('{n} especies', { n: lobbyInfo.customSpeciesCount })})`}
                 </label>
               </div>
               <div className="setup-row setup-row--bot">
-                <label>Duración: {lobbyInfo.roundLimit} rondas</label>
+                <label>{t('Duración: {n} rondas', { n: lobbyInfo.roundLimit })}</label>
               </div>
               <div className="setup-row setup-row--bot">
                 <label>
-                  Bots:{' '}
+                  {t('Bots:')}{' '}
                   {lobbyInfo.botAlgorithms.length === 0
-                    ? 'ninguno'
+                    ? t('ninguno')
                     : lobbyInfo.botAlgorithms
                         .map((a) => BOT_ALGORITHM_OPTIONS.find((o) => o.value === a)?.label ?? a)
                         .join(', ')}
                 </label>
               </div>
               <div className="setup-row setup-row--bot">
-                <label>Animaciones: {lobbyInfo.animationsEnabled ? 'sí' : 'no'}</label>
+                <label>{t('Animaciones: {v}', { v: lobbyInfo.animationsEnabled ? t('sí') : t('no') })}</label>
               </div>
               {lobbyInfo.players.map((player) => (
                 <div key={player.seatId} className="setup-row setup-row--bot">
                   <label>
-                    {player.seatId === seatId ? 'Tú' : (player.nick ?? `Jugador ${Number(player.seatId.split('-')[1]) + 1}`)}{' '}
-                    {player.connected ? '🟢 conectado' : '⏳ esperando'}
+                    {player.seatId === seatId
+                      ? t('Tú')
+                      : (player.nick ?? t('Jugador {n}', { n: Number(player.seatId.split('-')[1]) + 1 }))}{' '}
+                    {player.connected ? t('🟢 conectado') : t('⏳ esperando')}
                   </label>
                 </div>
               ))}
@@ -160,8 +181,7 @@ export function GuestApp({ roomCode, seatId, seatKey }: GuestAppProps) {
           )}
           {slowConnect && (
             <p className="setup-hint">
-              Está tardando más de lo normal — seguimos intentándolo solos. Si el anfitrión también refrescó su
-              pantalla, dile que pulse "Reanudar partida online" en la suya.
+              {t('Está tardando más de lo normal — seguimos intentándolo solos. Si el anfitrión también refrescó su pantalla, dile que pulse "Reanudar partida online" en la suya.')}
             </p>
           )}
         </div>

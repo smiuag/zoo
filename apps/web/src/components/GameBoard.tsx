@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   effectiveMarketCost,
   getActivePlayer,
+  getAllCards,
   getCard,
   hasCoinAtLeast,
   hasUpgradableCoin,
@@ -28,12 +29,21 @@ import { buildTargetChoice, type PendingChoice } from '../lib/pendingChoice';
 import { currencyLabel, useArtStyle } from '../lib/artStyle';
 import type { BotAlgorithm } from '../lib/gameConfig';
 import type { ReplayStatus } from '../online/protocol';
+import { cardNameLocalized, tr, useT } from '../lib/i18n';
 
 // Cuántas rondas del final se consideran "recta final" (contador de ronda
 // en rojo, ver .status-pill__round--final).
 const FINAL_ROUNDS_WARNING = 5;
 
 const PURCHASABLE_COIN_IDS = ['coin-2', 'coin-3', 'coin-5'];
+
+// El motor guarda sourceCardName en castellano (o 'efecto'): se localiza buscando la
+// carta por nombre para poder mostrarlo en el idioma del visor.
+const CARD_BY_NAME = new Map(getAllCards().map((c) => [c.name, c]));
+function localSourceName(name: string): string {
+  const card = CARD_BY_NAME.get(name);
+  return card ? cardNameLocalized(card) : name === 'efecto' ? tr('efecto') : name;
+}
 
 // "Repetir partida" (botón en el resumen de fin de partida, ver más abajo):
 // 'local' (pase-y-juega en este mismo dispositivo, o solitario contra
@@ -112,6 +122,7 @@ export function GameBoard({
   replay,
 }: GameBoardProps) {
   const navigate = useNavigate();
+  const { t } = useT();
   const activePlayer = getActivePlayer(state);
   // Mismo cálculo que ActivePlayerBoard (comparten el hook): aquí solo hace
   // falta la cifra, para la barra inferior de más abajo — ver .bottom-bar
@@ -162,7 +173,7 @@ export function GameBoard({
   // elegir es idéntica al descarte forzoso normal.
   const isDestroy = state.pendingDecision?.kind === 'destroy';
   const isGiveToPlayer = state.pendingDecision?.kind === 'giveToPlayer';
-  const discardVerb = isDestroy ? 'Elimina' : isGiveToPlayer ? 'Entrega' : 'Descarta';
+  const discardVerb = isDestroy ? t('Elimina') : isGiveToPlayer ? t('Entrega') : t('Descarta');
   // Cartas de tu propia mano que puedes elegir ahora mismo para el
   // descarte pendiente (se muestran en el popup de abajo): se derivan de
   // legalActions, nunca de owedDiscard.eligibleInstanceIds directamente,
@@ -185,7 +196,10 @@ export function GameBoard({
   // como 1 carta más.
   const hasSlothSubstitute = eligibleDiscardCards.some((c) => c.id === 'sloth');
   const discardSourcePlayerName = state.pendingDecision
-    ? (state.players.find((p) => p.id === state.pendingDecision!.sourcePlayerId)?.name ?? '')
+    ? (() => {
+        const source = state.players.find((p) => p.id === state.pendingDecision!.sourcePlayerId);
+        return source ? scoreboardName(source) : '';
+      })()
     : '';
   // Serpiente: si el visor es quien la jugó y toca elegir qué habilidad
   // usar (ver pendingAnimalAbilityChoice en el motor), resuelve cada
@@ -508,7 +522,7 @@ export function GameBoard({
       runAction(acts[0]);
       return;
     }
-    setPendingChoice(buildTargetChoice(acts, state, human, card, artStyle));
+    setPendingChoice(buildTargetChoice(acts, state, human, card, artStyle, scoreboardName));
   }
 
   // Serpiente: elegir uno de los animales recién descartados por "cada
@@ -525,7 +539,7 @@ export function GameBoard({
       runAction(acts[0]);
       return;
     }
-    setPendingChoice(buildTargetChoice(acts, state, human, card, artStyle));
+    setPendingChoice(buildTargetChoice(acts, state, human, card, artStyle, scoreboardName));
   }
 
   function isHandCardClickable(card: CardInstance): boolean {
@@ -586,9 +600,9 @@ export function GameBoard({
   function pointsLabel(count: number, perCardPoints: number[]): string {
     const [first, ...rest] = perCardPoints;
     const allEqual = rest.every((p) => p === first);
-    if (count > 1 && allEqual) return `${count}× ${first} PV`;
+    if (count > 1 && allEqual) return t('{count}× {pv} PV', { count, pv: first });
     const total = perCardPoints.reduce((sum, p) => sum + p, 0);
-    return `${total} PV`;
+    return t('{pv} PV', { pv: total });
   }
 
   function habitatCounts(player: (typeof state.players)[number]): { land: number; bird: number; aquatic: number } {
@@ -614,12 +628,12 @@ export function GameBoard({
   // lógica, dos sitios distintos donde puede aparecer.
   function renderStatusPill() {
     if (state.gameOver) {
-      return <span className="status-pill status-pill--over">Partida terminada</span>;
+      return <span className="status-pill status-pill--over">{t('Partida terminada')}</span>;
     }
     if (owedDiscard) {
       return (
         <span className="status-pill status-pill--discard">
-          {discardVerb} {owedDiscard.amount} carta{owedDiscard.amount === 1 ? '' : 's'} — {state.pendingDecision!.sourceCardName}
+          {discardVerb} {owedDiscard.amount} {owedDiscard.amount === 1 ? t('carta') : t('cartas')} — {localSourceName(state.pendingDecision!.sourceCardName)}
         </span>
       );
     }
@@ -635,10 +649,10 @@ export function GameBoard({
               : 'status-pill__round'
           }
         >
-          Ronda {state.round}/{state.maxRounds ?? '∞'}
+          {t('Ronda {round}/{max}', { round: state.round, max: state.maxRounds ?? '∞' })}
         </span>{' '}
-        {canAct && ` — turno de ${displayName(activePlayer, humanIds, botAlgorithms)}`}
-        {isLastTurn && <span className="status-pill__last"> · ¡último turno!</span>}
+        {canAct && ` — ${t('turno de {name}', { name: displayName(activePlayer, humanIds, botAlgorithms) })}`}
+        {isLastTurn && <span className="status-pill__last"> · {t('¡último turno!')}</span>}
       </span>
     );
   }
@@ -700,12 +714,12 @@ export function GameBoard({
                 .filter(Boolean)
                 .join(' ')}
               onClick={clickable ? () => setViewedPlayerId(p.id) : undefined}
-              title={`${p.name}${humanIds.includes(p.id) ? '' : ` (${BOT_ALGORITHM_OPTIONS.find((o) => o.value === botAlgorithms[p.id])?.label ?? ''})`}: ${scoreFor(p.id)} PV${clickable ? ' · ver mazo' : ' · mazo privado hasta que termine la partida'}`}
+              title={`${p.name}${humanIds.includes(p.id) ? '' : ` (${t(BOT_ALGORITHM_OPTIONS.find((o) => o.value === botAlgorithms[p.id])?.label ?? '')})`}: ${scoreFor(p.id)} ${t('PV')}${clickable ? ` · ${t('ver mazo')}` : ` · ${t('mazo privado hasta que termine la partida')}`}`}
             >
               <strong>{scoreboardName(p)}</strong>
               <span className="scoreboard__pv">
                 {scoreFor(p.id)}
-                <small>PV</small>
+                <small>{t('PV')}</small>
               </span>
             </li>
           );
@@ -745,10 +759,10 @@ export function GameBoard({
   const handPanel = !state.gameOver && human.hand.length > 0 && (
     <div className="panel">
       <div className="panel__header">
-        <h2>Tu mano</h2>
+        <h2>{t('Tu mano')}</h2>
         <span className="panel__hint">
-          🂠 {human.deck.length} en el mazo · 🗑️ {human.discard.length} en el descarte
-          {(human.table?.length ?? 0) > 0 ? ` · 🐕 ${human.table.length} sobre la mesa` : ''}
+          🂠 {t('{n} en el mazo', { n: human.deck.length })} · 🗑️ {t('{n} en el descarte', { n: human.discard.length })}
+          {(human.table?.length ?? 0) > 0 ? ` · 🐕 ${t('{n} sobre la mesa', { n: human.table.length })}` : ''}
         </span>
       </div>
       <div className="card-row card-row--hand">
@@ -796,8 +810,8 @@ export function GameBoard({
     <div className="app">
       {lastTurnNotice && (
         <div className="turn-toast" role="status">
-          <span>🏁 ¡Último turno! Cuando lo termines, se acaba la partida.</span>
-          <button type="button" className="turn-toast__close" aria-label="Cerrar aviso" onClick={() => setLastTurnNotice(false)}>
+          <span>{t('🏁 ¡Último turno! Cuando lo termines, se acaba la partida.')}</span>
+          <button type="button" className="turn-toast__close" aria-label={t('Cerrar aviso')} onClick={() => setLastTurnNotice(false)}>
             ✕
           </button>
         </div>
@@ -835,11 +849,11 @@ export function GameBoard({
                     endTurn();
                   }}
                 >
-                  Terminar turno
+                  {t('Terminar turno')}
                 </button>
                 {onRestartTurn && (
                   <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
-                    ↺ Reiniciar turno
+                    ↺ {t('Reiniciar turno')}
                   </button>
                 )}
               </>
@@ -853,12 +867,12 @@ export function GameBoard({
             <div className="bottom-bar__scoreboard">{renderScoreboard()}</div>
             <div className="bottom-bar__right">
               {renderStatusPill()}
-              <button className="btn btn--ghost btn--new-game" onClick={() => navigate('/cartas')} title="Enciclopedia de cartas">
-                📖 <span className="btn__label">Cartas</span>
+              <button className="btn btn--ghost btn--new-game" onClick={() => navigate('/cartas')} title={t('Enciclopedia de cartas')}>
+                📖 <span className="btn__label">{t('Cartas')}</span>
               </button>
               {onNewGame && (
-                <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title="Nueva partida">
-                  ↺ <span className="btn__label">Nueva partida</span>
+                <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title={t('Nueva partida')}>
+                  ↺ <span className="btn__label">{t('Nueva partida')}</span>
                 </button>
               )}
             </div>
@@ -877,12 +891,16 @@ export function GameBoard({
           {!state.gameOver && (
             <div className="bottom-bar">
               <span className="bottom-bar__turn">
-                Ronda {state.round}/{state.maxRounds ?? '∞'}
-                {!isOwnTurn && ` · turno de ${displayName(activePlayer, humanIds, botAlgorithms)}`}
+                {t('Ronda {round}/{max}', { round: state.round, max: state.maxRounds ?? '∞' })}
+                {!isOwnTurn && ` · ${t('turno de {name}', { name: displayName(activePlayer, humanIds, botAlgorithms) })}`}
               </span>
               <span
                 className="bottom-bar__money"
-                title={`Valor de compra de ${displayName(activePlayer, humanIds, botAlgorithms)}: ${purchasingPower} disponibles; ${purchasingPowerPeak} en total este turno contando lo ya gastado`}
+                title={t('Valor de compra de {name}: {available} disponibles; {total} en total este turno contando lo ya gastado', {
+                  name: displayName(activePlayer, humanIds, botAlgorithms),
+                  available: purchasingPower,
+                  total: purchasingPowerPeak,
+                })}
               >
                 💰 {purchasingPower}/{purchasingPowerPeak}
               </span>
@@ -896,7 +914,7 @@ export function GameBoard({
                 <div className="bottom-bar__actions">
                   {onRestartTurn && (
                     <button className="btn btn--ghost" disabled={!canRestartTurn} onClick={handleRestartTurn}>
-                      ↺ Reiniciar turno
+                      ↺ {t('Reiniciar turno')}
                     </button>
                   )}
                   <button
@@ -910,7 +928,7 @@ export function GameBoard({
                       endTurn();
                     }}
                   >
-                    Terminar turno
+                    {t('Terminar turno')}
                   </button>
                 </div>
               )}
@@ -921,18 +939,18 @@ export function GameBoard({
       {state.gameOver && (
         <div className="panel" ref={summaryRef}>
           <div className="panel__header">
-            <h2>Resumen de la partida</h2>
+            <h2>{t('Resumen de la partida')}</h2>
             {/* Con la partida terminada se oculta el resto del tablero (mano,
                 mesa, mercado, bots) — pedido explícito del usuario
                 2026-09-24 — así que "Nueva partida" tiene que vivir aquí
                 también para que siga habiendo forma de pulsarlo en móvil (en
                 escritorio ya estaba siempre visible en la barra de abajo). */}
-            <button className="btn btn--ghost btn--new-game" onClick={() => navigate('/cartas')} title="Enciclopedia de cartas">
-              📖 <span className="btn__label">Cartas</span>
+            <button className="btn btn--ghost btn--new-game" onClick={() => navigate('/cartas')} title={t('Enciclopedia de cartas')}>
+              📖 <span className="btn__label">{t('Cartas')}</span>
             </button>
             {onNewGame && (
-              <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title="Nueva partida">
-                ↺ <span className="btn__label">Nueva partida</span>
+              <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title={t('Nueva partida')}>
+                ↺ <span className="btn__label">{t('Nueva partida')}</span>
               </button>
             )}
           </div>
@@ -941,8 +959,8 @@ export function GameBoard({
               const best = Math.max(...scores.map((s) => s.score));
               const winners = state.players.filter((p) => scoreFor(p.id) === best);
               return winners.length > 1
-                ? `Empate entre ${winners.map((w) => scoreboardName(w)).join(' y ')} con ${best} PV.`
-                : `${scoreboardName(winners[0])} gana con ${best} PV.`;
+                ? t('Empate entre {names} con {pv} PV.', { names: winners.map((w) => scoreboardName(w)).join(` ${t('y')} `), pv: best })
+                : t('{name} gana con {pv} PV.', { name: scoreboardName(winners[0]), pv: best });
             })()}
           </p>
           <div className="summary-table-wrap">
@@ -950,14 +968,14 @@ export function GameBoard({
               <thead>
                 <tr>
                   <th></th>
-                  <th>Jugador</th>
-                  <th>PV</th>
-                  <th>Valor baraja</th>
-                  <th>Compras</th>
-                  <th>Terrestres</th>
-                  <th>Voladores</th>
-                  <th>Acuáticos</th>
-                  <th>Turno con más dinero</th>
+                  <th>{t('Jugador')}</th>
+                  <th>{t('PV')}</th>
+                  <th>{t('Valor baraja')}</th>
+                  <th>{t('Compras')}</th>
+                  <th>{t('Terrestres')}</th>
+                  <th>{t('Voladores')}</th>
+                  <th>{t('Acuáticos')}</th>
+                  <th>{t('Turno con más dinero')}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -987,12 +1005,16 @@ export function GameBoard({
                         <td>{habitats.aquatic}</td>
                         <td>
                           {p.richestTurn
-                            ? `Ronda ${p.richestTurn.round} · ${p.richestTurn.amount} ${currencyLabel(artStyle, p.richestTurn.amount)}`
+                            ? t('Ronda {round} · {amount} {currency}', {
+                                round: p.richestTurn.round,
+                                amount: p.richestTurn.amount,
+                                currency: t(currencyLabel(artStyle, p.richestTurn.amount)),
+                              })
                             : '—'}
                         </td>
                         <td>
                           <button className="btn btn--ghost" onClick={() => setViewedPlayerId(p.id)}>
-                            Ver mazo →
+                            {t('Ver mazo →')}
                           </button>
                         </td>
                       </tr>
@@ -1007,9 +1029,9 @@ export function GameBoard({
               {replay.mode === 'local' ? (
                 confirmLocalReplay ? (
                   <div className="replay-pending">
-                    <span className="setup-hint">¿Repetir con la misma configuración?</span>
+                    <span className="setup-hint">{t('¿Repetir con la misma configuración?')}</span>
                     <button className="btn btn--ghost" onClick={() => setConfirmLocalReplay(false)}>
-                      Cancelar
+                      {t('Cancelar')}
                     </button>
                     <button
                       className="btn btn--primary"
@@ -1018,12 +1040,12 @@ export function GameBoard({
                         replay.onReplay();
                       }}
                     >
-                      Sí, repetir
+                      {t('Sí, repetir')}
                     </button>
                   </div>
                 ) : (
                   <button className="btn btn--primary" onClick={() => setConfirmLocalReplay(true)}>
-                    🔁 Repetir partida
+                    🔁 {t('Repetir partida')}
                   </button>
                 )
               ) : replay.status === null ? (
@@ -1031,36 +1053,41 @@ export function GameBoard({
                   <button
                     className="btn btn--primary"
                     disabled={!replay.allGuestsConnected}
-                    title={replay.allGuestsConnected ? undefined : 'Algún invitado se ha desconectado'}
+                    title={replay.allGuestsConnected ? undefined : t('Algún invitado se ha desconectado')}
                     onClick={replay.onPropose}
                   >
-                    🔁 Repetir partida
+                    🔁 {t('Repetir partida')}
                   </button>
                   {!replay.allGuestsConnected && (
-                    <span className="setup-hint">Algún invitado se ha desconectado</span>
+                    <span className="setup-hint">{t('Algún invitado se ha desconectado')}</span>
                   )}
                 </div>
               ) : replay.status.acceptedSeatIds.includes(replay.viewerSeatId) ? (
                 <div className="replay-pending">
                   <span className="setup-hint">
-                    Esperando a los demás para repetir ({replay.status.acceptedSeatIds.length}/
-                    {replay.status.totalHumanSeats})...
+                    {t('Esperando a los demás para repetir ({n}/{total})...', {
+                      n: replay.status.acceptedSeatIds.length,
+                      total: replay.status.totalHumanSeats,
+                    })}
                   </span>
                   <button className="btn btn--ghost" onClick={() => replay.onRespond(false)}>
-                    Cancelar
+                    {t('Cancelar')}
                   </button>
                 </div>
               ) : (
                 <div className="replay-pending">
                   <span className="setup-hint">
-                    {replay.status.proposedByName} propone repetir la partida ({replay.status.acceptedSeatIds.length}/
-                    {replay.status.totalHumanSeats} aceptado)
+                    {t('{name} propone repetir la partida ({n}/{total} aceptado)', {
+                      name: replay.status.proposedByName,
+                      n: replay.status.acceptedSeatIds.length,
+                      total: replay.status.totalHumanSeats,
+                    })}
                   </span>
                   <button className="btn btn--ghost" onClick={() => replay.onRespond(false)}>
-                    Rechazar
+                    {t('Rechazar')}
                   </button>
                   <button className="btn btn--primary" onClick={() => replay.onRespond(true)}>
-                    Aceptar
+                    {t('Aceptar')}
                   </button>
                 </div>
               )}
@@ -1068,10 +1095,10 @@ export function GameBoard({
                 <button
                   className="btn btn--ghost"
                   type="button"
-                  title="Volver a la sala de espera para cambiar modo o configuración, sin perder a los invitados"
+                  title={t('Volver a la sala de espera para cambiar modo o configuración, sin perder a los invitados')}
                   onClick={replay.onChangeMode}
                 >
-                  ⚙️ Cambiar modo
+                  ⚙️ {t('Cambiar modo')}
                 </button>
               )}
             </div>
@@ -1092,12 +1119,12 @@ export function GameBoard({
             <div className="panel panel--status">
               <div className="status-row">
                 {renderStatusPill()}
-                <button className="btn btn--ghost btn--new-game" onClick={() => navigate('/cartas')} title="Enciclopedia de cartas">
-                  📖 <span className="btn__label">Cartas</span>
+                <button className="btn btn--ghost btn--new-game" onClick={() => navigate('/cartas')} title={t('Enciclopedia de cartas')}>
+                  📖 <span className="btn__label">{t('Cartas')}</span>
                 </button>
                 {onNewGame && (
-                  <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title="Nueva partida">
-                    ↺ <span className="btn__label">Nueva partida</span>
+                  <button className="btn btn--ghost btn--new-game" onClick={onNewGame} title={t('Nueva partida')}>
+                    ↺ <span className="btn__label">{t('Nueva partida')}</span>
                   </button>
                 )}
               </div>
@@ -1124,7 +1151,7 @@ export function GameBoard({
               <div className="panel__header">
                 <h2>{pendingChoice.title}</h2>
                 <button className="btn btn--ghost" onClick={() => setPendingChoice(null)}>
-                  ✕ cancelar
+                  {t('✕ cancelar')}
                 </button>
               </div>
               <div className="action-list">
@@ -1183,19 +1210,19 @@ export function GameBoard({
       {/* Cerrado por defecto: el texto del log solo aparece al pulsar el
           enlace pequeño — pedido explícito del usuario 2026-09-23. */}
       <details className="log-details">
-        <summary>Ver log de la partida</summary>
+        <summary>{t('Ver log de la partida')}</summary>
         <pre>{state.log.slice(-40).join('\n')}</pre>
       </details>
 
       <div className="panel panel--bots">
         <div className="panel__header">
-          <h2>Bots</h2>
+          <h2>{t('Bots')}</h2>
         </div>
         <div className="player-strip">
           {bots.map((bot) => (
             <span key={bot.id} className="chip">
-              <strong>{bot.name}</strong> · mano: {bot.hand.length} · descarte: {bot.discard.length}
-              {(bot.table?.length ?? 0) > 0 ? ` · mesa: ${bot.table.length}` : ''}
+              <strong>{bot.name}</strong> · {t('mano: {n}', { n: bot.hand.length })} · {t('descarte: {n}', { n: bot.discard.length })}
+              {(bot.table?.length ?? 0) > 0 ? ` · ${t('mesa: {n}', { n: bot.table.length })}` : ''}
               {onSetBotAlgorithm ? (
                 <select
                   className="bot-algorithm-select"
@@ -1204,14 +1231,14 @@ export function GameBoard({
                 >
                   {BOT_ALGORITHM_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
-                      {opt.label}
+                      {t(opt.label)}
                     </option>
                   ))}
                 </select>
               ) : (
                 <span className="chip__hint">
                   {' '}
-                  · {BOT_ALGORITHM_OPTIONS.find((o) => o.value === botAlgorithms[bot.id])?.label ?? botAlgorithms[bot.id]}
+                  · {t(BOT_ALGORITHM_OPTIONS.find((o) => o.value === botAlgorithms[bot.id])?.label ?? botAlgorithms[bot.id])}
                 </span>
               )}
             </span>
@@ -1228,19 +1255,32 @@ export function GameBoard({
           <div className="modal modal--discard">
             <div className="panel__header">
               <h2>
-                {discardVerb} {owedDiscard.amount} carta{owedDiscard.amount === 1 ? '' : 's'}
+                {discardVerb} {owedDiscard.amount} {owedDiscard.amount === 1 ? t('carta') : t('cartas')}
               </h2>
             </div>
             <p className="modal__message">
-              {discardSourcePlayerName} ha jugado <strong>{state.pendingDecision?.sourceCardName}</strong>: tienes
-              que {isDestroy ? 'eliminar de la partida' : isGiveToPlayer ? `darle a ${discardSourcePlayerName}` : 'descartar'}{' '}
-              {owedDiscard.amount === 1 ? 'una carta' : `${owedDiscard.amount} cartas`}{' '}
-              {eligibleOnlyOnTable ? 'de las que tienes sobre la mesa' : eligibleOnTable.length > 0 ? 'de tu mano o de tu mesa' : 'de tu mano'}.
-              Elige cuál{owedDiscard.amount === 1 ? '' : 'es'}.
+              {t('{name} ha jugado', { name: discardSourcePlayerName })}{' '}
+              <strong>{state.pendingDecision ? localSourceName(state.pendingDecision.sourceCardName) : ''}</strong>:{' '}
+              {t('tienes que')}{' '}
+              {isDestroy
+                ? t('eliminar de la partida')
+                : isGiveToPlayer
+                  ? t('darle a {name}', { name: discardSourcePlayerName })
+                  : t('descartar')}{' '}
+              {owedDiscard.amount === 1 ? t('una carta') : t('{n} cartas', { n: owedDiscard.amount })}{' '}
+              {eligibleOnlyOnTable
+                ? t('de las que tienes sobre la mesa')
+                : eligibleOnTable.length > 0
+                  ? t('de tu mano o de tu mesa')
+                  : t('de tu mano')}
+              . {owedDiscard.amount === 1 ? t('Elige cuál.') : t('Elige cuáles.')}
               {hasSlothSubstitute && (
                 <>
                   {' '}
-                  <strong>Truco:</strong> descartar tu Perezoso cubre toda la entrega él solo.
+                  <strong>{t('Truco:')}</strong>{' '}
+                  {t('descartar tu {animal} cubre toda la entrega él solo.', {
+                    animal: cardNameLocalized({ id: 'sloth', name: 'Perezoso' }),
+                  })}
                 </>
               )}
             </p>
@@ -1252,7 +1292,7 @@ export function GameBoard({
                     onClick={() => runAction(resolveDiscardActionFor(legalActions, card.instanceId))}
                     hideType
                   />
-                  {tableInstanceIds.has(card.instanceId) && <span className="discard-option__where">sobre la mesa</span>}
+                  {tableInstanceIds.has(card.instanceId) && <span className="discard-option__where">{t('sobre la mesa')}</span>}
                 </div>
               ))}
             </div>
@@ -1262,8 +1302,7 @@ export function GameBoard({
               // (un caso que no debería darse), se explica y se deja seguir la partida en vez de
               // bloquearla para todos.
               <p className="modal__message">
-                No encuentro ninguna carta que puedas entregar, así que no hay nada que elegir. Esto no debería pasar:
-                si lo ves, cuéntamelo con una captura.
+                {t('No encuentro ninguna carta que puedas entregar, así que no hay nada que elegir. Esto no debería pasar: si lo ves, cuéntamelo con una captura.')}
               </p>
             )}
           </div>
@@ -1282,12 +1321,12 @@ export function GameBoard({
         <div className="modal-backdrop">
           <div className="modal modal--discard">
             <div className="panel__header">
-              <h2>Elige una habilidad</h2>
+              <h2>{t('Elige una habilidad')}</h2>
             </div>
             <p className="modal__message">
-              Tu <strong>{animalAbilityChoice.sourceCardName}</strong> hizo que cada jugador descartara un animal.
-              Elige uno de ellos para usar su habilidad como si lo hubieras jugado tú (se queda donde está, en el
-              descarte de quien lo entregó).
+              {t('Tu')} <strong>{localSourceName(animalAbilityChoice.sourceCardName)}</strong>{' '}
+              {t('hizo que cada jugador descartara un animal.')}{' '}
+              {t('Elige uno de ellos para usar su habilidad como si lo hubieras jugado tú (se queda donde está, en el descarte de quien lo entregó).')}
             </p>
             <div className="card-row">
               {animalAbilityCandidates.map((card) => (
@@ -1307,14 +1346,14 @@ export function GameBoard({
         <div className="modal-backdrop" onClick={() => setConfirmEndTurn(false)}>
           <div className="modal modal--confirm" onClick={(e) => e.stopPropagation()}>
             <div className="panel__header">
-              <h2>¿Terminar turno?</h2>
+              <h2>{t('¿Terminar turno?')}</h2>
             </div>
             <p className="modal__message">
-              Todavía tienes animales por jugar o dinero por gastar. ¿Seguro que quieres terminar el turno?
+              {t('Todavía tienes animales por jugar o dinero por gastar. ¿Seguro que quieres terminar el turno?')}
             </p>
             <div className="modal__actions">
               <button className="btn btn--ghost" onClick={() => setConfirmEndTurn(false)}>
-                Cancelar
+                {t('Cancelar')}
               </button>
               <button
                 className="btn btn--primary"
@@ -1323,7 +1362,7 @@ export function GameBoard({
                   endTurn();
                 }}
               >
-                Sí, terminar turno
+                {t('Sí, terminar turno')}
               </button>
             </div>
           </div>
@@ -1335,11 +1374,14 @@ export function GameBoard({
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="panel__header">
               <h2>
-                Mazo de {scoreboardName(viewedPlayer)} · {groupedCollection(viewedPlayer).reduce((n, e) => n + e.count, 0)}{' '}
-                cartas · {scoreFor(viewedPlayer.id)} PV
+                {t('Mazo de {name} · {n} cartas · {pv} PV', {
+                  name: scoreboardName(viewedPlayer),
+                  n: groupedCollection(viewedPlayer).reduce((n, e) => n + e.count, 0),
+                  pv: scoreFor(viewedPlayer.id),
+                })}
               </h2>
               <button className="btn btn--ghost" onClick={() => setViewedPlayerId(null)}>
-                ✕ cerrar
+                {t('✕ cerrar')}
               </button>
             </div>
             <div className="card-row">
@@ -1363,8 +1405,10 @@ export function GameBoard({
             {viewedPlayer.destroyedCards.length > 0 && (
               <div className="collection-destroyed">
                 <p className="collection-destroyed__title">
-                  🗑️ Eliminadas ({viewedPlayer.destroyedCards.length}, fuera de la colección para siempre — no
-                  puntúan)
+                  🗑️{' '}
+                  {t('Eliminadas ({n}, fuera de la colección para siempre — no puntúan)', {
+                    n: viewedPlayer.destroyedCards.length,
+                  })}
                 </p>
                 <div className="card-row">
                   {groupedDestroyed(viewedPlayer).map(({ card, count }) => (

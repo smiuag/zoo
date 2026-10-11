@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ScanScore } from '../lib/scanScoring';
 import { CardScanner } from './CardScanner';
+import { tr, useT } from '../lib/i18n';
 
 interface ScoreCalculatorProps {
   onClose: () => void;
@@ -109,7 +110,8 @@ function totalFor(player: PlayerScoreState): number {
 // todas las tarjetas a la vez — eso obligaba a hacer scroll horizontal o
 // dejaba los campos demasiado pequeños en pantallas estrechas.
 export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
-  const [players, setPlayers] = useState<PlayerScoreState[]>(() => [emptyPlayer('Jugador 1'), emptyPlayer('Jugador 2')]);
+  const { t } = useT();
+  const [players, setPlayers] = useState<PlayerScoreState[]>(() => [emptyPlayer(tr('Jugador {n}', { n: 1 })), emptyPlayer(tr('Jugador {n}', { n: 2 }))]);
   const [activeIndex, setActiveIndex] = useState(0);
   const [mode, setMode] = useState<'edit' | 'summary'>('edit');
   const [scanning, setScanning] = useState(false);
@@ -128,7 +130,7 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
 
   function addPlayer() {
     setPlayers((prev) => {
-      const next = [...prev, emptyPlayer(`Jugador ${prev.length + 1}`)];
+      const next = [...prev, emptyPlayer(tr('Jugador {n}', { n: prev.length + 1 }))];
       setActiveIndex(next.length - 1);
       return next;
     });
@@ -187,9 +189,9 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
     <div className="app app--setup">
       <div className="panel setup-panel setup-panel--wide">
         <div className="panel__header">
-          <h2>🌰 Marcador final</h2>
+          <h2>🌰 {t('Marcador final')}</h2>
           <button className="btn btn--ghost" type="button" onClick={onClose}>
-            ✕ cerrar
+            ✕ {t('cerrar')}
           </button>
         </div>
 
@@ -201,14 +203,14 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
               className={`score-tab ${mode === 'edit' && i === activeIndex ? 'score-tab--active' : ''}`}
               onClick={() => openPlayer(i)}
             >
-              {p.name || `Jugador ${i + 1}`}
+              {p.name || t('Jugador {n}', { n: i + 1 })}
             </button>
           ))}
         </div>
 
         {mode === 'summary' || !active ? (
           <div className="score-summary">
-            <h3>🏆 Resultado final</h3>
+            <h3>🏆 {t('Resultado final')}</h3>
             {ranked.map((entry, rank) => (
               <div
                 key={entry.p.id}
@@ -218,17 +220,17 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
                 onClick={() => openPlayer(entry.i)}
                 onKeyDown={(e) => e.key === 'Enter' && openPlayer(entry.i)}
               >
-                <span className="score-summary-rank">{MEDALS[rank] ?? `${rank + 1}º`}</span>
+                <span className="score-summary-rank">{MEDALS[rank] ?? t('{n}º', { n: rank + 1 })}</span>
                 <span className="score-summary-name">
-                  {entry.p.name || `Jugador ${entry.i + 1}`}
-                  <small>Puntos directos {num(entry.p.direct)} + bonus de conteo</small>
+                  {entry.p.name || t('Jugador {n}', { n: entry.i + 1 })}
+                  <small>{t('Puntos directos {n} + bonus de conteo', { n: num(entry.p.direct) })}</small>
                 </span>
                 <span className="score-summary-total">{entry.total}</span>
               </div>
             ))}
             <div className="score-summary-actions">
               <button className="btn" type="button" onClick={() => setMode('edit')}>
-                ✏️ Volver a editar
+                {t('✏️ Volver a editar')}
               </button>
             </div>
           </div>
@@ -240,14 +242,14 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
                 type="text"
                 value={active.name}
                 onChange={(e) => updateActive({ name: e.target.value })}
-                aria-label="Nombre del jugador"
+                aria-label={t('Nombre del jugador')}
               />
               {players.length > 1 && (
                 <button
                   className="icon-btn"
                   type="button"
-                  title="Quitar jugador"
-                  aria-label={`Quitar a ${active.name}`}
+                  title={t('Quitar jugador')}
+                  aria-label={t('Quitar a {name}', { name: active.name })}
                   onClick={() => removePlayer(activeIndex)}
                 >
                   🗑
@@ -259,7 +261,7 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
               <CardScanner playerName={active.name} onApply={applyScan} onCancel={() => setScanning(false)} />
             ) : (
               <button className="btn scan-open" type="button" onClick={() => setScanning(true)}>
-                📷 Escanear cartas con la cámara
+                {t('📷 Escanear cartas con la cámara')}
               </button>
             )}
 
@@ -268,9 +270,9 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
                 <span className="score-row__label">
                   <span className="score-row__title">
                     <span aria-hidden="true">{row.icon}</span>
-                    <span>{row.label}</span>
+                    <span>{t(row.label)}</span>
                   </span>
-                  <small>{row.hint}</small>
+                  <small>{t(row.hint)}</small>
                 </span>
 
                 {row.kind === 'direct' ? (
@@ -282,7 +284,7 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
                     placeholder="0"
                     value={active.direct}
                     onChange={(e) => updateActive({ direct: e.target.value })}
-                    aria-label={`${row.label} de ${active.name}`}
+                    aria-label={t('{label} de {name}', { label: t(row.label), name: active.name })}
                   />
                 ) : (
                   <div className="score-formula">
@@ -294,7 +296,7 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
                       placeholder="0"
                       value={active.factors[row.key]?.[0] ?? ''}
                       onChange={(e) => updateFactor(row.key, 0, e.target.value)}
-                      aria-label={`nº ${row.f1} de ${active.name}`}
+                      aria-label={t('nº {what} de {name}', { what: t(row.f1 ?? ''), name: active.name })}
                     />
                     <span className="score-formula__sign">×</span>
                     <input
@@ -305,7 +307,7 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
                       placeholder="0"
                       value={active.factors[row.key]?.[1] ?? ''}
                       onChange={(e) => updateFactor(row.key, 1, e.target.value)}
-                      aria-label={`nº ${row.f2} de ${active.name}`}
+                      aria-label={t('nº {what} de {name}', { what: t(row.f2 ?? ''), name: active.name })}
                     />
                     <span className="score-formula__sign">=</span>
                     <span className="score-formula__result">
@@ -320,7 +322,7 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
               <span className="score-row__label">
                 <span className="score-row__title">
                   <span aria-hidden="true">🌰</span>
-                  <span>Total de {active.name || 'este jugador'}</span>
+                  <span>{t('Total de {name}', { name: active.name || t('este jugador') })}</span>
                 </span>
               </span>
               <span className="score-total">{totalFor(active)}</span>
@@ -328,21 +330,21 @@ export function ScoreCalculator({ onClose }: ScoreCalculatorProps) {
 
             <div className="score-nav">
               <button className="btn" type="button" disabled={activeIndex === 0} onClick={() => setActiveIndex((i) => i - 1)}>
-                ◀ Anterior
+                {t('◀ Anterior')}
               </button>
               {activeIndex === players.length - 1 ? (
                 <button className="btn" type="button" onClick={addPlayer}>
-                  ➕ Otro jugador
+                  {t('➕ Otro jugador')}
                 </button>
               ) : (
                 <button className="btn" type="button" onClick={() => setActiveIndex((i) => i + 1)}>
-                  Siguiente ▶
+                  {t('Siguiente ▶')}
                 </button>
               )}
             </div>
 
             <button className="btn btn--primary score-finish" type="button" onClick={() => setMode('summary')}>
-              🏁 Finalizar y ver resultado
+              {t('🏁 Finalizar y ver resultado')}
             </button>
           </div>
         )}

@@ -1,5 +1,6 @@
 import { LEARNING_EDITION_MAX_COST, type GameEdition } from '@zoo/engine';
 import { BOT_ALGORITHM_OPTIONS } from '../lib/botAlgorithms';
+import { useT } from '../lib/i18n';
 import {
   MAX_BOTS,
   MIN_BOTS,
@@ -36,6 +37,7 @@ export function GameConfigFields({
   onEditionChange,
   onOpenTutorial,
 }: GameConfigFieldsProps) {
+  const { t } = useT();
   function handleBotAlgorithmChange(index: number, algorithm: BotAlgorithm) {
     onBotAlgorithmsChange(botAlgorithms.map((a, i) => (i === index ? algorithm : a)));
   }
@@ -43,7 +45,7 @@ export function GameConfigFields({
   return (
     <>
       <div className="setup-row">
-        <label htmlFor="setup-bots">Número de bots</label>
+        <label htmlFor="setup-bots">{t('Número de bots')}</label>
         <select
           id="setup-bots"
           value={botAlgorithms.length}
@@ -61,7 +63,7 @@ export function GameConfigFields({
         <div className="setup-bot-list">
           {botAlgorithms.map((algorithm, i) => (
             <div key={i} className="setup-row setup-row--bot">
-              <label htmlFor={`setup-bot-${i}`}>Bot {i + 1}</label>
+              <label htmlFor={`setup-bot-${i}`}>{t('Bot {n}', { n: i + 1 })}</label>
               <select
                 id={`setup-bot-${i}`}
                 value={algorithm}
@@ -88,7 +90,7 @@ export function GameConfigFields({
               aria-pressed={roundLimit === rounds}
               onClick={() => onRoundLimitChange(rounds)}
             >
-              {rounds} rondas
+              {t('{n} rondas', { n: rounds })}
             </button>
           ))}
         </div>
@@ -102,7 +104,7 @@ export function GameConfigFields({
             aria-pressed={edition === 'learning'}
             onClick={() => onEditionChange('learning')}
           >
-            Aprendizaje
+            {t('Aprendizaje')}
           </button>
           <button
             type="button"
@@ -110,7 +112,7 @@ export function GameConfigFields({
             aria-pressed={edition === 'classic'}
             onClick={() => onEditionChange('classic')}
           >
-            Clásica
+            {t('Clásica')}
           </button>
           <button
             type="button"
@@ -118,19 +120,19 @@ export function GameConfigFields({
             aria-pressed={edition === 'custom'}
             onClick={() => onEditionChange('custom')}
           >
-            Personalizado
+            {t('Personalizado')}
           </button>
         </div>
         <p className="setup-hint">
           {edition === 'learning'
-            ? `Mismo mazo clásico de siempre, pero el mercado solo ofrece animales de coste ${LEARNING_EDITION_MAX_COST} o menos: partidas más sencillas y rápidas para aprender.`
+            ? t('Mismo mazo clásico de siempre, pero el mercado solo ofrece animales de coste {n} o menos: partidas más sencillas y rápidas para aprender.', { n: LEARNING_EDITION_MAX_COST })
             : edition === 'custom'
-              ? 'Elige tú qué especies entran en el mercado y cuántas copias hay de cada una, desde ⚙️ Configuración.'
-              : 'La oficial: 33 especies, sin restricciones.'}
+              ? t('Elige tú qué especies entran en el mercado y cuántas copias hay de cada una, desde ⚙️ Configuración.')
+              : t('La oficial: 33 especies, sin restricciones.')}
         </p>
         {edition === 'learning' && onOpenTutorial && (
           <button className="btn btn--primary setup-tutorial-btn" type="button" onClick={onOpenTutorial}>
-            🎓 Ver tutorial
+            {t('🎓 Ver tutorial')}
           </button>
         )}
       </div>

@@ -21,6 +21,15 @@ function hiddenCard(index: number): CardInstance {
   };
 }
 
+// Mano del jugador que tiene el turno: el valor de compra que se muestra en vivo a
+// todos (💰 disponible/total, ver currentPurchasingPower) se calcula sumando las
+// monedas de su mano. Con placeholders de tipo animal, los demás veían ese valor
+// sin las monedas (solo los bonus de Ardilla, Delfín...). Las monedas conservan
+// tipo y valor (no su identidad: el número ya es público); el resto sigue oculto.
+function redactActiveHand(cards: CardInstance[]): CardInstance[] {
+  return cards.map((c, i) => (c.type === 'coin' ? { ...hiddenCard(i), type: 'coin', value: c.value } : hiddenCard(i)));
+}
+
 // `revealed`: instanceIds que se dejan a la vista aunque la zona esté redactada
 // (ver la Serpiente en redactStateForSeat).
 function redactZone(cards: CardInstance[], revealed?: Set<string>): CardInstance[] {
@@ -57,7 +66,7 @@ export function redactStateForSeat(state: GameState, viewerSeatId: string, human
       const isActive = player.id === activePlayerId;
       return {
         ...player,
-        hand: redactZone(player.hand),
+        hand: isActive ? redactActiveHand(player.hand) : redactZone(player.hand),
         deck: redactZone(player.deck),
         discard: isActive ? player.discard : redactZone(player.discard, revealed),
         playedThisTurn: isActive ? player.playedThisTurn : redactZone(player.playedThisTurn),

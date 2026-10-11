@@ -4,6 +4,7 @@ import { CardView } from './CardView';
 import { DeckPile, DiscardPile } from './PlayerPiles';
 import { displayName } from '../lib/botAlgorithms';
 import type { BotAlgorithm } from '../lib/gameConfig';
+import { useT } from '../lib/i18n';
 
 interface ActivePlayerBoardProps {
   state: GameState;
@@ -80,6 +81,7 @@ export function ActivePlayerBoard({
   // El hook va ANTES del `if (state.gameOver)` de abajo: las reglas de
   // hooks no permiten saltárselo condicionalmente.
   const { activePlayer, purchasingPower, peak } = useActivePlayerMoney(state, turnRestartCount);
+  const { t } = useT();
   const activePlayerName = displayName(activePlayer, humanIds, botAlgorithms);
 
   if (state.gameOver) return null;
@@ -90,21 +92,25 @@ export function ActivePlayerBoard({
       <div className="panel__header panel__header--with-piles">
         <DeckPile player={activePlayer} />
         <div className="panel__header-center">
-          <h2>Mesa de {activePlayerName}</h2>
+          <h2>{t('Mesa de {name}', { name: activePlayerName })}</h2>
           <p
             className="active-player-money"
-            title={`Valor de compra de ${activePlayerName}: ${purchasingPower} disponibles; ${peak} en total este turno contando lo ya gastado`}
+            title={t('Valor de compra de {name}: {available} disponibles; {total} en total este turno contando lo ya gastado', {
+              name: activePlayerName,
+              available: purchasingPower,
+              total: peak,
+            })}
           >
-            💰 Valor de compra: {purchasingPower}/{peak}
+            💰 {t('Valor de compra')}: {purchasingPower}/{peak}
           </p>
         </div>
         <DiscardPile player={activePlayer} pileRef={discardPileRef} hiddenCount={hiddenDiscardCount} />
       </div>
 
       <div className="board-section">
-        <span className="panel__hint">Jugado este turno</span>
+        <span className="panel__hint">{t('Jugado este turno')}</span>
         <div className="card-row card-row--board">
-          {played.length === 0 && <span className="market-empty">(nada todavía)</span>}
+          {played.length === 0 && <span className="market-empty">{t('(nada todavía)')}</span>}
           {played.map(({ card, count }) => (
             <div key={card.instanceId} className="card-stack">
               {Array.from({ length: Math.min(count, 4) }, (_, i) => (

@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CHAT_MAX_LENGTH, useRoomChat, type ChatMessage } from '../online/useRoomChat';
 import type { BotEmoteEvent } from '../lib/botChat';
+import { useT } from '../lib/i18n';
 
 // Solo en pantalla ancha (ver el mismo corte de 860px que ./styles.css para
 // el panel): en móvil el chat es una hoja inferior a todo lo ancho a
 // propósito, arrastrarla/redimensionarla no tendría sentido ahí.
 const DRAG_RESIZE_MIN_WIDTH = 860;
+const FAB_POS_KEY = 'zoo.chatFabPos';
+const FAB_DRAG_THRESHOLD = 6;
+const FAB_SIZE = 52;
+// Ancho que necesita el aviso a la izquierda del botón para no salirse de la pantalla.
+const TOAST_ROOM = 280;
 const PANEL_DEFAULT_WIDTH = 340;
 const PANEL_DEFAULT_HEIGHT = 460;
 const PANEL_MIN_WIDTH = 260;
@@ -38,6 +44,7 @@ interface RoomChatProps {
 // partidas online (ver App.tsx / GuestApp.tsx): en local, pasando el dispositivo, no hay con
 // quién hablar. Con el panel cerrado, cada mensaje ajeno asoma unos segundos junto al botón.
 export function RoomChat({ roomCode, seatId, name, botEmotes }: RoomChatProps) {
+  const { t } = useT();
   const { messages, sendText, sendReaction, sendBotReaction } = useRoomChat(roomCode, seatId, name);
   // Últimos ids de botEmotes ya mandados: por id (nunca por longitud del
   // array), para no reenviar nada si por lo que sea se recibe la misma lista
@@ -79,6 +86,83 @@ export function RoomChat({ roomCode, seatId, name, botEmotes }: RoomChatProps) {
   useEffect(() => {
     if (!open) setGeometry((g) => ({ ...g, x: null, y: null }));
   }, [open]);
+
+  // Botón 💬 movible (en móvil tapaba las cartas de la mano): se arrastra con el dedo/ratón y
+  // la posición se recuerda en este dispositivo. null = sitio por defecto del CSS. Un toque
+  // corto abre el chat; solo cuenta como arrastre si se mueve más de FAB_DRAG_THRESHOLD px.
+  const [fabPos, setFabPos] = useState<{ x: number; y: number } | null>(() => {
+    try {
+      const raw = window.localStorage.getItem(FAB_POS_KEY);
+      const v = raw ? JSON.parse(raw) : null;
+      return v && typeof v.x === 'number' && typeof v.y === 'number' ? v : null;
+    } catch {
+      return null;
+    }
+  });
+  const fabDragRef = useRef<{ startX: number; startY: number; originX: number; originY: number; moved: boolean } | null>(null);
+  const fabJustDraggedRef = useRef(false);
+
+  function clampFab(x: number, y: number, el: HTMLElement | null) {
+    const w = el?.offsetWidth ?? 52;
+    const h = el?.offsetHeight ?? 52;
+    return {
+      x: Math.min(Math.max(0, x), Math.max(0, window.innerWidth - w)),
+      y: Math.min(Math.max(0, y), Math.max(0, window.innerHeight - h)),
+    };
+  }
+
+  function handleFabPointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    fabDragRef.current = { startX: e.clientX, startY: e.clientY, originX: rect.left, originY: rect.top, moved: false };
+  }
+
+  function handleFabPointerMove(e: React.PointerEvent<HTMLButtonElement>) {
+    const drag = fabDragRef.current;
+    if (!drag) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) < FAB_DRAG_THRESHOLD) return;
+    drag.moved = true;
+    setFabPos(clampFab(drag.originX + dx, drag.originY + dy, e.currentTarget));
+  }
+
+  function handleFabPointerUp() {
+    const drag = fabDragRef.current;
+    fabDragRef.current = null;
+    if (!drag?.moved) return;
+    // El click que sigue a soltar un arrastre no debe abrir el chat.
+    fabJustDraggedRef.current = true;
+    window.setTimeout(() => {
+      fabJustDraggedRef.current = false;
+    }, 0);
+    setFabPos((pos) => {
+      if (pos) {
+        try {
+          window.localStorage.setItem(FAB_POS_KEY, JSON.stringify(pos));
+        } catch {
+          // sin almacenamiento: la posición vale solo para esta sesión
+        }
+      }
+      return pos;
+    });
+  }
+
+  function handleFabClick() {
+    if (fabJustDraggedRef.current) return;
+    setOpen(true);
+  }
+
+  // Posición del botón y del aviso (a la izquierda del botón si cabe, si no a la derecha).
+  const fabCoords = fabPos ? clampFab(fabPos.x, fabPos.y, null) : null;
+  const fabStyle: React.CSSProperties | undefined = fabCoords
+    ? { left: fabCoords.x, top: fabCoords.y, right: 'auto', bottom: 'auto' }
+    : undefined;
+  const toastStyle: React.CSSProperties | undefined = fabCoords
+    ? fabCoords.x > TOAST_ROOM
+      ? { right: window.innerWidth - fabCoords.x + 8, left: 'auto', top: fabCoords.y + 8, bottom: 'auto' }
+      : { left: fabCoords.x + FAB_SIZE + 8, right: 'auto', top: fabCoords.y + 8, bottom: 'auto' }
+    : undefined;
 
   const handleDragPointerMove = useCallback((e: PointerEvent) => {
     const drag = dragRef.current;
@@ -196,19 +280,19 @@ export function RoomChat({ roomCode, seatId, name, botEmotes }: RoomChatProps) {
         <div
           className={['room-chat__panel', canDragResize() && 'room-chat__panel--floating'].filter(Boolean).join(' ')}
           role="dialog"
-          aria-label="Chat de la partida"
+          aria-label={t('Chat de la partida')}
           ref={panelRef}
           style={panelStyle}
         >
           <div className="room-chat__header" onPointerDown={handleDragStart}>
-            <strong>💬 Chat de la partida</strong>
-            <button type="button" className="room-chat__close" onClick={() => setOpen(false)} aria-label="Cerrar chat">
+            <strong>{t('💬 Chat de la partida')}</strong>
+            <button type="button" className="room-chat__close" onClick={() => setOpen(false)} aria-label={t('Cerrar chat')}>
               ✕
             </button>
           </div>
           <div className="room-chat__messages" ref={listRef}>
             {messages.length === 0 ? (
-              <p className="room-chat__empty">Todavía no hay mensajes. Los que se envíen antes de que entres no se guardan.</p>
+              <p className="room-chat__empty">{t('Todavía no hay mensajes. Los que se envíen antes de que entres no se guardan.')}</p>
             ) : (
               messages.map((m) => (
                 <div
@@ -218,7 +302,7 @@ export function RoomChat({ roomCode, seatId, name, botEmotes }: RoomChatProps) {
                     .join(' ')}
                 >
                   {m.seatId !== seatId && <span className="room-chat__author">{m.name}</span>}
-                  <span className="room-chat__text">{m.text}</span>
+                  <span className="room-chat__text">{m.kind === 'reaction' ? t(m.text) : m.text}</span>
                 </div>
               ))
             )}
@@ -226,7 +310,7 @@ export function RoomChat({ roomCode, seatId, name, botEmotes }: RoomChatProps) {
           <div className="room-chat__reactions">
             {REACTIONS.map((r) => (
               <button key={r} type="button" className="room-chat__reaction" onClick={() => sendReaction(r)}>
-                {r}
+                {t(r)}
               </button>
             ))}
           </div>
@@ -236,13 +320,13 @@ export function RoomChat({ roomCode, seatId, name, botEmotes }: RoomChatProps) {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               maxLength={CHAT_MAX_LENGTH}
-              placeholder="Escribe un mensaje…"
-              aria-label="Mensaje"
+              placeholder={t('Escribe un mensaje…')}
+              aria-label={t('Mensaje')}
               autoComplete="off"
               enterKeyHint="send"
             />
             <button type="submit" className="btn btn--primary room-chat__send" disabled={!draft.trim()}>
-              Enviar
+              {t('Enviar')}
             </button>
           </form>
           {canDragResize() && (
@@ -257,14 +341,23 @@ export function RoomChat({ roomCode, seatId, name, botEmotes }: RoomChatProps) {
       )}
 
       {!open && toast && (
-        <button type="button" className="room-chat__toast" onClick={() => setOpen(true)}>
+        <button type="button" className="room-chat__toast" style={toastStyle} onClick={() => setOpen(true)}>
           <span className="room-chat__author">{toast.name}</span>
-          <span className={toast.kind === 'reaction' ? 'room-chat__toast-reaction' : undefined}>{toast.text}</span>
+          <span className={toast.kind === 'reaction' ? 'room-chat__toast-reaction' : undefined}>{toast.kind === 'reaction' ? t(toast.text) : toast.text}</span>
         </button>
       )}
 
       {!open && (
-        <button type="button" className="room-chat__fab" onClick={() => setOpen(true)} aria-label={`Abrir chat${unread ? ` (${unread} sin leer)` : ''}`}>
+        <button
+          type="button"
+          className="room-chat__fab"
+          style={fabStyle}
+          onPointerDown={handleFabPointerDown}
+          onPointerMove={handleFabPointerMove}
+          onPointerUp={handleFabPointerUp}
+          onPointerCancel={handleFabPointerUp}
+          onClick={handleFabClick}
+          aria-label={unread ? t('Abrir chat ({n} sin leer)', { n: unread }) : t('Abrir chat')}>
           💬
           {unread > 0 && <span className="room-chat__badge">{unread > 9 ? '9+' : unread}</span>}
         </button>

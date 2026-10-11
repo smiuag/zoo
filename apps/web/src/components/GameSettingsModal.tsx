@@ -1,6 +1,7 @@
 import { getCard, type CardInstance } from '@zoo/engine';
 import { CardView } from './CardView';
 import { useArtStyle } from '../lib/artStyle';
+import { useT } from '../lib/i18n';
 import {
   CUSTOM_COPY_DELTA_OPTIONS_CHEAP,
   CUSTOM_COPY_DELTA_OPTIONS_EXPENSIVE,
@@ -105,6 +106,7 @@ export function GameSettingsModal({
   onCustomCopyDeltasChange,
   onClose,
 }: GameSettingsModalProps) {
+  const { t } = useT();
   const [artStyle, setArtStyle] = useArtStyle();
 
   const groupedSpecies = groupSpeciesByCost();
@@ -132,9 +134,9 @@ export function GameSettingsModal({
     <div className="app app--setup">
       <div className="panel setup-panel setup-panel--settings">
         <div className="panel__header">
-          <h2>⚙️ Configuración</h2>
+          <h2>{t('⚙️ Configuración')}</h2>
           <button type="button" className="btn btn--ghost" onClick={onClose}>
-            ✕ cerrar
+            {t('✕ cerrar')}
           </button>
         </div>
 
@@ -147,7 +149,7 @@ export function GameSettingsModal({
                 aria-pressed={artStyle === 'imagen'}
                 onClick={() => setArtStyle('imagen')}
               >
-                🖼️ Imagen
+                {t('🖼️ Imagen')}
               </button>
               <button
                 type="button"
@@ -155,7 +157,7 @@ export function GameSettingsModal({
                 aria-pressed={artStyle === 'emoji'}
                 onClick={() => setArtStyle('emoji')}
               >
-                🐯 Emoji
+                {t('🐯 Emoji')}
               </button>
             </div>
             <div className="pair-row__group">
@@ -165,7 +167,7 @@ export function GameSettingsModal({
                 aria-pressed={animationsEnabled}
                 onClick={() => onAnimationsEnabledChange(true)}
               >
-                Con animaciones
+                {t('Con animaciones')}
               </button>
               <button
                 type="button"
@@ -173,24 +175,23 @@ export function GameSettingsModal({
                 aria-pressed={!animationsEnabled}
                 onClick={() => onAnimationsEnabledChange(false)}
               >
-                Sin animaciones
+                {t('Sin animaciones')}
               </button>
             </div>
           </div>
         </div>
 
         <div className="settings-modal__section">
-          <h3>Personalizado</h3>
+          <h3>{t('Personalizado')}</h3>
           <p className="setup-hint">
-            Se usa cuando eliges la edición Personalizado en la pantalla principal: elige qué especies entran en el
-            mercado y cuántas copias hay de cada una.
+            {t('Se usa cuando eliges la edición Personalizado en la pantalla principal: elige qué especies entran en el mercado y cuántas copias hay de cada una.')}
           </p>
 
           <div className="setup-row">
-            <span className="delta-groups__heading">Copias extra respecto al nº de jugadores</span>
+            <span className="delta-groups__heading">{t('Copias extra respecto al nº de jugadores')}</span>
             <div className="delta-groups">
               <div className="delta-group">
-                <span className="delta-group__label">Coste menor a 5</span>
+                <span className="delta-group__label">{t('Coste menor a 5')}</span>
                 <div className="setup-round-options">
                   {CUSTOM_COPY_DELTA_OPTIONS_CHEAP.map((delta) => (
                     <button
@@ -206,7 +207,7 @@ export function GameSettingsModal({
                 </div>
               </div>
               <div className="delta-group">
-                <span className="delta-group__label">Coste 5 o mayor</span>
+                <span className="delta-group__label">{t('Coste 5 o mayor')}</span>
                 <div className="setup-round-options">
                   {CUSTOM_COPY_DELTA_OPTIONS_EXPENSIVE.map((delta) => (
                     <button
@@ -228,27 +229,27 @@ export function GameSettingsModal({
             <div className="preset-buttons">
               <button type="button" className="preset-btn" onClick={applyRandomPreset}>
                 <span className="preset-btn__icon">🎲</span>
-                <span className="preset-btn__label">Random</span>
-                <span className="preset-btn__hint">{RANDOM_PRESET_SIZE} especies al azar</span>
+                <span className="preset-btn__label">{t('Random')}</span>
+                <span className="preset-btn__hint">{t('{n} especies al azar', { n: RANDOM_PRESET_SIZE })}</span>
               </button>
               <button type="button" className="preset-btn" onClick={applyCompletePreset}>
                 <span className="preset-btn__icon">🗂️</span>
-                <span className="preset-btn__label">Completo</span>
-                <span className="preset-btn__hint">Todas las especies</span>
+                <span className="preset-btn__label">{t('Completo')}</span>
+                <span className="preset-btn__hint">{t('Todas las especies')}</span>
               </button>
               <button type="button" className="preset-btn" onClick={applyReducedPreset}>
                 <span className="preset-btn__icon">✂️</span>
-                <span className="preset-btn__label">Reducido</span>
-                <span className="preset-btn__hint">Versión reducida compensada</span>
+                <span className="preset-btn__label">{t('Reducido')}</span>
+                <span className="preset-btn__hint">{t('Versión reducida compensada')}</span>
               </button>
             </div>
-            <p className="setup-hint">{customSpecies.size} especies marcadas de {CUSTOM_PICKABLE_SPECIES.length}.</p>
+            <p className="setup-hint">{t('{n} especies marcadas de {total}.', { n: customSpecies.size, total: CUSTOM_PICKABLE_SPECIES.length })}</p>
           </div>
 
           <div className="card-picker">
             {groupedSpecies.map(({ label, species }) => (
               <div key={label} className="card-picker__habitat-group">
-                <h4>{label}</h4>
+                <h4>{t(label)}</h4>
                 <div className="card-row">
                   {species.map((id) => (
                     <CardView

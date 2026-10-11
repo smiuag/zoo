@@ -1,5 +1,6 @@
 import twemoji from 'twemoji';
 import type { CardInstance } from '@zoo/engine';
+import { tr } from './i18n';
 
 // Ilustración real de cada carta (especie, moneda o perezoso), servida desde
 // la propia app — un archivo por `card.id` en public/cards/ (ver
@@ -217,9 +218,9 @@ export function habitatLabelParts(card: CardInstance): string[] {
   const matched = HABITAT_LABELS.filter(({ key }) => card.habitats?.includes(key));
   // Un animal con los 3 hábitats a la vez se etiqueta "Todoterreno" en vez de
   // listarlos por separado.
-  const extras = EXTRA_TYPE_LABELS.filter(({ key }) => card.habitats?.includes(key)).map(({ label }) => label);
+  const extras = EXTRA_TYPE_LABELS.filter(({ key }) => card.habitats?.includes(key)).map(({ label }) => tr(label));
   const collapseToAllTerrain = matched.length === HABITAT_LABELS.length;
-  const base = collapseToAllTerrain ? ['Todoterreno'] : matched.map(({ label }) => label);
+  const base = collapseToAllTerrain ? [tr('Todoterreno')] : matched.map(({ label }) => tr(label));
   return [...base, ...extras];
 }
 

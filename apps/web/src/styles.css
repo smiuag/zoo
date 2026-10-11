@@ -2405,6 +2405,9 @@ body {
   line-height: 1;
   cursor: pointer;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22);
+  /* Se arrastra con el dedo: sin esto el navegador lo toma por un scroll. */
+  touch-action: none;
+  user-select: none;
 }
 
 .room-chat__badge {
