@@ -15,7 +15,6 @@ CARD_TEXT_ES_PRINT = {
     "dog": "Al jugarlo, puedes dejarlo sobre la mesa en vez de enviarlo al descarte, hasta que barajes tu mazo: mientras esté ahí, cada turno vuelve a jugarse y repite su habilidad.\n+1 bellota.",
     "hamster": "Al jugarlo, devuelve a tu mano todos los hámsteres de tu descarte.\n+1 bellota.",
     "chicken": "Descarta una bellota de tu mano para capturar, de la reserva, un animal terrestre o acuático de coste 2 o menos y ponlo en tu descarte.",
-    "crocodile": "Cambia una bellota de tu mano por una bellota de valor 3.",
     "golden-fish": "Cambia una bellota de tu mano por una bellota de valor 3.",
     "otter": "Descarta una bellota de tu mano para mirar las 3 cartas superiores de tu mazo: quédate una y descarta el resto.",
     "pig": "Descarta una bellota de tu mano para robar tantas cartas como su valor.",

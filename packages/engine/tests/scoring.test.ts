@@ -142,8 +142,8 @@ describe('scorePlayer', () => {
     expect(player.deck.some((c) => c.instanceId === 'hippo#strong')).toBe(true);
     expect(player.hand.some((c) => c.instanceId === 'croc#test')).toBe(true);
     // La tortuga (1PV, la más débil elegible) fue destruida antes de puntuar.
-    // Quedan cocodrilo(6PV) + búho(3PV) + hipopótamo(4PV).
-    expect(score).toBe(6 + 3 + 4);
+    // Quedan cocodrilo(7PV) + búho(3PV) + hipopótamo(4PV).
+    expect(score).toBe(7 + 3 + 4);
     // Se guarda aparte, solo para el resumen final (no cuenta para el score).
     expect(player.destroyedCards.map((c) => c.instanceId)).toEqual(['turtle#weak']);
   });

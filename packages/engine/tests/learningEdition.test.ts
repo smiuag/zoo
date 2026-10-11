@@ -4,15 +4,15 @@ import { getCard } from '../src/cards/registry';
 import { buildStarterDeck } from './helpers';
 
 describe('edición "Aprendizaje"', () => {
-  it('marketSpeciesFor recorta la baraja clásica a coste 4 o menos (19 de las 30)', () => {
+  it('marketSpeciesFor recorta la baraja clásica a coste 4 o menos (18 de las 30)', () => {
     const species = marketSpeciesFor({ edition: 'learning' });
-    expect(species.length).toBe(19);
+    expect(species.length).toBe(18);
     for (const s of species) expect(getCard(s).marketCost).toBeLessThanOrEqual(LEARNING_EDITION_MAX_COST);
     // Ninguna especie cara se cuela, y son todas especies clásicas de siempre.
     for (const s of species) expect(ANIMAL_SPECIES).toContain(s);
   });
 
-  it('una partida creada con edition "learning" solo tiene esas 19 especies en el mercado', () => {
+  it('una partida creada con edition "learning" solo tiene esas 18 especies en el mercado', () => {
     const state = createGame(
       [
         { id: 'p1', name: 'Alice', deck: buildStarterDeck() },
@@ -21,13 +21,13 @@ describe('edición "Aprendizaje"', () => {
       { edition: 'learning' }
     );
     expect(state.edition).toBe('learning');
-    expect(state.animalTrack).toHaveLength(19);
+    expect(state.animalTrack).toHaveLength(18);
     for (const card of state.animalTrack) {
       expect(card.marketCost).toBeLessThanOrEqual(LEARNING_EDITION_MAX_COST);
       // Sin tipos extra: sigue siendo el mazo clásico de siempre.
       expect(card.habitats.some((h) => h === 'pet' || h === 'dinosaur')).toBe(false);
     }
-    expect(Object.keys(state.sharedDecks).filter((s) => s !== 'sloth')).toHaveLength(19);
+    expect(Object.keys(state.sharedDecks).filter((s) => s !== 'sloth')).toHaveLength(18);
   });
 
   it('nunca se ofrece comprar un animal de coste 5+ aunque el jugador pueda pagarlo', () => {

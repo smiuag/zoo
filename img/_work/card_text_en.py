@@ -39,7 +39,7 @@ CARD_TEXT_EN = {
     "coin-5": ("Platinum", "+5 acorns."),
     "crocodile": (
         "Crocodiles",
-        "Swap an acorn from your hand for an acorn of value 3.",
+        "Each opponent discards an animal from their hand.\nChoose one of the discarded animals and use its ability.",
     ),
     "dolphin": (
         "Dolphins",

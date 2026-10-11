@@ -15,7 +15,7 @@ const SPECIES_TIERS: Record<string, { cost: number; pv: number }> = {
   lion: { cost: 5, pv: 5 },
   monkey: { cost: 4, pv: 3 },
   spider: { cost: 3, pv: 3 },
-  crocodile: { cost: 5, pv: 6 },
+  crocodile: { cost: 5, pv: 7 },
   vulture: { cost: 6, pv: 6 },
   elephant: { cost: 6, pv: 6 },
   orca: { cost: 7, pv: 2 },
@@ -130,8 +130,9 @@ describe('card registry', () => {
       params: { amount: 3 },
     });
     expect(getCard('shark').effects[1]).toMatchObject({ trigger: 'onScore', type: 'scorePerCoinCard' });
+    // El Cocodrilo hereda la habilidad de la Serpiente (2026-10-11).
     expect(getCard('crocodile').effects).toEqual([
-      { trigger: 'onPlay', type: 'exchangeCoinForFixed', params: { targetCoinId: 'coin-3' } },
+      { trigger: 'onPlay', type: 'discardAnimalFromEachPlayerThenUseAbility' },
     ]);
     expect(getCard('orca').effects[0]).toMatchObject({
       trigger: 'onPlay',

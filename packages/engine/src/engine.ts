@@ -29,7 +29,6 @@ export const ANIMAL_SPECIES = [
   'lion',
   'dolphin',
   'goldfish',
-  'snake',
   'parrot',
   'elephant',
   'giraffe',
@@ -38,6 +37,7 @@ export const ANIMAL_SPECIES = [
   'orca',
   'panda',
   'albatross',
+  'crocodile',
   'hippopotamus',
   'vulture',
   'duck',
@@ -55,13 +55,15 @@ export const ANIMAL_SPECIES = [
   'squirrel',
 ] as const;
 
-// Especies guardadas temporalmente (2026-10-11, pedido explícito del usuario):
+// Especies guardadas temporalmente (2026-10-11, pedido explícito del usuario;
+// el Cocodrilo salió de aquí al heredar la habilidad de la Serpiente, que
+// pasó a guardarse en su lugar):
 // sus JSON siguen en cards/data (getCard funciona, los tests y la impresión
 // pueden consultarlas) pero NO están en ningún mercado, ni en ANIMAL_SPECIES
 // ni en FULL_EDITION_EXTRA_SPECIES ni en la edición personalizada. Para
 // recuperarlas basta con devolver su id a ANIMAL_SPECIES (y reentrenar los
 // bots RL, que se entrenaron con ellas fuera/dentro).
-export const SHELVED_SPECIES = ['tiger', 'crocodile', 'raven'] as const;
+export const SHELVED_SPECIES = ['tiger', 'raven', 'snake'] as const;
 
 // Especies que SOLO existen en la edición completa (mascotas y dinosaurios,
 // 2026-09-20): se suman a las 33 de ANIMAL_SPECIES cuando la partida se crea

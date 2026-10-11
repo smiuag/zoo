@@ -352,13 +352,16 @@ describe('Avestruz/Tiranosaurio y Cocodrilo: regla genérica de evolución (reem
     expect(state.animalTrack.some((c) => c.species === 'tyrannosaurus')).toBe(true); // hueco repuesto
   });
 
-  it('Cocodrilo: cambia una moneda de la mano por un Oro (valor 3), igual que el Pez Dorado, y ya no evoluciona', () => {
-    const { state, player } = setupClean();
+  it('Cocodrilo (habilidad de la Serpiente desde 2026-10-11): cada oponente con algún animal en mano debe descartar uno; quien lo juega no debe nada', () => {
+    const { state, player, opponent } = setupClean();
+    const hippo = freshInstance('hippopotamus', 'o1');
+    const coin = freshInstance('coin-1', 'o2');
+    opponent.hand = [hippo, coin];
     const croc = freshInstance('crocodile', 'x');
-    const bronze = freshInstance('coin-1', 'bronze');
-    player.hand = [croc, bronze];
-    playCard(state, player.id, croc.instanceId, bronze.instanceId);
-    expect(player.hand.map((c) => c.id)).toEqual(['coin-3']);
+    player.hand = [croc];
+    playCard(state, player.id, croc.instanceId);
+    expect(state.pendingDecision?.owed[opponent.id]).toEqual({ amount: 1, eligibleInstanceIds: [hippo.instanceId] });
+    expect(state.pendingDecision?.owed[player.id]).toBeUndefined();
     expect(player.playedThisTurn.some((c) => c.id === 'crocodile')).toBe(true);
   });
 });
