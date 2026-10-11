@@ -39,7 +39,7 @@ CARD_TEXT_EN = {
     "coin-5": ("Platinum", "+5 acorns."),
     "crocodile": (
         "Crocodiles",
-        "Each opponent discards an animal from their hand.\nChoose one of the discarded animals and use its ability.",
+        "Each opponent discards an animal from their hand. Choose one of the discarded animals and use its ability.",
     ),
     "dolphin": (
         "Dolphins",
@@ -109,7 +109,7 @@ CARD_TEXT_EN = {
         "+1 acorn for each distinct animal in your hand.",
     ),
     "panda": (
-        "Giant Pandas",
+        "Tigers",
         "+2 acorns.\n+1 VP for each land animal in your whole deck.",
     ),
     "rabbit": (
@@ -124,7 +124,7 @@ CARD_TEXT_EN = {
         "Sharks",
         "+3 acorns.\nAt the end of the game, +1 VP for each acorn card you have.",
     ),
-    "sloth": ("Sloths", "Whenever a card makes you discard one or more cards, you may discard the Sloth instead to cover the whole discard."),
+    "sloth": ("Sloths", "If a card makes you discard, you may discard the Sloth instead to cover the whole discard."),
     "snake": (
         "Snakes",
         "Each opponent discards an animal from their hand.\nChoose one of the discarded animals and use its ability.",

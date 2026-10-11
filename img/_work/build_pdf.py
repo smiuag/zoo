@@ -4,6 +4,7 @@ import os
 from PIL import Image, JpegImagePlugin  # noqa: F401  (forces JPEG codec registration for PDF export)
 
 import print_layout as pl
+from shelved import SHELVED
 
 from pdf_paths import pdf_path
 
@@ -33,7 +34,11 @@ COIN_ORDER = {"coin-1": 0, "coin-2": 1, "coin-3": 2, "coin-5": 3}
 
 def load_cards():
     costs = load_costs()
-    paths = [p for p in glob.glob(os.path.join(CARDS_DIR, "*.png")) if p != BACK_PATH]
+    paths = [
+        p
+        for p in glob.glob(os.path.join(CARDS_DIR, "*.png"))
+        if p != BACK_PATH and os.path.splitext(os.path.basename(p))[0] not in SHELVED
+    ]
 
     def sort_key(path):
         cid = os.path.splitext(os.path.basename(path))[0]

@@ -48,11 +48,11 @@ SPECIES_PHOTO = {
     "spider": "ara\u00f1as.jpg",
     "hyena": "hienas.jpg",
     "orca": "orca.jpg",
-    "panda": "osopanda.jpg",
-    "albatross": "albatros.jpg",
+    "panda": "tigres.jpg",
+    "albatross": "albatros.jpeg",
     "crocodile": "cocodrilos.jpg",
     "hippopotamus": "hipopotamos.jpg",
-    "vulture": "buitres.jpg",
+    "vulture": "buitres.jpeg",
     "sloth": "perezoso.jpg",
     "duck": "patos.jpg",
     "flamingo": "flamencos.jpg",
@@ -91,6 +91,22 @@ SPECIES_PHOTO = {
     "plesiosaurus": "plesiosaurio.jpg",
     "pteranodon": "pteranodon.jpg",
 }
+
+
+# El usuario cambia los dibujos a mano y a veces los guarda con otra extensión
+# (.jpg -> .jpeg, .png): si el archivo indicado arriba no existe, se usa el
+# mismo nombre con otra extensión de imagen en vez de reventar el build.
+def _resolve_photo(name):
+    if os.path.exists(os.path.join(IMG_DIR, name)):
+        return name
+    stem = os.path.splitext(name)[0]
+    for ext in (".jpeg", ".jpg", ".png", ".JPG", ".JPEG", ".PNG"):
+        if os.path.exists(os.path.join(IMG_DIR, stem + ext)):
+            return stem + ext
+    return name
+
+
+SPECIES_PHOTO = {k: _resolve_photo(v) for k, v in SPECIES_PHOTO.items()}
 COIN_PHOTO = {
     "coin-1": "moneda1.jpg",
     "coin-2": "moneda2.jpg",

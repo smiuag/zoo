@@ -292,8 +292,8 @@ const STEPS: Step[] = [
     ],
   },
   {
-    title: 'Juegas León y Mono, y compras el Oso panda',
-    text: 'Te salen el León, el Mono y la Plata: 1 + 1 + 2 = 4. Juegas el León (+3 fijos → 7) y el Mono (+2: él y el León → 9), y compras el Oso panda (7). Tiene 0 PV impresos, pero da +1 PV por cada terrestre de TODO tu mazo: 3 Perezosos, Mono, Hipopótamo, León y él mismo = +7. Te sobran 2: lo que no gastas se pierde al terminar el turno.',
+    title: 'Juegas León y Mono, y compras el Tigre',
+    text: 'Te salen el León, el Mono y la Plata: 1 + 1 + 2 = 4. Juegas el León (+3 fijos → 7) y el Mono (+2: él y el León → 9), y compras el Tigre (7). Tiene 0 PV impresos, pero da +1 PV por cada terrestre de TODO tu mazo: 3 Perezosos, Mono, Hipopótamo, León y él mismo = +7. Te sobran 2: lo que no gastas se pierde al terminar el turno.',
     show: ['market', 'piles', 'hand', 'played'],
     ...T5_BASE, target: OS, showPv: true,
     frames: [
@@ -331,7 +331,7 @@ const FINAL_BREAKDOWN: { id: string; label: string; pv: number; note?: string }[
   { id: HI, label: 'Hipopótamo', pv: 4 },
   { id: LE, label: 'León', pv: 4 },
   { id: PL, label: 'Plata', pv: 1 },
-  { id: OS, label: 'Oso panda', pv: 7, note: '0 impresos + 7 terrestres en el mazo' },
+  { id: OS, label: 'Tigre', pv: 7, note: '0 impresos + 7 terrestres en el mazo' },
   { id: B, label: 'Bronce ×7 y Perezoso ×3', pv: 0 },
 ];
 

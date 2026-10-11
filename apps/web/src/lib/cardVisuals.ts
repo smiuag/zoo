@@ -27,7 +27,7 @@ const SPECIES_ICONS: Record<string, string> = {
   spider: '🕷️',
   hyena: '🐺',
   orca: '🐳',
-  'panda': '🐼',
+  'panda': '🐯',
   albatross: '🦢',
   crocodile: '🐊',
   hippopotamus: '🦛',
@@ -179,6 +179,7 @@ const ICON_SCALE_BY_ID: Record<string, number> = {
   'coin-5': 1.2,
   toucan: 1.2,
   tiger: 1.4,
+  panda: 1.4,
   lion: 1.4,
 };
 

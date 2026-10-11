@@ -31,9 +31,9 @@ ART = {
 # más abajo, que identifica el sujeto al revés: por el TRAZO OSCURO del
 # contorno/sombreado (el blanco de la cara nunca lo tiene), cerrando el
 # trazo y rellenando lo que encierra — así el color interior no importa.
-ART_DARK_OUTLINE = {
-    "panda": ("panda.jpg",),
-}
+# (vacío desde 2026-10-11: la carta de id "panda" pasó a ser el Tigre y usa
+# apps/web/public/cards/tiger.png copiado como panda.png)
+ART_DARK_OUTLINE = {}
 
 
 def cut(path, tol):

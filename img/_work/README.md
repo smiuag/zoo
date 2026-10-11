@@ -35,8 +35,11 @@ Todo lo que genera las cartas impresas vive en esta carpeta. El intérprete es `
   carta anotada cuyas marcas se colocan a mano en `instrucciones[_en].html`) y la caja (`build_caja.py`).
   El escáner de la web (`build_scan_assets.py`) también sale de `img/cards`.
 - El mazo de impresión debe sumar un **múltiplo de 18** cartas. Se cuadra solo con Plata, Oro y
-  Platino (`COUNTS` en los DOS `build_deck_pdf*.py`); Bronce (49) y Perezoso (21) no se tocan.
-  Estado actual: 378 cartas con Plata 16, Oro 11, Platino 8.
+  Platino (`COUNTS` en los DOS `build_deck_pdf*.py`); Bronce (45) y Perezoso (15) no se tocan (fijados por el usuario el 2026-10-11; 7 y 3 por
+  jugador, tirada de `PRINT_PLAYERS = 5`). Estado actual (2026-10-11): 252 cartas (14 planchas) con Plata 11,
+  Oro 8, Platino 5; animales de coste <5 a 6 copias y de coste >=5 a 5 (jugadores+1 / jugadores).
+  Las especies guardadas (`SHELVED_SPECIES` en engine.ts: Tigre, Cuervo, Serpiente) se excluyen de las hojas y
+  del mazo (`shelved.py`).
 - Tamaño de carta 63,5 x 88,9 mm (750 x 1050 px a 300 ppp), páginas A4, 3x3 por página.
 - Marcas de corte (`print_layout.py`): una cruz negra con alma blanca en cada esquina del corte real. Sale 34 px
   hacia el sangrado y ENTRA 26 px en la carta, sin hueco. Así las cartas de enmedio conservan su referencia
@@ -69,7 +72,7 @@ Todo lo que genera las cartas impresas vive en esta carpeta. El intérprete es `
     ir al descarte. Sigue puntuando, deja de circular y ningún efecto lo alcanza. Efecto `mayStayOnTable`,
     acción `playCard` con `keepOnTable`.
   - **Gato** (2, 2 PV, terrestre-mascota): si hay que ELIMINAR un terrestre, se entrega el gato y va al
-    descarte. (Desde 2026-10-10 el Cocodrilo ya no elimina nada: cambia una bellota por una de valor 3, como el Pez Dorado.)
+    descarte. (Desde 2026-10-10 el Cocodrilo ya no elimina nada: añade una bellota de valor 3 a tu mano, sin cambiar nada.)
   - **Tiranosaurio / Terodáctilo / Mosasaurio** (7, 10 PV): +4 bellotas y cada OPONENTE (nunca quien lo
     juega) elimina de su mano un terrestre / volador / acuático. Efecto `eachOpponentDestroysAnimalFromHand`.
   - **Diplodocus** (10, 15 PV, terrestre-acuático-dinosaurio), sin habilidad.
@@ -194,7 +197,7 @@ Después, la cadena normal de cartas y PDFs.
 
 `build_caja.py` (`/c/Python310/python img/_work/build_caja.py`) compone las caras de la caja de la
 clásica: 2 filas de cartas, exterior **140 x 97 x 73 mm**, con el librillo A7 tumbado encima de los dos
-montones (378 cartas de ~0,31 mm = 189 por montón, ~59 mm; medir el grosor real con una muestra de la
+montones (pensada para 378 cartas de ~0,31 mm = 189 por montón, ~59 mm; ahora el mazo es de 252, hay que revisar la altura; medir el grosor real con una muestra de la
 imprenta antes de fijar la altura). Una imagen por cara a 300 ppp con 3 mm de sangrado por lado:
 `01_tapa`, `02_reverso`, `03_lateral_largo` (x2), `04_lateral_corto` (x2) y `vista_previa.png`
 (isométrica, no se imprime). Solo castellano.

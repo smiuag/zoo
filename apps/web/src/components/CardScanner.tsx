@@ -11,7 +11,7 @@ interface CardScannerProps {
 
 const FORMULAS: { key: keyof ScanScore['factors']; label: string; icon: string }[] = [
   { key: 'eagle', label: 'Águila × voladores', icon: '🦅' },
-  { key: 'panda', label: 'Oso panda × terrestres', icon: '🐼' },
+  { key: 'panda', label: 'Tigre × terrestres', icon: '🐯' },
   { key: 'orca', label: 'Orca × acuáticos', icon: '🐋' },
   { key: 'albatross', label: 'Albatros × especies', icon: '🕊️' },
   { key: 'toucan', label: 'Tucán × coste 5+', icon: '🦜' },

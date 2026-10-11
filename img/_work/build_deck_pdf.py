@@ -4,6 +4,7 @@ import os
 from PIL import Image, JpegImagePlugin  # noqa: F401  (forces JPEG codec registration for PDF export)
 
 import print_layout as pl
+from shelved import SHELVED
 
 from pdf_paths import pdf_path
 
@@ -16,24 +17,24 @@ BACK_PATH = os.path.join(CARDS_DIR, "_back.png")
 
 # Copias pedidas para esta tirada de impresión.
 COUNTS = {
-    "sloth": 21,
+    "sloth": 15,
     # 49 (7×7) "de libro", sin tocar nunca (ver [[print_deck_multiple_of_18]]
     # — solo plata/oro/platino son el ajuste fino). El Halcón se eliminó del
     # juego (2026-09-14): sus 7 copias (coste 6) desajustaron el total de
     # 378 a 371, así que se compensa subiendo plata/oro/platino +7 en total
     # (13→16, 9→11, 6→8) para volver a 378, múltiplo de 18.
-    "coin-1": 49,
-    "coin-2": 16,
-    "coin-3": 11,
-    "coin-5": 8,
+    "coin-1": 45,
+    "coin-2": 11,
+    "coin-3": 8,
+    "coin-5": 5,
 }
 # Igual que el motor (ver createGame en engine.ts), escalado a una tirada
-# de 7 jugadores: nº jugadores + 2 para el resto, nº jugadores para las
+# de 5 jugadores: nº jugadores + 1 para el resto, nº jugadores para las
 # caras (coste 5+, escasez real). De ahí también los 21 Perezosos (7×3)
 # del mazo inicial repartidos en COUNTS más abajo (coin-1 ya no seguía esa
 # proporción exacta, ver el comentario junto a él).
-PRINT_PLAYERS = 7
-DEFAULT_ANIMAL_COPIES = PRINT_PLAYERS + 2  # especies de coste < 5
+PRINT_PLAYERS = 5
+DEFAULT_ANIMAL_COPIES = PRINT_PLAYERS + 1  # especies de coste < 5
 HIGH_COST_ANIMAL_COPIES = PRINT_PLAYERS  # especies de coste 5 o más
 
 
@@ -68,7 +69,7 @@ def build_deck():
     png_ids = [
         os.path.splitext(os.path.basename(p))[0]
         for p in glob.glob(os.path.join(CARDS_DIR, "*.png"))
-        if p != BACK_PATH
+        if p != BACK_PATH and os.path.splitext(os.path.basename(p))[0] not in SHELVED
     ]
 
     ordered_ids = sorted(png_ids, key=lambda cid: sort_key(cid, costs))
