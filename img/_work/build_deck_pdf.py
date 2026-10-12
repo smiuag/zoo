@@ -24,9 +24,11 @@ COUNTS = {
     # 378 a 371, así que se compensa subiendo plata/oro/platino +7 en total
     # (13→16, 9→11, 6→8) para volver a 378, múltiplo de 18.
     "coin-1": 45,
-    "coin-2": 11,
-    "coin-3": 8,
-    "coin-5": 5,
+    # 2026-10-12: a petición del usuario plata 15, oro 10, platino 8 (243
+    # cartas, múltiplo de 9 pero NO de 18: lo acepta, queda media plancha).
+    "coin-2": 15,
+    "coin-3": 10,
+    "coin-5": 8,
 }
 # Igual que el motor (ver createGame en engine.ts), escalado a una tirada
 # de 5 jugadores: nº jugadores para TODAS (desde 2026-10-11), igual que antes para las

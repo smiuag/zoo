@@ -23,9 +23,10 @@ COUNTS = {
     # "de libro"; plata/oro/platino compensan las 7 copias perdidas al
     # eliminar el Halcón (2026-09-14) para volver a 378, múltiplo de 18.
     "coin-1": 45,
-    "coin-2": 11,
-    "coin-3": 8,
-    "coin-5": 5,
+    # 2026-10-12: igual que build_deck_pdf.py (243 cartas, múltiplo de 9).
+    "coin-2": 15,
+    "coin-3": 10,
+    "coin-5": 8,
 }
 # Igual que el motor (ver createGame en engine.ts), escalado a una tirada
 # de 5 jugadores: nº jugadores para TODAS (desde 2026-10-11), igual que antes para las
