@@ -1,4 +1,4 @@
-"""Convierte las ilustraciones planas de img/web/*.jpg (fondo liso crema o blanco) en los PNG del modo
+"""Convierte las ilustraciones planas de img/completa/web/*.jpg (fondo liso crema o blanco) en los PNG del modo
 "imagen" de la app: fondo transparente, recortadas al sujeto, 700 px de ancho -> apps/web/public/cards/<id>.png
 Uso:  /c/Python310/python img/_work/web_card_art.py [carpeta_de_revision]
 El fondo se quita por inundacion desde los bordes: solo se borra lo que se parece al color de fondo Y esta
@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image, ImageFilter
 from scipy import ndimage
 
-SRC = r"C:\proyectos\Claude\zoo\img\web"
+SRC = r"C:\proyectos\Claude\zoo\img\completa\web"  # solo especies de la completa
 DST = r"C:\proyectos\Claude\zoo\apps\web\public\cards"
 # id de carta -> (archivo, tolerancia de color respecto al fondo)
 ART = {

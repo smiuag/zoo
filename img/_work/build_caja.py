@@ -55,7 +55,7 @@ TIME_TXT = "30–60 min"
 TIME_SUB = ""
 BLURB = ("Invita a los animales a tu reserva a cambio de bellotas, aprovecha sus habilidades "
          "y reúne la colección que sume más puntos de victoria.")
-CONTENTS = "243 cartas + reglamento"
+CONTENTS = "270 cartas + reglamento"
 
 # Cartas que salen en abanico (de atrás hacia delante) en cada cara.
 TOP_LEFT = ["giraffe", "tiger", "elephant"]

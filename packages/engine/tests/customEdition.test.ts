@@ -68,8 +68,8 @@ describe('edición "Personalizado" (edition: "custom")', () => {
     expect(initialMarketCopies(7, 2, { cheap: 0, expensive: 2 })).toBe(4);
     // Sin deltas, se comporta exactamente igual que siempre (base oculta
     // numPlayers en todas).
-    expect(initialMarketCopies(7, 2)).toBe(2);
-    expect(initialMarketCopies(3, 2)).toBe(2);
+    expect(initialMarketCopies(7, 2)).toBe(3);
+    expect(initialMarketCopies(3, 2)).toBe(3);
   });
 
   it('createGame aplica los deltas de verdad al construir el mercado', () => {

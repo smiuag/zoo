@@ -23,8 +23,8 @@ COUNTS = {
     # "de libro"; plata/oro/platino compensan las 7 copias perdidas al
     # eliminar el Halcón (2026-09-14) para volver a 378, múltiplo de 18.
     "coin-1": 45,
-    # 2026-10-12: igual que build_deck_pdf.py (243 cartas, múltiplo de 9).
-    "coin-2": 15,
+    # 2026-10-12: igual que build_deck_pdf.py (270 cartas = 15 planchas).
+    "coin-2": 12,
     "coin-3": 10,
     "coin-5": 8,
 }
@@ -32,8 +32,8 @@ COUNTS = {
 # de 5 jugadores: nº jugadores para TODAS (desde 2026-10-11), igual que antes para las
 # caras (coste 5+, escasez real).
 PRINT_PLAYERS = 5
-DEFAULT_ANIMAL_COPIES = PRINT_PLAYERS
-HIGH_COST_ANIMAL_COPIES = PRINT_PLAYERS
+DEFAULT_ANIMAL_COPIES = PRINT_PLAYERS + 1
+HIGH_COST_ANIMAL_COPIES = PRINT_PLAYERS + 1
 
 
 def load_costs():

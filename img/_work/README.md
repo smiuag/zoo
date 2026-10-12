@@ -36,8 +36,8 @@ Todo lo que genera las cartas impresas vive en esta carpeta. El intérprete es `
   El escáner de la web (`build_scan_assets.py`) también sale de `img/cards`.
 - El mazo de impresión debe sumar un **múltiplo de 18** cartas. Se cuadra solo con Plata, Oro y
   Platino (`COUNTS` en los DOS `build_deck_pdf*.py`); Bronce (45) y Perezoso (15) no se tocan (fijados por el usuario el 2026-10-11; 7 y 3 por
-  jugador, tirada de `PRINT_PLAYERS = 5`). Estado actual (2026-10-11): 252 cartas (14 planchas) con Plata 11,
-  Oro 8, Platino 5; todos los animales a 5 copias (tantas como jugadores de la tirada).
+  jugador, tirada de `PRINT_PLAYERS = 5`). Estado actual (2026-10-12): 270 cartas (15 planchas) con Plata 12,
+  Oro 10, Platino 8; todos los animales a 6 copias (jugadores + 1 de la tirada).
   Las especies guardadas (`SHELVED_SPECIES` en engine.ts: Tigre, Cuervo, Serpiente) se excluyen de las hojas y
   del mazo (`shelved.py`).
 - Tamaño de carta 63,5 x 88,9 mm (750 x 1050 px a 300 ppp), páginas A4, 3x3 por página.
@@ -78,13 +78,14 @@ Todo lo que genera las cartas impresas vive en esta carpeta. El intérprete es `
   - **Diplodocus** (10, 15 PV, terrestre-acuático-dinosaurio), sin habilidad.
   - Pez de colores y periquito ganan mascota; cocodrilo gana dinosaurio (ya sin evolución desde 2026-10-10).
 - Ilustraciones del modo "imagen" de la app para las 6 cartas nuevas: `web_card_art.py` convierte los JPG
-  planos de `img/web/` (Perro, gato, diplodocus, tiranosaurio, terodactilo, mosasaurus) en PNG transparentes
+  planos de `img/completa/web/` (Perro, gato, diplodocus, tiranosaurio, terodactilo, mosasaurus) en PNG transparentes
   de 700 px recortados al sujeto, en `apps/web/public/cards/<id>.png`. Quita el fondo liso y la sombra del
-  suelo por inundación desde los bordes. `img/web/triceratops.jpg` existe pero no tiene carta.
+  suelo por inundación desde los bordes. `img/web/triceratops.jpg` no tiene carta (movido a `img/viejas/web/`). Las fotos de impresión de la
+  completa están en `img/completa/` (`compose_all.py` las busca ahí tras `img/`).
 - Los bots RL de la completa ya están entrenados (pesos `weights-full*.json` en
   `packages/engine/src/bots/rl/`); si se añade una especie o habilidad nueva hay que reentrenarlos
   (ver el `CLAUDE.md` de la raíz, sección "Bots RL").
-- OJO con dos fotos: `img/tiranosaurios.jpg` muestra un triceratops y `img/triceratops.jpg` muestra el
+- OJO: `img/triceratops.jpg` muestra en realidad el
   tiranosaurio (562x463, poca resolución). `SPECIES_PHOTO` usa la segunda.
 
 ## Diseño oficial de las cartas de animal (pergamino de color y tipo escrito)
@@ -139,7 +140,7 @@ ocupa toda la carta dentro del mismo marco que los animales.
 S=<carpeta temporal>; D=img/templates/pruebas/candidata_monedas
 COINS_OUT=$S /c/Python310/python img/_work/build_coins_from_4en1.py $S      # -> monedaN_fondo.jpg
 # por moneda (N coste pv):  1 - 0   |   2 3 1   |   3 5 2   |   5 7 3
-/c/Python310/python img/_work/compose_coin_from_frame.py $D/intento_arreglado.png img/templates/medias/monedas.png img/monedaN_fondo.jpg $S/ciN.png <coste> <pv> 1.3
+/c/Python310/python img/_work/compose_coin_clean.py $D/fondomoneda.png img/templates/medias/monedas.png img/monedaN_fondo.jpg $S/ciN.png <coste> <pv> 1.0
 /c/Python310/python img/_work/round_corners.py $S/ciN.png $S/crN.png       # -> copiar a $D y a img/coins/monedaN_marco_intento.png
 /c/Python310/python img/_work/add_bleed.py $S/crN.png $S/cbN.png           # -> img/coins/sangrado/monedaN_marco_intento.png
 ```
@@ -156,10 +157,20 @@ Después, la cadena normal de cartas y PDFs.
   comer: orejas y cola del panda, oreja y bellota del koala, mechón y cola de la ardilla, pañuelos),
   `FORCE` (zonas del color del fondo que hay que incluir sí o sí: picos de los pañuelos, plantas de los
   pies), `EXCLUDE` y `EXCLUDE_PALE` (trozos de fondo que el polígono abarca), `ADJUST` (desplazamiento).
+- **Desde 2026-10-12 las ilustraciones de moneda son `img/monedaPanda.jpg`, `monedaMapache.jpg`,
+  `monedaArdilla.jpg` y `monedaKoala.jpg`** (1, 2, 3 y 5; 687x1024, animal ya montado sobre el paisaje,
+  hechas fuera del repo). `img/monedaN_fondo.jpg` es cada una recortada al centro: ampliación x1,4 uniforme centrada en
+  (360,490) (el animal), es decir, el recorte (115,125)-(605,856); se probó un zoom progresivo
+  (`zoom_progresivo.py`, bordes fijos y animal ampliado) y el usuario prefirió el recorte plano. De ahí `compose_coin_from_frame.py ... <coste> <pv> 1.0` (zoom 1,0 del marco, ya no 1,3). `4en1.jpeg`,
+  `fondoCoin.jpg` y `build_coins_from_4en1.py` quedan como histórico de la versión anterior.
 - La ardilla va 24 px a la derecha (`ADJUST[3]`) para que la cola tape una planta roja del fondo. Tapar esa
   planta retocando el fondo se probó de tres formas y todas se notaban.
-- `compose_coin_from_frame.py` conserva del marco solo las hojas a 36 px del hueco (`RIM`); sin eso se
-  colaba follaje de la ilustración original del marco y parecían costuras.
+- **Marco (desde 2026-10-12): `candidata_monedas/fondomoneda.png`**, un marco LIMPIO (madera, lianas, bolsa y
+  escudo con el interior blanco) que hizo el usuario a partir de `intento_arreglado.png`. `compose_coin_clean.py`
+  toma como hueco la región blanca del propio marco, mete ahí la foto y limpia bolsa y escudo con la plantilla
+  antes de escribir coste y PV. `compose_coin_from_frame.py` + `intento_arreglado.png` (una carta vieja montada,
+  con la ardilla de la moneda redonda dentro) queda como histórico; conservaba del marco solo las hojas a 36 px
+  del hueco (`RIM`) porque sin eso se colaba follaje de esa ilustración y parecían costuras.
 - `round_corners.py`: margen 12,5 px y radio 38 px a 615 de ancho, relleno del color de la banda.
   `add_bleed.py`: 10 mm de sangrado (98 px) del color de la banda.
 
@@ -207,7 +218,7 @@ imprenta antes de fijar la altura). Una imagen por cara a 300 ppp con 3 mm de sa
   + abanicos de cartas reales (`card_rgba` las recorta por su línea de corte, 750x1050 centrada, con
   las esquinas redondeadas).
 - Laterales: madera marrón procedural (`BROWN` = el marrón del borde de las cartas) con emblema e iconos.
-- Iconos de jugadores (2-7), duración (30–60 min, fija) y edad (10+) dibujados en el propio script; los textos están en las
+- Iconos de jugadores (2-5), duración (30–60 min, fija) y edad (10+) dibujados en el propio script; los textos están en las
   constantes `PLAYERS_TXT`, `AGE_TXT`, `TIME_TXT` (`TIME_SUB` opcional, vacío), `BLURB`, `CONTENTS`.
 - Si la imprenta pide otra construcción (tapa + fondo, plantilla propia), las caras se reutilizan
   tal cual; solo cambia dónde cae el corte.

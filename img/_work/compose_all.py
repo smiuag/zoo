@@ -96,13 +96,17 @@ SPECIES_PHOTO = {
 # El usuario cambia los dibujos a mano y a veces los guarda con otra extensión
 # (.jpg -> .jpeg, .png): si el archivo indicado arriba no existe, se usa el
 # mismo nombre con otra extensión de imagen en vez de reventar el build.
+# Las fotos exclusivas de la edicion completa (mascotas y dinosaurios) viven en
+# img/completa/ (2026-10-11); se buscan ahi si no estan en img/.
+PHOTO_SUBDIRS = ("", "completa")
+
+
 def _resolve_photo(name):
-    if os.path.exists(os.path.join(IMG_DIR, name)):
-        return name
     stem = os.path.splitext(name)[0]
-    for ext in (".jpeg", ".jpg", ".png", ".JPG", ".JPEG", ".PNG"):
-        if os.path.exists(os.path.join(IMG_DIR, stem + ext)):
-            return stem + ext
+    for sub in PHOTO_SUBDIRS:
+        for cand in (name,) + tuple(stem + ext for ext in (".jpeg", ".jpg", ".png", ".JPG", ".JPEG", ".PNG")):
+            if os.path.exists(os.path.join(IMG_DIR, sub, cand)):
+                return os.path.join(sub, cand) if sub else cand
     return name
 
 

@@ -26,3 +26,7 @@ pdf/es/mazo_impresion_1cara.pdf
 # img/_work/build_instrucciones.py; no hace falta versionarlas).
 img/_work/preview_instrucciones*/
 img/_work/_instrucciones*_capa.pdf
+
+# Hoja de puntuación: vista de revisión e imágenes reducidas temporales (build_hoja_puntuacion.py).
+img/_work/preview_hoja_puntuacion/
+img/_work/_hoja_puntuacion_tmp/

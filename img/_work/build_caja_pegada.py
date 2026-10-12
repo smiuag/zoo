@@ -1,10 +1,10 @@
-"""Caja de UNA PIEZA PEGADA para las 243 cartas + un librillo de reglas de 16 páginas (A6), en cartulina gorda.
+"""Caja de UNA PIEZA PEGADA para las 270 cartas + un librillo de reglas de 16 páginas (A6), en cartulina gorda.
 
 Misma caja de envío de paredes laterales dobles que build_caja_a3.py, pero pensada para PEGARSE: sin
 pestañas de enganche, sin chaflanes ni rebajes (todas las solapas son rectángulos que cubren su cara entera) y
 ya sin el límite del A3: el desarrollo cabe en un pliego SRA3 (450 x 320 mm).
 
-Las cartas van tumbadas en TRES montones de 81 (uno al lado del otro) y encima, tumbado, el librillo A6
+Las cartas van tumbadas en TRES montones de 90 (uno al lado del otro) y encima, tumbado, el librillo A6
 (148 x 105). Medidas (interior): largo 3 x 63,5 + holguras, fondo 107 (el A6 de canto), alto = 81 cartas de
 ~0,33 mm + librillo + margen. Cartulina supuesta: 0,5 mm (unos 350-400 g); si es otra, cambiar T.
 
@@ -39,7 +39,7 @@ K = bc.PPI / 25.4                      # px por mm
 
 T = 0.5                                # grosor de la cartulina
 CARD_W, CARD_H, CARD_T = 63.5, 88.9, 0.33
-PILES, PILE_CARDS = 3, 81              # 243 cartas en 3 montones
+PILES, PILE_CARDS = 3, 90              # 270 cartas en 3 montones
 BOOK_W, BOOK_H, BOOK_T = 148.0, 105.0, 2.0   # librillo A6 de 16 páginas (cubierta incluida)
 SLACK_H = 4.0                          # aire por encima del librillo
 

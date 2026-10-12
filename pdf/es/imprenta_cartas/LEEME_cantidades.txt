@@ -1,0 +1,46 @@
+ANIMALS - cartas para imprimir (edicion clasica)
+
+Formato: una imagen por carta, PNG, 823 x 1122 px (300 ppp), con sangrado y sin marcas de corte.
+Carta terminada: 63,5 x 88,9 mm (750 x 1050 px). Sangrado aprox. 3 mm por lado (unos 73 x 72 px extra en total).
+Esquinas redondeadas en la carta terminada. Todas las cartas llevan el mismo reverso (00_REVERSO).
+El numero tras la x en el nombre del archivo es el numero de copias.
+
+Carta                  Copias
+Bronce                     45
+Plata                      12
+Oro                        10
+Platino                     8
+Perezoso                   15
+Pez de colores              6
+Murciélago                  6
+Pato                        6
+Periquito                   6
+Pavo real                   6
+Conejo                      6
+Tortuga                     6
+Delfín                      6
+Flamenco                    6
+Loro                        6
+Pingüino                    6
+Ornitorrinco                6
+Araña                       6
+Ardilla                     6
+Hiena                       6
+Mono                        6
+Búho                        6
+Foca                        6
+Cocodrilo                   6
+Jirafa                      6
+Hipopótamo                  6
+León                        6
+Tucán                       6
+Albatros                    6
+Elefante                    6
+Tiburón                     6
+Buitre                      6
+Águila                      6
+Orca                        6
+Tigre                       6
+REVERSO (todas)           270
+
+35 modelos distintos, 270 cartas (15 planchas de 18).

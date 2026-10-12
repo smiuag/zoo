@@ -185,7 +185,7 @@ export interface GameState {
   // la partida.
   customSpeciesList?: string[];
   // Solo presente con edition === 'custom': deltas aplicados sobre la
-  // fórmula normal de initialMarketCopies (numPlayers para todas las
+  // fórmula normal de initialMarketCopies (numPlayers + 1 para todas las
   // especies), por separado para cada tramo de coste — pedido
   // explícito del usuario 2026-09-21.
   customCopyDeltas?: { cheap: number; expensive: number };

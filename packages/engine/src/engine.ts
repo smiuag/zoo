@@ -125,20 +125,21 @@ export function initialMarketCopies(
   numPlayers: number,
   customDeltas?: { cheap: number; expensive: number }
 ): number {
-  // Desde 2026-10-11 (pedido explícito del usuario: "siempre de todas las
-  // cartas sean tantas como jugadores") TODAS las especies llevan tantas
-  // copias como jugadores, sin distinguir tramo de coste (antes: +2 en las
-  // de coste <5, y +1 desde ese mismo día). `marketCost` se conserva en la
-  // firma por los llamantes y por los deltas de 'custom'.
+  // Desde 2026-10-12 (pedido explícito del usuario: "sube todos los animales
+  // a jugadores +1") TODAS las especies llevan jugadores + 1 copias, sin
+  // distinguir tramo de coste (historial: +2 en las de coste <5 hasta el
+  // 2026-10-11; ese día todas a jugadores y esa misma noche, "1 de cada por
+  // jugador"; el 2026-10-12 todas a jugadores + 1). `marketCost` se conserva
+  // en la firma por los llamantes y por los deltas de 'custom'.
   if (!customDeltas) {
-    return numPlayers;
+    return numPlayers + 1;
   }
   // A diferencia del caso sin deltas (arriba), aquí el delta se aplica
   // directamente sobre numPlayers en AMBOS tramos, no sobre el "+2" oculto
   // de las baratas — pedido explícito del usuario 2026-09-21: "que sea
   // sobre el número de jugadores en ambos casos. Ahora mismo las de <=5
   // parece que está sobre jugadores +2". Con los deltas por defecto
-  // ({cheap:0, expensive:0}, ver DEFAULT_CUSTOM_COPY_DELTAS en
+  // ({cheap:1, expensive:1}, ver DEFAULT_CUSTOM_COPY_DELTAS en
   // gameConfig.ts) el resultado coincide con el caso sin deltas de arriba.
   const delta = marketCost >= 5 ? customDeltas.expensive : customDeltas.cheap;
   return Math.max(1, numPlayers + delta);

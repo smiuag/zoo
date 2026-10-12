@@ -24,20 +24,20 @@ COUNTS = {
     # 378 a 371, así que se compensa subiendo plata/oro/platino +7 en total
     # (13→16, 9→11, 6→8) para volver a 378, múltiplo de 18.
     "coin-1": 45,
-    # 2026-10-12: a petición del usuario plata 15, oro 10, platino 8 (243
-    # cartas, múltiplo de 9 pero NO de 18: lo acepta, queda media plancha).
-    "coin-2": 15,
+    # 2026-10-12: plata 15→12 al subir todos los animales a jugadores+1 (30×6
+    # = 180): con oro 10 y platino 8 el mazo suma 270 = 15 planchas justas.
+    "coin-2": 12,
     "coin-3": 10,
     "coin-5": 8,
 }
 # Igual que el motor (ver createGame en engine.ts), escalado a una tirada
-# de 5 jugadores: nº jugadores para TODAS (desde 2026-10-11), igual que antes para las
+# de 5 jugadores: nº jugadores + 1 para TODAS (desde 2026-10-12), igual que antes para las
 # caras (coste 5+, escasez real). De ahí también los 21 Perezosos (7×3)
 # del mazo inicial repartidos en COUNTS más abajo (coin-1 ya no seguía esa
 # proporción exacta, ver el comentario junto a él).
 PRINT_PLAYERS = 5
-DEFAULT_ANIMAL_COPIES = PRINT_PLAYERS  # especies de coste < 5
-HIGH_COST_ANIMAL_COPIES = PRINT_PLAYERS  # especies de coste 5 o más
+DEFAULT_ANIMAL_COPIES = PRINT_PLAYERS + 1  # especies de coste < 5
+HIGH_COST_ANIMAL_COPIES = PRINT_PLAYERS + 1  # especies de coste 5 o más
 
 
 def load_costs():
