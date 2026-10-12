@@ -49,13 +49,13 @@ BROWN = (116, 69, 45)      # el marrón del borde de las cartas
 CREAM = (244, 234, 215)    # el de la banda del reglamento
 INK = (74, 44, 23)
 
-PLAYERS_TXT = "2–7"
+PLAYERS_TXT = "2–5"
 AGE_TXT = "10+"
 TIME_TXT = "30–60 min"
 TIME_SUB = ""
 BLURB = ("Invita a los animales a tu reserva a cambio de bellotas, aprovecha sus habilidades "
          "y reúne la colección que sume más puntos de victoria.")
-CONTENTS = "378 cartas + reglamento"
+CONTENTS = "243 cartas + reglamento"
 
 # Cartas que salen en abanico (de atrás hacia delante) en cada cara.
 TOP_LEFT = ["giraffe", "tiger", "elephant"]
@@ -131,6 +131,13 @@ def vine_frame():
     sizes = ndi.sum(np.ones_like(lab), lab, index=np.arange(1, n + 1))
     big = 1 + np.flatnonzero(sizes > 6000)
     keep = np.isin(lab, big) & (lab != lab[EMBLEM_POINT[1], EMBLEM_POINT[0]])
+    # 2026-10-12 (back.jpg en HD): las letras de la cinta ANIMALS ya no tocan el emblema y salían
+    # como piezas sueltas ("IMA" en medio del marco). Solo se conservan las piezas que pisan la
+    # franja del marco, pegada a los bordes; lo que vive solo en el centro se descarta.
+    band = np.zeros_like(keep)
+    band[:120, :] = True; band[900:, :] = True; band[:, :240] = True; band[:, 780:] = True
+    on_band = np.unique(lab[keep & band])
+    keep &= np.isin(lab, on_band[on_band > 0])
     alpha *= keep
     # fuera del marco (las esquinas de la hoja) tampoco hay nada que conservar
     alpha[:30, :] = 0
@@ -160,27 +167,69 @@ def paste_frame(canvas, box_mm):
 # ---------------------------------------------------------------- emblema y cartas
 
 _EMB = None
+_RIBBON = None
+
+
+# Recorte del emblema hecho por el usuario (remove.bg, 260x300) registrado sobre back.jpg: escala y
+# desplazamiento (x, y) del preview dentro del reverso, ajustados por mínimos cuadrados el 2026-10-12.
+EMBLEM_CUTOUT = "back-removebg-preview.png"
+EMBLEM_REG = (2.05, 262, 182)
 
 
 def emblem(h_mm, glow=True):
+    """Emblema completo (corona, león, loro, delfín y cinta ANIMALS) en HD: los píxeles salen de
+    back.jpg y la silueta del recorte EMBLEM_CUTOUT del usuario, ampliado a la escala del reverso
+    (EMBLEM_REG). Los agujeros de la silueta (interior de la cinta, pergamino entre las hojas) se
+    rellenan para que sea una pieza maciza, como lo era portada_viva.png (que ya no se usa aquí)."""
     global _EMB
     if _EMB is None:
-        _EMB = Image.open(os.path.join(IMG, "portada_viva.png")).convert("RGBA")
+        src = np.asarray(Image.open(os.path.join(IMG, "back.jpg")).convert("RGB")).astype(float)
+        cut = np.asarray(Image.open(os.path.join(IMG, EMBLEM_CUTOUT)).convert("RGBA"))[..., 3] / 255.0
+        s, ox, oy = EMBLEM_REG
+        H, W = src.shape[:2]
+        gy, gx = np.meshgrid((np.arange(H) - oy) / s, (np.arange(W) - ox) / s, indexing="ij")
+        alpha = ndi.map_coordinates(cut, [gy, gx], order=1, mode="constant", cval=0.0)
+        solid = ndi.binary_fill_holes(alpha > 0.5)
+        alpha = np.maximum(alpha, ndi.gaussian_filter(solid.astype(float), 0.8))
+        ys, xs = np.where(alpha > 0.3)
+        rgba = np.dstack([src, np.clip(alpha, 0, 1) * 255]).astype(np.uint8)
+        _EMB = Image.fromarray(rgba, "RGBA").crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
     h = mm(h_mm)
     w = round(_EMB.width * h / _EMB.height)
     return _EMB.resize((w, h), Image.LANCZOS)
 
 
 def ribbon(w_mm):
-    """Solo la cinta ANIMALS del emblema, recortada por el arco superior (sin el follaje)."""
-    global _EMB
-    emblem(10)
-    x0, y0, x1, y1 = 60, 640, 760, 910   # medido sobre portada_viva.png (885x924)
-    r = _EMB.crop((x0, y0, x1, y1))
-    mask = Image.new("L", r.size, 0)
-    pts = [(x - x0, 644 + 44 * ((x - 410) / 335) ** 2 - y0) for x in range(x0, x1 + 1, 5)]
-    ImageDraw.Draw(mask).polygon(pts + [(r.width, r.height), (0, r.height)], fill=255)
-    r.putalpha(ImageChops.multiply(r.getchannel("A"), mask.filter(ImageFilter.GaussianBlur(1.2))))
+    """Solo la cinta ANIMALS, sacada de back.jpg (HD desde 2026-10-12): dentro del recorte del emblema se
+    toma la pieza cerrada por el contorno oscuro de la cinta (relleno de agujeros), quitando lo verde (hojas)
+    y lo saturado (cola del loro) que la tocan por arriba. Antes salía de portada_viva.png, que es un
+    emblema pequeño ampliado x3, con la parte alta cortada por una parábola y restos de follaje."""
+    global _RIBBON
+    if _RIBBON is None:
+        x0, y0, x1, y1 = 270, 570, 770, 780
+        src = np.asarray(Image.open(os.path.join(IMG, "back.jpg")).convert("RGB")).astype(float)[y0:y1, x0:x1]
+        lum = src.mean(2)
+        sat = src.max(2) - src.min(2)
+        green = src[..., 1] > src[..., 0] + 12
+        dark = (lum < 125) & ~green
+        filled = ndi.binary_fill_holes(ndi.binary_dilation(dark, iterations=2))
+        lab, _ = ndi.label(filled)
+        comp = lab == lab[filled.shape[0] // 2 + 10, filled.shape[1] // 2]
+        cream = comp & (lum > 170) & (sat < 60)             # pergamino de la cinta (y huecos entre hojas)
+        labc, nc = ndi.label(cream)                           # solo la pieza grande: el interior de la cinta
+        cream = labc == (1 + np.argmax(ndi.sum(np.ones_like(labc), labc, index=np.arange(1, nc + 1))))
+        # cuerpo de la cinta = su interior crema (con las letras, rellenando agujeros) más el grosor del
+        # contorno a tinta (unos 6 px): nada de lo que la toca por fuera (hojas, cola del loro) entra
+        inner = ndi.binary_fill_holes(cream)
+        ring = ndi.binary_dilation(inner, iterations=9) & ~inner           # donde puede estar el contorno
+        body = ndi.binary_fill_holes(inner | (ring & dark & comp))        # interior + contorno a tinta
+        lab2, _ = ndi.label(body)
+        body = lab2 == lab2[filled.shape[0] // 2 + 10, filled.shape[1] // 2]
+        alpha = ndi.gaussian_filter(ndi.binary_erosion(body, iterations=1).astype(float), 1.0)
+        ys, xs = np.where(alpha > 0.3)
+        rgba = np.dstack([src, alpha * 255]).astype(np.uint8)
+        _RIBBON = Image.fromarray(rgba, "RGBA").crop((xs.min(), ys.min(), xs.max() + 1, ys.max() + 1))
+    r = _RIBBON
     h = round(r.height * mm(w_mm) / r.width)
     return r.resize((mm(w_mm), h), Image.LANCZOS)
 
@@ -266,8 +315,10 @@ def players_icon(h_px, color):
     out.putalpha(icon)
     d = ImageDraw.Draw(out)
     f = font(True, int(H * 0.38))
-    tw = d.textlength(PLAYERS_TXT, font=f)
-    d.text(((W - tw) / 2, H * 0.60), PLAYERS_TXT, font=f, fill=color + (255,))
+    # el texto se mide con su caja real y se pega al borde inferior con un margen: a 0,60 H la
+    # parte baja de los dígitos se salía del lienzo y quedaba cortada (visto el 2026-10-12)
+    bx0, by0, bx1, by1 = d.textbbox((0, 0), PLAYERS_TXT, font=f)
+    d.text(((W - (bx1 - bx0)) / 2 - bx0, H * 0.97 - by1), PLAYERS_TXT, font=f, fill=color + (255,))
     return out.resize((W // S, H // S), Image.LANCZOS)
 
 
@@ -366,22 +417,27 @@ def face_back():
     c = parchment(W, H, 22).convert("RGBA")
     paste_frame(c, (BLEED + 3.2, BLEED + 3.2, BOX_W - 6.4, BOX_D - 6.4))
     # izquierda: cinta, texto, iconos
+    # (2026-10-12) izquierda: emblema completo de portada_viva + texto debajo; derecha: abanico con los
+    # iconos de jugadores / tiempo / edad debajo
     lx = BLEED + 14
-    rb = ribbon(46)
-    c.alpha_composite(rb, (mm(lx), mm(BLEED + 14)))
+    ex = emblem(32)
     d = ImageDraw.Draw(c)
     f = font(False, mm(3.5))
-    y = mm(BLEED + 14) + rb.height + mm(3)
-    for ln in wrap(BLURB, f, mm(50), d):
+    f2 = font(True, mm(3.6))
+    lines = wrap(BLURB, f, mm(50), d)
+    text_w = max([d.textlength(ln, font=f) for ln in lines] + [d.textlength(CONTENTS, font=f2)])
+    c.alpha_composite(ex, (round(mm(lx) + text_w / 2 - ex.width / 2), mm(BLEED + 18)))   # centrado sobre el texto, 1 cm más abajo
+    y = mm(BLEED + 18) + ex.height + mm(2.5)
+    for ln in lines:
         d.text((mm(lx), y), ln, font=f, fill=INK + (255,))
         y += mm(4.4)
-    f2 = font(True, mm(3.6))
     d.text((mm(lx), y + mm(1.5)), CONTENTS, font=f2, fill=INK + (255,))
-    paste_center(c, players_icon(mm(14), INK), mm(lx + 7), mm(BLEED + BOX_D - 22))
-    paste_time(c, mm(14), INK, mm(lx + 24), mm(BLEED + BOX_D - 22))
-    paste_center(c, age_icon(mm(11.5), INK), mm(lx + 42), mm(BLEED + BOX_D - 22))
-    # derecha: abanico de 5 cartas
-    fan(c, BACK_FAN, (mm(BLEED + 104), mm(BLEED + 76)), 27, [-30, -15, 0, 15, 30], 30)
+    fan(c, BACK_FAN, (mm(BLEED + 104), mm(BLEED + BOX_D - 40)), 21, [-30, -15, 0, 15, 30], 24)
+    yi = mm(BLEED + BOX_D - 24)
+    cx = mm(BLEED + 101)                       # un poco a la izquierda: el 10+ rozaba la enredadera
+    paste_center(c, players_icon(mm(12), INK), cx - mm(19), yi)
+    paste_time(c, mm(12), INK, cx, yi)
+    paste_center(c, age_icon(mm(10), INK), cx + mm(19), yi)
     return c.convert("RGB")
 
 

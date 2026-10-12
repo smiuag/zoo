@@ -188,21 +188,27 @@ def face_base():
     W, Hh = bc.new_face(L, D)
     c = bc.parchment(W, Hh, 22).convert("RGBA")
     paste_frame_wide(c, (B + 3, B + 3, L - 6, D - 6))
+    # (2026-10-12) izquierda: emblema completo de portada_viva + texto debajo; derecha: abanico con los
+    # iconos de jugadores / tiempo / edad debajo
     lx = B + 15
-    rb = bc.ribbon(48)
-    c.alpha_composite(rb, (mm(lx), mm(B + 11)))
+    ex = bc.emblem(40)
     d = ImageDraw.Draw(c)
     f = bc.font(False, mm(3.5))
-    y = mm(B + 11) + rb.height + mm(2.5)
-    for ln in bc.wrap(bc.BLURB, f, mm(76), d):
+    f2 = bc.font(True, mm(3.6))
+    lines = bc.wrap(bc.BLURB, f, mm(76), d)
+    text_w = max([d.textlength(ln, font=f) for ln in lines] + [d.textlength(bc.CONTENTS, font=f2)])
+    c.alpha_composite(ex, (round(mm(lx) + text_w / 2 - ex.width / 2), mm(B + 17)))   # centrado sobre el texto, 1 cm más abajo
+    y = mm(B + 17) + ex.height + mm(2.5)
+    for ln in lines:
         d.text((mm(lx), y), ln, font=f, fill=bc.INK + (255,))
         y += mm(4.4)
-    d.text((mm(lx), y + mm(1.2)), bc.CONTENTS, font=bc.font(True, mm(3.6)), fill=bc.INK + (255,))
-    yi = mm(B + D - 22)
-    bc.paste_center(c, bc.players_icon(mm(13), bc.INK), mm(lx + 8), yi)
-    bc.paste_time(c, mm(13), bc.INK, mm(lx + 28), yi)
-    bc.paste_center(c, bc.age_icon(mm(11), bc.INK), mm(lx + 49), yi)
-    bc.fan(c, bc.BACK_FAN, (mm(B + 147), mm(B + 80)), 26, [-30, -15, 0, 15, 30], 29)
+    d.text((mm(lx), y + mm(1.2)), bc.CONTENTS, font=f2, fill=bc.INK + (255,))
+    bc.fan(c, bc.BACK_FAN, (mm(B + L - 55), mm(B + D - 36)), 22, [-30, -15, 0, 15, 30], 24)
+    yi = mm(B + D - 21)
+    cx = mm(B + L - 55)
+    bc.paste_center(c, bc.players_icon(mm(11), bc.INK), cx - mm(19), yi)
+    bc.paste_time(c, mm(11), bc.INK, cx, yi)
+    bc.paste_center(c, bc.age_icon(mm(9.5), bc.INK), cx + mm(19), yi)
     return c.convert("RGB")
 
 
